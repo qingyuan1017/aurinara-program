@@ -1,0 +1,52 @@
+"""Versioned typed-client operation fixtures."""
+
+from typing import Final
+
+PHASE1_OPERATIONS: Final[dict[str, frozenset[str]]] = {
+    "/api/v1/studies": frozenset({"get", "post"}),
+    "/api/v1/studies/{study_id}": frozenset({"get", "patch"}),
+    "/api/v1/studies/{study_id}/source-files": frozenset({"get", "post"}),
+    "/api/v1/raw/{raw_id}/dependencies": frozenset({"get", "put"}),
+    "/api/v1/documents/{document_id}/dependencies": frozenset({"get", "put"}),
+    "/api/v1/sdtms/{sdtm_id}/dependencies": frozenset({"get", "put"}),
+    "/api/v1/adams/{adam_id}/dependencies": frozenset({"get", "put"}),
+    "/api/v1/tlfs/{tlf_id}/dependencies": frozenset({"get", "put"}),
+    "/api/v1/standards": frozenset({"get"}),
+    "/api/v1/standards/{standard_id}": frozenset({"get"}),
+    "/api/v1/standards/{standard_id}/versions": frozenset({"get"}),
+    "/api/v1/standard-versions/{version_id}": frozenset({"get"}),
+    "/api/v1/standard-versions/{version_id}/assets": frozenset({"get"}),
+    "/api/v1/standard-assets/{asset_id}/content": frozenset({"get"}),
+    "/api/v1/standard-versions/{version_id}/compatibilities": frozenset({"get"}),
+    "/api/v1/terminology-releases": frozenset({"get"}),
+    "/api/v1/terminology-releases/{release_id}": frozenset({"get"}),
+    "/api/v1/terminology-releases/{release_id}/compatibilities": frozenset({"get"}),
+    "/api/v1/terminology-releases/{release_id}/assets": frozenset({"get"}),
+    "/api/v1/terminology-assets/{asset_id}/content": frozenset({"get"}),
+    "/api/v1/terminology-releases/{release_id}/codelists": frozenset({"get"}),
+    "/api/v1/terminology-codelists/{codelist_id}": frozenset({"get"}),
+    "/api/v1/terminology-codelists/{codelist_id}/terms": frozenset({"get"}),
+    "/api/v1/artifact-builds": frozenset({"post"}),
+    "/api/v1/reconciliation-runs": frozenset({"post"}),
+    "/api/v1/studies/{study_id}/references/import": frozenset({"post"}),
+    "/api/v1/studies/{study_id}/terminology-extensions": frozenset({"get", "post"}),
+    "/api/v1/studies/{study_id}/integrations": frozenset({"get", "post"}),
+    "/api/v1/studies/{study_id}/trace-links": frozenset({"get", "post"}),
+}
+
+PHASE2_DOCUMENT_OPERATIONS: Final[dict[str, frozenset[str]]] = {
+    "/api/v1/studies/{study_id}/documents": frozenset({"get", "post"}),
+    "/api/v1/documents/{document_id}": frozenset({"get", "patch"}),
+    "/api/v1/documents/{document_id}/dependencies": frozenset({"get", "put"}),
+    "/api/v1/documents/{document_id}/content": frozenset({"get", "put"}),
+    "/api/v1/documents/{document_id}/content/import": frozenset({"post"}),
+    "/api/v1/documents/{document_id}/content/export": frozenset({"get"}),
+    "/api/v1/documents/{document_id}/usdm": frozenset({"get", "put"}),
+    "/api/v1/documents/{document_id}/usdm/import": frozenset({"post"}),
+    "/api/v1/documents/{document_id}/usdm/export": frozenset({"get"}),
+    "/api/v1/documents/{document_id}/evidence": frozenset({"get", "post"}),
+    "/api/v1/document-evidence/{evidence_id}": frozenset({"get", "patch", "delete"}),
+    "/api/v1/documents/{document_id}/protocol-context": frozenset({"get"}),
+    "/api/v1/documents/{document_id}/validate": frozenset({"post"}),
+    "/api/v1/documents/{document_id}/artifacts": frozenset({"post"}),
+}
