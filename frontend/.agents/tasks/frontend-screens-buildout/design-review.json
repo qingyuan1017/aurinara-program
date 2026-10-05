@@ -1,0 +1,30 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "id": 1,
+      "severity": "NIT",
+      "title": "Reconciliation screen does not specify how its two independent queries coordinate loading/error states",
+      "location": "design.md Per-screen design \u00a79 Reconciliation; Error handling table (404 row)",
+      "problem": "useGetReconciliation (summary card) and useListReconciliationIssues (issues table) are two independent queries off the same runId. The design does not state what renders when they disagree (run GET 200 but issues 404, or mismatched loading states), leaving multiple valid interpretations.",
+      "fix": "State: the summary Card is gated on getReconciliation's own isLoading/isError; the issues ResourceTable is gated independently on listReconciliationIssues' isLoading/isError/error; a failed run GET replaces the whole body with one ErrorState, while a failed issues query shows the issues ErrorState beneath a successful summary."
+    },
+    {
+      "id": 2,
+      "severity": "NIT",
+      "title": "document_type is string | null, not merely optional; 'render \u2014 when undefined' wording is slightly off",
+      "location": "design.md Generated API \u2014 verified facts row-shape note; \u00a71 Raw datasets",
+      "problem": "AggregateResponse.document_type is `document_type?: string | null` so it can be undefined OR null; the prose says only 'undefined'.",
+      "fix": "Cosmetic: change wording to 'render \u2014 when null or undefined'. The design's own default cell renderer already handles both via `?? '\u2014'`, so no code change is needed."
+    },
+    {
+      "id": 3,
+      "severity": "NIT",
+      "title": "Tabbed catalog screens mount all tab queries eagerly; tradeoff restated only for Standards",
+      "location": "design.md \u00a76 Standards; applies to \u00a77 Terminology and \u00a78 Validation",
+      "problem": "Inactive global tabs (Releases, Rules, Platform rule packs) fetch on mount regardless of active tab. Accepted correctly for Standards but not restated for \u00a77/\u00a78, risking an implementer 'optimizing' with conditional hook calls that break rules-of-hooks.",
+      "fix": "Documentation-only: add one sentence to \u00a77/\u00a78 noting the same eager-mount tradeoff accepted in \u00a76 applies and must not be worked around with conditional hooks."
+    }
+  ],
+  "reviewDoc": "e:\\Work\\EDETEK\\Python\\aurinara\\frontend\\.agents\\tasks\\frontend-screens-buildout\\design-review.md"
+}

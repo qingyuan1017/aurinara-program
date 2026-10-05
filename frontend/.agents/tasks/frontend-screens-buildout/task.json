@@ -1,0 +1,7 @@
+{
+  "task_id": "task-frontend-screens-buildout",
+  "task_description": "Implement the remaining READ/LIST/DETAIL frontend screens for the Aurinara Clinical Artifact Platform React app per the APPROVED design.md: a current-study context + header study switcher, reusable ResourceTable/PageHeader/state components, three new shadcn primitives (table/select/tabs), and bindings for all 12 module routes (raw, documents, sdtm, adam, tlf, standards, terminology, validation, reconciliation, review, packaging, integrations). Create/edit forms are out of scope. No edits to src/api/generated/** or src/routeTree.gen.ts; auth guard must not be weakened.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}
