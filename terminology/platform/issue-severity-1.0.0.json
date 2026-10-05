@@ -1,0 +1,14 @@
+{
+  "release": "1.0.0",
+  "codelists": [
+    {
+      "code": "ISSUE_SEVERITY",
+      "name": "Validation Issue Severity",
+      "terms": [
+        {"code": "ERROR", "submission_value": "error", "decode": "Error"},
+        {"code": "WARNING", "submission_value": "warning", "decode": "Warning"},
+        {"code": "INFO", "submission_value": "info", "decode": "Information"}
+      ]
+    }
+  ]
+}
