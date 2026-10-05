@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aurinara.example/schemas/dependency-selection/1.0.0",
+  "title": "Dependency Selection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["standards", "terminology", "references", "templates"],
+  "properties": {
+    "standards": {"type": "array"},
+    "terminology": {"type": "array"},
+    "references": {"type": "array"},
+    "templates": {"type": "array"}
+  }
+}

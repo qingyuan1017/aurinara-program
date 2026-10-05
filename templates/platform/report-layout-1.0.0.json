@@ -1,0 +1,6 @@
+{
+  "schema_version": "1.0.0",
+  "renderer": "document-1",
+  "styles": {"title": "Title", "heading": "Heading 1", "body": "Body Text"},
+  "blank_structure": ["title", "summary", "issues"]
+}
