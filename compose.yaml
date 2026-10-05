@@ -1,0 +1,223 @@
+name: aurinara
+
+services:
+  postgres:
+    image: postgres:16.10-bookworm
+    environment:
+      POSTGRES_DB: clinical
+      POSTGRES_USER: clinical
+      POSTGRES_PASSWORD: clinical
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clinical -d clinical"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "${POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  minio:
+    image: bitnamilegacy/minio@sha256:6dabb4a2088c9a79908de3bc05f4586c23ad2182c8908e7e3acbf61c1467fb20
+    command: server /bitnami/minio/data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/bitnami/minio/data
+
+  minio-init:
+    image: bitnamilegacy/minio-client@sha256:73bd39f7899a0cef12b8dd5df13aa93a3ed1aaa44236542442e9ac76819ac158
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >-
+        mc alias set local http://minio:9000 minioadmin minioadmin &&
+        mc mb --ignore-existing local/clinical-artifacts &&
+        mc anonymous set none local/clinical-artifacts
+
+  test-issuer:
+    build: .
+    command:
+      [
+        "uvicorn",
+        "support.dev_jwt_issuer:create_environment_app",
+        "--factory",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8081",
+        "--no-access-log",
+      ]
+    environment:
+      DEV_JWT_ENABLED: "true"
+      DEV_JWT_ISSUER: https://local-issuer.example
+      DEV_JWT_AUDIENCE: clinical-artifact-platform
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health')",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "127.0.0.1:${DEV_JWT_PORT:-18081}:8081"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  migrate:
+    build: .
+    command: ["/bin/sh", "-c", "alembic upgrade head && python -m app.catalog_seed"]
+    environment: &application-environment
+      APP_ENV: development
+      DATABASE_URL: postgresql+psycopg://clinical:clinical@postgres:5432/clinical
+      OBJECT_STORE_ENDPOINT: http://minio:9000
+      OBJECT_STORE_BUCKET: clinical-artifacts
+      OBJECT_STORE_ACCESS_KEY: minioadmin
+      OBJECT_STORE_SECRET_KEY: minioadmin
+      JWT_ISSUER: https://local-issuer.example
+      JWT_AUDIENCE: clinical-artifact-platform
+      JWT_JWKS_URL: http://test-issuer:8081/.well-known/jwks.json
+      JWT_ALGORITHMS: RS256
+      INTEGRATION_ALLOW_LOOPBACK_CALLBACKS: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build: .
+    environment: *application-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+      test-issuer:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${API_PORT:-18000}:8000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  build-worker:
+    build: .
+    command: ["python", "-m", "workers.job_worker"]
+    environment: *application-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  integration-dispatcher:
+    build: .
+    command: ["python", "-m", "workers.integration_dispatcher"]
+    environment: *application-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      integration-receiver:
+        condition: service_healthy
+    network_mode: "service:integration-receiver"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  integration-receiver:
+    build: .
+    command:
+      ["uvicorn", "support.integration_receiver:app", "--host", "0.0.0.0", "--port", "8080"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "8082:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  execution-dispatcher:
+    build: .
+    command: ["python", "-m", "workers.execution_dispatcher"]
+    environment: *application-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  python-runner:
+    build:
+      context: .
+      dockerfile: runners/python/Dockerfile
+    profiles: ["runners"]
+    network_mode: none
+    read_only: true
+    user: "10001:10001"
+    volumes:
+      - runner-work:/workspace
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 4g
+    cpus: 2
+
+  r-runner:
+    build:
+      context: .
+      dockerfile: runners/r/Dockerfile
+    profiles: ["runners"]
+    network_mode: none
+    read_only: true
+    user: "10001:10001"
+    volumes:
+      - runner-work:/workspace
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 4g
+    cpus: 2
+
+volumes:
+  postgres-data:
+  minio-data:
+  runner-work:
