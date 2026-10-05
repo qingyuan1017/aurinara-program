@@ -1,0 +1,1 @@
+"""Clinical documents module."""

@@ -1,0 +1,1 @@
+"""Presentation template provider module."""

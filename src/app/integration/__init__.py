@@ -1,0 +1,1 @@
+"""Controlled external integration module."""
