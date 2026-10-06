@@ -69,10 +69,8 @@ function ProductsTab() {
 }
 
 function ReleasesTab() {
+  const navigate = useNavigate()
   const { data, isLoading, isError, error } = useListReleases()
-  // TODO(FEAT-002): wire onRowClick ->
-  //   navigate({ to: '/standards/releases/$releaseId', params: { releaseId: row.id } })
-  //   once the /standards/releases/$releaseId route exists.
   return (
     <ResourceTable
       columns={releaseColumns}
@@ -82,15 +80,19 @@ function ReleasesTab() {
       isError={isError}
       error={error}
       resourceLabel="terminology releases"
+      onRowClick={(row) =>
+        navigate({
+          to: '/standards/releases/$releaseId',
+          params: { releaseId: row.id },
+        })
+      }
     />
   )
 }
 
 function TemplatesTab() {
+  const navigate = useNavigate()
   const { data, isLoading, isError, error } = useListTemplates()
-  // TODO(FEAT-002): wire onRowClick ->
-  //   navigate({ to: '/standards/templates/$templateId', params: { templateId: row.id } })
-  //   once the /standards/templates/$templateId route exists.
   return (
     <ResourceTable
       columns={templateColumns}
@@ -100,6 +102,12 @@ function TemplatesTab() {
       isError={isError}
       error={error}
       resourceLabel="templates"
+      onRowClick={(row) =>
+        navigate({
+          to: '/standards/templates/$templateId',
+          params: { templateId: row.id },
+        })
+      }
     />
   )
 }
