@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Library,
   ListChecks,
+  BookMarked,
   type LucideIcon,
   MessageSquareText,
   Package,
@@ -48,6 +49,7 @@ const navGroups: NavGroup[] = [
     label: 'Clinical modules',
     items: [
       { title: 'Studies', to: '/studies', icon: Boxes },
+      { title: 'Reference', to: '/reference', icon: BookMarked },
       { title: 'Raw datasets', to: '/raw', icon: Database },
       { title: 'Documents', to: '/documents', icon: FileText },
       { title: 'SDTM', to: '/sdtm', icon: Table2 },

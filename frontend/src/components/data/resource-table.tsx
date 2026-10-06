@@ -28,6 +28,7 @@ export interface ResourceTableProps<T> {
   resourceLabel: string
   emptyState?: React.ReactNode
   onRowClick?: (row: T) => void
+  rowActions?: (row: T) => React.ReactNode
 }
 
 export function ResourceTable<T>({
@@ -40,6 +41,7 @@ export function ResourceTable<T>({
   resourceLabel,
   emptyState,
   onRowClick,
+  rowActions,
 }: ResourceTableProps<T>) {
   if (isError) {
     return <ErrorState error={error} resourceLabel={resourceLabel} />
@@ -53,6 +55,11 @@ export function ResourceTable<T>({
             {column.header}
           </TableHead>
         ))}
+        {rowActions && (
+          <TableHead className="w-[1%] text-right">
+            <span className="sr-only">Actions</span>
+          </TableHead>
+        )}
       </TableRow>
     </TableHeader>
   )
@@ -63,7 +70,9 @@ export function ResourceTable<T>({
         <Table>
           {header}
           <TableBody>
-            <TableLoadingState columns={columns.length} />
+            <TableLoadingState
+              columns={columns.length + (rowActions ? 1 : 0)}
+            />
           </TableBody>
         </Table>
       </div>
@@ -104,6 +113,9 @@ export function ResourceTable<T>({
                     )}
                 </TableCell>
               ))}
+              {rowActions && (
+                <TableCell className="text-right">{rowActions(row)}</TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>
