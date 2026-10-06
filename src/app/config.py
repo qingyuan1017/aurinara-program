@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     object_store_region: str = "us-east-1"
     object_store_path_style: bool = True
 
+    pinned_asset_local_fallback: bool = True
+
     jwt_issuer: str = "https://local-issuer.example"
     jwt_audience: str = "clinical-artifact-platform"
     jwt_jwks_url: str = "http://localhost:8081/.well-known/jwks.json"
@@ -85,6 +87,8 @@ class Settings(BaseSettings):
             unsafe.append("development integration encryption key")
         if not self.execution_network_disabled:
             unsafe.append("execution network access")
+        if self.pinned_asset_local_fallback:
+            unsafe.append("pinned asset local fallback")
         if unsafe:
             joined = ", ".join(unsafe)
             raise ValueError(f"unsafe production configuration: {joined}")

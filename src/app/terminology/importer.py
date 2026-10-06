@@ -7,6 +7,8 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.artifacts.storage import ObjectStorage
+from app.common.asset_content import publish_verified_asset
 from app.common.repository_assets import verify_repository_asset
 from app.standards.models import StandardVersion
 from app.terminology.contracts import CdiscTerminologyManifest
@@ -34,6 +36,24 @@ def load_terminology_manifest(
     except (OSError, json.JSONDecodeError, ValidationError) as error:
         raise ValueError(f"invalid CDISC terminology manifest: {manifest_path}") from error
     return manifest, relative_path, checksum
+
+
+def publish_terminology_manifest(
+    storage: ObjectStorage, manifest_path: Path, repository_root: Path
+) -> None:
+    """Verify and publish the CT manifest file before any DB write.
+
+    This path creates no TerminologyAsset rows and the CT manifest has no assets
+    collection, so only the manifest file itself is a publishable file object.
+    """
+
+    _, relative_path, checksum = load_terminology_manifest(manifest_path, repository_root)
+    publish_verified_asset(
+        storage,
+        repository_root.resolve() / relative_path,
+        checksum,
+        "application/json",
+    )
 
 
 def import_terminology_manifest(

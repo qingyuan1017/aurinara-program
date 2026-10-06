@@ -1,18 +1,26 @@
 """Read-only exact-version provider catalog APIs."""
 
-import json
 from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.auth import Principal, get_principal
-from app.api.dependencies import get_session
+from app.api.dependencies import get_object_storage, get_session
+
+# Reading settings off request.app.state is the established platform pattern
+# (see the artifacts and integration routes); both content handlers newly add
+# ``request: Request`` and the ``get_object_storage`` dependency.
+from app.artifacts.storage import ObjectStorage
+from app.common.asset_content import (
+    AssetContentError,
+    read_verified_asset_json_object,
+)
 from app.common.problems import ProblemException
 from app.common.repository_assets import verify_repository_asset
 from app.standards.models import (
@@ -186,6 +194,39 @@ def _require(session: Session, model: type, identifier: UUID, code: str) -> obje
     return record
 
 
+_ASSET_CONTENT_PROBLEMS: dict[str, tuple[int, str, str, str]] = {
+    "object_missing": (
+        503,
+        "asset_content_unpublished",
+        "Asset content is not published",
+        "The exact asset bytes are not in object storage; run publish-assets.",
+    ),
+    "storage_error": (
+        503,
+        "asset_content_store_unavailable",
+        "Asset content store is unavailable",
+        "The object storage backend could not be reached for this asset.",
+    ),
+    "checksum_mismatch": (
+        500,
+        "asset_content_integrity_error",
+        "Asset content integrity error",
+        "Stored asset bytes do not match the immutable registered checksum.",
+    ),
+    "not_json_object": (
+        500,
+        "asset_content_contract_violation",
+        "Asset content contract violation",
+        "The registered asset bytes are not a JSON object.",
+    ),
+}
+
+
+def _asset_content_problem(error: AssetContentError) -> ProblemException:
+    status_code, code, title, detail = _ASSET_CONTENT_PROBLEMS[error.reason]
+    return ProblemException(status_code=status_code, code=code, title=title, detail=detail)
+
+
 @router.get("/standards", response_model=list[StandardProductResponse])
 def list_standards(
     session: Annotated[Session, Depends(get_session)],
@@ -279,21 +320,29 @@ def list_standard_assets(
 @router.get("/standard-assets/{asset_id}/content", response_model=dict[str, object])
 def get_standard_asset_content(
     asset_id: UUID,
+    request: Request,
     session: Annotated[Session, Depends(get_session)],
+    storage: Annotated[ObjectStorage, Depends(get_object_storage)],
     _principal: Annotated[Principal, Depends(get_principal)],
 ) -> dict[str, object]:
     asset = _require(session, StandardAsset, asset_id, "standard_asset_not_found")
     assert isinstance(asset, StandardAsset)
-    path, _ = verify_repository_asset(
-        REPOSITORY_ROOT,
-        asset.asset_path,
-        asset.checksum,
-        allowed_root="schemas",
+    settings = request.app.state.settings
+    local_fallback = (
+        (
+            lambda: verify_repository_asset(
+                REPOSITORY_ROOT, asset.asset_path, asset.checksum, allowed_root="schemas"
+            )[0]
+        )
+        if settings.pinned_asset_local_fallback
+        else None
     )
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise RuntimeError("registered standard asset is not a JSON object")
-    return payload
+    try:
+        return read_verified_asset_json_object(
+            storage, asset.checksum, local_fallback=local_fallback
+        )
+    except AssetContentError as error:
+        raise _asset_content_problem(error) from error
 
 
 @router.get(
@@ -453,21 +502,29 @@ def list_terminology_assets(
 @router.get("/terminology-assets/{asset_id}/content", response_model=dict[str, object])
 def get_terminology_asset_content(
     asset_id: UUID,
+    request: Request,
     session: Annotated[Session, Depends(get_session)],
+    storage: Annotated[ObjectStorage, Depends(get_object_storage)],
     _principal: Annotated[Principal, Depends(get_principal)],
 ) -> dict[str, object]:
     asset = _require(session, TerminologyAsset, asset_id, "terminology_asset_not_found")
     assert isinstance(asset, TerminologyAsset)
-    path, _ = verify_repository_asset(
-        REPOSITORY_ROOT,
-        asset.asset_path,
-        asset.checksum,
-        allowed_root="terminology",
+    settings = request.app.state.settings
+    local_fallback = (
+        (
+            lambda: verify_repository_asset(
+                REPOSITORY_ROOT, asset.asset_path, asset.checksum, allowed_root="terminology"
+            )[0]
+        )
+        if settings.pinned_asset_local_fallback
+        else None
     )
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise RuntimeError("registered terminology asset is not a JSON object")
-    return payload
+    try:
+        return read_verified_asset_json_object(
+            storage, asset.checksum, local_fallback=local_fallback
+        )
+    except AssetContentError as error:
+        raise _asset_content_problem(error) from error
 
 
 @router.get("/terminology-releases/{release_id}/codelists", response_model=list[CodelistResponse])

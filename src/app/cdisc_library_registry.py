@@ -10,6 +10,8 @@ from uuid import UUID, uuid5
 from sqlalchemy import insert
 from sqlalchemy.orm import Session
 
+from app.artifacts.storage import ObjectStorage
+from app.common.asset_content import publish_verified_asset
 from app.common.canonical import canonical_json, sha256_hex
 from app.common.repository_assets import verify_repository_asset
 from app.standards.library_snapshot import (
@@ -390,12 +392,35 @@ def _register_terminology_group(
         session.execute(insert(TerminologyTerm), term_rows[offset : offset + batch_size])
 
 
-def register_library_snapshot(
-    session: Session, manifest_path: Path, repository_root: Path
+def load_and_publish_library_snapshot(
+    storage: ObjectStorage, manifest_path: Path, repository_root: Path
 ) -> CdiscLibrarySnapshotManifest:
-    """Register every standard and terminology resource in one caller transaction."""
+    """Verify the snapshot and publish each real per-asset file before any DB write.
+
+    Only objects whose checksum is a real file sha256 (one per snapshotted resource)
+    are published. The synthetic group digest stored on a version/release is never a
+    publishable file object and is not uploaded here.
+    """
 
     manifest = load_library_snapshot(manifest_path, repository_root)
+    for item in manifest.resources:
+        publish_verified_asset(
+            storage,
+            repository_root / item.asset_path,
+            item.sha256,
+            item.media_type,
+        )
+    return manifest
+
+
+def register_library_snapshot_rows(
+    session: Session,
+    manifest: CdiscLibrarySnapshotManifest,
+    manifest_path: Path,
+    repository_root: Path,
+) -> None:
+    """Insert catalog rows for a snapshot the publish pass already validated."""
+
     overall = manifest.library_updated["overall"]
     standard_groups: defaultdict[
         tuple[str, str, str, str, str, str], list[CdiscLibrarySnapshotResource]
@@ -423,4 +448,17 @@ def register_library_snapshot(
             resources=resources,
             repository_root=repository_root,
         )
+
+
+def register_library_snapshot(
+    session: Session, manifest_path: Path, repository_root: Path
+) -> CdiscLibrarySnapshotManifest:
+    """Register every standard and terminology resource in one caller transaction.
+
+    Thin wrapper preserving the single-transaction verify+insert behavior for callers
+    that are not using the publish-before-transaction split.
+    """
+
+    manifest = load_library_snapshot(manifest_path, repository_root)
+    register_library_snapshot_rows(session, manifest, manifest_path, repository_root)
     return manifest

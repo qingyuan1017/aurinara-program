@@ -16,7 +16,7 @@ from sqlalchemy import delete, select, text
 
 from app.api.auth import Principal
 from app.artifacts.builds import resolve_build_input
-from app.artifacts.storage import ObjectStorage
+from app.artifacts.storage import ObjectNotFoundError, ObjectStorage
 from app.catalog_seed import seed
 from app.common.canonical import fingerprint, sha256_hex
 from app.config import Settings
@@ -52,8 +52,9 @@ class TestTokenVerifier:
 class MemoryStorage(ObjectStorage):
     """Deterministic byte store for API/database integration tests."""
 
-    def __init__(self) -> None:
+    def __init__(self, local_fallback_enabled: bool = False) -> None:
         self.objects: dict[str, bytes] = {}
+        self.local_fallback_enabled = local_fallback_enabled
 
     def put_file(self, object_key: str, path: Path, media_type: str) -> None:
         del media_type
@@ -61,7 +62,12 @@ class MemoryStorage(ObjectStorage):
 
     @contextmanager
     def open(self, object_key: str) -> Iterator[io.BytesIO]:
+        if object_key not in self.objects:
+            raise ObjectNotFoundError("object not found")
         yield io.BytesIO(self.objects[object_key])
+
+    def exists(self, object_key: str) -> bool:
+        return object_key in self.objects
 
     def check(self) -> None:
         return None
@@ -85,12 +91,13 @@ async def integration_client(integration_settings: Settings) -> AsyncIterator[As
                 "outbox_events, study_memberships, studies CASCADE"
             )
         )
+    storage = MemoryStorage()
     with factory() as session:
-        seed(session)
+        seed(session, storage)
     app = create_app(
         settings=integration_settings,
         session_factory=factory,
-        object_storage=MemoryStorage(),
+        object_storage=storage,
         token_verifier=TestTokenVerifier(),
     )
     async with AsyncClient(

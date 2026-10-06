@@ -7,6 +7,8 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.artifacts.storage import ObjectStorage
+from app.common.asset_content import publish_verified_asset
 from app.common.repository_assets import verify_repository_asset
 from app.standards.contracts import CdiscStandardManifest
 from app.standards.models import (
@@ -35,6 +37,29 @@ def load_standard_manifest(
     for asset in manifest.assets:
         verify_repository_asset(repository_root, asset.path, asset.sha256, allowed_root="schemas")
     return manifest, relative_path, manifest_checksum
+
+
+def publish_standard_manifest(
+    storage: ObjectStorage, manifest_path: Path, repository_root: Path
+) -> None:
+    """Verify and publish the manifest file plus each referenced asset before any DB write."""
+
+    manifest, relative_path, manifest_checksum = load_standard_manifest(
+        manifest_path, repository_root
+    )
+    publish_verified_asset(
+        storage,
+        repository_root.resolve() / relative_path,
+        manifest_checksum,
+        "application/json",
+    )
+    for asset in manifest.assets:
+        publish_verified_asset(
+            storage,
+            repository_root.resolve() / asset.path,
+            asset.sha256,
+            asset.media_type,
+        )
 
 
 def import_standard_manifest(

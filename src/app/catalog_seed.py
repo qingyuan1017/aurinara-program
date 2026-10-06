@@ -7,6 +7,8 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app import model_registry as _model_registry  # noqa: F401 - populate FK metadata
+from app.artifacts.storage import ObjectStorage, S3ObjectStorage
+from app.common.asset_content import publish_verified_asset
 from app.common.canonical import sha256_hex
 from app.config import get_settings
 from app.database import create_database_engine, create_session_factory
@@ -25,10 +27,24 @@ def _checksum(path: Path) -> str:
     return sha256_hex(path.read_bytes())
 
 
-def seed(session: Session) -> None:
+def seed(session: Session, storage: ObjectStorage) -> None:
     """Idempotently seed exact assets after verifying repository bytes."""
 
     standard_path = ROOT / "schemas/platform/dependency-selection-1.0.0.json"
+    terminology_path = ROOT / "terminology/platform/issue-severity-1.0.0.json"
+    template_path = ROOT / "templates/platform/report-layout-1.0.0.json"
+    document_template_path = ROOT / "templates/platform/document-layout-2.0.0.json"
+    # Publish the four pinned JSON files unconditionally (before the DB-exists
+    # guards) so seed() self-heals a DB-exists/object-missing state and stays an
+    # idempotent content-addressed no-op.
+    for pinned_path in (
+        standard_path,
+        terminology_path,
+        template_path,
+        document_template_path,
+    ):
+        publish_verified_asset(storage, pinned_path, _checksum(pinned_path), "application/json")
+
     product_id = UUID("10000000-0000-0000-0000-000000000001")
     standard_version_id = UUID("10000000-0000-0000-0000-000000000002")
     if session.get(StandardProduct, product_id) is None:
@@ -59,7 +75,6 @@ def seed(session: Session) -> None:
             )
         )
 
-    terminology_path = ROOT / "terminology/platform/issue-severity-1.0.0.json"
     release_id = UUID("20000000-0000-0000-0000-000000000001")
     codelist_id = UUID("20000000-0000-0000-0000-000000000002")
     if session.get(TerminologyRelease, release_id) is None:
@@ -100,7 +115,6 @@ def seed(session: Session) -> None:
                 )
             )
 
-    template_path = ROOT / "templates/platform/report-layout-1.0.0.json"
     family_id = UUID("30000000-0000-0000-0000-000000000001")
     template_version_id = UUID("30000000-0000-0000-0000-000000000002")
     if session.get(TemplateFamily, family_id) is None:
@@ -124,7 +138,6 @@ def seed(session: Session) -> None:
             )
         )
 
-    document_template_path = ROOT / "templates/platform/document-layout-2.0.0.json"
     document_template_id = UUID("30000000-0000-0000-0000-000000000003")
     if session.get(TemplateVersion, document_template_id) is None:
         document_template = json.loads(document_template_path.read_text(encoding="utf-8"))
@@ -203,9 +216,11 @@ def seed(session: Session) -> None:
 def main() -> None:
     """Seed the configured database."""
 
-    factory = create_session_factory(create_database_engine(get_settings()))
+    settings = get_settings()
+    storage = S3ObjectStorage(settings)
+    factory = create_session_factory(create_database_engine(settings))
     with factory() as session:
-        seed(session)
+        seed(session, storage)
 
 
 if __name__ == "__main__":

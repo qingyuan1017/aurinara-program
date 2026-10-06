@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.artifacts.models import SourceFile
 from app.artifacts.storage import ObjectStorage
+from app.common.asset_content import read_verified_asset_json_object
 from app.common.canonical import fingerprint
 from app.common.problems import ProblemException
 from app.common.repository_assets import verify_repository_asset
@@ -343,11 +344,16 @@ class DocumentsCapability(SqlDependencyCapability):
                         "Select exactly one compatible Template version for this artifact type."
                     ),
                 )
-            presentation_template = load_presentation_template(
-                session, selected_templates[0].template_version_id
-            )
+            version = session.get(TemplateVersion, selected_templates[0].template_version_id)
+            if version is None:
+                raise RuntimeError("validated Template version is missing")
+            presentation_template_ref: dict[str, object] | None = {
+                "checksum": version.checksum,
+                "renderer_versions": version.renderer_versions,
+                "asset_path": version.asset_path,
+            }
         else:
-            presentation_template = None
+            presentation_template_ref = None
         source_file = (
             session.get(SourceFile, document.source_pdf_file_id)
             if document.source_pdf_file_id is not None
@@ -403,7 +409,7 @@ class DocumentsCapability(SqlDependencyCapability):
             }
             if validation
             else None,
-            "presentation_template": presentation_template,
+            "presentation_template_ref": presentation_template_ref,
             "_source_object_key": source_file.object_key if source_file else None,
         }
 
@@ -422,7 +428,10 @@ class DocumentsCapability(SqlDependencyCapability):
             else None
         )
         validation_id = manifest.get("validation_run_id")
-        presentation_template = cast(dict[str, object] | None, payload.get("presentation_template"))
+        ref = cast(dict[str, object] | None, payload.get("presentation_template_ref"))
+        presentation_template = (
+            load_presentation_template(storage, ref) if ref is not None else None
+        )
         if artifact_type == "protocol_original":
             data = self._source_bytes(payload, storage)
             media_type = "application/pdf"
@@ -510,22 +519,27 @@ def stable_entity_id(document_id: UUID, entity_type: str, natural_id: str) -> UU
     return uuid5(ENTITY_NAMESPACE, f"{document_id}:{entity_type}:{natural_id}")
 
 
-def load_presentation_template(session: Session, template_version_id: UUID) -> dict[str, object]:
+def load_presentation_template(storage: ObjectStorage, ref: dict[str, object]) -> dict[str, object]:
     """Load and enforce the presentation-only boundary of one exact Template asset."""
 
-    version = session.get(TemplateVersion, template_version_id)
-    if version is None:
-        raise RuntimeError("validated Template version is missing")
-    root = Path(__file__).resolve().parents[3]
-    path, _ = verify_repository_asset(
-        root,
-        version.asset_path,
-        version.checksum,
-        allowed_root="templates",
+    checksum = str(ref["checksum"])
+    asset_path = str(ref["asset_path"])
+    renderer_versions = cast(list[str], ref["renderer_versions"])
+    local_fallback = (
+        (
+            lambda: verify_repository_asset(
+                Path(__file__).resolve().parents[3],
+                asset_path,
+                checksum,
+                allowed_root="templates",
+            )[0]
+        )
+        if storage.local_fallback_enabled
+        else None
     )
-    value = json.loads(path.read_text(encoding="utf-8"))
+    value = read_verified_asset_json_object(storage, checksum, local_fallback=local_fallback)
     allowed_keys = {"schema_version", "renderer", "styles", "blank_structure"}
-    if not isinstance(value, dict) or not set(value) <= allowed_keys:
+    if not set(value) <= allowed_keys:
         raise ProblemException(
             status_code=409,
             code="template_content_boundary_violation",
@@ -548,14 +562,14 @@ def load_presentation_template(session: Session, template_version_id: UUID) -> d
             title="Template contains unsupported content",
             detail="Template styles and blank structures must be presentation-only strings.",
         )
-    if "document-1" not in version.renderer_versions or value.get("renderer") != "document-1":
+    if "document-1" not in renderer_versions or value.get("renderer") != "document-1":
         raise ProblemException(
             status_code=409,
             code="template_renderer_incompatible",
             title="Template renderer is incompatible",
             detail="The exact Template version does not support this renderer.",
         )
-    return cast(dict[str, object], value)
+    return value
 
 
 def document_input_snapshot(

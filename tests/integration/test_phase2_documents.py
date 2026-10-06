@@ -42,12 +42,13 @@ async def phase2_client() -> AsyncIterator[AsyncClient]:
                 "jobs, idempotency_records, outbox_events, study_memberships, studies CASCADE"
             )
         )
+    storage = MemoryStorage()
     with factory() as session:
-        seed(session)
+        seed(session, storage)
     app = create_app(
         settings=settings,
         session_factory=factory,
-        object_storage=MemoryStorage(),
+        object_storage=storage,
         token_verifier=TestTokenVerifier(),
     )
     async with AsyncClient(
