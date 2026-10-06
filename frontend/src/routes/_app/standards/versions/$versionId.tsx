@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { PageHeader } from '@/components/layout/page-header'
 import { DetailHeader } from '@/components/data/detail-header'
@@ -8,8 +9,16 @@ import { StatusBadge } from '@/components/data/status-badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { formatDate } from '@/lib/utils'
 import {
+  useGetStandardAssetContent,
   useGetStandardVersion,
   useListStandardAssets,
   useListStandardCompatibilities,
@@ -23,39 +32,76 @@ export const Route = createFileRoute('/_app/standards/versions/$versionId')({
   component: StandardVersionPage,
 })
 
-const assetColumns: ResourceColumn<StandardAssetResponse>[] = [
-  { key: 'role', header: 'Role' },
-  { key: 'media_type', header: 'Media type' },
-  { key: 'checksum', header: 'Checksum' },
-  { key: 'title', header: 'Title', cell: (row) => row.title ?? '—' },
-  {
-    key: 'resource_type',
-    header: 'Resource type',
-    cell: (row) => row.resource_type ?? '—',
-  },
-  {
-    key: 'required',
-    header: 'Required',
-    cell: (row) => (row.required ? 'Yes' : 'No'),
-  },
-  {
-    key: 'canonical_href',
-    header: 'Canonical href',
-    cell: (row) =>
-      row.canonical_href ? (
-        <a
-          href={row.canonical_href}
-          target="_blank"
-          rel="noreferrer"
-          className="underline"
+function AssetContentDialog({
+  asset,
+  onClose,
+}: {
+  asset: StandardAssetResponse | null
+  onClose: () => void
+}) {
+  const { data, isLoading, isError, error } = useGetStandardAssetContent(
+    asset?.id ?? '',
+    { query: { enabled: asset !== null } },
+  )
+
+  return (
+    <Dialog open={asset !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[80vh] max-w-3xl overflow-hidden">
+        <DialogHeader>
+          <DialogTitle>{asset?.title ?? asset?.role ?? 'Asset content'}</DialogTitle>
+          <DialogDescription>
+            {asset?.canonical_href ?? asset?.media_type ?? 'Standard asset'}
+          </DialogDescription>
+        </DialogHeader>
+        {isLoading ? (
+          <Skeleton className="h-64 w-full" />
+        ) : isError ? (
+          <ErrorState error={error} resourceLabel="asset content" />
+        ) : (
+          <pre className="bg-muted max-h-[60vh] overflow-auto rounded-md p-4 text-xs">
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function buildAssetColumns(
+  onView: (asset: StandardAssetResponse) => void,
+): ResourceColumn<StandardAssetResponse>[] {
+  return [
+    { key: 'role', header: 'Role' },
+    { key: 'media_type', header: 'Media type' },
+    { key: 'title', header: 'Title', cell: (row) => row.title ?? '—' },
+    {
+      key: 'resource_type',
+      header: 'Resource type',
+      cell: (row) => row.resource_type ?? '—',
+    },
+    {
+      key: 'required',
+      header: 'Required',
+      cell: (row) => (row.required ? 'Yes' : 'No'),
+    },
+    {
+      key: 'content',
+      header: 'Content',
+      cell: (row) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={(event) => {
+            event.stopPropagation()
+            onView(row)
+          }}
         >
-          link
-        </a>
-      ) : (
-        '—'
+          View
+        </Button>
       ),
-  },
-]
+    },
+  ]
+}
 
 const compatibilityColumns: ResourceColumn<StandardCompatibilityResponse>[] = [
   { key: 'relationship', header: 'Relationship' },
@@ -69,6 +115,9 @@ const compatibilityColumns: ResourceColumn<StandardCompatibilityResponse>[] = [
 
 function StandardVersionPage() {
   const { versionId } = Route.useParams()
+  const [selectedAsset, setSelectedAsset] =
+    useState<StandardAssetResponse | null>(null)
+  const assetColumns = buildAssetColumns(setSelectedAsset)
 
   const {
     data: version,
@@ -161,6 +210,11 @@ function StandardVersionPage() {
           />
         </TabsContent>
       </Tabs>
+
+      <AssetContentDialog
+        asset={selectedAsset}
+        onClose={() => setSelectedAsset(null)}
+      />
     </div>
   )
 }
