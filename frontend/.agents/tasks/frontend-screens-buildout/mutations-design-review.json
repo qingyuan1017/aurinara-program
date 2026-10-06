@@ -1,0 +1,70 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "findings": [
+    {
+      "id": 1,
+      "severity": "HIGH",
+      "title": "FieldDescriptor<TBody> with name: keyof TBody & string cannot express the Reference create form it commits to building",
+      "where": "§1 Props/API (FieldDescriptor), §4 Reference create, Input-validation table (ReferenceCreate.value.fields[0].name)",
+      "problem": "ReferenceCreate = { reference_type, natural_key, display_name, value: ReferenceValue }; ReferenceValue = { schema_version?, fields: ReferenceField[] }; ReferenceField = { name: string(@pattern), value: ReferenceFieldValue }. No keyof ReferenceCreate key reaches value.fields[].name, and ReferenceFieldValue is string|number|boolean|null, not string[]. The promised 'two tags-style inputs' cannot be declared and the tags->string[] mapping is wrong for both the field name (single @pattern string) and value (scalar union).",
+      "fix": "Either (a) defer Reference create with the already-deferred multi-row field editing (keep Reference edit/retire, which are flat), so every in-scope create body is flat and keyof TBody holds; or (b) add a compose?: (values) => TBody escape hatch on the dialog plus side descriptors fieldName (text, @pattern ^[a-z][a-z0-9_]{0,63}$) and fieldValue (text) that the screen assembles into value.fields[0]."
+    },
+    {
+      "id": 2,
+      "severity": "HIGH",
+      "title": "onSubmit: (body: TBody) => Promise<unknown> omits the path/mutate variables every generated mutation requires",
+      "where": "§1 Props/API (onSubmit), §1 Submit flow step 3",
+      "problem": "Verified mutate vars: useCreateReference {studyId,data}, usePatchStudy {studyId,data}, usePatchReference {referenceId,data}, useRetireReference {referenceId}, useCreateExtensionTerm {extensionId,data}, usePatchExtensionTerm {termId,data}, useCreate*Aggregate {studyId,data}. onSubmit(body) passes only the body; implementing create.mutateAsync(body) is a type error. The design never states the screen's onSubmit closure must supply the ids.",
+      "fix": "Specify that the dialog's onSubmit receives only the body and the screen wraps it: onSubmit={(data)=>create.mutateAsync({studyId: currentStudyId!, data})} and {(data)=>patch.mutateAsync({referenceId: row.id, data})}. State that body-less retire does NOT flow through ResourceFormDialog but through ConfirmDialog -> retire.mutateAsync({referenceId: row.id})."
+    },
+    {
+      "id": 3,
+      "severity": "MEDIUM",
+      "title": "Lazy-request passthrough in §3e contradicts §1 (dialog has no buildRequest prop; screen owns the hook)",
+      "where": "§3e final paragraph vs §1 props list and 'hook in the screen' statement",
+      "problem": "§3e has the dialog call the generated hook with buildRequest(); §1 says the dialog never imports a hook and takes no such prop. request is baked into hook options at hook-call time (verified getPatchStudyMutationOptions closes over request in mutationFn), so request must be computed in the screen, not a dialog prop.",
+      "fix": "Delete the buildRequest sentence from §3e (or relabel it a screen responsibility). In §1 add: screen computes request at hook-call time, e.g. usePatchReference({ request: ifMatchRequest(editing.revision) }); dialog takes no header/request props."
+    },
+    {
+      "id": 4,
+      "severity": "MEDIUM",
+      "title": "412/428/409 detection keyed on status AND code with no precedence rule; FastAPI transport-validation path uses a different code",
+      "where": "§3f and §1 Error handling",
+      "problem": "etag.py: 428 code=precondition_required, 412 code=precondition_failed (via problem_exception_handler). But validation_exception_handler sets code=request_validation_failed (422, errors[]), http_exception_handler sets http_error/resource_not_found. Keying on a hard-coded code string risks mis-handling and makes 412/428 depend on a body being present.",
+      "fix": "Detect 412/428 by error.response?.status alone (unambiguous, body-independent). Use code only to split the two 409 variants (idempotency_key_reused vs duplicate/lifecycle), falling back to detail when code absent."
+    },
+    {
+      "id": 5,
+      "severity": "MEDIUM",
+      "title": "mapProblemToFieldErrors matching rule ambiguous for issues[].field_path and under-specified for errors[].location",
+      "where": "§1 Error handling (RFC 9457)",
+      "problem": "'last segment OR full value' is two rules with no tiebreak and causes false positives (field_path value.fields.0.name -> last segment 'name' wrongly matches a top-level name field). errors[].location for nested bodies is multi-segment e.g. [body,value,fields,0,name] (all stringified by the handler), so 'segment after body' picks 'value', not the leaf.",
+      "fix": "Match only when the problem path exactly equals a fields[].name after stripping a leading body. prefix (join location after 'body' with '.' and compare exactly). Anything not an exact descriptor name goes to the top-level alert. Fine because every in-scope descriptor is a single top-level field."
+    },
+    {
+      "id": 6,
+      "severity": "MEDIUM",
+      "title": "Idempotency-trigger mechanism left as an unresolved X-or-Y but claimed 'in place' for a 'one-line add'",
+      "where": "§3d, §3e last paragraph, §4 Action triggers",
+      "problem": "Trigger wiring is 're-mount per target id OR request-at-call-time passthrough' with no decision. The hook's request is fixed at hook-call time (verified) while the key must be generated in onClick (after the hook ran), and mutate vars have no per-call request slot. So the 'one-line add later' claim is not supported by the generated shape.",
+      "fix": "Explicitly defer the trigger mechanism to the deliveries/builds follow-up and remove the 'in place / one-line add' claim; or pin a concrete mechanism that respects hook-call-time request binding."
+    },
+    {
+      "id": 7,
+      "severity": "NIT",
+      "title": "StudyPatchName/StudyPatchStatus described as 'nullable string aliases' is imprecise",
+      "where": "§4 Studies edit",
+      "problem": "They are separate generated alias types; the exact nullable union should be read from studyPatchName.ts/studyPatchStatus.ts before wiring the status select.",
+      "fix": "Covered by the design's existing 'read the model file first' instruction; no change required."
+    },
+    {
+      "id": 8,
+      "severity": "NIT",
+      "title": "Toaster mount instruction offers two placements",
+      "where": "§2 Toaster mount point",
+      "problem": "'inside AuthProvider ... (or directly inside ThemeProvider)' is a minor X-or-Y; only requirement is inside ThemeProvider for theme reading.",
+      "fix": "Pick one: mount as a sibling of RouterProvider inside ThemeProvider."
+    }
+  ],
+  "reviewDoc": "e:\\Work\\EDETEK\\Python\\aurinara\\frontend\\.agents\\tasks\\frontend-screens-buildout\\mutations-design-review.md"
+}
