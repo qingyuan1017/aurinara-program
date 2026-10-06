@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { useListStudies } from '@/api/generated/studies/studies'
 import type { StudyResponse } from '@/api/generated/model'
+import { useAuth } from '@/components/auth-provider'
 
 const STUDY_KEY = 'aurinara.currentStudy'
 
@@ -41,7 +42,13 @@ const CurrentStudyContext = createContext<CurrentStudyContextValue | undefined>(
 )
 
 export function StudyProvider({ children }: { children: React.ReactNode }) {
-  const { data, isLoading, isError } = useListStudies()
+  // Gate the query on the REACTIVE auth state (not a one-shot localStorage
+  // read) so it re-fires automatically the moment the user signs in, without
+  // needing a page refresh.
+  const { isAuthenticated } = useAuth()
+  const { data, isLoading, isError } = useListStudies(undefined, {
+    query: { enabled: isAuthenticated },
+  })
   const studies = useMemo(() => data?.items ?? [], [data])
 
   const [currentStudyId, setCurrentStudyIdState] = useState<string | null>(() =>

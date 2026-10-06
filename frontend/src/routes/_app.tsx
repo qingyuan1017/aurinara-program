@@ -1,22 +1,14 @@
-import { Outlet, createFileRoute, redirect } from '@tanstack/react-router'
+import { Outlet, createFileRoute } from '@tanstack/react-router'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { Header } from '@/components/layout/header'
 import { StudyProvider } from '@/components/study-provider'
-import { isAuthenticated } from '@/lib/auth'
 
 export const Route = createFileRoute('/_app')({
-  beforeLoad: ({ location }) => {
-    // Redirect to login when there is no stored bearer token. The Cognito
-    // session is also restored in AuthProvider; this guard keeps protected
-    // routes from rendering before a token exists.
-    if (!isAuthenticated()) {
-      throw redirect({
-        to: '/login',
-        search: { redirect: location.href },
-      })
-    }
-  },
+  // No auth redirect: the app shell stays visible when signed out so the
+  // account menu (sign in / sign out) is always reachable. Data queries are
+  // gated on isAuthenticated(), and unauthenticated screens show a
+  // "sign in to continue" state instead of bouncing to /login.
   component: AppLayout,
 })
 

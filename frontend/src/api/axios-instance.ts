@@ -5,9 +5,10 @@ import Axios, {
 } from 'axios'
 import { getAuthToken, clearAuthToken } from '@/lib/auth'
 
-// Base URL the app calls. In dev, Vite proxies "/api" to the backend, so the
-// default relative prefix works everywhere.
-const baseURL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
+// Base URL for API requests. The Orval-generated client already includes the
+// full path prefix ("/api/v1/...") in every request URL, so the base URL must
+// be empty (or just the origin) to avoid doubling the prefix.
+const baseURL = import.meta.env.VITE_API_BASE_URL ?? ''
 
 export const AXIOS_INSTANCE = Axios.create({ baseURL })
 
@@ -21,11 +22,16 @@ AXIOS_INSTANCE.interceptors.request.use((config) => {
   return config
 })
 
-// Clear the token on 401 so the app can route back to sign-in.
+// Clear the stored token only when a request that ACTUALLY carried a bearer
+// token is rejected with 401 — i.e. the token itself was refused (expired or
+// invalid). A 401 on a request that had no Authorization header must not wipe
+// the session (that would log the user out on an unauthenticated race), and a
+// request error with no response (network/CORS) is left alone.
 AXIOS_INSTANCE.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    if (error.response?.status === 401) {
+    const hadBearer = Boolean(error.config?.headers?.Authorization)
+    if (error.response?.status === 401 && hadBearer) {
       clearAuthToken()
     }
     return Promise.reject(error)

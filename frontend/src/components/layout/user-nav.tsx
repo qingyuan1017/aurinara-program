@@ -1,5 +1,5 @@
-import { useNavigate } from '@tanstack/react-router'
-import { LogOut } from 'lucide-react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { LogIn, LogOut } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -19,9 +19,9 @@ function initials(value: string): string {
 
 export function UserNav() {
   const navigate = useNavigate()
-  const { user, signOut } = useAuth()
+  const { user, isAuthenticated, signOut } = useAuth()
 
-  const label = user?.email ?? user?.username ?? 'Signed in'
+  const label = user?.email ?? user?.username ?? null
 
   function onSignOut() {
     signOut()
@@ -33,24 +33,37 @@ export function UserNav() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative size-8 rounded-full">
           <Avatar className="size-8">
-            <AvatarFallback>{initials(label)}</AvatarFallback>
+            <AvatarFallback>
+              {isAuthenticated && label ? initials(label) : '?'}
+            </AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm leading-none font-medium">Account</p>
+            <p className="text-sm leading-none font-medium">
+              {isAuthenticated ? 'Account' : 'Not signed in'}
+            </p>
             <p className="text-muted-foreground text-xs leading-none">
-              {label}
+              {isAuthenticated ? (label ?? 'Signed in') : 'Sign in to continue'}
             </p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onClick={onSignOut}>
-          <LogOut className="mr-2 size-4" />
-          Sign out
-        </DropdownMenuItem>
+        {isAuthenticated ? (
+          <DropdownMenuItem variant="destructive" onClick={onSignOut}>
+            <LogOut className="mr-2 size-4" />
+            Sign out
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem asChild>
+            <Link to="/login" search={{ redirect: undefined }}>
+              <LogIn className="mr-2 size-4" />
+              Sign in
+            </Link>
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

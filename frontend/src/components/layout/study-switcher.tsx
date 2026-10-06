@@ -7,10 +7,18 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrentStudy } from '@/components/study-provider'
+import { useAuth } from '@/components/auth-provider'
 
 export function StudySwitcher() {
+  const { isAuthenticated } = useAuth()
   const { studies, currentStudyId, setCurrentStudyId, isLoading } =
     useCurrentStudy()
+
+  // The study switcher is meaningless without a session; hide it when signed
+  // out (the account menu offers "Sign in").
+  if (!isAuthenticated) {
+    return null
+  }
 
   if (isLoading) {
     return <Skeleton className="h-9 w-48" />

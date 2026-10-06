@@ -7,15 +7,18 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { useListStudies } from '@/api/generated/studies/studies'
+import { useCurrentStudy } from '@/components/study-provider'
 
 export const Route = createFileRoute('/_app/')({
   component: DashboardPage,
 })
 
 function DashboardPage() {
-  const { data, isLoading, isError } = useListStudies()
-  const studyCount = data?.items.length ?? 0
+  // Reuse the shared study context (fetched once in StudyProvider, gated on
+  // reactive auth state) so the count appears right after login without a
+  // refresh and no duplicate request fires.
+  const { studies, isLoading, isError } = useCurrentStudy()
+  const studyCount = studies.length
 
   const stats = [
     {

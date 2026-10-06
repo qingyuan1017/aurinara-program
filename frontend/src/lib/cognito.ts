@@ -62,6 +62,10 @@ export function signIn(
   password: string,
 ): Promise<AuthUser> {
   const user = cognitoUser(username)
+  // Use USER_PASSWORD_AUTH (plain username/password) rather than SRP. This
+  // matches the ALLOW_USER_PASSWORD_AUTH flow enabled on the app client and
+  // avoids requiring ALLOW_USER_SRP_AUTH.
+  user.setAuthenticationFlowType('USER_PASSWORD_AUTH')
   const details = new AuthenticationDetails({
     Username: username,
     Password: password,
