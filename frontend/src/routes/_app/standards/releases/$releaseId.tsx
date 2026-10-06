@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { PageHeader } from '@/components/layout/page-header'
 import { DetailHeader } from '@/components/data/detail-header'
@@ -8,9 +9,17 @@ import { StatusBadge } from '@/components/data/status-badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { formatDate } from '@/lib/utils'
 import {
   useGetRelease,
+  useGetTerminologyAssetContent,
   useListCodelists,
   useListTerminologyAssets,
   useListTerminologyCompatibilities,
@@ -24,6 +33,41 @@ import type {
 export const Route = createFileRoute('/_app/standards/releases/$releaseId')({
   component: TerminologyReleasePage,
 })
+
+function AssetContentDialog({
+  asset,
+  onClose,
+}: {
+  asset: TerminologyAssetResponse | null
+  onClose: () => void
+}) {
+  const { data, isLoading, isError, error } = useGetTerminologyAssetContent(
+    asset?.id ?? '',
+    { query: { enabled: asset !== null } },
+  )
+
+  return (
+    <Dialog open={asset !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[80vh] max-w-3xl overflow-hidden">
+        <DialogHeader>
+          <DialogTitle>{asset?.title ?? asset?.role ?? 'Asset content'}</DialogTitle>
+          <DialogDescription>
+            {asset?.canonical_href ?? asset?.media_type ?? 'Terminology asset'}
+          </DialogDescription>
+        </DialogHeader>
+        {isLoading ? (
+          <Skeleton className="h-64 w-full" />
+        ) : isError ? (
+          <ErrorState error={error} resourceLabel="asset content" />
+        ) : (
+          <pre className="bg-muted max-h-[60vh] overflow-auto rounded-md p-4 text-xs">
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 const codelistColumns: ResourceColumn<CodelistResponse>[] = [
   { key: 'code', header: 'Code' },
@@ -53,32 +97,61 @@ const compatibilityColumns: ResourceColumn<TerminologyCompatibilityResponse>[] =
     { key: 'standard_purpose', header: 'Standard purpose' },
   ]
 
-const assetColumns: ResourceColumn<TerminologyAssetResponse>[] = [
-  { key: 'role', header: 'Role' },
-  { key: 'media_type', header: 'Media type' },
-  { key: 'checksum', header: 'Checksum' },
-  {
-    key: 'canonical_href',
-    header: 'Canonical href',
-    cell: (row) =>
-      row.canonical_href ? (
-        <a
-          href={row.canonical_href}
-          target="_blank"
-          rel="noreferrer"
-          className="underline"
+function buildAssetColumns(
+  onView: (asset: TerminologyAssetResponse) => void,
+): ResourceColumn<TerminologyAssetResponse>[] {
+  return [
+    { key: 'role', header: 'Role' },
+    { key: 'media_type', header: 'Media type' },
+    { key: 'title', header: 'Title', cell: (row) => row.title ?? '—' },
+    {
+      key: 'resource_type',
+      header: 'Resource type',
+      cell: (row) => row.resource_type ?? '—',
+    },
+    {
+      key: 'canonical_href',
+      header: 'Canonical href',
+      cell: (row) =>
+        row.canonical_href ? (
+          <a
+            href={row.canonical_href}
+            target="_blank"
+            rel="noreferrer"
+            className="underline"
+            onClick={(event) => event.stopPropagation()}
+          >
+            link
+          </a>
+        ) : (
+          '—'
+        ),
+    },
+    {
+      key: 'content',
+      header: 'Content',
+      cell: (row) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={(event) => {
+            event.stopPropagation()
+            onView(row)
+          }}
         >
-          link
-        </a>
-      ) : (
-        '—'
+          View
+        </Button>
       ),
-  },
-]
+    },
+  ]
+}
 
 function TerminologyReleasePage() {
   const { releaseId } = Route.useParams()
   const navigate = useNavigate()
+  const [selectedAsset, setSelectedAsset] =
+    useState<TerminologyAssetResponse | null>(null)
+  const assetColumns = buildAssetColumns(setSelectedAsset)
 
   const { data: release, isLoading, isError, error } = useGetRelease(releaseId)
 
@@ -177,6 +250,11 @@ function TerminologyReleasePage() {
           />
         </TabsContent>
       </Tabs>
+
+      <AssetContentDialog
+        asset={selectedAsset}
+        onClose={() => setSelectedAsset(null)}
+      />
     </div>
   )
 }
