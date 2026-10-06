@@ -1,0 +1,54 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "findings": [
+    {
+      "id": 1,
+      "severity": "HIGH",
+      "title": "Version/release manifest-object publish and backfill will crash on the ~25k library-snapshot corpus because StandardVersion.checksum / TerminologyRelease.checksum is a synthetic group digest, not a file sha256",
+      "where": "Decision 3 (manifest-file publish), Decision 5 (publish-assets verify_repository_asset on version/release rows), Exact files items 6 and 7",
+      "detail": "register_library_snapshot sets StandardVersion/TerminologyRelease.checksum = _group_checksum(resources), a synthetic digest over the group inventory with no corresponding on-disk file. checksum_object_key(version.checksum) points at a nonexistent object and verify_repository_asset(version.asset_path, version.checksum) raises 'repository asset checksum mismatch' for every library-snapshot version/release row, breaking the inline publish and the resumable backfill. No read path keys off the version/release checksum, so the object is both impossible to produce for the bulk path and unnecessary.",
+      "fix": "Publish only objects whose checksum is a real file sha256: per-asset StandardAsset/TerminologyAsset rows (item.sha256) plus, on the hand-maintained importer paths only, the manifest file (whose sha256 equals the stored version/release checksum there). In publish-assets, skip or treat-as-no-own-object the standard_versions/terminology_releases rows whose stored checksum is a group digest. Stop asserting the version/release checksum is a universal file checksum."
+    },
+    {
+      "id": 2,
+      "severity": "MEDIUM",
+      "title": "Terminology importer publish instruction references manifest.assets and per-asset TerminologyAsset rows that this path never creates",
+      "where": "Decision 3 'What the publish pass must cover (Finding 4)', Exact files item 7",
+      "detail": "import_terminology_manifest creates only TerminologyRelease/Codelist/Term rows and the CT manifest has no assets collection; TerminologyAsset rows exist only on the library-snapshot path. The 'publish every per-asset terminology row' rule is inapplicable to the hand-maintained CT importer and misleads the implementer.",
+      "fix": "Scope the publish rule per path: hand-maintained standards importer publishes each StandardAsset + manifest file; hand-maintained terminology importer publishes the manifest file only; library snapshot publishes each StandardAsset/TerminologyAsset (item.sha256) with the version/release row having no own file object."
+    },
+    {
+      "id": 3,
+      "severity": "MEDIUM",
+      "title": "catalog_seed 'publish at each session.add site' is ambiguous about the idempotency guard, determining whether a DB-exists/object-missing state self-heals",
+      "where": "Decision 3 '_checksum stays pure (Finding 6)', Exact files item 5",
+      "detail": "Each seed session.add is nested in an 'if session.get(...) is None:' guard. If publish is inside the guard, a DB that has the rows but is missing the objects (the migration target case) will skip publishing silently; if outside, re-seed re-publishes harmlessly. The design does not say which.",
+      "fix": "Publish outside/before the 'if session.get(...) is None' guard using the resolved path and _checksum(path), so seed() is self-healing for DB-exists/object-missing and an idempotent no-op otherwise; keep the single terminal commit."
+    },
+    {
+      "id": 4,
+      "severity": "MEDIUM",
+      "title": "object_missing and storage_error collapse to the same 503 code asset_content_unavailable, defeating the distinction Decision 0 insists on",
+      "where": "Decision 6 error-mapping table",
+      "detail": "Decision 0 exists specifically to tell object_missing apart from storage_error without parsing messages, but the HTTP mapping emits one code for both, so clients/operators cannot distinguish 'run publish-assets' (deployment state) from 'object storage is down' (transient infra).",
+      "fix": "Give distinct stable codes while keeping 503: object_missing -> asset_content_unpublished, storage_error -> asset_content_store_unavailable. Update the table, contract-test assertions, and Open-ambiguities item 8."
+    },
+    {
+      "id": 5,
+      "severity": "NIT",
+      "title": "'established sibling-route pattern' for request.app.state.settings is overstated for catalogs.py",
+      "where": "Decision 6 / Exact files item 3",
+      "detail": "request.app.state.settings is a real platform pattern (artifacts/integration routes) and app.state.settings is set in create_app, but it is not currently used in catalogs.py; the content handlers take neither Request nor storage today.",
+      "fix": "Reword to 'the established platform pattern (artifacts/integration routes)' and note both content handlers must newly add request: Request and the get_object_storage dependency."
+    },
+    {
+      "id": 6,
+      "severity": "NIT",
+      "title": "load_presentation_template missing-row error is a bare RuntimeError, described imprecisely and as if part of the Decision 6 problem mapping",
+      "where": "Decision 2b",
+      "detail": "Actual raise is RuntimeError('validated Template version is missing') (not 'template version is missing'), a bare RuntimeError not a ProblemException. In the phase split it moves to the worker-phase build_artifact_payload, so it is not a request-path typed problem.",
+      "fix": "Quote the error text accurately and state it stays a worker-phase RuntimeError unchanged, outside the content-error HTTP mapping which covers only AssetContentError from the byte read."
+    }
+  ],
+  "reviewDoc": "e:\\Work\\EDETEK\\Python\\aurinara\\.agents\\tasks\\s3-asset-storage-master/s3-asset-design-review.md"
+}
