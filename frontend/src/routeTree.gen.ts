@@ -28,6 +28,7 @@ import { Route as AppStudiesRouteImport } from './routes/_app/studies'
 import { Route as AppTerminologyRouteImport } from './routes/_app/terminology'
 import { Route as AppTlfRouteImport } from './routes/_app/tlf'
 import { Route as AppValidationRouteImport } from './routes/_app/validation'
+import { Route as AppStandardsIndexRouteImport } from './routes/_app/standards/index'
 import { Route as AppStandardsCodelistsCodelistIdRouteImport } from './routes/_app/standards/codelists/$codelistId'
 import { Route as AppStandardsProductsStandardIdRouteImport } from './routes/_app/standards/products/$standardId'
 import { Route as AppStandardsReleasesReleaseIdRouteImport } from './routes/_app/standards/releases/$releaseId'
@@ -128,6 +129,11 @@ const AppValidationRoute = AppValidationRouteImport.update({
   path: '/validation',
   getParentRoute: () => AppRoute,
 } as any)
+const AppStandardsIndexRoute = AppStandardsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppStandardsRoute,
+} as any)
 const AppStandardsCodelistsCodelistIdRoute =
   AppStandardsCodelistsCodelistIdRouteImport.update({
     id: '/codelists/$codelistId',
@@ -178,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/terminology': typeof AppTerminologyRoute
   '/tlf': typeof AppTlfRoute
   '/validation': typeof AppValidationRoute
+  '/standards/': typeof AppStandardsIndexRoute
   '/standards/codelists/$codelistId': typeof AppStandardsCodelistsCodelistIdRoute
   '/standards/products/$standardId': typeof AppStandardsProductsStandardIdRoute
   '/standards/releases/$releaseId': typeof AppStandardsReleasesReleaseIdRoute
@@ -197,12 +204,12 @@ export interface FileRoutesByTo {
   '/reference': typeof AppReferenceRoute
   '/review': typeof AppReviewRoute
   '/sdtm': typeof AppSdtmRoute
-  '/standards': typeof AppStandardsRouteWithChildren
   '/studies': typeof AppStudiesRoute
   '/terminology': typeof AppTerminologyRoute
   '/tlf': typeof AppTlfRoute
   '/validation': typeof AppValidationRoute
   '/': typeof AppIndexRoute
+  '/standards': typeof AppStandardsIndexRoute
   '/standards/codelists/$codelistId': typeof AppStandardsCodelistsCodelistIdRoute
   '/standards/products/$standardId': typeof AppStandardsProductsStandardIdRoute
   '/standards/releases/$releaseId': typeof AppStandardsReleasesReleaseIdRoute
@@ -230,6 +237,7 @@ export interface FileRoutesById {
   '/_app/tlf': typeof AppTlfRoute
   '/_app/validation': typeof AppValidationRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/standards/': typeof AppStandardsIndexRoute
   '/_app/standards/codelists/$codelistId': typeof AppStandardsCodelistsCodelistIdRoute
   '/_app/standards/products/$standardId': typeof AppStandardsProductsStandardIdRoute
   '/_app/standards/releases/$releaseId': typeof AppStandardsReleasesReleaseIdRoute
@@ -257,6 +265,7 @@ export interface FileRouteTypes {
     | '/terminology'
     | '/tlf'
     | '/validation'
+    | '/standards/'
     | '/standards/codelists/$codelistId'
     | '/standards/products/$standardId'
     | '/standards/releases/$releaseId'
@@ -276,12 +285,12 @@ export interface FileRouteTypes {
     | '/reference'
     | '/review'
     | '/sdtm'
-    | '/standards'
     | '/studies'
     | '/terminology'
     | '/tlf'
     | '/validation'
     | '/'
+    | '/standards'
     | '/standards/codelists/$codelistId'
     | '/standards/products/$standardId'
     | '/standards/releases/$releaseId'
@@ -308,6 +317,7 @@ export interface FileRouteTypes {
     | '/_app/tlf'
     | '/_app/validation'
     | '/_app/'
+    | '/_app/standards/'
     | '/_app/standards/codelists/$codelistId'
     | '/_app/standards/products/$standardId'
     | '/_app/standards/releases/$releaseId'
@@ -457,6 +467,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppValidationRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/standards/': {
+      id: '/_app/standards/'
+      path: '/'
+      fullPath: '/standards/'
+      preLoaderRoute: typeof AppStandardsIndexRouteImport
+      parentRoute: typeof AppStandardsRoute
+    }
     '/_app/standards/codelists/$codelistId': {
       id: '/_app/standards/codelists/$codelistId'
       path: '/codelists/$codelistId'
@@ -496,6 +513,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppStandardsRouteChildren {
+  AppStandardsIndexRoute: typeof AppStandardsIndexRoute
   AppStandardsCodelistsCodelistIdRoute: typeof AppStandardsCodelistsCodelistIdRoute
   AppStandardsProductsStandardIdRoute: typeof AppStandardsProductsStandardIdRoute
   AppStandardsReleasesReleaseIdRoute: typeof AppStandardsReleasesReleaseIdRoute
@@ -504,6 +522,7 @@ interface AppStandardsRouteChildren {
 }
 
 const AppStandardsRouteChildren: AppStandardsRouteChildren = {
+  AppStandardsIndexRoute: AppStandardsIndexRoute,
   AppStandardsCodelistsCodelistIdRoute: AppStandardsCodelistsCodelistIdRoute,
   AppStandardsProductsStandardIdRoute: AppStandardsProductsStandardIdRoute,
   AppStandardsReleasesReleaseIdRoute: AppStandardsReleasesReleaseIdRoute,
