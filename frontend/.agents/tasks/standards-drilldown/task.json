@@ -1,0 +1,7 @@
+{
+  "task_id": "task-standards-drilldown",
+  "task_description": "Add read-only hierarchical drill-down detail routes to the Standards catalog screen of the Aurinara frontend: product -> versions -> assets/compatibilities; terminology release -> codelists -> terms; template -> versions. Reuse ResourceTable/PageHeader/StatusBadge/states, add a shared DetailHeader, flat param routes keyed on each entity's own id. No mutations, no new deps, no edits to generated files. Gate: npm run build + npm run lint from frontend dir.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}
