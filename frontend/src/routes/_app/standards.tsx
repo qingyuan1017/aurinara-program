@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { PageHeader } from '@/components/layout/page-header'
 import { ResourceTable } from '@/components/data/resource-table'
 import type { ResourceColumn } from '@/components/data/resource-table'
@@ -47,6 +47,7 @@ const templateColumns: ResourceColumn<CatalogIdentity>[] = [
 ]
 
 function ProductsTab() {
+  const navigate = useNavigate()
   const { data, isLoading, isError, error } = useListStandards()
   return (
     <ResourceTable
@@ -57,12 +58,21 @@ function ProductsTab() {
       isError={isError}
       error={error}
       resourceLabel="standard products"
+      onRowClick={(row) =>
+        navigate({
+          to: '/standards/products/$standardId',
+          params: { standardId: row.id },
+        })
+      }
     />
   )
 }
 
 function ReleasesTab() {
   const { data, isLoading, isError, error } = useListReleases()
+  // TODO(FEAT-002): wire onRowClick ->
+  //   navigate({ to: '/standards/releases/$releaseId', params: { releaseId: row.id } })
+  //   once the /standards/releases/$releaseId route exists.
   return (
     <ResourceTable
       columns={releaseColumns}
@@ -78,6 +88,9 @@ function ReleasesTab() {
 
 function TemplatesTab() {
   const { data, isLoading, isError, error } = useListTemplates()
+  // TODO(FEAT-002): wire onRowClick ->
+  //   navigate({ to: '/standards/templates/$templateId', params: { templateId: row.id } })
+  //   once the /standards/templates/$templateId route exists.
   return (
     <ResourceTable
       columns={templateColumns}

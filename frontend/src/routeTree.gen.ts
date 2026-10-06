@@ -28,6 +28,8 @@ import { Route as AppStudiesRouteImport } from './routes/_app/studies'
 import { Route as AppTerminologyRouteImport } from './routes/_app/terminology'
 import { Route as AppTlfRouteImport } from './routes/_app/tlf'
 import { Route as AppValidationRouteImport } from './routes/_app/validation'
+import { Route as AppStandardsProductsStandardIdRouteImport } from './routes/_app/standards/products/$standardId'
+import { Route as AppStandardsVersionsVersionIdRouteImport } from './routes/_app/standards/versions/$versionId'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -123,6 +125,18 @@ const AppValidationRoute = AppValidationRouteImport.update({
   path: '/validation',
   getParentRoute: () => AppRoute,
 } as any)
+const AppStandardsProductsStandardIdRoute =
+  AppStandardsProductsStandardIdRouteImport.update({
+    id: '/products/$standardId',
+    path: '/products/$standardId',
+    getParentRoute: () => AppStandardsRoute,
+  } as any)
+const AppStandardsVersionsVersionIdRoute =
+  AppStandardsVersionsVersionIdRouteImport.update({
+    id: '/versions/$versionId',
+    path: '/versions/$versionId',
+    getParentRoute: () => AppStandardsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -138,11 +152,13 @@ export interface FileRoutesByFullPath {
   '/reference': typeof AppReferenceRoute
   '/review': typeof AppReviewRoute
   '/sdtm': typeof AppSdtmRoute
-  '/standards': typeof AppStandardsRoute
+  '/standards': typeof AppStandardsRouteWithChildren
   '/studies': typeof AppStudiesRoute
   '/terminology': typeof AppTerminologyRoute
   '/tlf': typeof AppTlfRoute
   '/validation': typeof AppValidationRoute
+  '/standards/products/$standardId': typeof AppStandardsProductsStandardIdRoute
+  '/standards/versions/$versionId': typeof AppStandardsVersionsVersionIdRoute
 }
 export interface FileRoutesByTo {
   '/confirm': typeof ConfirmRoute
@@ -157,12 +173,14 @@ export interface FileRoutesByTo {
   '/reference': typeof AppReferenceRoute
   '/review': typeof AppReviewRoute
   '/sdtm': typeof AppSdtmRoute
-  '/standards': typeof AppStandardsRoute
+  '/standards': typeof AppStandardsRouteWithChildren
   '/studies': typeof AppStudiesRoute
   '/terminology': typeof AppTerminologyRoute
   '/tlf': typeof AppTlfRoute
   '/validation': typeof AppValidationRoute
   '/': typeof AppIndexRoute
+  '/standards/products/$standardId': typeof AppStandardsProductsStandardIdRoute
+  '/standards/versions/$versionId': typeof AppStandardsVersionsVersionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -179,12 +197,14 @@ export interface FileRoutesById {
   '/_app/reference': typeof AppReferenceRoute
   '/_app/review': typeof AppReviewRoute
   '/_app/sdtm': typeof AppSdtmRoute
-  '/_app/standards': typeof AppStandardsRoute
+  '/_app/standards': typeof AppStandardsRouteWithChildren
   '/_app/studies': typeof AppStudiesRoute
   '/_app/terminology': typeof AppTerminologyRoute
   '/_app/tlf': typeof AppTlfRoute
   '/_app/validation': typeof AppValidationRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/standards/products/$standardId': typeof AppStandardsProductsStandardIdRoute
+  '/_app/standards/versions/$versionId': typeof AppStandardsVersionsVersionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -207,6 +227,8 @@ export interface FileRouteTypes {
     | '/terminology'
     | '/tlf'
     | '/validation'
+    | '/standards/products/$standardId'
+    | '/standards/versions/$versionId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/confirm'
@@ -227,6 +249,8 @@ export interface FileRouteTypes {
     | '/tlf'
     | '/validation'
     | '/'
+    | '/standards/products/$standardId'
+    | '/standards/versions/$versionId'
   id:
     | '__root__'
     | '/_app'
@@ -248,6 +272,8 @@ export interface FileRouteTypes {
     | '/_app/tlf'
     | '/_app/validation'
     | '/_app/'
+    | '/_app/standards/products/$standardId'
+    | '/_app/standards/versions/$versionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -392,8 +418,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppValidationRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/standards/products/$standardId': {
+      id: '/_app/standards/products/$standardId'
+      path: '/products/$standardId'
+      fullPath: '/standards/products/$standardId'
+      preLoaderRoute: typeof AppStandardsProductsStandardIdRouteImport
+      parentRoute: typeof AppStandardsRoute
+    }
+    '/_app/standards/versions/$versionId': {
+      id: '/_app/standards/versions/$versionId'
+      path: '/versions/$versionId'
+      fullPath: '/standards/versions/$versionId'
+      preLoaderRoute: typeof AppStandardsVersionsVersionIdRouteImport
+      parentRoute: typeof AppStandardsRoute
+    }
   }
 }
+
+interface AppStandardsRouteChildren {
+  AppStandardsProductsStandardIdRoute: typeof AppStandardsProductsStandardIdRoute
+  AppStandardsVersionsVersionIdRoute: typeof AppStandardsVersionsVersionIdRoute
+}
+
+const AppStandardsRouteChildren: AppStandardsRouteChildren = {
+  AppStandardsProductsStandardIdRoute: AppStandardsProductsStandardIdRoute,
+  AppStandardsVersionsVersionIdRoute: AppStandardsVersionsVersionIdRoute,
+}
+
+const AppStandardsRouteWithChildren = AppStandardsRoute._addFileChildren(
+  AppStandardsRouteChildren,
+)
 
 interface AppRouteChildren {
   AppAdamRoute: typeof AppAdamRoute
@@ -405,7 +459,7 @@ interface AppRouteChildren {
   AppReferenceRoute: typeof AppReferenceRoute
   AppReviewRoute: typeof AppReviewRoute
   AppSdtmRoute: typeof AppSdtmRoute
-  AppStandardsRoute: typeof AppStandardsRoute
+  AppStandardsRoute: typeof AppStandardsRouteWithChildren
   AppStudiesRoute: typeof AppStudiesRoute
   AppTerminologyRoute: typeof AppTerminologyRoute
   AppTlfRoute: typeof AppTlfRoute
@@ -423,7 +477,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppReferenceRoute: AppReferenceRoute,
   AppReviewRoute: AppReviewRoute,
   AppSdtmRoute: AppSdtmRoute,
-  AppStandardsRoute: AppStandardsRoute,
+  AppStandardsRoute: AppStandardsRouteWithChildren,
   AppStudiesRoute: AppStudiesRoute,
   AppTerminologyRoute: AppTerminologyRoute,
   AppTlfRoute: AppTlfRoute,
