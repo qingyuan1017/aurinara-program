@@ -13,6 +13,7 @@ from app.documents.models import (
     ProtocolUsdmDocument,
 )
 from app.execution.jobs import Job
+from app.execution.models import ExecutionRun
 from app.integration.models import (
     ExternalIdentifier,
     Integration,
@@ -20,11 +21,26 @@ from app.integration.models import (
     IntegrationSecretVersion,
     IntegrationSubscription,
 )
-from app.raw.models import RawDependencySelection, RawWorkbench
+from app.raw.models import (
+    RawDataset,
+    RawDatasetFileBinding,
+    RawDependencySelection,
+    RawVariable,
+    RawWorkbench,
+)
 from app.reconciliation.models import ReconciliationRun
 from app.reference.models import ReferenceImportBatch, ReferenceRecord, ReferenceRevision
 from app.review.models import ReviewComment, ReviewItem
-from app.sdtm.models import SdtmDependencySelection, SdtmWorkbench
+from app.sdtm.models import (
+    SdtmAcrfAnnotation,
+    SdtmCsdrgRevision,
+    SdtmDefineRevision,
+    SdtmDependencySelection,
+    SdtmDerivationPlanRevision,
+    SdtmInputSelection,
+    SdtmSpecificationRevision,
+    SdtmWorkbench,
+)
 from app.standards.models import (
     StandardAsset,
     StandardProduct,
@@ -63,6 +79,7 @@ __all__ = [
     "IntegrationSubscription",
     "IdempotencyRecord",
     "Job",
+    "ExecutionRun",
     "OutboxEvent",
     "ReconciliationRun",
     "ReferenceRecord",
@@ -71,8 +88,17 @@ __all__ = [
     "ReviewComment",
     "ReviewItem",
     "RawDependencySelection",
+    "RawDataset",
+    "RawDatasetFileBinding",
+    "RawVariable",
     "RawWorkbench",
     "SdtmDependencySelection",
+    "SdtmAcrfAnnotation",
+    "SdtmCsdrgRevision",
+    "SdtmDefineRevision",
+    "SdtmDerivationPlanRevision",
+    "SdtmInputSelection",
+    "SdtmSpecificationRevision",
     "SdtmWorkbench",
     "StandardProduct",
     "StandardAsset",

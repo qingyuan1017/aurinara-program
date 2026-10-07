@@ -46,21 +46,25 @@ class JobService:
         *,
         worker_id: str,
         lease_seconds: int,
+        job_types: tuple[str, ...] | None = None,
         now: datetime | None = None,
     ) -> Job | None:
         """Claim one eligible job using a skip-locked row lock."""
 
         claimed_at = now or utc_now()
+        conditions = [
+            Job.attempt_count < Job.max_attempts,
+            Job.available_at <= claimed_at,
+            or_(
+                Job.status == "queued",
+                and_(Job.status == "running", Job.lease_expires_at < claimed_at),
+            ),
+        ]
+        if job_types is not None:
+            conditions.append(Job.job_type.in_(job_types))
         statement = (
             select(Job)
-            .where(
-                Job.attempt_count < Job.max_attempts,
-                Job.available_at <= claimed_at,
-                or_(
-                    Job.status == "queued",
-                    and_(Job.status == "running", Job.lease_expires_at < claimed_at),
-                ),
-            )
+            .where(*conditions)
             .order_by(Job.available_at, Job.created_at, Job.id)
             .with_for_update(skip_locked=True)
             .limit(1)

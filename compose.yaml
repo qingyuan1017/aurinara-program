@@ -184,8 +184,10 @@ services:
       - /tmp
     security_opt:
       - no-new-privileges:true
+    profiles: ["external-executor"]
 
   python-runner:
+    image: aurinara-python-runner:local
     build:
       context: .
       dockerfile: runners/python/Dockerfile
@@ -202,6 +204,7 @@ services:
     cpus: 2
 
   r-runner:
+    image: aurinara-r-runner:local
     build:
       context: .
       dockerfile: runners/r/Dockerfile

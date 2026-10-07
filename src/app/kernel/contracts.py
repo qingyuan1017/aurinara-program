@@ -26,6 +26,7 @@ class ModuleCapability(StrEnum):
     ENTITY_RESOLUTION = "entity_resolution"
     REVIEW_TARGETS = "review_targets"
     RECONCILIATION_INPUTS = "reconciliation_inputs"
+    RECONCILIATION = "reconciliation"
     CONTEXT_EXPORT = "context_export"
     TRACEABILITY = "traceability"
     PACKAGING = "packaging"
@@ -48,6 +49,7 @@ class ModuleDescriptor(BaseModel):
     relationship_types: tuple[OwnedType, ...] = ()
     artifact_types: tuple[OwnedType, ...] = ()
     source_plan_types: tuple[OwnedType, ...] = ()
+    reconciliation_types: tuple[OwnedType, ...] = ()
     event_types: tuple[EventType, ...] = ()
     authorization_scopes: tuple[str, ...] = ()
     capabilities: frozenset[ModuleCapability] = frozenset()
@@ -59,6 +61,7 @@ class ModuleDescriptor(BaseModel):
         "relationship_types",
         "artifact_types",
         "source_plan_types",
+        "reconciliation_types",
         "event_types",
         "authorization_scopes",
     )

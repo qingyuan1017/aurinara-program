@@ -118,6 +118,9 @@ class DependencyCapability(Protocol):
     def resolve_entity(
         self, session: Session, entity_type: str, entity_id: UUID
     ) -> UUID | None: ...
+    def resolve_reconciliation_input(
+        self, session: Session, entity_type: str, entity_id: UUID, revision: int
+    ) -> UUID | None: ...
     def mark_dependency_refresh(
         self, session: Session, dependency_id: UUID
     ) -> tuple[UUID, ...]: ...
@@ -140,6 +143,7 @@ class RenderedArtifact:
     media_type: str
     manifest: dict[str, object]
     validation_run_id: UUID | None = None
+    reconciliation_run_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -397,6 +401,16 @@ class SqlDependencyCapability:
             return None
         aggregate = session.get(self.aggregate_model, entity_id)
         return cast(UUID, aggregate.study_id) if aggregate is not None else None
+
+    def resolve_reconciliation_input(
+        self, session: Session, entity_type: str, entity_id: UUID, revision: int
+    ) -> UUID | None:
+        if entity_type != self.entity_type:
+            return None
+        aggregate = session.get(self.aggregate_model, entity_id)
+        if aggregate is None or int(aggregate.revision) != revision:
+            return None
+        return cast(UUID, aggregate.study_id)
 
     def mark_dependency_refresh(self, session: Session, dependency_id: UUID) -> tuple[UUID, ...]:
         model = self.selection_model

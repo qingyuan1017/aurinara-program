@@ -3,7 +3,8 @@
 A standalone Clinical Artifact Platform for manually authoring, validating, generating,
 executing, integrating, and packaging clinical study artifacts.
 
-The Phase 1 platform foundation and Phase 2 Documents vertical slice are implemented. The
+The Phase 1 platform foundation, Phase 2 Documents vertical slice, and Phase 3 Raw-to-SDTM
+vertical slice are implemented. The
 runnable system provides:
 
 - FastAPI application composition;
@@ -18,7 +19,8 @@ runnable system provides:
 - callback SSRF validation and deterministic event signing;
 - exact Standards, Terminology, Reference, and Templates registries with module-owned
   dependency selections and refresh/staleness propagation;
-- Raw, SDTM, ADaM, and TLF aggregate shells plus a complete Documents module composed
+- a complete Raw dataset/variable workbench, SDTM/ADaM/TLF aggregate shells, and a complete
+  Documents module composed
   through registered module routers and typed capabilities;
 - sponsor terminology extension history, atomic Reference import/export, Review,
   traceability, validation rules and rule packs, and immutable reconciliation runs;
@@ -39,6 +41,31 @@ formatted build requires an exact compatible Template selection. Module descript
 advertise only capabilities backed by registered handlers; deployment-added modules can
 contribute their own reviewed router and handlers without shared-service module-name
 dispatch.
+
+Phase 3 work currently includes Raw immutable file bindings, non-destructive physical metadata
+initialization, bounded preview, validation, immutable source/schema reconciliation,
+JSON/XLSX artifacts, immutable Raw context export,
+internal typed Dataflow/Analysis IR, exact SDTM Raw input selection, atomic SDTM Specification and
+Derivation Plan revisions, alignment/staleness enforcement, lineage, same-IR bounded plan preview,
+validation, deterministic Python/R/SAS program artifacts, and immutable exact-provenance execution
+runs. The SDTM plan and Python/R compilers support explicit casts, joins, unions, long reshaping,
+controlled-terminology mappings, grouped aggregation, deterministic sequencing, and partitioned
+window operations in addition to the foundational operators. Generated Python and R execute over
+exact supported tabular inputs in disposable constrained Docker
+containers and publish validated immutable CSV and deterministic read-back-verified XPT v5
+outputs; unconfigured SAS execution returns its typed expected result. Persisted typed aCRF
+annotation/link/coverage workflows, immutable annotated PDFs, version-neutral Define metadata,
+and versioned cSDRG authoring are also implemented. Exact XPT/Define and aCRF/Define comparisons
+run as immutable capability-dispatched reconciliations with report artifacts. cSDRG factual
+initialization consumes that exact reconciliation evidence, preserves manually authored
+narratives, validates required sections, and renders template-pinned immutable DOCX/PDF artifacts.
+SDTM Specification exchange supports atomic, idempotent JSON/XLSX import and non-persisting
+JSON/XLSX export. Execution stages exact CSV, flat JSON, or first-sheet XLSX inputs and supports
+empty XPT outputs with preserved declared metadata. The final Phase 3 conformance slice is also
+implemented: the same version-neutral model renders deterministic Define-XML
+2.0 and 2.1, validates offline against checksum-pinned local XSD suites, and publishes immutable
+XML artifacts only after current Define validation and exact XPT/aCRF reconciliation. Assembly of
+the complete cross-module submission ZIP remains owned by the later Packaging phase.
 
 See the [current module usage guides](docs/modules/README.md) for executable workflows,
 [local development](docs/local-development.md) for the intended environment, and

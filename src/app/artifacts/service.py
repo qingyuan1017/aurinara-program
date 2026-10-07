@@ -168,18 +168,24 @@ class ArtifactService:
         )
         return tuple(session.scalars(statement))
 
-    def mark_owner_stale(self, session: Session, *, owner_type: str, owner_id: UUID) -> int:
+    def mark_owner_stale(
+        self,
+        session: Session,
+        *,
+        owner_type: str,
+        owner_id: UUID,
+        artifact_types: tuple[str, ...] | None = None,
+    ) -> int:
         """Mark available artifacts stale without deleting immutable evidence."""
 
-        records = tuple(
-            session.scalars(
-                select(Artifact).where(
-                    Artifact.owner_type == owner_type,
-                    Artifact.owner_id == owner_id,
-                    Artifact.status == "available",
-                )
-            )
+        statement = select(Artifact).where(
+            Artifact.owner_type == owner_type,
+            Artifact.owner_id == owner_id,
+            Artifact.status == "available",
         )
+        if artifact_types is not None:
+            statement = statement.where(Artifact.artifact_type.in_(artifact_types))
+        records = tuple(session.scalars(statement))
         for record in records:
             record.status = "stale"
         return len(records)
@@ -286,6 +292,13 @@ class ArtifactService:
         created_by: str,
         validation_run_id: UUID | None = None,
         reconciliation_run_id: UUID | None = None,
+        execution_run_id: UUID | None = None,
+        input_selection_revision: int | None = None,
+        source_specification_revision: int | None = None,
+        source_specification_fingerprint: str | None = None,
+        source_plan_type: str | None = None,
+        source_plan_revision: int | None = None,
+        compiler_fingerprint: str | None = None,
     ) -> Artifact:
         """Publish metadata for arbitrary verified immutable bytes."""
 
@@ -303,11 +316,18 @@ class ArtifactService:
             input_fingerprint=input_fingerprint,
             dependency_selection_revision=dependency_selection_revision,
             dependency_fingerprint=dependency_fingerprint,
+            input_selection_revision=input_selection_revision,
+            source_specification_revision=source_specification_revision,
+            source_specification_fingerprint=source_specification_fingerprint,
+            source_plan_type=source_plan_type,
+            source_plan_revision=source_plan_revision,
+            compiler_fingerprint=compiler_fingerprint,
             manifest=manifest,
             generator_name=generator_name,
             generator_version=generator_version,
             validation_run_id=validation_run_id,
             reconciliation_run_id=reconciliation_run_id,
+            execution_run_id=execution_run_id,
             created_by=created_by,
         )
         session.add(artifact)

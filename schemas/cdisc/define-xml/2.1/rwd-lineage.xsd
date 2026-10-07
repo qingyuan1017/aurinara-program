@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:rwdl="http://www.cdisc.org/ns/rwd-lineage/v1"
+           targetNamespace="http://www.cdisc.org/ns/rwd-lineage/v1"
+           elementFormDefault="qualified">
+
+  <xs:element name="lineage">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="rwdl:ref" minOccurs="1" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="ref">
+    <xs:complexType>
+      <xs:simpleContent>
+        <xs:extension base="xs:string">
+          <xs:attribute name="leafID" type="xs:string" use="required"/>
+        </xs:extension>
+      </xs:simpleContent>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>
+

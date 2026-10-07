@@ -33,16 +33,17 @@ $headers = @{ Authorization = "Bearer $($tokenResponse.access_token)" }
 | Reconciliation | Immutable queued comparisons and JSON reports | [Reconciliation](reconciliation.md) |
 | Validation | Rules, study rule packs, document and artifact validation | [Validation](validation.md) |
 | Integration | Study integrations, subscriptions, identifiers, and delivery evidence | [Integration](integration.md) |
-| Raw | Phase 1 aggregate, dependency selection, and dependency manifest | [Raw](raw.md) |
-| SDTM | Phase 1 aggregate, dependency selection, and dependency manifest | [SDTM](sdtm.md) |
+| Raw | Phase 3 datasets, variables, preview, validation, and artifacts | [Raw](raw.md) |
+| SDTM | Phase 3 Raw inputs, authoring, execution, XPT v5, aCRF, Define, and cSDRG | [SDTM](sdtm.md) |
 | ADaM | Phase 1 aggregate, dependency selection, and dependency manifest | [ADaM](adam.md) |
 | TLF | Phase 1 aggregate, dependency selection, and dependency manifest | [TLF](tlf.md) |
 | Packaging | Registered placeholder; no submission-package API yet | [Packaging](packaging.md) |
 
 The `kernel`, `artifacts`, `execution`, `studies`, and `traceability` packages are shared
 platform services rather than registered clinical modules. Their usable public surface is
-covered in [shared platform usage](platform.md). The `transformation` package is an internal
-future compilation boundary and has no public API in the current release.
+covered in [shared platform usage](platform.md). The `transformation` package now provides
+internal typed Dataflow/Analysis IR, canonicalization, lineage, and deterministic compiler
+interfaces; by design it has no public API or persisted universal plan.
 
 ## Important product boundary
 

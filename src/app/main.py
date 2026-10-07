@@ -20,6 +20,7 @@ from app.common.problems import install_exception_handlers
 from app.composition import build_module_registry
 from app.config import Settings, get_settings
 from app.database import create_database_engine, create_session_factory
+from app.execution.routes import router as execution_router
 from app.integration.routes import router as integration_router
 from app.kernel.registry import ModuleRegistry
 from app.reconciliation.routes import router as reconciliation_router
@@ -66,6 +67,7 @@ def create_app(
     application.include_router(studies_router, prefix=resolved_settings.app_api_prefix)
     application.include_router(artifacts_router, prefix=resolved_settings.app_api_prefix)
     application.include_router(artifact_builds_router, prefix=resolved_settings.app_api_prefix)
+    application.include_router(execution_router, prefix=resolved_settings.app_api_prefix)
     for module_router in registry.routers():
         application.include_router(
             cast(APIRouter, module_router), prefix=resolved_settings.app_api_prefix

@@ -117,7 +117,9 @@ def create_reconciliation(
                 registry.require_handler(owner, ModuleCapability.RECONCILIATION_INPUTS),
             )
             if (
-                handler.resolve_entity(session, item.entity_type, item.entity_id)
+                handler.resolve_reconciliation_input(
+                    session, item.entity_type, item.entity_id, item.revision
+                )
                 != command.study_id
             ):
                 raise ProblemException(
@@ -126,22 +128,15 @@ def create_reconciliation(
                     title="Reconciliation input is invalid",
                     detail="The entity does not exist in the selected study.",
                 )
-            entity = handler.require(session, item.entity_id, command.study_id)
-            if int(entity.revision) != item.revision:
-                raise ProblemException(
-                    status_code=409,
-                    code="stale_reconciliation_input",
-                    title="Reconciliation input is stale",
-                    detail="The selected entity revision is no longer current.",
-                )
-            selection = handler.get_selection(session, item.entity_id, command.study_id)
-            if selection.state != "current":
-                raise ProblemException(
-                    status_code=409,
-                    code="dependency_refresh_required",
-                    title="Dependency refresh is required",
-                    detail="Refresh or explicitly reaffirm the entity dependencies first.",
-                )
+    owner = registry.owner_of("reconciliation_types", command.reconciliation_type)
+    if owner is None:
+        raise ProblemException(
+            status_code=422,
+            code="reconciliation_type_unsupported",
+            title="Reconciliation type is unsupported",
+            detail="No enabled module owns the requested reconciliation type.",
+        )
+    registry.require_handler(owner, ModuleCapability.RECONCILIATION)
     if not idempotency_key:
         raise ProblemException(
             status_code=400,

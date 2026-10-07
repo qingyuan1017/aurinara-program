@@ -65,6 +65,14 @@ class Settings(BaseSettings):
 
     executor_adapter: str = "docker"
     execution_network_disabled: bool = True
+    execution_cpu_limit: float = 2.0
+    execution_memory_mb: int = 4096
+    execution_timeout_seconds: int = 1800
+    execution_output_limit_bytes: int = 1_073_741_824
+    execution_log_limit_bytes: int = 1_048_576
+    python_runner_image: str = "aurinara-python-runner:local"
+    r_runner_image: str = "aurinara-r-runner:local"
+    sas_runner_adapter: str | None = None
 
     @model_validator(mode="after")
     def reject_unsafe_production_configuration(self) -> Self:

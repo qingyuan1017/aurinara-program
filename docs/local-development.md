@@ -9,7 +9,7 @@ stack provides:
 - MinIO and a bootstrap process for the development bucket;
 - FastAPI application;
 - durable job worker for builds, validation, reconciliation, and packaging;
-- execution dispatcher;
+- host-run execution dispatcher for local Docker runners;
 - signed-event integration dispatcher and bounded local test receiver;
 - isolated Python runner image;
 - isolated R runner image.
@@ -18,8 +18,9 @@ SAS is optional and external. Without a configured adapter, SAS compilation work
 
 The foundation runs the API, migrations and catalog seed, build and integration workers,
 PostgreSQL, MinIO, and the development-only webhook receiver through Compose. Python and
-R runner images are isolated Compose profiles; clinical compilation and execution handlers
-are introduced in later delivery phases.
+R runner images are isolated Compose profiles. The execution dispatcher is run on the host
+for local development so it can invoke Docker without mounting the privileged Docker socket
+inside an application container.
 
 ## 2. Prerequisites
 
@@ -108,9 +109,10 @@ EXECUTION_CPU_LIMIT=2
 EXECUTION_MEMORY_MB=4096
 EXECUTION_TIMEOUT_SECONDS=1800
 EXECUTION_OUTPUT_LIMIT_BYTES=1073741824
+EXECUTION_LOG_LIMIT_BYTES=1048576
 
-PYTHON_RUNNER_IMAGE=clinical-artifact-python-runner:dev
-R_RUNNER_IMAGE=clinical-artifact-r-runner:dev
+PYTHON_RUNNER_IMAGE=aurinara-python-runner:local
+R_RUNNER_IMAGE=aurinara-r-runner:local
 SAS_RUNNER_ADAPTER=
 ```
 
@@ -295,6 +297,10 @@ Compiler fixtures include canonical, revision-aligned SDTM and ADaM Specificatio
 
 Pinned standards assets live under `schemas/`, controlled terminology releases under `terminology/`, and presentation assets under `templates/`. Each asset family has reviewed provenance, version, checksum, license or distribution metadata, and compatibility records loaded by its registry. Tests must run without downloading schemas, terminology, or templates. Define-XML tests cover both 2.0 and 2.1. XPT tests write, read back, and compare the supported metadata and data values.
 
+The Define-XML suites are pinned under `schemas/cdisc/define-xml/`; their exact upstream commits,
+licenses, and per-file SHA-256 values are recorded in that directory's `PROVENANCE.md`. Run the
+offline renderer and XSD checks with `pytest tests/conformance/test_sdtm_define_xml.py`.
+
 ### Snapshotting and registering CDISC Library
 
 CDISC Library acquisition is an explicit offline administration step, never an API or worker behavior. Set the API key only for the snapshot process, then remove it from the shell:
@@ -357,7 +363,8 @@ The dispatcher stages each run in a newly created temporary workspace with separ
 Build runner images after changing compiler or runtime dependencies:
 
 ```powershell
-docker compose build python-runner r-runner
+docker compose --profile runners build python-runner r-runner
+uv run python -m workers.execution_dispatcher
 ```
 
 Execution tests should include timeout, cancellation, memory pressure, unexpected files, oversized output, nonzero exit, malformed XPT, and attempted network access.
@@ -374,7 +381,7 @@ Common checks:
 docker compose ps
 docker compose logs api
 docker compose logs build-worker
-docker compose logs execution-dispatcher
+# The host-run dispatcher logs in its own terminal.
 docker compose logs integration-dispatcher
 ```
 

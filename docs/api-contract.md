@@ -473,6 +473,7 @@ DELETE /api/v1/raw-variables/{variable_id}
 
 POST /api/v1/raw-datasets/{dataset_id}/preview
 POST /api/v1/raw/{raw_id}/validate
+POST /api/v1/raw/{raw_id}/reconcile
 POST /api/v1/raw/{raw_id}/artifacts
 ```
 
@@ -480,7 +481,14 @@ A raw dataset binds a manually maintained dataset record to an exact, study-owne
 
 Variable metadata includes the source name, label, physical type, length or precision where applicable, ordinal position, role, controlled terminology reference, and user-authored description. `variables/initialize` inspects the selected file and fills only missing factual physical metadata. It preserves manual edits and does not infer clinical meaning, mappings, derivations, annotations, or review decisions. Raw dependencies may select applicable raw-layout or metadata standards, terminology for explicitly bound values, study Reference revisions for source systems, vendors, sites, and units, and templates for dictionary or import/export workbooks; none is inferred from uploaded rows.
 
-Preview accepts a typed column selection and bounded row window, returns `200 OK`, and does not persist rows or create an artifact. Validation checks file availability and checksum, supported format, physical-schema agreement, unique dataset and variable names, metadata completeness, and trace-link integrity. Raw artifact requests follow the common artifact-build contract.
+Preview accepts a typed column selection and bounded row window, returns `200 OK`, and does not
+persist rows or create an artifact. Validation checks file availability and checksum, supported
+format, physical-schema agreement, unique dataset and variable names, metadata completeness, and
+trace-link integrity. `reconcile` requires the expected current Raw revision and an
+`Idempotency-Key`; it snapshots the exact workbench revision and every bound source artifact
+ID/checksum, then durably compares names, physical types, ordinals, lengths, and precision. Its
+immutable report contains physical schema facts and issue records but no source rows or internal
+object-store locations. Raw artifact requests follow the common artifact-build contract.
 
 ## 8. Documents routes
 
@@ -584,7 +592,7 @@ GET  /api/v1/sdtms/{sdtm_id}/specification/export
 
 The versioned SDTM Specification is one aggregate contract containing domains, variables, value-level metadata where applicable, terminology bindings, domain keys and sort order, sequencing metadata, expected output names, and typed trace targets. Natural keys are unique within the workbench or domain. A terminology binding owns only SDTM usage context—domain/variable, optional value-level condition, and submission behavior—and references a codelist or term resolvable within the exact dependency selection; it never copies shared terminology. The Specification owns target metadata but no executable transformation logic.
 
-`PUT specification` and import require `If-Match`, validate the complete contract, and commit one revision atomically. JSON/XLSX import validates every sheet, natural-key uniqueness, cross-references, terminology, metadata constraints, and trace targets before writing anything; it never imports backend code or replaces the Derivation Plan. Export returns non-persisting JSON or XLSX. Immutable metadata deliverables use the artifact endpoint.
+`PUT specification` and import require `If-Match`, validate the complete contract, and commit one revision atomically. Import also requires `Idempotency-Key`; replaying the same key and exact bytes returns the originally committed revision, while different bytes conflict. JSON/XLSX import validates every sheet, natural-key uniqueness, cross-references, terminology, metadata constraints, and trace targets before writing anything; it never imports backend code or replaces the Derivation Plan. XLSX uses versioned `Metadata`, `Domains`, `Variables`, and `ValueLevel` sheets and serializes keys, sort order, typed conditions, and terminology bindings explicitly. Export selects non-persisting JSON or XLSX with `?format=json|xlsx`. Immutable metadata deliverables use the artifact endpoint.
 
 ### 9.3 Derivation Plan and operations
 
@@ -605,6 +613,12 @@ The Derivation Plan is an SDTM-owned typed DAG aligned to one SDTM Specification
 
 Workbench validation covers dependency compatibility with the exact Raw context; Specification completeness; domain structure, keys, variables, value-level metadata, terminology, and sequencing; Derivation Plan shape and output coverage; traceability; XPT constraints; and declared output reconciliation. Preview selects target domain codes and bounded rows, then uses the same lowering path as compilation. Preview results are transient and cannot serve as submission artifacts.
 
+The artifact endpoint can publish the canonical XLSX `sdtm_specification`, JSON
+`sdtm_derivation_report`, `sdtm_lineage_report`, and `sdtm_validation_report` alongside canonical
+plan JSON and generated programs. Every Python/R execution attempt publishes a bounded immutable
+`sdtm_execution_log` JSON artifact linked to the execution run; successful declared datasets are
+separate CSV/XPT output artifacts.
+
 Compile requests select `python`, `r`, or `sas`, declared target domain codes, expected Specification/input/Derivation Plan fingerprints, and output options. Execute requests select compiled program artifact IDs and the exact immutable source-file artifacts from the input selection. Every program, execution, and output records the input selection, Specification revision, Derivation Plan revision, normalized IR/operator/compiler versions, runner image, and declared output schema.
 
 ### 9.4 aCRF
@@ -623,6 +637,14 @@ POST   /api/v1/sdtms/{sdtm_id}/acrf/artifacts
 
 The links operation atomically replaces or amends typed links to SDTM variables, Raw variables, and stable nodes or assertions in an exact Derivation Plan revision. Reconciliation creates an immutable reconciliation run.
 
+Annotation coordinates use the `normalized_top_left` system with `x`, `y`, `width`, and
+`height` values bounded by the page. Creation identifies one immutable source PDF artifact and
+requires the SDTM workbench `ETag`. Annotation edits, link replacement/amendment, and soft
+deletion require the annotation `ETag`. SDTM-variable links include an exact Specification
+revision and domain/variable natural key; plan-node links include an exact plan revision and node
+ID; Raw-variable links are UUIDs resolved through the Raw module boundary and must belong to the
+SDTM workbench's selected Raw context.
+
 ### 9.5 Define-XML
 
 ```text
@@ -630,11 +652,25 @@ GET  /api/v1/sdtms/{sdtm_id}/define
 PUT  /api/v1/sdtms/{sdtm_id}/define
 POST /api/v1/sdtms/{sdtm_id}/define/initialize
 POST /api/v1/sdtms/{sdtm_id}/define/validate
+POST /api/v1/sdtms/{sdtm_id}/define/reconcile
 GET  /api/v1/sdtms/{sdtm_id}/define/render
 POST /api/v1/sdtms/{sdtm_id}/define/artifacts
 ```
 
-`initialize` accepts an expected revision and fills absent structures from the exact SDTM Specification and output artifacts without replacing user-edited values. `render` requires a `version` query parameter with value `2.0` or `2.1`; it is a non-persisting preview and returns XML only after successful XSD rendering. `artifacts` creates immutable XML artifacts.
+`initialize` accepts an expected revision and fills absent structures from the exact SDTM
+Specification and output artifacts without replacing user-edited values. `validate` renders the
+same version-neutral model as both 2.0 and 2.1 and validates it offline against the repository's
+pinned XSD suites; its immutable input manifest records both schema-suite fingerprints. `render`
+requires a `version` query parameter with value `2.0` or `2.1`; it is a non-persisting preview and
+requires a current zero-error Define validation. `artifacts` requires `Idempotency-Key`, the
+canonical build-input fingerprint, current zero-error validation, and successful exact
+Define/XPT/aCRF reconciliation. It creates immutable XML artifacts carrying the validation run,
+reconciliation run, exact XPT checksums, dependency selection, and schema fingerprint.
+
+`reconcile` requires an exact Define revision/fingerprint and `Idempotency-Key`. It snapshots the
+Define revision, selected XPT IDs/checksums, and active aCRF annotation revisions, then returns
+`202 Accepted` with an immutable Reconciliation run. Registered SDTM rules compare XPT metadata,
+Define leaves, and aCRF/Define variable references and publish a report artifact.
 
 ### 9.6 cSDRG
 
@@ -646,7 +682,14 @@ POST /api/v1/sdtms/{sdtm_id}/csdrg/validate
 POST /api/v1/sdtms/{sdtm_id}/csdrg/artifacts
 ```
 
-Initialization creates headings and factual tables for `study_data_overview`, `standards_and_versions`, `trial_design`, `domain_notes`, `conformance_issues`, `sponsor_defined_domains`, `controlled_terminology`, `data_dependencies`, and `reviewer_guidance`. It leaves narrative fields for manual authoring.
+Initialization binds the current exact Specification, Define revision, successful zero-error
+reconciliation run, and XPT artifact IDs/checksums. It creates headings and factual tables for
+`study_data_overview`, `standards_and_versions`, `trial_design`, `domain_notes`,
+`conformance_issues`, `sponsor_defined_domains`, `controlled_terminology`, `data_dependencies`,
+and `reviewer_guidance`. It leaves narrative fields for manual authoring and preserves authored
+narratives during later factual refreshes. Validation treats missing or empty required narratives
+as errors. Artifact creation requires exact compatible Template selections and records both the
+validation run and reconciliation run on immutable DOCX/PDF artifacts.
 
 ## 10. ADaM routes
 

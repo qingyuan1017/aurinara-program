@@ -178,6 +178,26 @@ def seed(session: Session, storage: ObjectStorage) -> None:
             )
         )
 
+    csdrg_template_id = UUID("30000000-0000-0000-0000-000000000004")
+    if session.get(TemplateVersion, csdrg_template_id) is None:
+        csdrg_template = json.loads(document_template_path.read_text(encoding="utf-8"))
+        session.add(
+            TemplateVersion(
+                id=csdrg_template_id,
+                family_id=family_id,
+                version="2.1.0",
+                lifecycle="active",
+                checksum=_checksum(document_template_path),
+                asset_path=str(document_template_path.relative_to(ROOT)).replace("\\", "/"),
+                applicable_modules=["sdtm"],
+                artifact_types=["sdtm_csdrg_docx", "sdtm_csdrg_pdf"],
+                content_schema_versions=["1.0.0"],
+                renderer_versions=[csdrg_template["renderer"]],
+                blank_structure={"sections": csdrg_template["blank_structure"]},
+                provenance={"source": "repository", "license": "project"},
+            )
+        )
+
     validation_rule_id = UUID("40000000-0000-0000-0000-000000000001")
     rule_pack_id = UUID("40000000-0000-0000-0000-000000000002")
     if session.get(ValidationRule, validation_rule_id) is None:

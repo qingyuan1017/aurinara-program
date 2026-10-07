@@ -7,6 +7,7 @@ from fastapi import Request
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.artifacts.storage import ObjectStorage
+from app.config import Settings
 from app.kernel.registry import ModuleRegistry
 
 
@@ -28,3 +29,9 @@ def get_object_storage(request: Request) -> ObjectStorage:
     """Resolve the configured storage adapter."""
 
     return cast(ObjectStorage, request.app.state.object_storage)
+
+
+def get_application_settings(request: Request) -> Settings:
+    """Resolve the immutable application settings used at composition time."""
+
+    return cast(Settings, request.app.state.settings)

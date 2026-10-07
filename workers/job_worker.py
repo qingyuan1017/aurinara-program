@@ -26,9 +26,11 @@ from app.composition import build_module_registry
 from app.config import Settings, get_settings
 from app.database import create_database_engine, create_session_factory
 from app.execution.jobs import Job, JobService
+from app.kernel.contracts import ModuleCapability
 from app.kernel.dependencies import RenderedArtifact
 from app.kernel.registry import ModuleRegistry
 from app.reconciliation.models import ReconciliationRun
+from app.reconciliation.service import ReconciliationCapability
 from app.validation.models import ValidationRun
 
 logger = logging.getLogger(__name__)
@@ -118,6 +120,10 @@ def _handle_artifact_build(
             build.artifact_types, payloads, rendered, stored, strict=True
         ):
             selection = cast(dict[str, object], payload["dependency_selection"])
+            input_selection = cast(dict[str, object] | None, payload.get("input_selection"))
+            specification = cast(dict[str, object] | None, payload.get("specification"))
+            source_plan = cast(dict[str, object] | None, payload.get("source_plan"))
+            compiler = cast(dict[str, object] | None, product.manifest.get("compiler"))
             artifact = artifact_service.record_artifact(
                 session,
                 stored=stored_object,
@@ -136,6 +142,23 @@ def _handle_artifact_build(
                 generator_version="1.0.0",
                 created_by=build.created_by,
                 validation_run_id=product.validation_run_id,
+                reconciliation_run_id=product.reconciliation_run_id,
+                input_selection_revision=(
+                    cast(int, input_selection["revision"]) if input_selection is not None else None
+                ),
+                source_specification_revision=(
+                    cast(int, specification["revision"]) if specification is not None else None
+                ),
+                source_specification_fingerprint=(
+                    str(specification["fingerprint"]) if specification is not None else None
+                ),
+                source_plan_type=(str(source_plan["type"]) if source_plan is not None else None),
+                source_plan_revision=(
+                    cast(int, source_plan["revision"]) if source_plan is not None else None
+                ),
+                compiler_fingerprint=(
+                    str(compiler["fingerprint"]) if compiler is not None else None
+                ),
             )
             if product.validation_run_id is not None and artifact_type.startswith(
                 "document_validation_report_"
@@ -154,9 +177,12 @@ def _handle_artifact_build(
 
 
 def _handle_reconciliation(
-    factory: sessionmaker[Session], storage: ObjectStorage, job_id: UUID
+    factory: sessionmaker[Session],
+    registry: ModuleRegistry,
+    storage: ObjectStorage,
+    job_id: UUID,
 ) -> None:
-    """Complete the Phase 1 exact-input comparison without mutating its snapshot."""
+    """Resolve exact inputs, compare outside a transaction, and publish immutable evidence."""
 
     with factory.begin() as session:
         job = session.get(Job, job_id)
@@ -173,21 +199,42 @@ def _handle_reconciliation(
             return
         run.status = "running"
         run.started_at = run.started_at or utc_now()
-        report: dict[str, object] = {
-            "schema_version": "1.0.0",
-            "reconciliation_run_id": str(run.id),
-            "study_id": str(run.study_id),
-            "reconciliation_type": run.reconciliation_type,
-            "reconciliation_version": run.reconciliation_version,
-            "input_fingerprint": run.input_fingerprint,
-            "inputs": run.inputs,
-            "issues": [],
-            "counts": {"error": 0, "warning": 0, "info": 0},
-        }
+        owner = registry.owner_of("reconciliation_types", run.reconciliation_type)
+        if owner is None:
+            run.status = "failed"
+            run.failure = {"code": "reconciliation_type_unsupported"}
+            run.completed_at = utc_now()
+            JobService().fail(job, run.failure)
+            return
+        handler = cast(
+            ReconciliationCapability,
+            registry.require_handler(owner, ModuleCapability.RECONCILIATION),
+        )
+        resolved = handler.resolve_reconciliation(
+            session, run.study_id, run.reconciliation_type, run.inputs, run.options
+        )
+        resolved_fingerprint = fingerprint(resolved)
         run_id = run.id
         study_id = run.study_id
         created_by = run.created_by
         input_fingerprint = run.input_fingerprint
+
+    evaluation = handler.evaluate_reconciliation(resolved, storage)
+    counts = {
+        severity: sum(1 for issue in evaluation.issues if issue.get("severity") == severity)
+        for severity in ("error", "warning", "info")
+    }
+    report: dict[str, object] = {
+        "schema_version": "1.0.0",
+        "reconciliation_run_id": str(run_id),
+        "study_id": str(study_id),
+        "reconciliation_type": resolved["reconciliation_type"],
+        "input_fingerprint": input_fingerprint,
+        "resolved_input_fingerprint": resolved_fingerprint,
+        "issues": list(evaluation.issues),
+        "counts": counts,
+        "evidence": evaluation.evidence,
+    }
 
     stored = store_json_object(storage, report)
     with factory.begin() as session:
@@ -199,6 +246,15 @@ def _handle_reconciliation(
             run.status = "cancelled"
             run.completed_at = utc_now()
             JobService().complete(job)
+            return
+        current = handler.resolve_reconciliation(
+            session, run.study_id, run.reconciliation_type, run.inputs, run.options
+        )
+        if fingerprint(current) != resolved_fingerprint:
+            run.status = "failed"
+            run.failure = {"code": "stale_reconciliation_inputs"}
+            run.completed_at = utc_now()
+            JobService().fail(job, run.failure)
             return
         artifact = ArtifactService().record_json_artifact(
             session,
@@ -217,10 +273,10 @@ def _handle_reconciliation(
             created_by=created_by,
             reconciliation_run_id=run.id,
         )
-        run.issues = []
-        run.error_count = 0
-        run.warning_count = 0
-        run.info_count = 0
+        run.issues = list(evaluation.issues)
+        run.error_count = counts["error"]
+        run.warning_count = counts["warning"]
+        run.info_count = counts["info"]
         run.report_artifact_ids = [str(artifact.id)]
         run.status = "succeeded"
         run.completed_at = utc_now()
@@ -342,7 +398,7 @@ def _process_job(
         if job.job_type == "artifact_build":
             _handle_artifact_build(factory, registry, storage, job.id)
         elif job.job_type == "reconciliation":
-            _handle_reconciliation(factory, storage, job.id)
+            _handle_reconciliation(factory, registry, storage, job.id)
         elif job.job_type == "validation":
             _handle_validation(factory, storage, job.id)
         else:
@@ -381,6 +437,7 @@ def main() -> None:
                 session,
                 worker_id="build-worker",
                 lease_seconds=settings.job_lease_seconds,
+                job_types=("artifact_build", "reconciliation", "validation"),
             )
         if job is None:
             time.sleep(1)
