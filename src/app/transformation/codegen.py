@@ -9,6 +9,220 @@ class UnsupportedOperator(ValueError):
     """Raised when a backend cannot preserve one operator's semantics."""
 
 
+_PY_FUNCTION_PREAMBLE = r"""
+import math as _math
+from datetime import date as _date, datetime as _dt, timedelta as _timedelta
+_ASCII_UP = {c: c - 32 for c in range(ord("a"), ord("z") + 1)}
+_ASCII_LO = {c: c + 32 for c in range(ord("A"), ord("Z") + 1)}
+def _txt(v):
+    if isinstance(v, bool): return "1" if v else "0"
+    return v if isinstance(v, str) else str(v)
+def _num(v):
+    if isinstance(v, bool): return float(v)
+    return float(str(v).strip())
+def _int(v):
+    if isinstance(v, bool): return int(v)
+    if isinstance(v, float): return int(v)
+    return int(str(v).strip())
+def _parse_date(v):
+    if v is None: return None
+    t = _txt(v).strip()
+    if len(t) != 10 or t[4] != "-" or t[7] != "-": return None
+    try: return _date.fromisoformat(t)
+    except ValueError: return None
+def _parse_dt(v):
+    if v is None: return None
+    t = _txt(v).strip()
+    if t[-1:] in ("Z", "z"): t = t[:-1]
+    t = t.replace("T", " ")
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+        try: return _dt.strptime(t, fmt)
+        except ValueError: continue
+    return None
+def _req_date(v):
+    if v is None: return None
+    if isinstance(v, _dt): return v.date()
+    if isinstance(v, _date): return v
+    return _parse_date(v)
+def _req_dt(v):
+    if v is None: return None
+    if isinstance(v, _dt): return v
+    return _parse_dt(v)
+def _half_away(value, digits):
+    factor = 10.0 ** digits
+    scaled = value * factor
+    base = _math.floor(scaled)
+    rem = scaled - base
+    if rem > 0.5: r = base + 1
+    elif rem < 0.5: r = base
+    else: r = base + 1 if scaled >= 0 else base
+    return r / factor
+def _skey(v):
+    if isinstance(v, bool): return (0, float(v))
+    if isinstance(v, (int, float)): return (0, float(v))
+    return (1, _txt(v))
+def fn_concat(a): return "".join("" if v is None else _txt(v) for v in a)
+def fn_substring(a):
+    s, start, length = a
+    if s is None: return None
+    t = _txt(s); b = max(_int(start) - 1, 0); n = _int(length)
+    return "" if n <= 0 else t[b:b + n]
+def fn_upper(a):
+    (s,) = a
+    return None if s is None else _txt(s).translate(_ASCII_UP)
+def fn_lower(a):
+    (s,) = a
+    return None if s is None else _txt(s).translate(_ASCII_LO)
+def fn_trim(a):
+    (s,) = a
+    return None if s is None else _txt(s).strip()
+def fn_length(a):
+    (s,) = a
+    return None if s is None else len(_txt(s))
+def fn_contains(a):
+    s, n = a
+    return None if s is None or n is None else (_txt(n) in _txt(s))
+def fn_startswith(a):
+    s, p = a
+    return None if s is None or p is None else _txt(s).startswith(_txt(p))
+def fn_endswith(a):
+    s, p = a
+    return None if s is None or p is None else _txt(s).endswith(_txt(p))
+def fn_replace(a):
+    s, f, w = a
+    if s is None: return None
+    ft = _txt(f)
+    if ft == "": raise ValueError("replace_empty_find")
+    return _txt(s).replace(ft, _txt(w))
+def fn_index_of(a):
+    s, n = a
+    return None if s is None or n is None else _txt(s).find(_txt(n)) + 1
+def fn_scan_token(a):
+    s, idx, delim = a
+    if s is None: return None
+    d = _txt(delim)
+    if d == "": raise ValueError("scan_token_empty_delimiter")
+    toks = [tok for tok in _txt(s).split(d) if tok != ""]
+    p = _int(idx)
+    return None if p < 1 or p > len(toks) else toks[p - 1]
+def fn_pad_left(a):
+    s, w, f = a
+    if s is None: return None
+    fc = _txt(f)
+    if len(fc) != 1: raise ValueError("pad_fill_not_single")
+    return _txt(s).rjust(_int(w), fc)
+def fn_pad_right(a):
+    s, w, f = a
+    if s is None: return None
+    fc = _txt(f)
+    if len(fc) != 1: raise ValueError("pad_fill_not_single")
+    return _txt(s).ljust(_int(w), fc)
+def fn_coalesce(a):
+    for v in a:
+        if v is not None: return v
+    return None
+def fn_nullif(a):
+    x, y = a
+    if x is None: return None
+    return None if x == y else x
+def fn_is_in(value, candidates):
+    if value is None: return False
+    return value in candidates
+def fn_n_missing(a): return sum(1 for v in a if v is None)
+def fn_n_present(a): return sum(1 for v in a if v is not None)
+def fn_round(a):
+    v, d = a
+    return None if v is None or d is None else _half_away(_num(v), _int(d))
+def fn_floor(a):
+    (v,) = a
+    return None if v is None else _math.floor(_num(v))
+def fn_ceil(a):
+    (v,) = a
+    return None if v is None else _math.ceil(_num(v))
+def fn_abs(a):
+    (v,) = a
+    if v is None: return None
+    if isinstance(v, bool): return abs(int(v))
+    if isinstance(v, int): return abs(v)
+    return abs(_num(v))
+def fn_modulo(a):
+    x, y = a
+    if x is None or y is None: return None
+    xi = _int(x); yi = _int(y)
+    if yi == 0: return None
+    return int(xi - yi * _math.trunc(xi / yi))
+def fn_min_of(a):
+    p = [v for v in a if v is not None]
+    return None if not p else min(p, key=_skey)
+def fn_max_of(a):
+    p = [v for v in a if v is not None]
+    return None if not p else max(p, key=_skey)
+def fn_truncate(a):
+    (v,) = a
+    return None if v is None else _math.trunc(_num(v))
+def fn_safe_divide(a):
+    x, y = a
+    if x is None or y is None: return None
+    d = _num(y)
+    return None if d == 0 else _num(x) / d
+def fn_parse_date(a):
+    (v,) = a
+    return _parse_date(v)
+def fn_year(a):
+    (v,) = a
+    d = _req_date(v)
+    return None if d is None else d.year
+def fn_month(a):
+    (v,) = a
+    d = _req_date(v)
+    return None if d is None else d.month
+def fn_day(a):
+    (v,) = a
+    d = _req_date(v)
+    return None if d is None else d.day
+def fn_date_diff_days(a):
+    e, s = a
+    ed = _req_date(e); sd = _req_date(s)
+    return None if ed is None or sd is None else (ed - sd).days
+def fn_parse_datetime(a):
+    (v,) = a
+    return _parse_dt(v)
+def fn_hour(a):
+    (v,) = a
+    d = _req_dt(v)
+    return None if d is None else d.hour
+def fn_minute(a):
+    (v,) = a
+    d = _req_dt(v)
+    return None if d is None else d.minute
+def fn_second(a):
+    (v,) = a
+    d = _req_dt(v)
+    return None if d is None else d.second
+def fn_study_day(a):
+    e, r = a
+    ed = _req_date(e); rd = _req_date(r)
+    if ed is None or rd is None: return None
+    delta = (ed - rd).days
+    return delta + 1 if delta >= 0 else delta
+def fn_date_add_days(a):
+    b, n = a
+    bd = _req_date(b)
+    if bd is None or n is None: return None
+    return bd + _timedelta(days=_int(n))
+def fn_date_diff_months(a):
+    e, s = a
+    ed = _req_date(e); sd = _req_date(s)
+    if ed is None or sd is None: return None
+    m = (ed.year - sd.year) * 12 + (ed.month - sd.month)
+    if m >= 0:
+        if ed.day < sd.day: m -= 1
+    else:
+        if ed.day > sd.day: m += 1
+    return m
+""".strip("\n")
+
+
 def ordered_nodes(value: DataflowIR) -> tuple[DataflowNode, ...]:
     nodes = {node.id: node for node in value.nodes}
     degree = dict.fromkeys(nodes, 0)
@@ -58,6 +272,15 @@ def _py_expr(expression: Expression, row: str = "row") -> str:
                 f"else {result})"
             )
         return result
+    if expression.kind == "list_literal":
+        return "(" + ", ".join(repr(value) for value in expression.values) + ",)"
+    if expression.kind == "function":
+        if expression.function == "is_in":
+            value = _py_expr(expression.arguments[0], row)
+            candidates = _py_expr(expression.arguments[1], row)
+            return f"fn_is_in({value}, {candidates})"
+        arguments = ", ".join(_py_expr(argument, row) for argument in expression.arguments)
+        return f"fn_{expression.function}([{arguments}])"
     if expression.kind == "unary":
         operand = _py_expr(expression.operand, row)
         return {
@@ -101,6 +324,7 @@ def python_source(value: DataflowIR, digest: str) -> str:
         "def guard(thunk):",
         "    try: return thunk()",
         "    except (ZeroDivisionError, TypeError, ValueError): return None",
+        _PY_FUNCTION_PREAMBLE,
         "def read(name):",
         '    with (inputs / f"{name}.csv").open(encoding="utf-8-sig", newline="") as stream:',
         "        return list(csv.DictReader(stream))",
@@ -340,6 +564,16 @@ def _rq(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def _r_literal_scalar(value: str | int | float | bool | None) -> str:
+    if value is None:
+        return "NA"
+    if isinstance(value, bool):
+        return "TRUE" if value else "FALSE"
+    if isinstance(value, str):
+        return _rq(value)
+    return repr(value)
+
+
 def _r_expr(expression: Expression, frame: str = "frame") -> str:
     if expression.kind == "literal":
         if expression.value is None:
@@ -358,6 +592,16 @@ def _r_expr(expression: Expression, frame: str = "frame") -> str:
             then = f"aur_norm({_r_expr(branch.then, frame)})"
             result = f"ifelse(({when}) & !is.na({when}), {then}, {result})"
         return result
+    if expression.kind == "list_literal":
+        items = ", ".join(_r_literal_scalar(value) for value in expression.values)
+        return f"list({items})"
+    if expression.kind == "function":
+        if expression.function == "is_in":
+            value = _r_expr(expression.arguments[0], frame)
+            candidates = _r_expr(expression.arguments[1], frame)
+            return f"aur_is_in({value}, {candidates})"
+        arguments = ", ".join(_r_expr(argument, frame) for argument in expression.arguments)
+        return f"aur_{expression.function}({arguments})"
     if expression.kind == "unary":
         operand = _r_expr(expression.operand, frame)
         return {
@@ -386,6 +630,264 @@ def _r_expr(expression: Expression, frame: str = "frame") -> str:
     return f"({left} {symbols[expression.operator]} {right})"
 
 
+_R_FUNCTION_PREAMBLE = r"""
+aur_norm <- function(x) { if (is.numeric(x)) x[!is.finite(x)] <- NA; x }
+.aur_na <- function(x) is.na(x) | (is.character(x) & is.na(suppressWarnings(x)))
+.aur_txt <- function(x) {
+  if (is.logical(x)) ifelse(is.na(x), NA_character_, ifelse(x, "1", "0")) else as.character(x)
+}
+.aur_num <- function(x) suppressWarnings(as.numeric(x))
+.aur_int <- function(x) suppressWarnings(as.integer(round(as.numeric(x))))
+.aur_vec <- function(fun, n, ...) {
+  args <- list(...)
+  out <- vector("list", n)
+  for (i in seq_len(n)) {
+    out[[i]] <- do.call(fun, lapply(args, function(a) a[[((i - 1) %% length(a)) + 1]]))
+  }
+  out
+}
+.aur_recycle <- function(..., n) {
+  lapply(list(...), function(a) { if (length(a) == 1) rep(a, n) else a })
+}
+.aur_n <- function(...) max(vapply(list(...), length, integer(1)), 1L)
+.aur_date <- function(x) {
+  t <- .aur_txt(x)
+  ok <- !is.na(t) & nchar(t) == 10 & substr(t, 5, 5) == "-" & substr(t, 8, 8) == "-"
+  d <- rep(as.Date(NA), length(t))
+  d[ok] <- as.Date(t[ok], format = "%Y-%m-%d")
+  d
+}
+.aur_dt <- function(x) {
+  t <- .aur_txt(x)
+  t <- sub("[Zz]$", "", t)
+  t <- gsub("T", " ", t)
+  d <- as.POSIXct(t, format = "%Y-%m-%d %H:%M:%S", tz = "UTC")
+  short <- is.na(d) & !is.na(t)
+  if (any(short)) {
+    d[short] <- as.POSIXct(t[short], format = "%Y-%m-%d %H:%M", tz = "UTC")
+  }
+  d
+}
+aur_concat <- function(...) {
+  n <- .aur_n(...)
+  parts <- lapply(list(...), function(a) {
+    v <- .aur_txt(a); v[is.na(v)] <- ""; rep(v, length.out = n)
+  })
+  Reduce(function(x, y) paste0(x, y), parts)
+}
+aur_substring <- function(s, start, length) {
+  n <- .aur_n(s, start, length)
+  st <- .aur_txt(s); si <- .aur_int(start); ln <- .aur_int(length)
+  r <- character(n)
+  for (i in seq_len(n)) {
+    ss <- st[[((i - 1) %% length(st)) + 1]]
+    b <- max(si[[((i - 1) %% length(si)) + 1]], 1)
+    l <- ln[[((i - 1) %% length(ln)) + 1]]
+    if (is.na(ss)) { r[i] <- NA_character_ }
+    else if (l <= 0) { r[i] <- "" }
+    else { r[i] <- substr(ss, b, b + l - 1) }
+  }
+  r
+}
+aur_upper <- function(s) { v <- .aur_txt(s); ifelse(is.na(v), NA_character_, toupper(v)) }
+aur_lower <- function(s) { v <- .aur_txt(s); ifelse(is.na(v), NA_character_, tolower(v)) }
+aur_trim <- function(s) { v <- .aur_txt(s); ifelse(is.na(v), NA_character_, trimws(v)) }
+aur_length <- function(s) { v <- .aur_txt(s); ifelse(is.na(v), NA_integer_, nchar(v)) }
+aur_contains <- function(s, sub) {
+  a <- .aur_txt(s); b <- .aur_txt(sub)
+  ifelse(is.na(a) | is.na(b), NA, mapply(function(x, y) grepl(y, x, fixed = TRUE), a, b))
+}
+aur_startswith <- function(s, p) {
+  a <- .aur_txt(s); b <- .aur_txt(p)
+  ifelse(is.na(a) | is.na(b), NA, startsWith(a, b))
+}
+aur_endswith <- function(s, p) {
+  a <- .aur_txt(s); b <- .aur_txt(p)
+  ifelse(is.na(a) | is.na(b), NA, endsWith(a, b))
+}
+aur_replace <- function(s, find, repl) {
+  a <- .aur_txt(s); f <- .aur_txt(find); w <- .aur_txt(repl)
+  if (any(!is.na(f) & f == "")) stop("replace_empty_find")
+  ifelse(is.na(a), NA_character_, mapply(function(x, y, z) gsub(y, z, x, fixed = TRUE), a, f, w))
+}
+aur_index_of <- function(s, sub) {
+  a <- .aur_txt(s); b <- .aur_txt(sub)
+  ifelse(is.na(a) | is.na(b), NA_integer_, {
+    find1 <- function(x, y) { r <- regexpr(y, x, fixed = TRUE)[1]; if (r < 0) 0L else r }
+    as.integer(mapply(find1, a, b))
+  })
+}
+aur_scan_token <- function(s, idx, delim) {
+  a <- .aur_txt(s); p <- .aur_int(idx); d <- .aur_txt(delim)
+  if (any(!is.na(d) & d == "")) stop("scan_token_empty_delimiter")
+  n <- .aur_n(a, p, d)
+  r <- character(n)
+  for (i in seq_len(n)) {
+    av <- a[[((i - 1) %% length(a)) + 1]]
+    dv <- d[[((i - 1) %% length(d)) + 1]]
+    pv <- p[[((i - 1) %% length(p)) + 1]]
+    if (is.na(av)) { r[i] <- NA_character_; next }
+    toks <- strsplit(av, dv, fixed = TRUE)[[1]]
+    toks <- toks[toks != ""]
+    r[i] <- if (pv < 1 || pv > length(toks)) NA_character_ else toks[pv]
+  }
+  r
+}
+aur_pad_left <- function(s, w, f) {
+  a <- .aur_txt(s); wi <- .aur_int(w); fc <- .aur_txt(f)
+  if (any(!is.na(fc) & nchar(fc) != 1)) stop("pad_fill_not_single")
+  n <- .aur_n(a, wi, fc)
+  r <- character(n)
+  for (i in seq_len(n)) {
+    av <- a[[((i - 1) %% length(a)) + 1]]
+    if (is.na(av)) { r[i] <- NA_character_; next }
+    width <- wi[[((i - 1) %% length(wi)) + 1]]
+    fill <- fc[[((i - 1) %% length(fc)) + 1]]
+    if (nchar(av) >= width) { r[i] <- av } else {
+      r[i] <- paste0(paste(rep(fill, width - nchar(av)), collapse = ""), av)
+    }
+  }
+  r
+}
+aur_pad_right <- function(s, w, f) {
+  a <- .aur_txt(s); wi <- .aur_int(w); fc <- .aur_txt(f)
+  if (any(!is.na(fc) & nchar(fc) != 1)) stop("pad_fill_not_single")
+  n <- .aur_n(a, wi, fc)
+  r <- character(n)
+  for (i in seq_len(n)) {
+    av <- a[[((i - 1) %% length(a)) + 1]]
+    if (is.na(av)) { r[i] <- NA_character_; next }
+    width <- wi[[((i - 1) %% length(wi)) + 1]]
+    fill <- fc[[((i - 1) %% length(fc)) + 1]]
+    if (nchar(av) >= width) { r[i] <- av } else {
+      r[i] <- paste0(av, paste(rep(fill, width - nchar(av)), collapse = ""))
+    }
+  }
+  r
+}
+aur_coalesce <- function(...) {
+  args <- list(...); n <- .aur_n(...)
+  r <- rep(NA, n); r <- as.vector(r, mode = "list")
+  for (i in seq_len(n)) {
+    val <- NA
+    for (a in args) { v <- a[[((i - 1) %% length(a)) + 1]]; if (!is.na(v)) { val <- v; break } }
+    r[[i]] <- val
+  }
+  unlist(lapply(r, function(x) if (is.null(x)) NA else x))
+}
+aur_nullif <- function(a, b) {
+  n <- .aur_n(a, b); r <- a[rep(seq_along(a), length.out = n)]
+  bb <- b[rep(seq_along(b), length.out = n)]
+  r[!is.na(r) & !is.na(bb) & r == bb] <- NA
+  r
+}
+aur_is_in <- function(value, candidates) {
+  cand <- unlist(candidates)
+  ifelse(is.na(value), FALSE, value %in% cand)
+}
+aur_n_missing <- function(...) {
+  args <- list(...); n <- .aur_n(...)
+  r <- integer(n)
+  for (i in seq_len(n)) {
+    r[i] <- sum(vapply(args, function(a) is.na(a[[((i - 1) %% length(a)) + 1]]), logical(1)))
+  }
+  r
+}
+aur_n_present <- function(...) {
+  args <- list(...); n <- .aur_n(...)
+  r <- integer(n)
+  for (i in seq_len(n)) {
+    r[i] <- sum(vapply(args, function(a) !is.na(a[[((i - 1) %% length(a)) + 1]]), logical(1)))
+  }
+  r
+}
+aur_round <- function(x, digits) {
+  xv <- .aur_num(x); dv <- .aur_int(digits)
+  factor <- 10 ^ dv
+  scaled <- xv * factor
+  base <- floor(scaled)
+  rem <- scaled - base
+  up <- ifelse(rem > 0.5, base + 1, ifelse(rem < 0.5, base, ifelse(scaled >= 0, base + 1, base)))
+  ifelse(is.na(xv) | is.na(dv), NA_real_, up / factor)
+}
+aur_floor <- function(x) { v <- .aur_num(x); ifelse(is.na(v), NA_integer_, as.integer(floor(v))) }
+aur_ceil <- function(x) { v <- .aur_num(x); ifelse(is.na(v), NA_integer_, as.integer(ceiling(v))) }
+aur_abs <- function(x) { v <- .aur_num(x); ifelse(is.na(v), NA_real_, abs(v)) }
+aur_modulo <- function(a, b) {
+  av <- .aur_int(a); bv <- .aur_int(b)
+  ifelse(is.na(av) | is.na(bv) | bv == 0, NA_integer_, as.integer(av - bv * trunc(av / bv)))
+}
+aur_min_of <- function(...) {
+  args <- lapply(list(...), .aur_num); n <- max(vapply(args, length, integer(1)), 1L)
+  m <- do.call(pmin, c(lapply(args, function(a) rep(a, length.out = n)), na.rm = TRUE))
+  m[is.infinite(m)] <- NA
+  m
+}
+aur_max_of <- function(...) {
+  args <- lapply(list(...), .aur_num); n <- max(vapply(args, length, integer(1)), 1L)
+  m <- do.call(pmax, c(lapply(args, function(a) rep(a, length.out = n)), na.rm = TRUE))
+  m[is.infinite(m)] <- NA
+  m
+}
+aur_truncate <- function(x) {
+  v <- .aur_num(x); ifelse(is.na(v), NA_integer_, as.integer(trunc(v)))
+}
+aur_safe_divide <- function(a, b) {
+  av <- .aur_num(a); bv <- .aur_num(b)
+  ifelse(is.na(av) | is.na(bv) | bv == 0, NA_real_, av / bv)
+}
+aur_parse_date <- function(x) format(.aur_date(x), "%Y-%m-%d")
+aur_year <- function(x) {
+  d <- .aur_date(x); ifelse(is.na(d), NA_integer_, as.integer(format(d, "%Y")))
+}
+aur_month <- function(x) {
+  d <- .aur_date(x); ifelse(is.na(d), NA_integer_, as.integer(format(d, "%m")))
+}
+aur_day <- function(x) {
+  d <- .aur_date(x); ifelse(is.na(d), NA_integer_, as.integer(format(d, "%d")))
+}
+aur_date_diff_days <- function(e, s) {
+  ed <- .aur_date(e); sd <- .aur_date(s)
+  ifelse(is.na(ed) | is.na(sd), NA_integer_, as.integer(ed - sd))
+}
+aur_parse_datetime <- function(x) {
+  d <- .aur_dt(x); ifelse(is.na(d), NA_character_, format(d, "%Y-%m-%d %H:%M:%S", tz = "UTC"))
+}
+aur_hour <- function(x) {
+  d <- .aur_dt(x); ifelse(is.na(d), NA_integer_, as.integer(format(d, "%H", tz = "UTC")))
+}
+aur_minute <- function(x) {
+  d <- .aur_dt(x); ifelse(is.na(d), NA_integer_, as.integer(format(d, "%M", tz = "UTC")))
+}
+aur_second <- function(x) {
+  d <- .aur_dt(x); ifelse(is.na(d), NA_integer_, as.integer(format(d, "%S", tz = "UTC")))
+}
+aur_study_day <- function(e, r) {
+  ed <- .aur_date(e); rd <- .aur_date(r)
+  delta <- as.integer(ed - rd)
+  ifelse(is.na(ed) | is.na(rd), NA_integer_, ifelse(delta >= 0, delta + 1L, delta))
+}
+aur_date_add_days <- function(b, n) {
+  bd <- .aur_date(b); nn <- .aur_int(n)
+  ifelse(is.na(bd) | is.na(nn), NA_character_, format(bd + nn, "%Y-%m-%d"))
+}
+aur_date_diff_months <- function(e, s) {
+  ed <- .aur_date(e); sd <- .aur_date(s)
+  n <- .aur_n(ed, sd); r <- integer(n)
+  for (i in seq_len(n)) {
+    a <- ed[[((i - 1) %% length(ed)) + 1]]; b <- sd[[((i - 1) %% length(sd)) + 1]]
+    if (is.na(a) || is.na(b)) { r[i] <- NA_integer_; next }
+    m <- (as.integer(format(a, "%Y")) - as.integer(format(b, "%Y"))) * 12 +
+         (as.integer(format(a, "%m")) - as.integer(format(b, "%m")))
+    da <- as.integer(format(a, "%d")); db <- as.integer(format(b, "%d"))
+    if (m >= 0) { if (da < db) m <- m - 1 } else { if (da > db) m <- m + 1 }
+    r[i] <- as.integer(m)
+  }
+  r
+}
+""".strip("\n")
+
+
 def r_source(value: DataflowIR, digest: str) -> str:
     lines = [
         f"# aurinara-dataflow compiler=1.5.0 ir={digest}",
@@ -393,7 +895,7 @@ def r_source(value: DataflowIR, digest: str) -> str:
         'inputs <- file.path(root, "inputs")',
         'outputs <- file.path(root, "outputs")',
         "dir.create(outputs, recursive=TRUE, showWarnings=FALSE)",
-        "aur_norm <- function(x) { if (is.numeric(x)) x[!is.finite(x)] <- NA; x }",
+        _R_FUNCTION_PREAMBLE,
         "state <- list()",
     ]
     incoming = incoming_nodes(value)
@@ -691,6 +1193,147 @@ def r_source(value: DataflowIR, digest: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _sas_list_scalar(value: str | int | float | bool | None) -> str:
+    if value is None:
+        raise UnsupportedOperator("is_in_null_list_member")
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    if isinstance(value, str):
+        return "'" + value.replace("'", "''") + "'"
+    return repr(value)
+
+
+def _sas_date(expression: Expression) -> str:
+    """Lower a sub-expression that must yield a SAS date (1960 origin, internal).
+
+    Only ``parse_date`` output and ``date_add_days`` compose into date functions
+    (design §4.3/§7). Any other producer cannot be guaranteed to be a SAS date,
+    so the backend declines rather than guess.
+    """
+
+    if expression.kind == "function" and expression.function == "parse_date":
+        inner = _sas_expr(expression.arguments[0])
+        return f"input({inner}, anydtdte32.)"
+    if expression.kind == "function" and expression.function == "date_add_days":
+        base = _sas_date(expression.arguments[0])
+        offset = _sas_expr(expression.arguments[1])
+        return f"({base} + {offset})"
+    if expression.kind == "literal" and expression.value is None:
+        return "."
+    raise UnsupportedOperator("date_function_requires_parse_date")
+
+
+def _sas_datetime(expression: Expression) -> str:
+    if expression.kind == "function" and expression.function == "parse_datetime":
+        inner = _sas_expr(expression.arguments[0])
+        return f"input({inner}, e8601dt.)"
+    if expression.kind == "literal" and expression.value is None:
+        return "."
+    raise UnsupportedOperator("datetime_function_requires_parse_datetime")
+
+
+def _sas_function(expression: Expression, result_type: str | None) -> str:
+    assert expression.kind == "function"
+    name = expression.function
+    args = expression.arguments
+
+    def expr(index: int) -> str:
+        return _sas_expr(args[index])
+
+    if name == "concat":
+        return "cats(" + ", ".join(expr(i) for i in range(len(args))) + ")"
+    if name == "substring":
+        return f"substrn({expr(0)}, {expr(1)}, {expr(2)})"
+    if name == "upper":
+        return f"upcase({expr(0)})"
+    if name == "lower":
+        return f"lowcase({expr(0)})"
+    if name == "trim":
+        return f"strip({expr(0)})"
+    if name == "length":
+        return f"ifn(missing({expr(0)}), ., lengthn({expr(0)}))"
+    if name == "contains":
+        return f"(index({expr(0)}, {expr(1)}) > 0)"
+    if name == "startswith":
+        return f"(index({expr(0)}, {expr(1)}) = 1)"
+    if name == "endswith":
+        return f"(substrn({expr(0)}, lengthn({expr(0)}) - lengthn({expr(1)}) + 1) = {expr(1)})"
+    if name == "replace":
+        return f"tranwrd({expr(0)}, {expr(1)}, {expr(2)})"
+    if name == "index_of":
+        return f"index({expr(0)}, {expr(1)})"
+    if name == "scan_token":
+        return f"scan({expr(0)}, {expr(1)}, {expr(2)}, 'm')"
+    if name == "pad_left":
+        return f"right(repeat({expr(2)}, {expr(1)} - 1)) || {expr(0)}"
+    if name == "pad_right":
+        return f"{expr(0)} || repeat({expr(2)}, {expr(1)} - lengthn({expr(0)}) - 1)"
+    if name == "coalesce":
+        joined = ", ".join(expr(i) for i in range(len(args)))
+        function = "coalescec" if result_type == "character" else "coalesce"
+        return f"{function}({joined})"
+    if name == "nullif":
+        function = "ifc" if result_type == "character" else "ifn"
+        empty = "''" if result_type == "character" else "."
+        return f"{function}({expr(0)} = {expr(1)}, {empty}, {expr(0)})"
+    if name == "is_in":
+        return f"({expr(0)} in {_sas_expr(args[1])})"
+    if name == "n_missing":
+        joined = ", ".join(expr(i) for i in range(len(args)))
+        function = "cmiss" if result_type == "character" else "nmiss"
+        return f"{function}({joined})"
+    if name == "n_present":
+        joined = ", ".join(expr(i) for i in range(len(args)))
+        if result_type == "character":
+            return f"({len(args)} - cmiss({joined}))"
+        return f"n({joined})"
+    if name == "round":
+        return f"(sign({expr(0)}) * round(abs({expr(0)}), 10 ** (-({expr(1)}))))"
+    if name == "floor":
+        return f"floor({expr(0)})"
+    if name == "ceil":
+        return f"ceil({expr(0)})"
+    if name == "abs":
+        return f"abs({expr(0)})"
+    if name == "modulo":
+        return f"ifn({expr(1)} = 0, ., {expr(0)} - {expr(1)} * int({expr(0)} / {expr(1)}))"
+    if name == "min_of":
+        return "min(" + ", ".join(expr(i) for i in range(len(args))) + ")"
+    if name == "max_of":
+        return "max(" + ", ".join(expr(i) for i in range(len(args))) + ")"
+    if name == "truncate":
+        return f"int({expr(0)})"
+    if name == "safe_divide":
+        return f"ifn(missing({expr(1)}) or {expr(1)} = 0, ., {expr(0)} / {expr(1)})"
+    if name == "parse_date":
+        return f"put({_sas_date(expression)}, yymmdd10.)"
+    if name == "year":
+        return f"year({_sas_date(args[0])})"
+    if name == "month":
+        return f"month({_sas_date(args[0])})"
+    if name == "day":
+        return f"day({_sas_date(args[0])})"
+    if name == "date_diff_days":
+        return f"({_sas_date(args[0])} - {_sas_date(args[1])})"
+    if name == "date_add_days":
+        return f"put({_sas_date(expression)}, yymmdd10.)"
+    if name == "study_day":
+        event = _sas_date(args[0])
+        reference = _sas_date(args[1])
+        return f"ifn({event} >= {reference}, {event} - {reference} + 1, {event} - {reference})"
+    if name == "date_diff_months":
+        return f"intck('month', {_sas_date(args[1])}, {_sas_date(args[0])}, 'C')"
+    if name == "parse_datetime":
+        return f"put({_sas_datetime(expression)}, e8601dt19.)"
+    if name == "hour":
+        return f"hour(timepart({_sas_datetime(args[0])}))"
+    if name == "minute":
+        return f"minute(timepart({_sas_datetime(args[0])}))"
+    if name == "second":
+        return f"second(timepart({_sas_datetime(args[0])}))"
+    raise UnsupportedOperator(f"function_{name}")
+
+
 def _sas_expr(expression: Expression, result_type: str | None = None) -> str:
     if expression.kind == "literal":
         if expression.value is None:
@@ -712,6 +1355,10 @@ def _sas_expr(expression: Expression, result_type: str | None = None) -> str:
             then = _sas_expr(branch.then, result_type)
             result = f"{function}(({condition}), {then}, {result})"
         return result
+    if expression.kind == "list_literal":
+        return "(" + ", ".join(_sas_list_scalar(value) for value in expression.values) + ")"
+    if expression.kind == "function":
+        return _sas_function(expression, result_type)
     if expression.kind == "unary":
         operand = _sas_expr(expression.operand)
         return {
