@@ -28,6 +28,10 @@ import { Route as AppStudiesRouteImport } from './routes/_app/studies'
 import { Route as AppTerminologyRouteImport } from './routes/_app/terminology'
 import { Route as AppTlfRouteImport } from './routes/_app/tlf'
 import { Route as AppValidationRouteImport } from './routes/_app/validation'
+import { Route as AppRawIndexRouteImport } from './routes/_app/raw/index'
+import { Route as AppRawRawIdRouteImport } from './routes/_app/raw/$rawId'
+import { Route as AppSdtmIndexRouteImport } from './routes/_app/sdtm/index'
+import { Route as AppSdtmSdtmIdRouteImport } from './routes/_app/sdtm/$sdtmId'
 import { Route as AppStandardsIndexRouteImport } from './routes/_app/standards/index'
 import { Route as AppStandardsCodelistsCodelistIdRouteImport } from './routes/_app/standards/codelists/$codelistId'
 import { Route as AppStandardsProductsStandardIdRouteImport } from './routes/_app/standards/products/$standardId'
@@ -129,6 +133,26 @@ const AppValidationRoute = AppValidationRouteImport.update({
   path: '/validation',
   getParentRoute: () => AppRoute,
 } as any)
+const AppRawIndexRoute = AppRawIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRawRoute,
+} as any)
+const AppRawRawIdRoute = AppRawRawIdRouteImport.update({
+  id: '/$rawId',
+  path: '/$rawId',
+  getParentRoute: () => AppRawRoute,
+} as any)
+const AppSdtmIndexRoute = AppSdtmIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppSdtmRoute,
+} as any)
+const AppSdtmSdtmIdRoute = AppSdtmSdtmIdRouteImport.update({
+  id: '/$sdtmId',
+  path: '/$sdtmId',
+  getParentRoute: () => AppSdtmRoute,
+} as any)
 const AppStandardsIndexRoute = AppStandardsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -174,16 +198,20 @@ export interface FileRoutesByFullPath {
   '/documents': typeof AppDocumentsRoute
   '/integrations': typeof AppIntegrationsRoute
   '/packaging': typeof AppPackagingRoute
-  '/raw': typeof AppRawRoute
+  '/raw': typeof AppRawRouteWithChildren
   '/reconciliation': typeof AppReconciliationRoute
   '/reference': typeof AppReferenceRoute
   '/review': typeof AppReviewRoute
-  '/sdtm': typeof AppSdtmRoute
+  '/sdtm': typeof AppSdtmRouteWithChildren
   '/standards': typeof AppStandardsRouteWithChildren
   '/studies': typeof AppStudiesRoute
   '/terminology': typeof AppTerminologyRoute
   '/tlf': typeof AppTlfRoute
   '/validation': typeof AppValidationRoute
+  '/raw/$rawId': typeof AppRawRawIdRoute
+  '/sdtm/$sdtmId': typeof AppSdtmSdtmIdRoute
+  '/raw/': typeof AppRawIndexRoute
+  '/sdtm/': typeof AppSdtmIndexRoute
   '/standards/': typeof AppStandardsIndexRoute
   '/standards/codelists/$codelistId': typeof AppStandardsCodelistsCodelistIdRoute
   '/standards/products/$standardId': typeof AppStandardsProductsStandardIdRoute
@@ -199,16 +227,18 @@ export interface FileRoutesByTo {
   '/documents': typeof AppDocumentsRoute
   '/integrations': typeof AppIntegrationsRoute
   '/packaging': typeof AppPackagingRoute
-  '/raw': typeof AppRawRoute
   '/reconciliation': typeof AppReconciliationRoute
   '/reference': typeof AppReferenceRoute
   '/review': typeof AppReviewRoute
-  '/sdtm': typeof AppSdtmRoute
   '/studies': typeof AppStudiesRoute
   '/terminology': typeof AppTerminologyRoute
   '/tlf': typeof AppTlfRoute
   '/validation': typeof AppValidationRoute
   '/': typeof AppIndexRoute
+  '/raw/$rawId': typeof AppRawRawIdRoute
+  '/sdtm/$sdtmId': typeof AppSdtmSdtmIdRoute
+  '/raw': typeof AppRawIndexRoute
+  '/sdtm': typeof AppSdtmIndexRoute
   '/standards': typeof AppStandardsIndexRoute
   '/standards/codelists/$codelistId': typeof AppStandardsCodelistsCodelistIdRoute
   '/standards/products/$standardId': typeof AppStandardsProductsStandardIdRoute
@@ -226,17 +256,21 @@ export interface FileRoutesById {
   '/_app/documents': typeof AppDocumentsRoute
   '/_app/integrations': typeof AppIntegrationsRoute
   '/_app/packaging': typeof AppPackagingRoute
-  '/_app/raw': typeof AppRawRoute
+  '/_app/raw': typeof AppRawRouteWithChildren
   '/_app/reconciliation': typeof AppReconciliationRoute
   '/_app/reference': typeof AppReferenceRoute
   '/_app/review': typeof AppReviewRoute
-  '/_app/sdtm': typeof AppSdtmRoute
+  '/_app/sdtm': typeof AppSdtmRouteWithChildren
   '/_app/standards': typeof AppStandardsRouteWithChildren
   '/_app/studies': typeof AppStudiesRoute
   '/_app/terminology': typeof AppTerminologyRoute
   '/_app/tlf': typeof AppTlfRoute
   '/_app/validation': typeof AppValidationRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/raw/$rawId': typeof AppRawRawIdRoute
+  '/_app/sdtm/$sdtmId': typeof AppSdtmSdtmIdRoute
+  '/_app/raw/': typeof AppRawIndexRoute
+  '/_app/sdtm/': typeof AppSdtmIndexRoute
   '/_app/standards/': typeof AppStandardsIndexRoute
   '/_app/standards/codelists/$codelistId': typeof AppStandardsCodelistsCodelistIdRoute
   '/_app/standards/products/$standardId': typeof AppStandardsProductsStandardIdRoute
@@ -265,6 +299,10 @@ export interface FileRouteTypes {
     | '/terminology'
     | '/tlf'
     | '/validation'
+    | '/raw/$rawId'
+    | '/sdtm/$sdtmId'
+    | '/raw/'
+    | '/sdtm/'
     | '/standards/'
     | '/standards/codelists/$codelistId'
     | '/standards/products/$standardId'
@@ -280,16 +318,18 @@ export interface FileRouteTypes {
     | '/documents'
     | '/integrations'
     | '/packaging'
-    | '/raw'
     | '/reconciliation'
     | '/reference'
     | '/review'
-    | '/sdtm'
     | '/studies'
     | '/terminology'
     | '/tlf'
     | '/validation'
     | '/'
+    | '/raw/$rawId'
+    | '/sdtm/$sdtmId'
+    | '/raw'
+    | '/sdtm'
     | '/standards'
     | '/standards/codelists/$codelistId'
     | '/standards/products/$standardId'
@@ -317,6 +357,10 @@ export interface FileRouteTypes {
     | '/_app/tlf'
     | '/_app/validation'
     | '/_app/'
+    | '/_app/raw/$rawId'
+    | '/_app/sdtm/$sdtmId'
+    | '/_app/raw/'
+    | '/_app/sdtm/'
     | '/_app/standards/'
     | '/_app/standards/codelists/$codelistId'
     | '/_app/standards/products/$standardId'
@@ -467,6 +511,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppValidationRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/raw/': {
+      id: '/_app/raw/'
+      path: '/'
+      fullPath: '/raw/'
+      preLoaderRoute: typeof AppRawIndexRouteImport
+      parentRoute: typeof AppRawRoute
+    }
+    '/_app/raw/$rawId': {
+      id: '/_app/raw/$rawId'
+      path: '/$rawId'
+      fullPath: '/raw/$rawId'
+      preLoaderRoute: typeof AppRawRawIdRouteImport
+      parentRoute: typeof AppRawRoute
+    }
+    '/_app/sdtm/': {
+      id: '/_app/sdtm/'
+      path: '/'
+      fullPath: '/sdtm/'
+      preLoaderRoute: typeof AppSdtmIndexRouteImport
+      parentRoute: typeof AppSdtmRoute
+    }
+    '/_app/sdtm/$sdtmId': {
+      id: '/_app/sdtm/$sdtmId'
+      path: '/$sdtmId'
+      fullPath: '/sdtm/$sdtmId'
+      preLoaderRoute: typeof AppSdtmSdtmIdRouteImport
+      parentRoute: typeof AppSdtmRoute
+    }
     '/_app/standards/': {
       id: '/_app/standards/'
       path: '/'
@@ -512,6 +584,32 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppRawRouteChildren {
+  AppRawRawIdRoute: typeof AppRawRawIdRoute
+  AppRawIndexRoute: typeof AppRawIndexRoute
+}
+
+const AppRawRouteChildren: AppRawRouteChildren = {
+  AppRawRawIdRoute: AppRawRawIdRoute,
+  AppRawIndexRoute: AppRawIndexRoute,
+}
+
+const AppRawRouteWithChildren =
+  AppRawRoute._addFileChildren(AppRawRouteChildren)
+
+interface AppSdtmRouteChildren {
+  AppSdtmSdtmIdRoute: typeof AppSdtmSdtmIdRoute
+  AppSdtmIndexRoute: typeof AppSdtmIndexRoute
+}
+
+const AppSdtmRouteChildren: AppSdtmRouteChildren = {
+  AppSdtmSdtmIdRoute: AppSdtmSdtmIdRoute,
+  AppSdtmIndexRoute: AppSdtmIndexRoute,
+}
+
+const AppSdtmRouteWithChildren =
+  AppSdtmRoute._addFileChildren(AppSdtmRouteChildren)
+
 interface AppStandardsRouteChildren {
   AppStandardsIndexRoute: typeof AppStandardsIndexRoute
   AppStandardsCodelistsCodelistIdRoute: typeof AppStandardsCodelistsCodelistIdRoute
@@ -539,11 +637,11 @@ interface AppRouteChildren {
   AppDocumentsRoute: typeof AppDocumentsRoute
   AppIntegrationsRoute: typeof AppIntegrationsRoute
   AppPackagingRoute: typeof AppPackagingRoute
-  AppRawRoute: typeof AppRawRoute
+  AppRawRoute: typeof AppRawRouteWithChildren
   AppReconciliationRoute: typeof AppReconciliationRoute
   AppReferenceRoute: typeof AppReferenceRoute
   AppReviewRoute: typeof AppReviewRoute
-  AppSdtmRoute: typeof AppSdtmRoute
+  AppSdtmRoute: typeof AppSdtmRouteWithChildren
   AppStandardsRoute: typeof AppStandardsRouteWithChildren
   AppStudiesRoute: typeof AppStudiesRoute
   AppTerminologyRoute: typeof AppTerminologyRoute
@@ -557,11 +655,11 @@ const AppRouteChildren: AppRouteChildren = {
   AppDocumentsRoute: AppDocumentsRoute,
   AppIntegrationsRoute: AppIntegrationsRoute,
   AppPackagingRoute: AppPackagingRoute,
-  AppRawRoute: AppRawRoute,
+  AppRawRoute: AppRawRouteWithChildren,
   AppReconciliationRoute: AppReconciliationRoute,
   AppReferenceRoute: AppReferenceRoute,
   AppReviewRoute: AppReviewRoute,
-  AppSdtmRoute: AppSdtmRoute,
+  AppSdtmRoute: AppSdtmRouteWithChildren,
   AppStandardsRoute: AppStandardsRouteWithChildren,
   AppStudiesRoute: AppStudiesRoute,
   AppTerminologyRoute: AppTerminologyRoute,

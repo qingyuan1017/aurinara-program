@@ -4641,6 +4641,66 @@
         }
       }
     },
+    "/api/v1/raw/{raw_id}/latest-validation-run": {
+      "get": {
+        "tags": [
+          "raw"
+        ],
+        "summary": "Get Latest Validation Run",
+        "description": "Return the latest successful Raw validation-run reference.\n\nRead-only; persists nothing. Resolves the newest ``succeeded`` validation\nrun owned by this Raw workbench so a consumer can pin ``validation_run_id``\nwithout typing it. Returns ``404 raw_validation_run_not_found`` when the\nworkbench has no successful run yet, prompting the user to run and pass\nvalidation first.",
+        "operationId": "get_latest_validation_run_api_v1_raw__raw_id__latest_validation_run_get",
+        "parameters": [
+          {
+            "name": "raw_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Raw Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RawLatestValidationRunResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/raw/{raw_id}/reconcile": {
       "post": {
         "tags": [
@@ -15036,6 +15096,15 @@
               },
               {
                 "$ref": "#/components/schemas/BinaryExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ConditionalExpression"
+              },
+              {
+                "$ref": "#/components/schemas/FunctionCallExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ListLiteralExpression"
               }
             ],
             "title": "Predicate",
@@ -15044,6 +15113,9 @@
               "mapping": {
                 "binary": "#/components/schemas/BinaryExpression",
                 "column": "#/components/schemas/ColumnExpression",
+                "conditional": "#/components/schemas/ConditionalExpression",
+                "function": "#/components/schemas/FunctionCallExpression",
+                "list_literal": "#/components/schemas/ListLiteralExpression",
                 "literal": "#/components/schemas/LiteralExpression",
                 "unary": "#/components/schemas/UnaryExpression"
               }
@@ -15102,6 +15174,15 @@
               },
               {
                 "$ref": "#/components/schemas/BinaryExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ConditionalExpression"
+              },
+              {
+                "$ref": "#/components/schemas/FunctionCallExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ListLiteralExpression"
               }
             ],
             "title": "Left",
@@ -15110,6 +15191,9 @@
               "mapping": {
                 "binary": "#/components/schemas/BinaryExpression",
                 "column": "#/components/schemas/ColumnExpression",
+                "conditional": "#/components/schemas/ConditionalExpression",
+                "function": "#/components/schemas/FunctionCallExpression",
+                "list_literal": "#/components/schemas/ListLiteralExpression",
                 "literal": "#/components/schemas/LiteralExpression",
                 "unary": "#/components/schemas/UnaryExpression"
               }
@@ -15128,6 +15212,15 @@
               },
               {
                 "$ref": "#/components/schemas/BinaryExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ConditionalExpression"
+              },
+              {
+                "$ref": "#/components/schemas/FunctionCallExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ListLiteralExpression"
               }
             ],
             "title": "Right",
@@ -15136,6 +15229,9 @@
               "mapping": {
                 "binary": "#/components/schemas/BinaryExpression",
                 "column": "#/components/schemas/ColumnExpression",
+                "conditional": "#/components/schemas/ConditionalExpression",
+                "function": "#/components/schemas/FunctionCallExpression",
+                "list_literal": "#/components/schemas/ListLiteralExpression",
                 "literal": "#/components/schemas/LiteralExpression",
                 "unary": "#/components/schemas/UnaryExpression"
               }
@@ -15441,6 +15537,156 @@
           "expected_input_fingerprint"
         ],
         "title": "CompileRequest"
+      },
+      "ConditionalBranch": {
+        "properties": {
+          "when": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LiteralExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ColumnExpression"
+              },
+              {
+                "$ref": "#/components/schemas/UnaryExpression"
+              },
+              {
+                "$ref": "#/components/schemas/BinaryExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ConditionalExpression"
+              },
+              {
+                "$ref": "#/components/schemas/FunctionCallExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ListLiteralExpression"
+              }
+            ],
+            "title": "When",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "binary": "#/components/schemas/BinaryExpression",
+                "column": "#/components/schemas/ColumnExpression",
+                "conditional": "#/components/schemas/ConditionalExpression",
+                "function": "#/components/schemas/FunctionCallExpression",
+                "list_literal": "#/components/schemas/ListLiteralExpression",
+                "literal": "#/components/schemas/LiteralExpression",
+                "unary": "#/components/schemas/UnaryExpression"
+              }
+            }
+          },
+          "then": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LiteralExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ColumnExpression"
+              },
+              {
+                "$ref": "#/components/schemas/UnaryExpression"
+              },
+              {
+                "$ref": "#/components/schemas/BinaryExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ConditionalExpression"
+              },
+              {
+                "$ref": "#/components/schemas/FunctionCallExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ListLiteralExpression"
+              }
+            ],
+            "title": "Then",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "binary": "#/components/schemas/BinaryExpression",
+                "column": "#/components/schemas/ColumnExpression",
+                "conditional": "#/components/schemas/ConditionalExpression",
+                "function": "#/components/schemas/FunctionCallExpression",
+                "list_literal": "#/components/schemas/ListLiteralExpression",
+                "literal": "#/components/schemas/LiteralExpression",
+                "unary": "#/components/schemas/UnaryExpression"
+              }
+            }
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "when",
+          "then"
+        ],
+        "title": "ConditionalBranch"
+      },
+      "ConditionalExpression": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "conditional",
+            "title": "Kind"
+          },
+          "branches": {
+            "items": {
+              "$ref": "#/components/schemas/ConditionalBranch"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Branches"
+          },
+          "otherwise": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LiteralExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ColumnExpression"
+              },
+              {
+                "$ref": "#/components/schemas/UnaryExpression"
+              },
+              {
+                "$ref": "#/components/schemas/BinaryExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ConditionalExpression"
+              },
+              {
+                "$ref": "#/components/schemas/FunctionCallExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ListLiteralExpression"
+              }
+            ],
+            "title": "Otherwise",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "binary": "#/components/schemas/BinaryExpression",
+                "column": "#/components/schemas/ColumnExpression",
+                "conditional": "#/components/schemas/ConditionalExpression",
+                "function": "#/components/schemas/FunctionCallExpression",
+                "list_literal": "#/components/schemas/ListLiteralExpression",
+                "literal": "#/components/schemas/LiteralExpression",
+                "unary": "#/components/schemas/UnaryExpression"
+              }
+            }
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "branches",
+          "otherwise"
+        ],
+        "title": "ConditionalExpression"
       },
       "ContentResponse": {
         "properties": {
@@ -16523,6 +16769,15 @@
                 },
                 {
                   "$ref": "#/components/schemas/BinaryExpression"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionalExpression"
+                },
+                {
+                  "$ref": "#/components/schemas/FunctionCallExpression"
+                },
+                {
+                  "$ref": "#/components/schemas/ListLiteralExpression"
                 }
               ],
               "discriminator": {
@@ -16530,6 +16785,9 @@
                 "mapping": {
                   "binary": "#/components/schemas/BinaryExpression",
                   "column": "#/components/schemas/ColumnExpression",
+                  "conditional": "#/components/schemas/ConditionalExpression",
+                  "function": "#/components/schemas/FunctionCallExpression",
+                  "list_literal": "#/components/schemas/ListLiteralExpression",
                   "literal": "#/components/schemas/LiteralExpression",
                   "unary": "#/components/schemas/UnaryExpression"
                 }
@@ -18017,6 +18275,15 @@
               },
               {
                 "$ref": "#/components/schemas/BinaryExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ConditionalExpression"
+              },
+              {
+                "$ref": "#/components/schemas/FunctionCallExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ListLiteralExpression"
               }
             ],
             "title": "Predicate",
@@ -18025,6 +18292,9 @@
               "mapping": {
                 "binary": "#/components/schemas/BinaryExpression",
                 "column": "#/components/schemas/ColumnExpression",
+                "conditional": "#/components/schemas/ConditionalExpression",
+                "function": "#/components/schemas/FunctionCallExpression",
+                "list_literal": "#/components/schemas/ListLiteralExpression",
                 "literal": "#/components/schemas/LiteralExpression",
                 "unary": "#/components/schemas/UnaryExpression"
               }
@@ -18039,6 +18309,110 @@
           "predicate"
         ],
         "title": "FilterNode"
+      },
+      "FunctionCallExpression": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "function",
+            "title": "Kind"
+          },
+          "function": {
+            "type": "string",
+            "enum": [
+              "concat",
+              "substring",
+              "upper",
+              "lower",
+              "trim",
+              "length",
+              "contains",
+              "startswith",
+              "endswith",
+              "replace",
+              "index_of",
+              "scan_token",
+              "pad_left",
+              "pad_right",
+              "coalesce",
+              "nullif",
+              "is_in",
+              "n_missing",
+              "n_present",
+              "round",
+              "floor",
+              "ceil",
+              "abs",
+              "modulo",
+              "min_of",
+              "max_of",
+              "truncate",
+              "safe_divide",
+              "parse_date",
+              "year",
+              "month",
+              "day",
+              "date_diff_days",
+              "parse_datetime",
+              "hour",
+              "minute",
+              "second",
+              "study_day",
+              "date_add_days",
+              "date_diff_months"
+            ],
+            "title": "Function"
+          },
+          "arguments": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/LiteralExpression"
+                },
+                {
+                  "$ref": "#/components/schemas/ColumnExpression"
+                },
+                {
+                  "$ref": "#/components/schemas/UnaryExpression"
+                },
+                {
+                  "$ref": "#/components/schemas/BinaryExpression"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionalExpression"
+                },
+                {
+                  "$ref": "#/components/schemas/FunctionCallExpression"
+                },
+                {
+                  "$ref": "#/components/schemas/ListLiteralExpression"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "kind",
+                "mapping": {
+                  "binary": "#/components/schemas/BinaryExpression",
+                  "column": "#/components/schemas/ColumnExpression",
+                  "conditional": "#/components/schemas/ConditionalExpression",
+                  "function": "#/components/schemas/FunctionCallExpression",
+                  "list_literal": "#/components/schemas/ListLiteralExpression",
+                  "literal": "#/components/schemas/LiteralExpression",
+                  "unary": "#/components/schemas/UnaryExpression"
+                }
+              }
+            },
+            "type": "array",
+            "title": "Arguments"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "function",
+          "arguments"
+        ],
+        "title": "FunctionCallExpression"
       },
       "HTTPValidationError": {
         "properties": {
@@ -18347,6 +18721,46 @@
           "keys"
         ],
         "title": "JoinNode"
+      },
+      "ListLiteralExpression": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "list_literal",
+            "title": "Kind"
+          },
+          "values": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Values"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "values"
+        ],
+        "title": "ListLiteralExpression"
       },
       "LiteralExpression": {
         "properties": {
@@ -19081,6 +19495,50 @@
           "filled"
         ],
         "title": "RawInitializeResponse"
+      },
+      "RawLatestValidationRunResponse": {
+        "properties": {
+          "validation_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Validation Run Id"
+          },
+          "raw_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Revision"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "input_fingerprint": {
+            "type": "string",
+            "title": "Input Fingerprint"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "validation_run_id",
+          "input_fingerprint"
+        ],
+        "title": "RawLatestValidationRunResponse",
+        "description": "Reference to the latest successful Raw validation run.\n\nLets a consumer (the SDTM input selection) pin ``validation_run_id``\nwithout typing the opaque identifier. ``raw_revision`` is read from the\nrun's own input manifest so the UI can confirm the run matches the pinned\nRaw revision; it is advisory and may be absent on older runs."
       },
       "RawPhysicalColumn": {
         "properties": {
@@ -21442,6 +21900,15 @@
               },
               {
                 "$ref": "#/components/schemas/BinaryExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ConditionalExpression"
+              },
+              {
+                "$ref": "#/components/schemas/FunctionCallExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ListLiteralExpression"
               }
             ],
             "title": "Condition",
@@ -21450,6 +21917,9 @@
               "mapping": {
                 "binary": "#/components/schemas/BinaryExpression",
                 "column": "#/components/schemas/ColumnExpression",
+                "conditional": "#/components/schemas/ConditionalExpression",
+                "function": "#/components/schemas/FunctionCallExpression",
+                "list_literal": "#/components/schemas/ListLiteralExpression",
                 "literal": "#/components/schemas/LiteralExpression",
                 "unary": "#/components/schemas/UnaryExpression"
               }
@@ -23136,6 +23606,15 @@
               },
               {
                 "$ref": "#/components/schemas/BinaryExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ConditionalExpression"
+              },
+              {
+                "$ref": "#/components/schemas/FunctionCallExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ListLiteralExpression"
               }
             ],
             "title": "Operand",
@@ -23144,6 +23623,9 @@
               "mapping": {
                 "binary": "#/components/schemas/BinaryExpression",
                 "column": "#/components/schemas/ColumnExpression",
+                "conditional": "#/components/schemas/ConditionalExpression",
+                "function": "#/components/schemas/FunctionCallExpression",
+                "list_literal": "#/components/schemas/ListLiteralExpression",
                 "literal": "#/components/schemas/LiteralExpression",
                 "unary": "#/components/schemas/UnaryExpression"
               }

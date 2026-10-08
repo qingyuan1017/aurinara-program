@@ -8,5 +8,8 @@ import type { LiteralExpression } from './literalExpression';
 import type { ColumnExpression } from './columnExpression';
 import type { UnaryExpression } from './unaryExpression';
 import type { BinaryExpression } from './binaryExpression';
+import type { ConditionalExpression } from './conditionalExpression';
+import type { FunctionCallExpression } from './functionCallExpression';
+import type { ListLiteralExpression } from './listLiteralExpression';
 
-export type UnaryExpressionOperand = LiteralExpression | ColumnExpression | UnaryExpression | BinaryExpression;
+export type UnaryExpressionOperand = LiteralExpression | ColumnExpression | UnaryExpression | BinaryExpression | ConditionalExpression | FunctionCallExpression | ListLiteralExpression;

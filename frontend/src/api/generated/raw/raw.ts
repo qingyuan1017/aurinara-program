@@ -472,107 +472,6 @@ export function useGetRawDependencies<TData = Awaited<ReturnType<typeof getRawDe
 
 
 
-/**
- * Read-only; persists nothing. Resolves the newest ``succeeded`` validation
-run owned by this Raw workbench so a consumer can pin ``validation_run_id``
-without typing it. Returns ``404 raw_validation_run_not_found`` when the
-workbench has no successful run yet, prompting the user to run and pass
-validation first.
- * @summary Get Latest Validation Run
- */
-export const getLatestValidationRun = (
-    rawId: string,
- options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
-) => {
-      
-      
-      return customInstance<RawLatestValidationRunResponse>(
-      {url: `/api/v1/raw/${rawId}/latest-validation-run`, method: 'GET', signal
-    },
-      options);
-    }
-  
-
-
-
-export const getGetLatestValidationRunQueryKey = (rawId?: string,) => {
-    return [
-    `/api/v1/raw/${rawId}/latest-validation-run`
-    ] as const;
-    }
-
-    
-export const getGetLatestValidationRunQueryOptions = <TData = Awaited<ReturnType<typeof getLatestValidationRun>>, TError = ErrorType<HTTPValidationError>>(rawId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLatestValidationRun>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetLatestValidationRunQueryKey(rawId);
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLatestValidationRun>>> = ({ signal }) => getLatestValidationRun(rawId, requestOptions, signal);
-
-      
-
-      
-
-   return  { queryKey, queryFn, enabled: !!(rawId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLatestValidationRun>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
-}
-
-export type GetLatestValidationRunQueryResult = NonNullable<Awaited<ReturnType<typeof getLatestValidationRun>>>
-export type GetLatestValidationRunQueryError = ErrorType<HTTPValidationError>
-
-
-export function useGetLatestValidationRun<TData = Awaited<ReturnType<typeof getLatestValidationRun>>, TError = ErrorType<HTTPValidationError>>(
- rawId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLatestValidationRun>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getLatestValidationRun>>,
-          TError,
-          Awaited<ReturnType<typeof getLatestValidationRun>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetLatestValidationRun<TData = Awaited<ReturnType<typeof getLatestValidationRun>>, TError = ErrorType<HTTPValidationError>>(
- rawId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLatestValidationRun>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getLatestValidationRun>>,
-          TError,
-          Awaited<ReturnType<typeof getLatestValidationRun>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetLatestValidationRun<TData = Awaited<ReturnType<typeof getLatestValidationRun>>, TError = ErrorType<HTTPValidationError>>(
- rawId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLatestValidationRun>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-/**
- * Read-only; persists nothing. Resolves the newest ``succeeded`` validation
-run owned by this Raw workbench so a consumer can pin ``validation_run_id``
-without typing it. Returns ``404 raw_validation_run_not_found`` when the
-workbench has no successful run yet, prompting the user to run and pass
-validation first.
- * @summary Get Latest Validation Run
- */
-
-export function useGetLatestValidationRun<TData = Awaited<ReturnType<typeof getLatestValidationRun>>, TError = ErrorType<HTTPValidationError>>(
- rawId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLatestValidationRun>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
- , queryClient?: QueryClient 
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-
-  const queryOptions = getGetLatestValidationRunQueryOptions(rawId,options)
-
-  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
 
 /**
  * @summary Put Dependencies
@@ -1576,6 +1475,105 @@ export const useValidateRaw = <TError = ErrorType<HTTPValidationError>,
       return useMutation(mutationOptions, queryClient);
     }
     /**
+ * Return the latest successful Raw validation-run reference.
+
+Read-only; persists nothing. Resolves the newest ``succeeded`` validation
+run owned by this Raw workbench so a consumer can pin ``validation_run_id``
+without typing it. Returns ``404 raw_validation_run_not_found`` when the
+workbench has no successful run yet, prompting the user to run and pass
+validation first.
+ * @summary Get Latest Validation Run
+ */
+export const getLatestValidationRun = (
+    rawId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<RawLatestValidationRunResponse>(
+      {url: `/api/v1/raw/${rawId}/latest-validation-run`, method: 'GET', signal
+    },
+      options);
+    }
+  
+
+
+
+export const getGetLatestValidationRunQueryKey = (rawId?: string,) => {
+    return [
+    `/api/v1/raw/${rawId}/latest-validation-run`
+    ] as const;
+    }
+
+    
+export const getGetLatestValidationRunQueryOptions = <TData = Awaited<ReturnType<typeof getLatestValidationRun>>, TError = ErrorType<HTTPValidationError>>(rawId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLatestValidationRun>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLatestValidationRunQueryKey(rawId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLatestValidationRun>>> = ({ signal }) => getLatestValidationRun(rawId, requestOptions, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(rawId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLatestValidationRun>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetLatestValidationRunQueryResult = NonNullable<Awaited<ReturnType<typeof getLatestValidationRun>>>
+export type GetLatestValidationRunQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetLatestValidationRun<TData = Awaited<ReturnType<typeof getLatestValidationRun>>, TError = ErrorType<HTTPValidationError>>(
+ rawId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLatestValidationRun>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLatestValidationRun>>,
+          TError,
+          Awaited<ReturnType<typeof getLatestValidationRun>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetLatestValidationRun<TData = Awaited<ReturnType<typeof getLatestValidationRun>>, TError = ErrorType<HTTPValidationError>>(
+ rawId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLatestValidationRun>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLatestValidationRun>>,
+          TError,
+          Awaited<ReturnType<typeof getLatestValidationRun>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetLatestValidationRun<TData = Awaited<ReturnType<typeof getLatestValidationRun>>, TError = ErrorType<HTTPValidationError>>(
+ rawId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLatestValidationRun>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary Get Latest Validation Run
+ */
+
+export function useGetLatestValidationRun<TData = Awaited<ReturnType<typeof getLatestValidationRun>>, TError = ErrorType<HTTPValidationError>>(
+ rawId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLatestValidationRun>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetLatestValidationRunQueryOptions(rawId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
  * Queue an immutable comparison of maintained metadata and exact source bytes.
  * @summary Reconcile Raw Source Schema
  */

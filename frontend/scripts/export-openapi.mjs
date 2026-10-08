@@ -4,7 +4,8 @@
 //
 // Usage: node scripts/export-openapi.mjs
 import { spawnSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
@@ -18,14 +19,26 @@ const pyCode = [
   'from app.main import create_app',
   'app = create_app()',
   'print(json.dumps(app.openapi()))',
-].join('; ')
+].join('\n')
 
-const result = spawnSync('uv', ['run', 'python', '-c', pyCode], {
-  cwd: repoRoot,
-  encoding: 'utf-8',
-  maxBuffer: 64 * 1024 * 1024,
-  shell: process.platform === 'win32',
-})
+// Write the exporter to a temp .py file instead of passing it via `-c`. On
+// Windows, spawning through the shell re-splits an inline `-c` string on its
+// spaces/semicolons, so a file argument is the portable way to run it.
+const scriptDir = mkdtempSync(path.join(tmpdir(), 'aurinara-openapi-'))
+const scriptFile = path.join(scriptDir, 'export_openapi.py')
+writeFileSync(scriptFile, pyCode, 'utf-8')
+
+let result
+try {
+  result = spawnSync('uv', ['run', 'python', scriptFile], {
+    cwd: repoRoot,
+    encoding: 'utf-8',
+    maxBuffer: 64 * 1024 * 1024,
+    shell: process.platform === 'win32',
+  })
+} finally {
+  rmSync(scriptDir, { recursive: true, force: true })
+}
 
 if (result.status !== 0) {
   console.error('Failed to export OpenAPI schema from the backend.')
