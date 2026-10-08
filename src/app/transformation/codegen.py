@@ -47,6 +47,17 @@ def _py_expr(expression: Expression, row: str = "row") -> str:
         return repr(expression.value)
     if expression.kind == "column":
         return f"{row}[{expression.column!r}]"
+    if expression.kind == "conditional":
+        result = f"({_py_expr(expression.otherwise, row)})"
+        for branch in reversed(expression.branches):
+            when = _py_expr(branch.when, row)
+            then = _py_expr(branch.then, row)
+            result = (
+                f"((guard(lambda: {then})) if "
+                f"((_c := guard(lambda: {when})) is not None and bool(_c)) "
+                f"else {result})"
+            )
+        return result
     if expression.kind == "unary":
         operand = _py_expr(expression.operand, row)
         return {
@@ -77,7 +88,7 @@ def _py_expr(expression: Expression, row: str = "row") -> str:
 
 def python_source(value: DataflowIR, digest: str) -> str:
     lines = [
-        f"# aurinara-dataflow compiler=1.4.0 ir={digest}",
+        f"# aurinara-dataflow compiler=1.5.0 ir={digest}",
         "import csv",
         "import os",
         "from pathlib import Path",
@@ -87,6 +98,9 @@ def python_source(value: DataflowIR, digest: str) -> str:
         'outputs = root / "outputs"',
         "outputs.mkdir(parents=True, exist_ok=True)",
         'def number(value): return float(value) if "." in str(value) else int(value)',
+        "def guard(thunk):",
+        "    try: return thunk()",
+        "    except (ZeroDivisionError, TypeError, ValueError): return None",
         "def read(name):",
         '    with (inputs / f"{name}.csv").open(encoding="utf-8-sig", newline="") as stream:',
         "        return list(csv.DictReader(stream))",
@@ -337,6 +351,13 @@ def _r_expr(expression: Expression, frame: str = "frame") -> str:
         )
     if expression.kind == "column":
         return f"{frame}[[{_rq(expression.column)}]]"
+    if expression.kind == "conditional":
+        result = f"aur_norm({_r_expr(expression.otherwise, frame)})"
+        for branch in reversed(expression.branches):
+            when = _r_expr(branch.when, frame)
+            then = f"aur_norm({_r_expr(branch.then, frame)})"
+            result = f"ifelse(({when}) & !is.na({when}), {then}, {result})"
+        return result
     if expression.kind == "unary":
         operand = _r_expr(expression.operand, frame)
         return {
@@ -367,11 +388,12 @@ def _r_expr(expression: Expression, frame: str = "frame") -> str:
 
 def r_source(value: DataflowIR, digest: str) -> str:
     lines = [
-        f"# aurinara-dataflow compiler=1.4.0 ir={digest}",
+        f"# aurinara-dataflow compiler=1.5.0 ir={digest}",
         'root <- Sys.getenv("AURINARA_WORKSPACE", unset = "/workspace")',
         'inputs <- file.path(root, "inputs")',
         'outputs <- file.path(root, "outputs")',
         "dir.create(outputs, recursive=TRUE, showWarnings=FALSE)",
+        "aur_norm <- function(x) { if (is.numeric(x)) x[!is.finite(x)] <- NA; x }",
         "state <- list()",
     ]
     incoming = incoming_nodes(value)
@@ -669,10 +691,10 @@ def r_source(value: DataflowIR, digest: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _sas_expr(expression: Expression) -> str:
+def _sas_expr(expression: Expression, result_type: str | None = None) -> str:
     if expression.kind == "literal":
         if expression.value is None:
-            return "."
+            return "." if result_type != "character" else "''"
         if isinstance(expression.value, bool):
             return "1" if expression.value else "0"
         if isinstance(expression.value, str):
@@ -680,6 +702,16 @@ def _sas_expr(expression: Expression) -> str:
         return repr(expression.value)
     if expression.kind == "column":
         return expression.column
+    if expression.kind == "conditional":
+        if result_type not in {"character", "numeric"}:
+            raise UnsupportedOperator("conditional_result_type_unknown")
+        function = "IFC" if result_type == "character" else "IFN"
+        result = _sas_expr(expression.otherwise, result_type)
+        for branch in reversed(expression.branches):
+            condition = _sas_expr(branch.when)
+            then = _sas_expr(branch.then, result_type)
+            result = f"{function}(({condition}), {then}, {result})"
+        return result
     if expression.kind == "unary":
         operand = _sas_expr(expression.operand)
         return {
@@ -709,7 +741,7 @@ def _sas_expr(expression: Expression) -> str:
 
 
 def sas_source(value: DataflowIR, digest: str) -> str:
-    lines = [f"/* aurinara-dataflow compiler=1.4.0 ir={digest} */"]
+    lines = [f"/* aurinara-dataflow compiler=1.5.0 ir={digest} */"]
     ordered = ordered_nodes(value)
     incoming = incoming_nodes(value)
     names = {node.id: f"n{index:04d}" for index, node in enumerate(ordered, start=1)}
@@ -753,7 +785,7 @@ def sas_source(value: DataflowIR, digest: str) -> str:
         elif node.node_type == "derive":
             lines.extend([f"data work.{target};", f"  set work.{source};"])
             lines.extend(
-                f"  {name} = {_sas_expr(expression)};"
+                f"  {name} = {_sas_expr(expression, node.result_types.get(name))};"
                 for name, expression in node.assignments.items()
             )
             lines.append("run;")

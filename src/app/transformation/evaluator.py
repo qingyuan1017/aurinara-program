@@ -28,6 +28,27 @@ def _value(expression: Expression, row: Mapping[str, Scalar]) -> Scalar:
                 "preview_column_unknown", f"Column '{expression.column}' is not available."
             )
         return row[expression.column]
+    if expression.kind == "conditional":
+        for branch in expression.branches:
+            try:
+                condition = _value(branch.when, row)
+            except ProblemException as error:
+                if error.code == "preview_column_unknown":
+                    raise
+                condition = None
+            if condition is not None and bool(condition):
+                try:
+                    return _value(branch.then, row)
+                except ProblemException as error:
+                    if error.code == "preview_column_unknown":
+                        raise
+                    return None
+        try:
+            return _value(expression.otherwise, row)
+        except ProblemException as error:
+            if error.code == "preview_column_unknown":
+                raise
+            return None
     if expression.kind == "unary":
         operand = _value(expression.operand, row)
         if expression.operator == "not":

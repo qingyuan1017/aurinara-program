@@ -33,8 +33,23 @@ class BinaryExpression(StrictModel):
     right: "Expression"
 
 
+class ConditionalBranch(StrictModel):
+    when: "Expression"
+    then: "Expression"
+
+
+class ConditionalExpression(StrictModel):
+    kind: Literal["conditional"]
+    branches: tuple[ConditionalBranch, ...] = Field(min_length=1)
+    otherwise: "Expression"
+
+
 Expression = Annotated[
-    LiteralExpression | ColumnExpression | UnaryExpression | BinaryExpression,
+    LiteralExpression
+    | ColumnExpression
+    | UnaryExpression
+    | BinaryExpression
+    | ConditionalExpression,
     Field(discriminator="kind"),
 ]
 
@@ -61,6 +76,7 @@ class DeriveNode(StrictModel):
     node_type: Literal["derive"]
     id: str
     assignments: dict[str, Expression] = Field(min_length=1)
+    result_types: dict[str, Literal["character", "numeric"]] = Field(default_factory=dict)
 
 
 class CastOperation(StrictModel):
@@ -205,7 +221,7 @@ class Edge(StrictModel):
 
 class DataflowIR(StrictModel):
     schema_version: Literal["1.0.0"] = "1.0.0"
-    operator_version: Literal["1.1.0"] = "1.1.0"
+    operator_version: Literal["1.2.0"] = "1.2.0"
     nodes: tuple[DataflowNode, ...] = Field(min_length=1)
     edges: tuple[Edge, ...] = ()
 
