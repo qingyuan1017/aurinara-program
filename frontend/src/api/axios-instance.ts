@@ -22,17 +22,36 @@ AXIOS_INSTANCE.interceptors.request.use((config) => {
   return config
 })
 
-// Clear the stored token only when a request that ACTUALLY carried a bearer
-// token is rejected with 401 — i.e. the token itself was refused (expired or
-// invalid). A 401 on a request that had no Authorization header must not wipe
-// the session (that would log the user out on an unauthenticated race), and a
-// request error with no response (network/CORS) is left alone.
+// Build a /login URL that preserves the current path as the `redirect` search
+// param, so a server-rejected token sends the user back where they were after
+// re-authenticating (login.tsx reads `redirect`). The already-on-login guard
+// below prevents a redirect loop when the 401 came from the login screen.
+function loginRedirectUrl(): string {
+  const { pathname, search, hash } = window.location
+  const next = `${pathname}${search}${hash}`
+  return `/login?redirect=${encodeURIComponent(next)}`
+}
+
+// Clear the stored token and bounce to /login only when a request that ACTUALLY
+// carried a bearer token is rejected with 401 — i.e. the token itself was
+// refused (expired or invalid). This is the single central place that reacts to
+// an expired/invalid token for every generated API call, so screens never
+// scatter their own 401 handling. A 401 on a request that had no Authorization
+// header must not wipe the session (that would log the user out on an
+// unauthenticated race), and a request error with no response (network/CORS) is
+// left alone. The redirect is skipped when already on /login to avoid a loop.
 AXIOS_INSTANCE.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     const hadBearer = Boolean(error.config?.headers?.Authorization)
     if (error.response?.status === 401 && hadBearer) {
       clearAuthToken()
+      if (
+        typeof window !== 'undefined' &&
+        window.location.pathname !== '/login'
+      ) {
+        window.location.assign(loginRedirectUrl())
+      }
     }
     return Promise.reject(error)
   },
