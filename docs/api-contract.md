@@ -473,6 +473,7 @@ DELETE /api/v1/raw-variables/{variable_id}
 
 POST /api/v1/raw-datasets/{dataset_id}/preview
 POST /api/v1/raw/{raw_id}/validate
+GET  /api/v1/raw/{raw_id}/latest-validation-run
 POST /api/v1/raw/{raw_id}/reconcile
 POST /api/v1/raw/{raw_id}/artifacts/fingerprint
 POST /api/v1/raw/{raw_id}/artifacts
@@ -498,6 +499,14 @@ build inputs as `POST /api/v1/raw/{raw_id}/artifacts`. The returned value is the
 sends back as `expected_input_fingerprint` on the build request. It requires study access,
 persists nothing, needs no `Idempotency-Key`, and returns `422` for unsupported or invalid
 artifact types or owner, consistent with the sibling Raw routes.
+
+`latest-validation-run` is a read-only reference to the newest `succeeded` Raw validation run
+owned by this workbench. It returns `200 OK` with
+`{ "validation_run_id": <uuid>, "raw_revision": <int|null>, "completed_at": <rfc3339|null>,
+"input_fingerprint": "<64 hex>" }` so a consumer (the SDTM input selection) can pin
+`validation_run_id` without typing it; `raw_revision` is read from the run's input manifest and is
+advisory. It requires study access, persists nothing, needs no `Idempotency-Key`, and returns
+`404 raw_validation_run_not_found` when the workbench has no successful run yet.
 
 ## 8. Documents routes
 
@@ -757,7 +766,7 @@ The Derivation Plan uses the common Derivation Plan envelope and is an ADaM-owne
 
 Workbench validation covers dependency compatibility with the exact SDTM context; specification completeness; dataset classes, keys, and sort order; variables and roles; parameters and value-level applicability; terminology; origins and predecessor resolution; method-to-node alignment; Derivation Plan shape and output coverage; traceability; XPT constraints; and declared output reconciliation. It reports specification, derivation, standards, traceability, and artifact issues as distinguishable categories.
 
-Preview selects target dataset codes, exact runtime parameters, and bounded rows, then uses the same lowering pipeline as compilation. Compile selects `python`, `r`, or `sas`, target dataset codes, expected specification/input/Derivation Plan fingerprints, and output options. Execute selects the compiled program and exact SDTM XPT artifacts. Every program, execution, and output records the input selection, specification revision, Derivation Plan revision, normalized IR/operator/compiler versions, runner image, and declared output schema.
+Preview selects target dataset codes and bounded rows, then uses the same lowering pipeline as compilation. Compile selects `python`, `r`, or `sas` and supplies the expected canonical build-input fingerprint. Execute selects the compiled program, exact SDTM XPT artifacts, validation and authoring revisions, compiler and program-input fingerprints, and bounded resource limits. Every program, execution, and output records the input selection, Specification revision, Derivation Plan revision, normalized IR/operator/compiler versions, and declared output schema. The runner image and execution metrics are recorded on the execution run and log artifact.
 
 ### 10.4 Define-XML and ADRG
 
@@ -769,6 +778,7 @@ PUT  /api/v1/adams/{adam_id}/define
 POST /api/v1/adams/{adam_id}/define/initialize
 POST /api/v1/adams/{adam_id}/define/validate
 GET  /api/v1/adams/{adam_id}/define/render
+POST /api/v1/adams/{adam_id}/define/reconcile
 POST /api/v1/adams/{adam_id}/define/artifacts
 ```
 

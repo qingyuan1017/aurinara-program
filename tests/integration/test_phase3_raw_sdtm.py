@@ -5,7 +5,7 @@ import os
 import subprocess
 import sys
 from collections.abc import AsyncIterator
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pyreadstat
 import pytest
@@ -170,6 +170,96 @@ async def test_sdtm_specification_xlsx_export_and_idempotent_import(
 
 
 @pytest.mark.anyio
+async def test_raw_latest_validation_run_resolution(
+    phase3_client: AsyncClient,
+) -> None:
+    client = phase3_client
+    headers = {"Authorization": "Bearer test-token"}
+    study = await client.post(
+        "/api/v1/studies", headers=headers, json={"code": "P3-LVR", "name": "Phase 3 LVR"}
+    )
+    study_id = study.json()["id"]
+    source = await client.post(
+        f"/api/v1/studies/{study_id}/source-files",
+        headers=headers,
+        files={
+            "file": (
+                "demog.json",
+                b'[{"SUBJID":"01","AGE":42},{"SUBJID":"02","AGE":38}]',
+                "application/json",
+            )
+        },
+    )
+    raw = await client.post(
+        f"/api/v1/studies/{study_id}/raw",
+        headers=headers,
+        json={"code": "RAW", "name": "Raw"},
+    )
+    raw_id = raw.json()["id"]
+
+    # Before any dataset or validation run exists, resolution reports no run.
+    empty = await client.get(f"/api/v1/raw/{raw_id}/latest-validation-run", headers=headers)
+    assert empty.status_code == 404, empty.text
+    assert empty.json()["code"] == "raw_validation_run_not_found"
+
+    dataset = await client.post(
+        f"/api/v1/raw/{raw_id}/datasets",
+        headers=headers,
+        json={"code": "DEMOG", "label": "Demographics", "source_file_id": source.json()["id"]},
+    )
+    assert dataset.status_code == 201, dataset.text
+    initialized = await client.post(
+        f"/api/v1/raw-datasets/{dataset.json()['id']}/variables/initialize", headers=headers
+    )
+    assert initialized.status_code == 200, initialized.text
+
+    # A failed run must not be resolved as the latest successful run: remove a
+    # maintained variable so validation fails first.
+    variable_id = initialized.json()["variables"][0]["id"]
+    deleted = await client.delete(
+        f"/api/v1/raw-variables/{variable_id}",
+        headers={**headers, "If-Match": '"revision-1"'},
+    )
+    assert deleted.status_code == 204, deleted.text
+    failed_run = await client.post(f"/api/v1/raw/{raw_id}/validate", headers=headers)
+    assert failed_run.json()["status"] == "failed", failed_run.text
+    still_empty = await client.get(
+        f"/api/v1/raw/{raw_id}/latest-validation-run", headers=headers
+    )
+    assert still_empty.status_code == 404, still_empty.text
+
+    # Re-fill the physical metadata and pass validation.
+    reinitialized = await client.post(
+        f"/api/v1/raw-datasets/{dataset.json()['id']}/variables/initialize", headers=headers
+    )
+    assert reinitialized.status_code == 200, reinitialized.text
+    first = await client.post(f"/api/v1/raw/{raw_id}/validate", headers=headers)
+    assert first.json()["status"] == "succeeded", first.text
+    current_raw = await client.get(f"/api/v1/raw/{raw_id}", headers=headers)
+    second = await client.post(f"/api/v1/raw/{raw_id}/validate", headers=headers)
+    assert second.json()["status"] == "succeeded", second.text
+
+    resolved = await client.get(
+        f"/api/v1/raw/{raw_id}/latest-validation-run", headers=headers
+    )
+    assert resolved.status_code == 200, resolved.text
+    body = resolved.json()
+    # The newest succeeded run is resolved (not the first), and the advisory
+    # raw_revision matches the run's pinned Raw revision.
+    assert body["validation_run_id"] == second.json()["id"]
+    assert body["validation_run_id"] != first.json()["id"]
+    assert body["raw_revision"] == current_raw.json()["revision"]
+    assert len(body["input_fingerprint"]) == 64
+
+    # Study access is enforced: an unknown raw id is a 404.
+    unknown = await client.get(
+        f"/api/v1/raw/{uuid4()}/latest-validation-run", headers=headers
+    )
+    assert unknown.status_code == 404, unknown.text
+    assert unknown.json()["code"] == "raw_not_found"
+
+
+@pytest.mark.anyio
 async def test_raw_to_aligned_sdtm_and_upstream_staleness(
     phase3_client: AsyncClient,
 ) -> None:
@@ -280,9 +370,9 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
     )
     assert completed_raw_build.json()["status"] == "succeeded", completed_raw_build.text
     assert {
-        (
-            await client.get(f"/api/v1/artifacts/{artifact_id}", headers=headers)
-        ).json()["artifact_type"]
+        (await client.get(f"/api/v1/artifacts/{artifact_id}", headers=headers)).json()[
+            "artifact_type"
+        ]
         for artifact_id in completed_raw_build.json()["result_artifact_ids"]
     } == set(raw_artifact_types)
 

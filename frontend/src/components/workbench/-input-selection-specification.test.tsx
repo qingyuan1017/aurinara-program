@@ -94,10 +94,22 @@ const rawApi: {
   rawAggregates: RawAggregateOption[]
   datasets: RawDatasetOption[]
   sourceFiles: SourceFileOption[]
+  // Resolver sources for the two auto-resolved fields. `latestValidationRun`
+  // can be set to an AxiosError to simulate the 404 "no successful run" case.
+  latestValidationRun:
+    | { validation_run_id: string; raw_revision?: number | null }
+    | undefined
+  latestValidationRunError: AxiosError | null
+  latestValidationRunLoading: boolean
+  dependencyFingerprint: string | undefined
 } = {
   rawAggregates: [],
   datasets: [],
   sourceFiles: [],
+  latestValidationRun: undefined,
+  latestValidationRunError: null,
+  latestValidationRunLoading: false,
+  dependencyFingerprint: undefined,
 }
 
 vi.mock('@/api/generated/raw/raw', () => ({
@@ -112,6 +124,26 @@ vi.mock('@/api/generated/raw/raw', () => ({
     error: null,
     isLoading: false,
     isError: false,
+  }),
+  // Resolves `raw_dependency_fingerprint` from the Raw dependency selection.
+  useGetRawDependencies: () => ({
+    data: rawApi.dependencyFingerprint
+      ? { fingerprint: rawApi.dependencyFingerprint }
+      : undefined,
+    error: null,
+    isLoading: false,
+    isError: false,
+  }),
+  // Resolves `validation_run_id` from the Raw latest-successful-validation-run
+  // sub-resource. A seeded error with status 404 drives the "run and pass
+  // validation first" prompt.
+  useGetLatestValidationRun: () => ({
+    data: rawApi.latestValidationRunError
+      ? undefined
+      : rawApi.latestValidationRun,
+    error: rawApi.latestValidationRunError,
+    isLoading: rawApi.latestValidationRunLoading,
+    isError: !!rawApi.latestValidationRunError,
   }),
 }))
 
@@ -459,6 +491,12 @@ beforeEach(() => {
       size: 1,
     },
   ]
+  // The resolvers return the same pinned values the body must round-trip, so
+  // the auto-resolved validation_run_id/fingerprint equal 'vr-1'/'raw-dep-fp'.
+  rawApi.latestValidationRun = { validation_run_id: 'vr-1', raw_revision: 4 }
+  rawApi.latestValidationRunError = null
+  rawApi.latestValidationRunLoading = false
+  rawApi.dependencyFingerprint = 'raw-dep-fp'
   sdtmApi.selection = undefined
   sdtmApi.selectionError = null
   sdtmApi.rawContext = undefined
@@ -635,6 +673,40 @@ describe('InputSelectionPanel', () => {
 
     // The input-selection staleness banner copy is rendered.
     expect(screen.getByText(/input selection needs a refresh/i)).toBeTruthy()
+  })
+
+  it('shows the run-and-pass-validation prompt when no successful run resolves (no free-text fallback)', () => {
+    // The saved selection pins raw-1 so the resolvers run, but the Raw
+    // workbench has no successful validation run yet (404).
+    sdtmApi.selection = makeSelection({
+      payload: {
+        raw_id: 'raw-1',
+        raw_revision: 4,
+        validation_run_id: '',
+        raw_dependency_fingerprint: 'raw-dep-fp',
+        source_artifacts: [
+          { dataset_code: 'DM', artifact_id: 'art-dm', checksum: 'sha-dm' },
+        ],
+      } as unknown as InputSelectionResponse['payload'],
+    })
+    rawApi.latestValidationRun = undefined
+    rawApi.latestValidationRunError = problemError(404, {
+      code: 'raw_validation_run_not_found',
+      detail: 'No successful Raw validation run exists for this workbench.',
+    })
+
+    renderInWorkbench(<InputSelectionPanel />)
+
+    // The inline prompt is shown…
+    expect(
+      screen.getByText(/run and pass validation on this raw workbench first/i),
+    ).toBeTruthy()
+    // …and there is NO free-text validation-run input to type into. The
+    // resolved-field prompt reuses the id, so any element with that id must not
+    // be an editable input.
+    const field = document.getElementById('is-validation-run')
+    expect(field).toBeTruthy()
+    expect((field as HTMLElement).tagName).not.toBe('INPUT')
   })
 
   it('on 412 shows the concurrency message + reload action re-fetching the aggregate (Req 10.6)', async () => {

@@ -123,6 +123,22 @@ class RawReconcileRequest(BaseModel):
     expected_raw_revision: int = Field(ge=1)
 
 
+class RawLatestValidationRunResponse(BaseModel):
+    """Reference to the latest successful Raw validation run.
+
+    Lets a consumer (the SDTM input selection) pin ``validation_run_id``
+    without typing the opaque identifier. ``raw_revision`` is read from the
+    run's own input manifest so the UI can confirm the run matches the pinned
+    Raw revision; it is advisory and may be absent on older runs.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    validation_run_id: UUID
+    raw_revision: int | None = None
+    completed_at: datetime | None = None
+    input_fingerprint: str
+
+
 class RawConsumerStaleness(Protocol):
     def mark_raw_refresh(self, session: Session, raw_id: UUID) -> tuple[UUID, ...]: ...
 
@@ -701,6 +717,79 @@ def validate_raw(
     session.add(run)
     session.commit()
     return ValidationRunResponse.model_validate(run)
+
+
+@router.get(
+    "/raw/{raw_id}/latest-validation-run",
+    response_model=RawLatestValidationRunResponse,
+)
+def get_latest_validation_run(
+    raw_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> RawLatestValidationRunResponse:
+    """Return the latest successful Raw validation-run reference.
+
+    Read-only; persists nothing. Resolves the newest ``succeeded`` validation
+    run owned by this Raw workbench so a consumer can pin ``validation_run_id``
+    without typing it. Returns ``404 raw_validation_run_not_found`` when the
+    workbench has no successful run yet, prompting the user to run and pass
+    validation first.
+    """
+
+    raw = _raw(session, registry, raw_id, principal)
+    run = session.scalars(
+        select(ValidationRun)
+        .where(
+            ValidationRun.module_key == "raw",
+            ValidationRun.owner_type == "raw_workbench",
+            ValidationRun.owner_id == raw.id,
+            ValidationRun.status == "succeeded",
+        )
+        .order_by(
+            ValidationRun.completed_at.desc(),
+            ValidationRun.started_at.desc(),
+            ValidationRun.id.desc(),
+        )
+        .limit(1)
+    ).first()
+    if run is None:
+        raise _not_found(
+            "raw_validation_run_not_found",
+            "No successful Raw validation run exists for this workbench.",
+        )
+    return _latest_validation_run_response(run)
+
+
+def _latest_validation_run_response(run: ValidationRun) -> RawLatestValidationRunResponse:
+    """Map a resolved succeeded Raw validation run to its reference response.
+
+    ``raw_revision`` is read from the run's input manifest; it is advisory and
+    becomes ``None`` when the manifest predates the field or holds a non-integer
+    value, so the UI never pins a bogus revision.
+    """
+
+    raw_revision = run.input_manifest.get("raw_revision")
+    return RawLatestValidationRunResponse(
+        validation_run_id=run.id,
+        raw_revision=_manifest_raw_revision(raw_revision),
+        completed_at=run.completed_at,
+        input_fingerprint=run.input_fingerprint,
+    )
+
+
+def _manifest_raw_revision(value: object) -> int | None:
+    """Coerce a manifest ``raw_revision`` to an int, or ``None`` when absent.
+
+    Booleans are rejected (``bool`` is an ``int`` subclass) so a stray ``True``
+    never becomes revision ``1``; any non-integer value is treated as absent so
+    the UI shows the run without pinning a bogus revision.
+    """
+
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value
 
 
 @router.post(

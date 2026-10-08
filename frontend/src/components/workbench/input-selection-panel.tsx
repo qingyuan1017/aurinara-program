@@ -2,7 +2,7 @@ import * as React from 'react'
 import type { AxiosError } from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Trash2 } from 'lucide-react'
+import { Copy, Plus, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,7 +34,12 @@ import {
   useGetRawContext,
   usePutInputSelection,
 } from '@/api/generated/sdtm/sdtm'
-import { useListDatasets, useListRawAggregates } from '@/api/generated/raw/raw'
+import {
+  useGetLatestValidationRun,
+  useGetRawDependencies,
+  useListDatasets,
+  useListRawAggregates,
+} from '@/api/generated/raw/raw'
 import { useListSourceFiles } from '@/api/generated/artifacts/artifacts'
 import type {
   InputSelectionResponse,
@@ -140,6 +145,81 @@ function toWriteBody(form: FormState): SdtmInputSelectionWrite {
   }
 }
 
+/** Copy a resolved value to the clipboard with a small inline affordance. */
+function CopyButton({ value, label }: { value: string; label: string }) {
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(value)
+      toast.success('Copied to clipboard.')
+    } catch {
+      toast.error('Could not copy to clipboard.')
+    }
+  }
+  return (
+    <Button
+      type="button"
+      size="icon"
+      variant="ghost"
+      aria-label={label}
+      onClick={handleCopy}
+    >
+      <Copy />
+    </Button>
+  )
+}
+
+/**
+ * A resolved, read-only value field (the user no longer types these). It shows
+ * the auto-resolved value with a copy affordance and the "resolved from <raw>"
+ * provenance line, or a clear instruction when nothing resolved yet. It never
+ * renders a free-text input: an unresolved value is a prompt, not an edit box.
+ */
+function ResolvedField({
+  id,
+  labelText,
+  value,
+  resolvedFrom,
+  isLoading,
+  emptyMessage,
+  copyLabel,
+}: {
+  id: string
+  labelText: string
+  value: string
+  resolvedFrom: string | null
+  isLoading: boolean
+  emptyMessage: string
+  copyLabel: string
+}) {
+  const hasValue = value.trim().length > 0
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={id}>{labelText}</Label>
+      {isLoading && !hasValue ? (
+        <Skeleton className="h-9 w-full" />
+      ) : hasValue ? (
+        <div className="flex items-center gap-1">
+          <Input id={id} value={value} readOnly />
+          <CopyButton value={value} label={copyLabel} />
+        </div>
+      ) : (
+        <p
+          id={id}
+          role="status"
+          className="text-muted-foreground border-input rounded-md border border-dashed px-3 py-2 text-sm"
+        >
+          {emptyMessage}
+        </p>
+      )}
+      {hasValue && resolvedFrom && (
+        <p className="text-muted-foreground text-xs">
+          Resolved from {resolvedFrom}
+        </p>
+      )}
+    </div>
+  )
+}
+
 /** Render the opaque resolved raw-context dictionary as a labeled field grid. */
 function RawContextView({ data }: { data: Record<string, unknown> | undefined }) {
   const entries = React.useMemo(
@@ -221,9 +301,40 @@ export function InputSelectionPanel() {
     query: { enabled: !!form.raw_id },
   })
 
+  // Resolver queries for the two values the user no longer types. Both are
+  // gated on study scope and a chosen Raw workbench. The dependency selection
+  // yields the raw_dependency_fingerprint (same value compile reads); the Raw
+  // latest-validation-run sub-resource yields the validation_run_id (404 when
+  // the workbench has no successful run yet — surfaced as an inline prompt).
+  const dependenciesQuery = useGetRawDependencies(form.raw_id, {
+    query: { enabled: !!studyId && !!form.raw_id },
+  })
+  const latestValidationRunQuery = useGetLatestValidationRun(form.raw_id, {
+    query: { enabled: !!studyId && !!form.raw_id, retry: false },
+  })
+
   const rawAggregates = rawAggregatesQuery.data?.items ?? []
   const sourceFiles = sourceFilesQuery.data?.items ?? []
   const datasets = datasetsQuery.data ?? []
+
+  const resolvedFingerprint = dependenciesQuery.data?.fingerprint ?? ''
+  const resolvedValidationRunId =
+    latestValidationRunQuery.data?.validation_run_id ?? ''
+  // A 404 means "no successful validation run yet": a non-blocking prompt, not
+  // an error (mirrors how the selection 404 is treated above).
+  const latestValidationRunNotFound =
+    (latestValidationRunQuery.error as AxiosError | null)?.response?.status ===
+    404
+
+  // Human-friendly provenance label for the resolved fields.
+  const selectedRawAggregate = rawAggregates.find(
+    (item) => item.id === form.raw_id,
+  )
+  const resolvedFrom = form.raw_id
+    ? selectedRawAggregate
+      ? `${selectedRawAggregate.code} — ${selectedRawAggregate.name}`
+      : form.raw_id
+    : null
 
   const selection = selectionQuery.data
   // A 404 means "no selection yet" — not an error worth blocking the panel on.
@@ -240,6 +351,28 @@ export function InputSelectionPanel() {
       setForm(formFromSelection(selection))
     }
   }, [selection])
+
+  // Flow resolved values into the form so `toWriteBody` submits them unchanged.
+  // Only overwrite when a resolver returned a non-empty value for the currently
+  // selected raw_id: a still-loading or errored resolver must never blank a
+  // seeded value (mirrors the dropdown "ignore empty, don't blank" guards).
+  React.useEffect(() => {
+    if (!resolvedValidationRunId) return
+    setForm((prev) =>
+      prev.validation_run_id === resolvedValidationRunId
+        ? prev
+        : { ...prev, validation_run_id: resolvedValidationRunId },
+    )
+  }, [resolvedValidationRunId])
+
+  React.useEffect(() => {
+    if (!resolvedFingerprint) return
+    setForm((prev) =>
+      prev.raw_dependency_fingerprint === resolvedFingerprint
+        ? prev
+        : { ...prev, raw_dependency_fingerprint: resolvedFingerprint },
+    )
+  }, [resolvedFingerprint])
 
   const putSelection = usePutInputSelection({
     mutation: {
@@ -445,32 +578,40 @@ export function InputSelectionPanel() {
                   required
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="is-validation-run">Validation run ID</Label>
-                {/* Free-text: no list-validation-runs endpoint exists in the
-                    generated client to back a dropdown. */}
-                <Input
-                  id="is-validation-run"
-                  value={form.validation_run_id}
-                  onChange={(e) =>
-                    updateField('validation_run_id', e.target.value)
-                  }
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="is-fingerprint">Raw dependency fingerprint</Label>
-                {/* Free-text: an opaque server-computed value with no typed or
-                    list source to populate from. */}
-                <Input
-                  id="is-fingerprint"
-                  value={form.raw_dependency_fingerprint}
-                  onChange={(e) =>
-                    updateField('raw_dependency_fingerprint', e.target.value)
-                  }
-                  required
-                />
-              </div>
+              {/* Auto-resolved from the selected Raw workbench's latest
+                  successful validation run — never typed. A seeded value from a
+                  saved selection stays visible until (and unless) a resolver
+                  replaces it; a 404/no-run shows an inline prompt. */}
+              <ResolvedField
+                id="is-validation-run"
+                labelText="Validation run ID"
+                value={form.validation_run_id}
+                resolvedFrom={resolvedFrom}
+                isLoading={!!form.raw_id && latestValidationRunQuery.isLoading}
+                copyLabel="Copy validation run ID"
+                emptyMessage={
+                  !form.raw_id
+                    ? 'Select a Raw workbench first.'
+                    : latestValidationRunNotFound
+                      ? 'Run and pass validation on this Raw workbench first.'
+                      : 'No successful validation run resolved yet.'
+                }
+              />
+              {/* Auto-resolved from the selected Raw workbench's dependency
+                  selection (the same fingerprint compile reads) — never typed. */}
+              <ResolvedField
+                id="is-fingerprint"
+                labelText="Raw dependency fingerprint"
+                value={form.raw_dependency_fingerprint}
+                resolvedFrom={resolvedFrom}
+                isLoading={!!form.raw_id && dependenciesQuery.isLoading}
+                copyLabel="Copy raw dependency fingerprint"
+                emptyMessage={
+                  !form.raw_id
+                    ? 'Select a Raw workbench first.'
+                    : 'No dependency fingerprint resolved yet.'
+                }
+              />
             </div>
 
             <div className="flex flex-col gap-3">

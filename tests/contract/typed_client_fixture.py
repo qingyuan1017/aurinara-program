@@ -57,6 +57,7 @@ PHASE3_RAW_SDTM_OPERATIONS: Final[dict[str, frozenset[str]]] = {
     "/api/v1/raw-datasets/{dataset_id}/variables": frozenset({"get", "post"}),
     "/api/v1/raw-datasets/{dataset_id}/preview": frozenset({"post"}),
     "/api/v1/raw/{raw_id}/artifacts/fingerprint": frozenset({"post"}),
+    "/api/v1/raw/{raw_id}/latest-validation-run": frozenset({"get"}),
     "/api/v1/raw/{raw_id}/reconcile": frozenset({"post"}),
     "/api/v1/sdtms/{sdtm_id}/input-selection": frozenset({"get", "put"}),
     "/api/v1/sdtms/{sdtm_id}/specification": frozenset({"get", "put"}),

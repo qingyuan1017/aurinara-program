@@ -10,7 +10,7 @@ from app.raw.service import RAW_ARTIFACT_TYPES, RawCapability
 
 DESCRIPTOR = ModuleDescriptor(
     module_key="raw",
-    module_version="0.3.0",
+    module_version="0.4.0",
     api_prefix="/api/v1/raw",
     content_schema_versions=("1.0.0",),
     dependency_purposes=("raw_metadata", "controlled_values", "study_context", "presentation"),
