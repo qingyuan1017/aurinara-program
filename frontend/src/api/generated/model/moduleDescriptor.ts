@@ -22,6 +22,7 @@ export interface ModuleDescriptor {
   relationship_types?: string[];
   artifact_types?: string[];
   source_plan_types?: string[];
+  reconciliation_types?: string[];
   event_types?: string[];
   authorization_scopes?: string[];
   capabilities?: ModuleCapability[];

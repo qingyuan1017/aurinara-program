@@ -133,6 +133,35 @@ def resolve_build_input(
     return module_key, handler, resolved
 
 
+def resolve_build_fingerprint(
+    session: Session,
+    registry: ModuleRegistry,
+    *,
+    study_id: UUID,
+    owner_type: str,
+    owner_id: UUID,
+    artifact_types: tuple[str, ...] | list[str],
+    options: dict[str, object],
+) -> tuple[str, str, ArtifactBuilderCapability, dict[str, object]]:
+    """Resolve ownership and compute the exact build-input fingerprint.
+
+    Shared by the build endpoint and the fingerprint-preview endpoints so the
+    accepted ``expected_input_fingerprint`` and the server-side staleness check
+    are computed through one code path and cannot drift.
+    """
+
+    module_key, handler, resolved = resolve_build_input(
+        session,
+        registry,
+        study_id=study_id,
+        owner_type=owner_type,
+        owner_id=owner_id,
+        artifact_types=artifact_types,
+        options=options,
+    )
+    return fingerprint(resolved), module_key, handler, resolved
+
+
 def _require_build(session: Session, build_id: UUID, principal: Principal) -> ArtifactBuild:
     build = session.get(ArtifactBuild, build_id)
     if build is None:
@@ -167,7 +196,7 @@ def create_artifact_build(
             title="Idempotency-Key is required",
             detail="Supply an Idempotency-Key header.",
         )
-    module_key, _, resolved = resolve_build_input(
+    input_fingerprint, module_key, _, _ = resolve_build_fingerprint(
         session,
         registry,
         study_id=command.study_id,
@@ -176,7 +205,6 @@ def create_artifact_build(
         artifact_types=command.artifact_types,
         options=dict(command.options),
     )
-    input_fingerprint = fingerprint(resolved)
     if input_fingerprint != command.expected_input_fingerprint:
         raise ProblemException(
             status_code=409,

@@ -33,13 +33,13 @@ Collection routes are nested under their owning study or aggregate. Member route
 
 ### 3.1 Methods and statuses
 
-| Operation | Success status |
-|---|---|
-| Create synchronous resource | `201 Created` with resource and `Location` |
-| Read resource or collection | `200 OK` |
-| Replace editable document | `200 OK` |
-| Patch resource | `200 OK` |
-| Delete editable child | `204 No Content` |
+| Operation                    | Success status                                        |
+| ---------------------------- | ----------------------------------------------------- |
+| Create synchronous resource  | `201 Created` with resource and `Location`            |
+| Read resource or collection  | `200 OK`                                              |
+| Replace editable document    | `200 OK`                                              |
+| Patch resource               | `200 OK`                                              |
+| Delete editable child        | `204 No Content`                                      |
 | Start asynchronous operation | `202 Accepted` with operation resource and `Location` |
 
 Other common statuses:
@@ -126,14 +126,14 @@ XLSX and JSON imports are atomic and require `Idempotency-Key` in addition to `I
 
 Long-running action endpoints use the same result contract in every module:
 
-| Action suffix | Success status and resource |
-|---|---|
-| `/validate` | `202 Accepted` with a validation run and `Location: /api/v1/validation-runs/{validation_run_id}` |
+| Action suffix                                        | Success status and resource                                                                                  |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `/validate`                                          | `202 Accepted` with a validation run and `Location: /api/v1/validation-runs/{validation_run_id}`             |
 | `/reconcile` or reconciliation-run collection `POST` | `202 Accepted` with a reconciliation run and `Location: /api/v1/reconciliation-runs/{reconciliation_run_id}` |
-| `/compile` or `/artifacts` | `202 Accepted` with an artifact build and `Location: /api/v1/artifact-builds/{build_id}` |
-| `/execute` | `202 Accepted` with an execution run and `Location: /api/v1/execution-runs/{run_id}` |
-| `/render` when it creates artifacts | `202 Accepted` with an artifact build and `Location: /api/v1/artifact-builds/{build_id}` |
-| Submission-package collection `POST` | `202 Accepted` with a submission package and `Location: /api/v1/submission-packages/{package_id}` |
+| `/compile` or `/artifacts`                           | `202 Accepted` with an artifact build and `Location: /api/v1/artifact-builds/{build_id}`                     |
+| `/execute`                                           | `202 Accepted` with an execution run and `Location: /api/v1/execution-runs/{run_id}`                         |
+| `/render` when it creates artifacts                  | `202 Accepted` with an artifact build and `Location: /api/v1/artifact-builds/{build_id}`                     |
+| Submission-package collection `POST`                 | `202 Accepted` with a submission package and `Location: /api/v1/submission-packages/{package_id}`            |
 
 Synchronous previews and non-persisting renders return `200 OK` and do not create operation resources. All artifact-producing requests include an expected input fingerprint. Artifact builds, execution runs, reconciliation runs, and submission-package creation require `Idempotency-Key`.
 
@@ -175,7 +175,7 @@ Synchronous previews and non-persisting renders return `200 OK` and do not creat
   "input_fingerprint": "sha256 hex",
   "started_at": "date-time or null",
   "completed_at": "date-time or null",
-  "issue_counts": {"error": 0, "warning": 2, "info": 1},
+  "issue_counts": { "error": 0, "warning": 2, "info": 1 },
   "issues": [],
   "report_artifact_ids": ["uuid"]
 }
@@ -234,7 +234,7 @@ Raw, Documents, SDTM, ADaM, TLF, and every registered module with the dependency
   "revision": 7,
   "state": "current|dependency_refresh_required",
   "standards": [
-    {"purpose": "module-defined-purpose", "standard_version_id": "uuid"}
+    { "purpose": "module-defined-purpose", "standard_version_id": "uuid" }
   ],
   "terminology": [
     {
@@ -474,6 +474,7 @@ DELETE /api/v1/raw-variables/{variable_id}
 POST /api/v1/raw-datasets/{dataset_id}/preview
 POST /api/v1/raw/{raw_id}/validate
 POST /api/v1/raw/{raw_id}/reconcile
+POST /api/v1/raw/{raw_id}/artifacts/fingerprint
 POST /api/v1/raw/{raw_id}/artifacts
 ```
 
@@ -489,6 +490,14 @@ trace-link integrity. `reconcile` requires the expected current Raw revision and
 ID/checksum, then durably compares names, physical types, ordinals, lengths, and precision. Its
 immutable report contains physical schema facts and issue records but no source rows or internal
 object-store locations. Raw artifact requests follow the common artifact-build contract.
+
+`artifacts/fingerprint` is a read-only preview. It accepts
+`{ "artifact_types": [...] }` (at least one, drawn from the fixed Raw artifact-type set) and
+returns `200 OK` with `{ "input_fingerprint": "<64 hex>" }` computed from the exact same resolved
+build inputs as `POST /api/v1/raw/{raw_id}/artifacts`. The returned value is the value a client
+sends back as `expected_input_fingerprint` on the build request. It requires study access,
+persists nothing, needs no `Idempotency-Key`, and returns `422` for unsupported or invalid
+artifact types or owner, consistent with the sibling Raw routes.
 
 ## 8. Documents routes
 
@@ -909,16 +918,20 @@ GET  /api/v1/submission-packages/{package_id}/download
 {
   "name": "study-abc-release-1",
   "module_selections": [
-    {"module": "raw", "options": {}},
+    { "module": "raw", "options": {} },
     {
       "module": "documents",
       "options": {
-        "document_types": ["protocol", "statistical_analysis_plan", "data_management_plan"]
+        "document_types": [
+          "protocol",
+          "statistical_analysis_plan",
+          "data_management_plan"
+        ]
       }
     },
-    {"module": "sdtm", "options": {}},
-    {"module": "adam", "options": {}},
-    {"module": "tlf", "options": {}}
+    { "module": "sdtm", "options": {} },
+    { "module": "adam", "options": {} },
+    { "module": "tlf", "options": {} }
   ],
   "artifact_ids": ["uuid"],
   "expected_study_fingerprint": "sha256 hex"
@@ -936,4 +949,3 @@ GET /api/v1/openapi.json
 ```
 
 Liveness checks only the process. Readiness verifies required database and object-store connectivity and confirms that module registration completed without capability conflicts. CI snapshots the OpenAPI document and safe module catalog, checks backward compatibility within v1, validates event/import schema compatibility, and generates a typed client fixture used by contract tests.
-

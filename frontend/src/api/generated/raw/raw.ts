@@ -27,10 +27,28 @@ import type {
   AggregateCollection,
   AggregateCreate,
   AggregateResponse,
+  ArtifactBuildResponse,
   DependencySelectionInput,
   DependencySelectionResponse,
   HTTPValidationError,
-  ListRawAggregatesParams
+  ListRawAggregatesParams,
+  PatchRaw200,
+  PatchRawBody,
+  RawArtifactFingerprintRequest,
+  RawArtifactFingerprintResponse,
+  RawArtifactRequest,
+  RawDatasetCreate,
+  RawDatasetPatch,
+  RawDatasetResponse,
+  RawInitializeResponse,
+  RawPreviewRequest,
+  RawPreviewResponse,
+  RawReconcileRequest,
+  RawVariablePatch,
+  RawVariableResponse,
+  RawVariableWrite,
+  ReconciliationResponse,
+  ValidationRunResponse
 } from '.././model';
 
 import { customInstance } from '../../axios-instance';
@@ -299,6 +317,70 @@ export function useGetRawAggregate<TData = Awaited<ReturnType<typeof getRawAggre
 
 
 /**
+ * @summary Patch Raw
+ */
+export const patchRaw = (
+    rawId: string,
+    patchRawBody: BodyType<PatchRawBody>,
+ options?: SecondParameter<typeof customInstance>,) => {
+      
+      
+      return customInstance<PatchRaw200>(
+      {url: `/api/v1/raw/${rawId}`, method: 'PATCH',
+      headers: {'Content-Type': 'application/json', },
+      data: patchRawBody
+    },
+      options);
+    }
+  
+
+
+export const getPatchRawMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof patchRaw>>, TError,{rawId: string;data: BodyType<PatchRawBody>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof patchRaw>>, TError,{rawId: string;data: BodyType<PatchRawBody>}, TContext> => {
+
+const mutationKey = ['patchRaw'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof patchRaw>>, {rawId: string;data: BodyType<PatchRawBody>}> = (props) => {
+          const {rawId,data} = props ?? {};
+
+          return  patchRaw(rawId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PatchRawMutationResult = NonNullable<Awaited<ReturnType<typeof patchRaw>>>
+    export type PatchRawMutationBody = BodyType<PatchRawBody>
+    export type PatchRawMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Patch Raw
+ */
+export const usePatchRaw = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof patchRaw>>, TError,{rawId: string;data: BodyType<PatchRawBody>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof patchRaw>>,
+        TError,
+        {rawId: string;data: BodyType<PatchRawBody>},
+        TContext
+      > => {
+
+      const mutationOptions = getPatchRawMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * @summary Get Dependencies
  */
 export const getRawDependencies = (
@@ -451,6 +533,1144 @@ export const useReplaceRawDependencies = <TError = ErrorType<HTTPValidationError
       > => {
 
       const mutationOptions = getReplaceRawDependenciesMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Create Dataset
+ */
+export const createDataset = (
+    rawId: string,
+    rawDatasetCreate: BodyType<RawDatasetCreate>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<RawDatasetResponse>(
+      {url: `/api/v1/raw/${rawId}/datasets`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: rawDatasetCreate, signal
+    },
+      options);
+    }
+  
+
+
+export const getCreateDatasetMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDataset>>, TError,{rawId: string;data: BodyType<RawDatasetCreate>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof createDataset>>, TError,{rawId: string;data: BodyType<RawDatasetCreate>}, TContext> => {
+
+const mutationKey = ['createDataset'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createDataset>>, {rawId: string;data: BodyType<RawDatasetCreate>}> = (props) => {
+          const {rawId,data} = props ?? {};
+
+          return  createDataset(rawId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateDatasetMutationResult = NonNullable<Awaited<ReturnType<typeof createDataset>>>
+    export type CreateDatasetMutationBody = BodyType<RawDatasetCreate>
+    export type CreateDatasetMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Create Dataset
+ */
+export const useCreateDataset = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDataset>>, TError,{rawId: string;data: BodyType<RawDatasetCreate>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createDataset>>,
+        TError,
+        {rawId: string;data: BodyType<RawDatasetCreate>},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateDatasetMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary List Datasets
+ */
+export const listDatasets = (
+    rawId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<RawDatasetResponse[]>(
+      {url: `/api/v1/raw/${rawId}/datasets`, method: 'GET', signal
+    },
+      options);
+    }
+  
+
+
+
+export const getListDatasetsQueryKey = (rawId?: string,) => {
+    return [
+    `/api/v1/raw/${rawId}/datasets`
+    ] as const;
+    }
+
+    
+export const getListDatasetsQueryOptions = <TData = Awaited<ReturnType<typeof listDatasets>>, TError = ErrorType<HTTPValidationError>>(rawId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listDatasets>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDatasetsQueryKey(rawId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDatasets>>> = ({ signal }) => listDatasets(rawId, requestOptions, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(rawId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDatasets>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type ListDatasetsQueryResult = NonNullable<Awaited<ReturnType<typeof listDatasets>>>
+export type ListDatasetsQueryError = ErrorType<HTTPValidationError>
+
+
+export function useListDatasets<TData = Awaited<ReturnType<typeof listDatasets>>, TError = ErrorType<HTTPValidationError>>(
+ rawId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listDatasets>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listDatasets>>,
+          TError,
+          Awaited<ReturnType<typeof listDatasets>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListDatasets<TData = Awaited<ReturnType<typeof listDatasets>>, TError = ErrorType<HTTPValidationError>>(
+ rawId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listDatasets>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listDatasets>>,
+          TError,
+          Awaited<ReturnType<typeof listDatasets>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListDatasets<TData = Awaited<ReturnType<typeof listDatasets>>, TError = ErrorType<HTTPValidationError>>(
+ rawId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listDatasets>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary List Datasets
+ */
+
+export function useListDatasets<TData = Awaited<ReturnType<typeof listDatasets>>, TError = ErrorType<HTTPValidationError>>(
+ rawId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listDatasets>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getListDatasetsQueryOptions(rawId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Get Dataset
+ */
+export const getDataset = (
+    datasetId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<RawDatasetResponse>(
+      {url: `/api/v1/raw-datasets/${datasetId}`, method: 'GET', signal
+    },
+      options);
+    }
+  
+
+
+
+export const getGetDatasetQueryKey = (datasetId?: string,) => {
+    return [
+    `/api/v1/raw-datasets/${datasetId}`
+    ] as const;
+    }
+
+    
+export const getGetDatasetQueryOptions = <TData = Awaited<ReturnType<typeof getDataset>>, TError = ErrorType<HTTPValidationError>>(datasetId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDataset>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDatasetQueryKey(datasetId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDataset>>> = ({ signal }) => getDataset(datasetId, requestOptions, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(datasetId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDataset>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetDatasetQueryResult = NonNullable<Awaited<ReturnType<typeof getDataset>>>
+export type GetDatasetQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetDataset<TData = Awaited<ReturnType<typeof getDataset>>, TError = ErrorType<HTTPValidationError>>(
+ datasetId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDataset>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getDataset>>,
+          TError,
+          Awaited<ReturnType<typeof getDataset>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetDataset<TData = Awaited<ReturnType<typeof getDataset>>, TError = ErrorType<HTTPValidationError>>(
+ datasetId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDataset>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getDataset>>,
+          TError,
+          Awaited<ReturnType<typeof getDataset>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetDataset<TData = Awaited<ReturnType<typeof getDataset>>, TError = ErrorType<HTTPValidationError>>(
+ datasetId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDataset>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary Get Dataset
+ */
+
+export function useGetDataset<TData = Awaited<ReturnType<typeof getDataset>>, TError = ErrorType<HTTPValidationError>>(
+ datasetId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDataset>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetDatasetQueryOptions(datasetId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Patch Dataset
+ */
+export const patchDataset = (
+    datasetId: string,
+    rawDatasetPatch: BodyType<RawDatasetPatch>,
+ options?: SecondParameter<typeof customInstance>,) => {
+      
+      
+      return customInstance<RawDatasetResponse>(
+      {url: `/api/v1/raw-datasets/${datasetId}`, method: 'PATCH',
+      headers: {'Content-Type': 'application/json', },
+      data: rawDatasetPatch
+    },
+      options);
+    }
+  
+
+
+export const getPatchDatasetMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof patchDataset>>, TError,{datasetId: string;data: BodyType<RawDatasetPatch>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof patchDataset>>, TError,{datasetId: string;data: BodyType<RawDatasetPatch>}, TContext> => {
+
+const mutationKey = ['patchDataset'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof patchDataset>>, {datasetId: string;data: BodyType<RawDatasetPatch>}> = (props) => {
+          const {datasetId,data} = props ?? {};
+
+          return  patchDataset(datasetId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PatchDatasetMutationResult = NonNullable<Awaited<ReturnType<typeof patchDataset>>>
+    export type PatchDatasetMutationBody = BodyType<RawDatasetPatch>
+    export type PatchDatasetMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Patch Dataset
+ */
+export const usePatchDataset = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof patchDataset>>, TError,{datasetId: string;data: BodyType<RawDatasetPatch>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof patchDataset>>,
+        TError,
+        {datasetId: string;data: BodyType<RawDatasetPatch>},
+        TContext
+      > => {
+
+      const mutationOptions = getPatchDatasetMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Retire Dataset
+ */
+export const retireDataset = (
+    datasetId: string,
+ options?: SecondParameter<typeof customInstance>,) => {
+      
+      
+      return customInstance<void>(
+      {url: `/api/v1/raw-datasets/${datasetId}`, method: 'DELETE'
+    },
+      options);
+    }
+  
+
+
+export const getRetireDatasetMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retireDataset>>, TError,{datasetId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof retireDataset>>, TError,{datasetId: string}, TContext> => {
+
+const mutationKey = ['retireDataset'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retireDataset>>, {datasetId: string}> = (props) => {
+          const {datasetId} = props ?? {};
+
+          return  retireDataset(datasetId,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RetireDatasetMutationResult = NonNullable<Awaited<ReturnType<typeof retireDataset>>>
+    
+    export type RetireDatasetMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Retire Dataset
+ */
+export const useRetireDataset = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retireDataset>>, TError,{datasetId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof retireDataset>>,
+        TError,
+        {datasetId: string},
+        TContext
+      > => {
+
+      const mutationOptions = getRetireDatasetMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary List Variables
+ */
+export const listVariables = (
+    datasetId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<RawVariableResponse[]>(
+      {url: `/api/v1/raw-datasets/${datasetId}/variables`, method: 'GET', signal
+    },
+      options);
+    }
+  
+
+
+
+export const getListVariablesQueryKey = (datasetId?: string,) => {
+    return [
+    `/api/v1/raw-datasets/${datasetId}/variables`
+    ] as const;
+    }
+
+    
+export const getListVariablesQueryOptions = <TData = Awaited<ReturnType<typeof listVariables>>, TError = ErrorType<HTTPValidationError>>(datasetId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listVariables>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListVariablesQueryKey(datasetId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listVariables>>> = ({ signal }) => listVariables(datasetId, requestOptions, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(datasetId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listVariables>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type ListVariablesQueryResult = NonNullable<Awaited<ReturnType<typeof listVariables>>>
+export type ListVariablesQueryError = ErrorType<HTTPValidationError>
+
+
+export function useListVariables<TData = Awaited<ReturnType<typeof listVariables>>, TError = ErrorType<HTTPValidationError>>(
+ datasetId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listVariables>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listVariables>>,
+          TError,
+          Awaited<ReturnType<typeof listVariables>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListVariables<TData = Awaited<ReturnType<typeof listVariables>>, TError = ErrorType<HTTPValidationError>>(
+ datasetId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listVariables>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listVariables>>,
+          TError,
+          Awaited<ReturnType<typeof listVariables>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListVariables<TData = Awaited<ReturnType<typeof listVariables>>, TError = ErrorType<HTTPValidationError>>(
+ datasetId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listVariables>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary List Variables
+ */
+
+export function useListVariables<TData = Awaited<ReturnType<typeof listVariables>>, TError = ErrorType<HTTPValidationError>>(
+ datasetId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listVariables>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getListVariablesQueryOptions(datasetId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Create Variable
+ */
+export const createVariable = (
+    datasetId: string,
+    rawVariableWrite: BodyType<RawVariableWrite>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<RawVariableResponse>(
+      {url: `/api/v1/raw-datasets/${datasetId}/variables`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: rawVariableWrite, signal
+    },
+      options);
+    }
+  
+
+
+export const getCreateVariableMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createVariable>>, TError,{datasetId: string;data: BodyType<RawVariableWrite>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof createVariable>>, TError,{datasetId: string;data: BodyType<RawVariableWrite>}, TContext> => {
+
+const mutationKey = ['createVariable'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createVariable>>, {datasetId: string;data: BodyType<RawVariableWrite>}> = (props) => {
+          const {datasetId,data} = props ?? {};
+
+          return  createVariable(datasetId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateVariableMutationResult = NonNullable<Awaited<ReturnType<typeof createVariable>>>
+    export type CreateVariableMutationBody = BodyType<RawVariableWrite>
+    export type CreateVariableMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Create Variable
+ */
+export const useCreateVariable = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createVariable>>, TError,{datasetId: string;data: BodyType<RawVariableWrite>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createVariable>>,
+        TError,
+        {datasetId: string;data: BodyType<RawVariableWrite>},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateVariableMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Get Variable
+ */
+export const getVariable = (
+    variableId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<RawVariableResponse>(
+      {url: `/api/v1/raw-variables/${variableId}`, method: 'GET', signal
+    },
+      options);
+    }
+  
+
+
+
+export const getGetVariableQueryKey = (variableId?: string,) => {
+    return [
+    `/api/v1/raw-variables/${variableId}`
+    ] as const;
+    }
+
+    
+export const getGetVariableQueryOptions = <TData = Awaited<ReturnType<typeof getVariable>>, TError = ErrorType<HTTPValidationError>>(variableId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVariable>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetVariableQueryKey(variableId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getVariable>>> = ({ signal }) => getVariable(variableId, requestOptions, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(variableId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVariable>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetVariableQueryResult = NonNullable<Awaited<ReturnType<typeof getVariable>>>
+export type GetVariableQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetVariable<TData = Awaited<ReturnType<typeof getVariable>>, TError = ErrorType<HTTPValidationError>>(
+ variableId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVariable>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getVariable>>,
+          TError,
+          Awaited<ReturnType<typeof getVariable>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetVariable<TData = Awaited<ReturnType<typeof getVariable>>, TError = ErrorType<HTTPValidationError>>(
+ variableId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVariable>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getVariable>>,
+          TError,
+          Awaited<ReturnType<typeof getVariable>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetVariable<TData = Awaited<ReturnType<typeof getVariable>>, TError = ErrorType<HTTPValidationError>>(
+ variableId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVariable>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary Get Variable
+ */
+
+export function useGetVariable<TData = Awaited<ReturnType<typeof getVariable>>, TError = ErrorType<HTTPValidationError>>(
+ variableId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVariable>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetVariableQueryOptions(variableId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Patch Variable
+ */
+export const patchVariable = (
+    variableId: string,
+    rawVariablePatch: BodyType<RawVariablePatch>,
+ options?: SecondParameter<typeof customInstance>,) => {
+      
+      
+      return customInstance<RawVariableResponse>(
+      {url: `/api/v1/raw-variables/${variableId}`, method: 'PATCH',
+      headers: {'Content-Type': 'application/json', },
+      data: rawVariablePatch
+    },
+      options);
+    }
+  
+
+
+export const getPatchVariableMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof patchVariable>>, TError,{variableId: string;data: BodyType<RawVariablePatch>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof patchVariable>>, TError,{variableId: string;data: BodyType<RawVariablePatch>}, TContext> => {
+
+const mutationKey = ['patchVariable'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof patchVariable>>, {variableId: string;data: BodyType<RawVariablePatch>}> = (props) => {
+          const {variableId,data} = props ?? {};
+
+          return  patchVariable(variableId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PatchVariableMutationResult = NonNullable<Awaited<ReturnType<typeof patchVariable>>>
+    export type PatchVariableMutationBody = BodyType<RawVariablePatch>
+    export type PatchVariableMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Patch Variable
+ */
+export const usePatchVariable = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof patchVariable>>, TError,{variableId: string;data: BodyType<RawVariablePatch>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof patchVariable>>,
+        TError,
+        {variableId: string;data: BodyType<RawVariablePatch>},
+        TContext
+      > => {
+
+      const mutationOptions = getPatchVariableMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Delete Variable
+ */
+export const deleteVariable = (
+    variableId: string,
+ options?: SecondParameter<typeof customInstance>,) => {
+      
+      
+      return customInstance<void>(
+      {url: `/api/v1/raw-variables/${variableId}`, method: 'DELETE'
+    },
+      options);
+    }
+  
+
+
+export const getDeleteVariableMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteVariable>>, TError,{variableId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteVariable>>, TError,{variableId: string}, TContext> => {
+
+const mutationKey = ['deleteVariable'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteVariable>>, {variableId: string}> = (props) => {
+          const {variableId} = props ?? {};
+
+          return  deleteVariable(variableId,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteVariableMutationResult = NonNullable<Awaited<ReturnType<typeof deleteVariable>>>
+    
+    export type DeleteVariableMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Delete Variable
+ */
+export const useDeleteVariable = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteVariable>>, TError,{variableId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteVariable>>,
+        TError,
+        {variableId: string},
+        TContext
+      > => {
+
+      const mutationOptions = getDeleteVariableMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Initialize Variables
+ */
+export const initializeVariables = (
+    datasetId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<RawInitializeResponse>(
+      {url: `/api/v1/raw-datasets/${datasetId}/variables/initialize`, method: 'POST', signal
+    },
+      options);
+    }
+  
+
+
+export const getInitializeVariablesMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof initializeVariables>>, TError,{datasetId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof initializeVariables>>, TError,{datasetId: string}, TContext> => {
+
+const mutationKey = ['initializeVariables'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof initializeVariables>>, {datasetId: string}> = (props) => {
+          const {datasetId} = props ?? {};
+
+          return  initializeVariables(datasetId,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type InitializeVariablesMutationResult = NonNullable<Awaited<ReturnType<typeof initializeVariables>>>
+    
+    export type InitializeVariablesMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Initialize Variables
+ */
+export const useInitializeVariables = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof initializeVariables>>, TError,{datasetId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof initializeVariables>>,
+        TError,
+        {datasetId: string},
+        TContext
+      > => {
+
+      const mutationOptions = getInitializeVariablesMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Preview Dataset
+ */
+export const previewDataset = (
+    datasetId: string,
+    rawPreviewRequest: BodyType<RawPreviewRequest>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<RawPreviewResponse>(
+      {url: `/api/v1/raw-datasets/${datasetId}/preview`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: rawPreviewRequest, signal
+    },
+      options);
+    }
+  
+
+
+export const getPreviewDatasetMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewDataset>>, TError,{datasetId: string;data: BodyType<RawPreviewRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewDataset>>, TError,{datasetId: string;data: BodyType<RawPreviewRequest>}, TContext> => {
+
+const mutationKey = ['previewDataset'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewDataset>>, {datasetId: string;data: BodyType<RawPreviewRequest>}> = (props) => {
+          const {datasetId,data} = props ?? {};
+
+          return  previewDataset(datasetId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewDatasetMutationResult = NonNullable<Awaited<ReturnType<typeof previewDataset>>>
+    export type PreviewDatasetMutationBody = BodyType<RawPreviewRequest>
+    export type PreviewDatasetMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Preview Dataset
+ */
+export const usePreviewDataset = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewDataset>>, TError,{datasetId: string;data: BodyType<RawPreviewRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof previewDataset>>,
+        TError,
+        {datasetId: string;data: BodyType<RawPreviewRequest>},
+        TContext
+      > => {
+
+      const mutationOptions = getPreviewDatasetMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Validate Raw
+ */
+export const validateRaw = (
+    rawId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<ValidationRunResponse>(
+      {url: `/api/v1/raw/${rawId}/validate`, method: 'POST', signal
+    },
+      options);
+    }
+  
+
+
+export const getValidateRawMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateRaw>>, TError,{rawId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof validateRaw>>, TError,{rawId: string}, TContext> => {
+
+const mutationKey = ['validateRaw'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof validateRaw>>, {rawId: string}> = (props) => {
+          const {rawId} = props ?? {};
+
+          return  validateRaw(rawId,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ValidateRawMutationResult = NonNullable<Awaited<ReturnType<typeof validateRaw>>>
+    
+    export type ValidateRawMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Validate Raw
+ */
+export const useValidateRaw = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateRaw>>, TError,{rawId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof validateRaw>>,
+        TError,
+        {rawId: string},
+        TContext
+      > => {
+
+      const mutationOptions = getValidateRawMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * Queue an immutable comparison of maintained metadata and exact source bytes.
+ * @summary Reconcile Raw Source Schema
+ */
+export const reconcileRawSourceSchema = (
+    rawId: string,
+    rawReconcileRequest: BodyType<RawReconcileRequest>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<ReconciliationResponse>(
+      {url: `/api/v1/raw/${rawId}/reconcile`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: rawReconcileRequest, signal
+    },
+      options);
+    }
+  
+
+
+export const getReconcileRawSourceSchemaMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reconcileRawSourceSchema>>, TError,{rawId: string;data: BodyType<RawReconcileRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof reconcileRawSourceSchema>>, TError,{rawId: string;data: BodyType<RawReconcileRequest>}, TContext> => {
+
+const mutationKey = ['reconcileRawSourceSchema'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reconcileRawSourceSchema>>, {rawId: string;data: BodyType<RawReconcileRequest>}> = (props) => {
+          const {rawId,data} = props ?? {};
+
+          return  reconcileRawSourceSchema(rawId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReconcileRawSourceSchemaMutationResult = NonNullable<Awaited<ReturnType<typeof reconcileRawSourceSchema>>>
+    export type ReconcileRawSourceSchemaMutationBody = BodyType<RawReconcileRequest>
+    export type ReconcileRawSourceSchemaMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Reconcile Raw Source Schema
+ */
+export const useReconcileRawSourceSchema = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reconcileRawSourceSchema>>, TError,{rawId: string;data: BodyType<RawReconcileRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof reconcileRawSourceSchema>>,
+        TError,
+        {rawId: string;data: BodyType<RawReconcileRequest>},
+        TContext
+      > => {
+
+      const mutationOptions = getReconcileRawSourceSchemaMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * Return the exact resolved build-input fingerprint for a Raw build.
+
+Read-only preview that reuses the same resolution and canonicalization as
+the build endpoint so the returned value is accepted as
+``expected_input_fingerprint`` by ``POST /raw/{raw_id}/artifacts``.
+ * @summary Preview Raw Artifact Fingerprint
+ */
+export const previewRawArtifactFingerprint = (
+    rawId: string,
+    rawArtifactFingerprintRequest: BodyType<RawArtifactFingerprintRequest>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<RawArtifactFingerprintResponse>(
+      {url: `/api/v1/raw/${rawId}/artifacts/fingerprint`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: rawArtifactFingerprintRequest, signal
+    },
+      options);
+    }
+  
+
+
+export const getPreviewRawArtifactFingerprintMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewRawArtifactFingerprint>>, TError,{rawId: string;data: BodyType<RawArtifactFingerprintRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewRawArtifactFingerprint>>, TError,{rawId: string;data: BodyType<RawArtifactFingerprintRequest>}, TContext> => {
+
+const mutationKey = ['previewRawArtifactFingerprint'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewRawArtifactFingerprint>>, {rawId: string;data: BodyType<RawArtifactFingerprintRequest>}> = (props) => {
+          const {rawId,data} = props ?? {};
+
+          return  previewRawArtifactFingerprint(rawId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewRawArtifactFingerprintMutationResult = NonNullable<Awaited<ReturnType<typeof previewRawArtifactFingerprint>>>
+    export type PreviewRawArtifactFingerprintMutationBody = BodyType<RawArtifactFingerprintRequest>
+    export type PreviewRawArtifactFingerprintMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Preview Raw Artifact Fingerprint
+ */
+export const usePreviewRawArtifactFingerprint = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewRawArtifactFingerprint>>, TError,{rawId: string;data: BodyType<RawArtifactFingerprintRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof previewRawArtifactFingerprint>>,
+        TError,
+        {rawId: string;data: BodyType<RawArtifactFingerprintRequest>},
+        TContext
+      > => {
+
+      const mutationOptions = getPreviewRawArtifactFingerprintMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Create Raw Artifacts
+ */
+export const createRawArtifacts = (
+    rawId: string,
+    rawArtifactRequest: BodyType<RawArtifactRequest>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<ArtifactBuildResponse>(
+      {url: `/api/v1/raw/${rawId}/artifacts`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: rawArtifactRequest, signal
+    },
+      options);
+    }
+  
+
+
+export const getCreateRawArtifactsMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRawArtifacts>>, TError,{rawId: string;data: BodyType<RawArtifactRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRawArtifacts>>, TError,{rawId: string;data: BodyType<RawArtifactRequest>}, TContext> => {
+
+const mutationKey = ['createRawArtifacts'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRawArtifacts>>, {rawId: string;data: BodyType<RawArtifactRequest>}> = (props) => {
+          const {rawId,data} = props ?? {};
+
+          return  createRawArtifacts(rawId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRawArtifactsMutationResult = NonNullable<Awaited<ReturnType<typeof createRawArtifacts>>>
+    export type CreateRawArtifactsMutationBody = BodyType<RawArtifactRequest>
+    export type CreateRawArtifactsMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Create Raw Artifacts
+ */
+export const useCreateRawArtifacts = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRawArtifacts>>, TError,{rawId: string;data: BodyType<RawArtifactRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createRawArtifacts>>,
+        TError,
+        {rawId: string;data: BodyType<RawArtifactRequest>},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateRawArtifactsMutationOptions(options);
 
       return useMutation(mutationOptions, queryClient);
     }

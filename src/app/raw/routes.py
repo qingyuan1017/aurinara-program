@@ -13,7 +13,12 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import Principal, get_principal
 from app.api.dependencies import get_module_registry, get_object_storage, get_session
-from app.artifacts.builds import ArtifactBuildCreate, ArtifactBuildResponse, create_artifact_build
+from app.artifacts.builds import (
+    ArtifactBuildCreate,
+    ArtifactBuildResponse,
+    create_artifact_build,
+    resolve_build_fingerprint,
+)
 from app.artifacts.models import SourceFile
 from app.artifacts.service import ArtifactService
 from app.artifacts.storage import ObjectStorage
@@ -102,6 +107,15 @@ class RawArtifactRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     artifact_types: tuple[str, ...] = Field(min_length=1)
     expected_input_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class RawArtifactFingerprintRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    artifact_types: tuple[str, ...] = Field(min_length=1)
+
+
+class RawArtifactFingerprintResponse(BaseModel):
+    input_fingerprint: str
 
 
 class RawReconcileRequest(BaseModel):
@@ -735,6 +749,45 @@ def reconcile_raw_source_schema(
     request_payload = request.model_dump(mode="json", exclude={"expected_input_fingerprint"})
     request.expected_input_fingerprint = fingerprint(request_payload)
     return create_reconciliation(request, response, session, registry, principal, idempotency_key)
+
+
+@router.post(
+    "/raw/{raw_id}/artifacts/fingerprint",
+    response_model=RawArtifactFingerprintResponse,
+)
+def preview_raw_artifact_fingerprint(
+    raw_id: UUID,
+    command: RawArtifactFingerprintRequest,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> RawArtifactFingerprintResponse:
+    """Return the exact resolved build-input fingerprint for a Raw build.
+
+    Read-only preview that reuses the same resolution and canonicalization as
+    the build endpoint so the returned value is accepted as
+    ``expected_input_fingerprint`` by ``POST /raw/{raw_id}/artifacts``.
+    """
+
+    raw = _raw(session, registry, raw_id, principal)
+    unsupported = sorted(set(command.artifact_types) - set(RAW_ARTIFACT_TYPES))
+    if unsupported:
+        raise ProblemException(
+            status_code=422,
+            code="artifact_type_unsupported",
+            title="Artifact type is unsupported",
+            detail=f"Unsupported Raw artifact types: {', '.join(unsupported)}",
+        )
+    input_fingerprint, _, _, _ = resolve_build_fingerprint(
+        session,
+        registry,
+        study_id=raw.study_id,
+        owner_type="raw_workbench",
+        owner_id=raw.id,
+        artifact_types=command.artifact_types,
+        options={},
+    )
+    return RawArtifactFingerprintResponse(input_fingerprint=input_fingerprint)
 
 
 @router.post(

@@ -20,6 +20,7 @@ export const ModuleCapability = {
   entity_resolution: 'entity_resolution',
   review_targets: 'review_targets',
   reconciliation_inputs: 'reconciliation_inputs',
+  reconciliation: 'reconciliation',
   context_export: 'context_export',
   traceability: 'traceability',
   packaging: 'packaging',

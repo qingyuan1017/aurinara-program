@@ -247,6 +247,45 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
     assert '"SUBJID"' in raw_report.text
     assert '"01"' not in raw_report.text
 
+    # The Artifacts panel resolves the exact build-input fingerprint from the
+    # preview endpoint and sends it back as expected_input_fingerprint, so the
+    # build must be ACCEPTED (not 409 stale_input_fingerprint).
+    raw_artifact_types = ("raw_metadata_json", "raw_data_dictionary_xlsx")
+    raw_fingerprint = await client.post(
+        f"/api/v1/raw/{raw.json()['id']}/artifacts/fingerprint",
+        headers=headers,
+        json={"artifact_types": list(raw_artifact_types)},
+    )
+    assert raw_fingerprint.status_code == 200, raw_fingerprint.text
+    raw_build = await client.post(
+        f"/api/v1/raw/{raw.json()['id']}/artifacts",
+        headers={**headers, "Idempotency-Key": "build-raw-metadata-1"},
+        json={
+            "artifact_types": list(raw_artifact_types),
+            "expected_input_fingerprint": raw_fingerprint.json()["input_fingerprint"],
+        },
+    )
+    assert raw_build.status_code == 202, raw_build.text
+    with factory.begin() as session:
+        raw_build_job = JobService().claim(session, worker_id="phase3-worker", lease_seconds=60)
+        assert raw_build_job is not None
+    _process_job(
+        factory,
+        application.state.module_registry,
+        application.state.object_storage,
+        raw_build_job,
+    )
+    completed_raw_build = await client.get(
+        f"/api/v1/artifact-builds/{raw_build.json()['id']}", headers=headers
+    )
+    assert completed_raw_build.json()["status"] == "succeeded", completed_raw_build.text
+    assert {
+        (
+            await client.get(f"/api/v1/artifacts/{artifact_id}", headers=headers)
+        ).json()["artifact_type"]
+        for artifact_id in completed_raw_build.json()["result_artifact_ids"]
+    } == set(raw_artifact_types)
+
     raw_dependencies = await client.get(
         f"/api/v1/raw/{raw.json()['id']}/dependencies", headers=headers
     )
