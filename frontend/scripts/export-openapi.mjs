@@ -4,7 +4,7 @@
 //
 // Usage: node scripts/export-openapi.mjs
 import { spawnSync } from 'node:child_process'
-import { writeFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -26,8 +26,11 @@ const pyCode = [
   'print(json.dumps(app.openapi()))',
 ].join('\n')
 
-const scratchDir = mkdtempSync(path.join(tmpdir(), 'aurinara-openapi-'))
-const scriptFile = path.join(scratchDir, 'export_openapi.py')
+// Write the exporter to a temp .py file instead of passing it via `-c`. On
+// Windows, spawning through the shell re-splits an inline `-c` string on its
+// spaces/semicolons, so a file argument is the portable way to run it.
+const scriptDir = mkdtempSync(path.join(tmpdir(), 'aurinara-openapi-'))
+const scriptFile = path.join(scriptDir, 'export_openapi.py')
 writeFileSync(scriptFile, pyCode, 'utf-8')
 
 let result
@@ -39,7 +42,7 @@ try {
     shell: process.platform === 'win32',
   })
 } finally {
-  rmSync(scratchDir, { recursive: true, force: true })
+  rmSync(scriptDir, { recursive: true, force: true })
 }
 
 if (result.status !== 0) {

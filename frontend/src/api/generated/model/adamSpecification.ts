@@ -6,10 +6,12 @@
  */
 import type { AdamDataset } from './adamDataset';
 import type { AdamMethod } from './adamMethod';
+import type { AdamTraceTarget } from './adamTraceTarget';
 
 export interface AdamSpecification {
   schema_version?: '1.0.0';
   /** @minItems 1 */
   datasets: AdamDataset[];
   methods?: AdamMethod[];
+  trace_targets?: AdamTraceTarget[];
 }

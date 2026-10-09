@@ -63,7 +63,9 @@ from app.sdtm.specification_workbook import (
     render_specification_xlsx,
 )
 from app.studies.service import StudyService
+from app.transformation.contracts import Expression
 from app.transformation.evaluator import evaluate_dataflow
+from app.transformation.expression_validation import validate_expressions
 from app.transformation.service import canonical_ir, ir_fingerprint, lineage
 from app.validation.models import ValidationRun
 from app.validation.routes import ValidationRunResponse
@@ -527,6 +529,22 @@ def put_plan(
     return PlanResponse.model_validate(record)
 
 
+def _plan_expressions(plan: SdtmDerivationPlan) -> list[tuple[str, Expression]]:
+    """Collect every authored expression in a plan with a stable field path."""
+
+    pairs: list[tuple[str, Expression]] = []
+    for index, node in enumerate(plan.nodes):
+        base = f"nodes[{index}]"
+        if node.node_type == "filter":  # noqa: SIM114
+            pairs.append((f"{base}.predicate", node.predicate))
+        elif node.node_type == "assert":
+            pairs.append((f"{base}.predicate", node.predicate))
+        elif node.node_type == "derive":
+            for name, expression in node.assignments.items():
+                pairs.append((f"{base}.assignments.{name}", expression))
+    return pairs
+
+
 @router.post("/sdtms/{sdtm_id}/derivation-plan/validate")
 def validate_plan(
     sdtm_id: UUID,
@@ -536,8 +554,20 @@ def validate_plan(
 ) -> dict[str, object]:
     workbench = _sdtm(session, sdtm_id, principal)
     specification, _, plan = _handler(registry).require_aligned(session, workbench.id)
-    internal = lower_plan(context_from_record(specification), plan_from_record(plan))
-    return {"status": "valid", "ir_fingerprint": ir_fingerprint(internal), "issues": []}
+    plan_contract = plan_from_record(plan)
+    internal = lower_plan(context_from_record(specification), plan_contract)
+    issues = validate_expressions(
+        _plan_expressions(plan_contract),
+        module="sdtm",
+        entity_type="sdtm_derivation_plan",
+        entity_id=plan.id,
+    )
+    status_value = "invalid" if any(issue.severity == "error" for issue in issues) else "valid"
+    return {
+        "status": status_value,
+        "ir_fingerprint": ir_fingerprint(internal),
+        "issues": [issue.model_dump(mode="json") for issue in issues],
+    }
 
 
 @router.post("/sdtms/{sdtm_id}/derivation-plan/preview")

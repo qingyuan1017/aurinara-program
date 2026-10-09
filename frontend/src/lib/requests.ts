@@ -43,7 +43,9 @@ export function ifMatchRequest(revision: number): AxiosRequestConfig {
  *   omitted a fresh UUID is generated (suitable only for a one-shot call that is
  *   not re-invoked across retries).
  */
-export function idempotentRequest(key: string = crypto.randomUUID()): AxiosRequestConfig {
+export function idempotentRequest(
+  key: string = crypto.randomUUID(),
+): AxiosRequestConfig {
   return { headers: { ...JSON_CT, 'Idempotency-Key': key } }
 }
 

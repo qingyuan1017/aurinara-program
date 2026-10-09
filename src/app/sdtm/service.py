@@ -1099,6 +1099,15 @@ def lower_plan(specification: SdtmSpecification, plan: SdtmDerivationPlan) -> Da
                 )
             nodes.append({"node_type": "write", "id": node.id, "dataset": node.domain})
         elif node.node_type == "derive":
+            target_domain = domains.get(node.target_domain)
+            variable_types = (
+                {variable.name: variable.data_type for variable in target_domain.variables}
+                if target_domain is not None
+                else {}
+            )
+            result_types = {
+                name: variable_types[name] for name in node.assignments if name in variable_types
+            }
             nodes.append(
                 {
                     "node_type": "derive",
@@ -1107,6 +1116,7 @@ def lower_plan(specification: SdtmSpecification, plan: SdtmDerivationPlan) -> Da
                         name: expression.model_dump(mode="json")
                         for name, expression in node.assignments.items()
                     },
+                    "result_types": result_types,
                 }
             )
         else:

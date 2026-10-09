@@ -60,4 +60,4 @@ def compile_dataflow(value: DataflowIR, backend: str) -> CompiledProgram:
         source = GENERATORS[backend](value, digest)
     except UnsupportedOperator as error:
         raise BackendCapabilityMissing(backend, str(error)) from error
-    return CompiledProgram(backend, "1.4.0", source, digest)
+    return CompiledProgram(backend, "1.5.0", source, digest)

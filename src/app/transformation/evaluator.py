@@ -4,6 +4,7 @@ from collections.abc import Mapping, Sequence
 from typing import cast
 
 from app.common.problems import ProblemException
+from app.transformation import expression_functions as fns
 from app.transformation.contracts import Aggregation, DataflowIR, Expression, WindowOperation
 
 type Scalar = object | None
@@ -28,6 +29,36 @@ def _value(expression: Expression, row: Mapping[str, Scalar]) -> Scalar:
                 "preview_column_unknown", f"Column '{expression.column}' is not available."
             )
         return row[expression.column]
+    if expression.kind == "conditional":
+        for branch in expression.branches:
+            try:
+                condition = _value(branch.when, row)
+            except ProblemException as error:
+                if error.code == "preview_column_unknown":
+                    raise
+                condition = None
+            if condition is not None and bool(condition):
+                try:
+                    return _value(branch.then, row)
+                except ProblemException as error:
+                    if error.code == "preview_column_unknown":
+                        raise
+                    return None
+        try:
+            return _value(expression.otherwise, row)
+        except ProblemException as error:
+            if error.code == "preview_column_unknown":
+                raise
+            return None
+    if expression.kind == "list_literal":
+        return tuple(expression.values)
+    if expression.kind == "function":
+        arguments = [_value(argument, row) for argument in expression.arguments]
+        implementation = fns.REGISTRY[expression.function]
+        try:
+            return implementation(arguments)
+        except fns.ExpressionFunctionError as error:
+            raise _problem(error.code, error.detail) from error
     if expression.kind == "unary":
         operand = _value(expression.operand, row)
         if expression.operator == "not":

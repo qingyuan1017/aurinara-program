@@ -8,6 +8,7 @@ import type { AdamParameterValue } from './adamParameterValue';
 import type { AdamParameterTerminologyBinding } from './adamParameterTerminologyBinding';
 
 export interface AdamParameter {
+  id: string;
   /**
    * @minLength 1
    * @maxLength 40

@@ -223,9 +223,7 @@ async def test_raw_latest_validation_run_resolution(
     assert deleted.status_code == 204, deleted.text
     failed_run = await client.post(f"/api/v1/raw/{raw_id}/validate", headers=headers)
     assert failed_run.json()["status"] == "failed", failed_run.text
-    still_empty = await client.get(
-        f"/api/v1/raw/{raw_id}/latest-validation-run", headers=headers
-    )
+    still_empty = await client.get(f"/api/v1/raw/{raw_id}/latest-validation-run", headers=headers)
     assert still_empty.status_code == 404, still_empty.text
 
     # Re-fill the physical metadata and pass validation.
@@ -239,9 +237,7 @@ async def test_raw_latest_validation_run_resolution(
     second = await client.post(f"/api/v1/raw/{raw_id}/validate", headers=headers)
     assert second.json()["status"] == "succeeded", second.text
 
-    resolved = await client.get(
-        f"/api/v1/raw/{raw_id}/latest-validation-run", headers=headers
-    )
+    resolved = await client.get(f"/api/v1/raw/{raw_id}/latest-validation-run", headers=headers)
     assert resolved.status_code == 200, resolved.text
     body = resolved.json()
     # The newest succeeded run is resolved (not the first), and the advisory
@@ -252,9 +248,7 @@ async def test_raw_latest_validation_run_resolution(
     assert len(body["input_fingerprint"]) == 64
 
     # Study access is enforced: an unknown raw id is a 404.
-    unknown = await client.get(
-        f"/api/v1/raw/{uuid4()}/latest-validation-run", headers=headers
-    )
+    unknown = await client.get(f"/api/v1/raw/{uuid4()}/latest-validation-run", headers=headers)
     assert unknown.status_code == 404, unknown.text
     assert unknown.json()["code"] == "raw_not_found"
 
