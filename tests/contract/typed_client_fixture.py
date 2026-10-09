@@ -6,6 +6,7 @@ PHASE1_OPERATIONS: Final[dict[str, frozenset[str]]] = {
     "/api/v1/studies": frozenset({"get", "post"}),
     "/api/v1/studies/{study_id}": frozenset({"get", "patch"}),
     "/api/v1/studies/{study_id}/source-files": frozenset({"get", "post"}),
+    "/api/v1/studies/{study_id}/source-files:bulk": frozenset({"post"}),
     "/api/v1/raw/{raw_id}/dependencies": frozenset({"get", "put"}),
     "/api/v1/documents/{document_id}/dependencies": frozenset({"get", "put"}),
     "/api/v1/sdtms/{sdtm_id}/dependencies": frozenset({"get", "put"}),

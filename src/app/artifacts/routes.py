@@ -13,6 +13,7 @@ from app.api.dependencies import get_object_storage, get_session
 from app.artifacts.schemas import (
     ArtifactCollection,
     ArtifactResponse,
+    SourceFileBulkResponse,
     SourceFileCollection,
     SourceFileResponse,
 )
@@ -53,6 +54,30 @@ async def create_source_file(
     )
     response.headers["Location"] = f"/api/v1/source-files/{source_file.id}"
     return SourceFileResponse.model_validate(source_file)
+
+
+@router.post(
+    "/studies/{study_id}/source-files:bulk",
+    response_model=SourceFileBulkResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_source_files_bulk(
+    study_id: UUID,
+    files: list[UploadFile],
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    storage: Annotated[ObjectStorage, Depends(get_object_storage)],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> SourceFileBulkResponse:
+    """Upload many immutable source files atomically in request order."""
+
+    settings: Settings = request.app.state.settings
+    source_files = await service.create_source_files_bulk(
+        session, storage, settings, study_id, files, principal
+    )
+    return SourceFileBulkResponse(
+        items=tuple(SourceFileResponse.model_validate(item) for item in source_files)
+    )
 
 
 @router.get("/studies/{study_id}/source-files", response_model=SourceFileCollection)
