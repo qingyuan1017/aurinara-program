@@ -1,7 +1,7 @@
 """Verified cross-module traceability service and routes."""
 
 from datetime import datetime
-from typing import Annotated, cast
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
@@ -14,13 +14,18 @@ from app.api.auth import Principal, get_principal
 from app.api.dependencies import get_module_registry, get_session
 from app.common.problems import ProblemException
 from app.common.traceability import TraceLink
-from app.kernel.contracts import ModuleCapability
-from app.kernel.dependencies import DependencyCapability
-from app.kernel.registry import ModuleRegistry, ModuleRegistryError
+from app.kernel.registry import ModuleRegistry
+from app.kernel.traceability import (
+    TraceabilityError,
+    TraceabilityService,
+    TraceCommand,
+    TraceEndpoint,
+)
 from app.studies.service import StudyService
 
 router = APIRouter(tags=["traceability"])
 studies = StudyService()
+traceability = TraceabilityService()
 
 
 class EntityEndpoint(BaseModel):
@@ -52,15 +57,12 @@ class TraceLinkResponse(BaseModel):
     created_at: datetime
 
 
-def _resolve(session: Session, registry: ModuleRegistry, endpoint: EntityEndpoint) -> UUID | None:
-    try:
-        handler = cast(
-            DependencyCapability,
-            registry.require_handler(endpoint.module, ModuleCapability.ENTITY_RESOLUTION),
-        )
-    except ModuleRegistryError:
-        return None
-    return handler.resolve_entity(session, endpoint.entity_type, endpoint.entity_id)
+def _command(command: TraceLinkCreate) -> TraceCommand:
+    return TraceCommand(
+        relationship_type=command.relationship_type,
+        source=TraceEndpoint(**command.source.model_dump()),
+        target=TraceEndpoint(**command.target.model_dump()),
+    )
 
 
 @router.post(
@@ -76,28 +78,22 @@ def create_trace_link(
     principal: Annotated[Principal, Depends(get_principal)],
 ) -> TraceLinkResponse:
     studies.require_access(session, study_id, principal)
-    if (
-        _resolve(session, registry, command.source) != study_id
-        or _resolve(session, registry, command.target) != study_id
-    ):
-        raise ProblemException(
-            status_code=422,
-            code="trace_endpoint_invalid",
-            title="Trace endpoint is invalid",
-            detail="Both endpoints must exist in the same study.",
+    try:
+        link = traceability.add(
+            session,
+            registry,
+            study_id,
+            _command(command),
+            principal.subject,
         )
-    link = TraceLink(
-        study_id=study_id,
-        relationship_type=command.relationship_type,
-        source_module=command.source.module,
-        source_entity_type=command.source.entity_type,
-        source_entity_id=command.source.entity_id,
-        target_module=command.target.module,
-        target_entity_type=command.target.entity_type,
-        target_entity_id=command.target.entity_id,
-        created_by=principal.subject,
-    )
-    session.add(link)
+    except TraceabilityError as error:
+        conflict = error.code == "duplicate_trace_link"
+        raise ProblemException(
+            status_code=409 if conflict else 422,
+            code=error.code,
+            title="Trace link already exists" if conflict else "Trace link is invalid",
+            detail=error.detail,
+        ) from error
     try:
         session.commit()
     except IntegrityError as error:

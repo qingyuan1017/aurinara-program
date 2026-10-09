@@ -4,8 +4,8 @@
  * Aurinara Clinical Artifact Platform
  * OpenAPI spec version: 0.1.0
  */
-import type { RawLatestValidationRunResponseCompletedAt } from './rawLatestValidationRunResponseCompletedAt';
 import type { RawLatestValidationRunResponseRawRevision } from './rawLatestValidationRunResponseRawRevision';
+import type { RawLatestValidationRunResponseCompletedAt } from './rawLatestValidationRunResponseCompletedAt';
 
 /**
  * Reference to the latest successful Raw validation run.

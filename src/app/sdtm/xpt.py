@@ -26,6 +26,36 @@ class XptProduct:
     manifest: dict[str, object]
 
 
+def read_xpt_rows(
+    data: bytes, *, maximum_rows: int = 10_000
+) -> tuple[dict[str, object | None], ...]:
+    """Read bounded XPT rows for an owning-module context export."""
+
+    try:
+        frame, metadata = pyreadstat.read_xport(
+            io.BytesIO(data), output_format="pandas", row_limit=maximum_rows + 1
+        )
+    except pyreadstat.ReadstatError as error:
+        raise ProblemException(
+            status_code=422,
+            code="sdtm_context_xpt_invalid",
+            title="SDTM context XPT is invalid",
+            detail="The immutable selected artifact is not a readable XPORT dataset.",
+        ) from error
+    if metadata.number_rows is not None and metadata.number_rows > maximum_rows:
+        raise ProblemException(
+            status_code=422,
+            code="sdtm_preview_input_too_large",
+            title="SDTM preview input is too large",
+            detail=f"SDTM preview inputs are limited to {maximum_rows} rows per dataset.",
+        )
+    records = frame.astype(object).where(pd.notna(frame), None).to_dict(orient="records")
+    return tuple(
+        {str(name): None if value == "" else value for name, value in record.items()}
+        for record in records
+    )
+
+
 def _problem(code: str, detail: str) -> ProblemException:
     return ProblemException(
         status_code=422,

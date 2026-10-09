@@ -741,11 +741,11 @@ GET  /api/v1/adams/{adam_id}/specification/export
 
 The versioned ADaM Specification uses the common Specification envelope and is one aggregate contract containing datasets, variables, parameters, value-level metadata, methods, terminology bindings, and typed trace targets. Dataset entries record natural key, label, selected-standard class, structure, keys, sort order, purpose, and expected output name. Variable entries record physical metadata, role, origin, predecessor, method, terminology binding, and the stable Derivation Plan output that produces the variable. Dataset classes and roles resolve through the selected Standards version rather than a hard-coded global enum.
 
-Parameters have stable codes, labels, target datasets, optional terminology terms, applicability, and expected analysis-value semantics. Value-level metadata binds a typed condition to exact variable metadata, origin, method, terminology, and display attributes. Methods contain reviewer-readable maintained text and links to the exact Derivation Plan nodes and outputs they explain; method text is never executable.
+Parameters have stable UUIDs and codes, labels, target datasets, optional terminology terms, applicability, and expected analysis-value semantics. Value-level metadata binds a typed condition to exact variable metadata, origin, method, terminology, and display attributes. Methods contain reviewer-readable maintained text and links to the exact Derivation Plan nodes and outputs they explain; method text is never executable.
 
-Typed trace targets connect exact Protocol or SAP objectives, endpoints, estimands, populations, or methods to specification datasets, variables, parameters, or value-level items. The ADaM service verifies and writes these relationships through the shared traceability service in the same transaction as the specification revision; it does not maintain a second relationship store or infer bindings from matching names.
+Typed trace targets connect exact Protocol objectives/endpoints or SAP objectives/endpoints/estimands/populations/methods to specification datasets, variables, parameters, or value-level items. The ADaM service verifies registered entity and relationship ownership, resolves both endpoints to the same study, and replaces the revision's relationships through the shared traceability service in the same transaction as the specification revision; it does not maintain a second relationship store or infer bindings from matching names.
 
-`PUT specification` and import require `If-Match`, validate the complete versioned contract, and commit one revision atomically. JSON/XLSX import validates all sheets, natural-key uniqueness, references, terminology, origins, and trace targets before writing anything; it never imports backend code or replaces the Derivation Plan. Export returns non-persisting JSON or XLSX. Immutable metadata deliverables use the artifact endpoint.
+`PUT specification` and import require `If-Match`, validate the complete versioned contract, and commit one revision atomically. JSON/XLSX import validates all sheets, natural-key uniqueness, references, terminology, origins, and trace targets before writing anything; it never imports backend code or replaces the Derivation Plan. The XLSX contract uses `Metadata`, `Datasets`, `Variables`, `Parameters`, `ValueLevel`, `Methods`, and `TraceTargets` sheets. Export returns non-persisting JSON or XLSX. Immutable metadata deliverables use the artifact endpoint.
 
 ### 10.3 Derivation Plan and operations
 
@@ -784,6 +784,20 @@ POST /api/v1/adams/{adam_id}/define/artifacts
 
 The non-persisting `render` endpoint requires a `version` query parameter with value `2.0` or `2.1`. The ADaM Define model includes dataset classes, analysis roles, parameters, value-level metadata, origins, methods, terminology references, and SDTM traceability. Initialization may add missing factual structures from the saved ADaM Specification and exact output artifacts but cannot overwrite user-maintained metadata or narrative.
 
+Define validation is an immutable snapshot over the current Specification, exact SDTM selection,
+Define revision, output checksums, local XSD fingerprints, renderer version, and validator version.
+It reports stable common-model issues for missing, extra, or mismatched dataset, variable,
+parameter, value-level, origin, method, and terminology metadata. Every predecessor must resolve
+against the selected SDTM metadata or maintained ADaM metadata. Rendering and publication require
+the current zero-error validator version; validation from an older rule set cannot satisfy the
+gate. XPT reconciliation additionally compares dataset filename/label and exact variable order,
+names, labels, types, lengths, origins, and methods.
+
+Typed value-level conditions composed of same-dataset column-to-literal equality or ordering
+comparisons and conjunctions render as formal `ValueListDef` and `WhereClauseDef` structures in
+both versions. The complete typed contract is also retained in a deterministic referenced comment.
+Conditions outside that lossless subset remain comment-only rather than being weakened or rewritten.
+
 ADRG routes are:
 
 ```text
@@ -794,7 +808,15 @@ POST /api/v1/adams/{adam_id}/adrg/validate
 POST /api/v1/adams/{adam_id}/adrg/artifacts
 ```
 
-Initialization fills factual metadata, parameter summaries, traceability, input/output inventory, and method-to-Derivation-Plan references without overwriting user narrative in `study_data_overview`, `standards`, `analysis_datasets`, `analysis_variables`, `data_dependencies`, `important_derivations`, `conformance_issues`, `submission_programs`, or `reviewer_guidance`.
+Initialization requires the current Define revision and its successful zero-error
+`adam_define_outputs` reconciliation. It fills exact XPT dataset/checksum facts and successful
+execution/program facts, binds the current input-selection, Specification, Derivation Plan, and
+Define revisions, and does not overwrite user narrative in `study_data_overview`, `standards`,
+`analysis_datasets`, `analysis_variables`, `data_dependencies`, `important_derivations`,
+`conformance_issues`, `submission_programs`, or `reviewer_guidance`. Validation fails while any
+required section lacks manually authored paragraphs. Artifact creation additionally requires
+current zero-error ADRG validation and one exact compatible Template selection per requested
+DOCX/PDF artifact type.
 
 ## 11. TLF routes
 

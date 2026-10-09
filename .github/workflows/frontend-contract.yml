@@ -1,0 +1,87 @@
+# Frontend build-time contract check (raw-sdtm-frontend task 18.3).
+#
+# Enforces the typed-hook contract between the React app and the pinned backend
+# OpenAPI document: the client is regenerated from the backend schema and the
+# app is type-checked, linted, and tested. A screen that references a generated
+# API operation (hook) that does not exist fails `typecheck` (`tsc -b`), so the
+# contract break is caught at build time rather than as an untyped runtime call.
+#
+# Every step runs in the `frontend/` working directory and the job fails if any
+# step fails (no `continue-on-error`). No step reaches out to external
+# standards/terminology/template assets — the OpenAPI export boots the FastAPI
+# app in-process from the in-repo pinned assets, and client generation reads the
+# exported `openapi.json` only.
+name: frontend-contract
+
+on:
+  push:
+    paths:
+      - 'frontend/**'
+      - 'src/**'
+      - '.github/workflows/frontend-contract.yml'
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - 'src/**'
+      - '.github/workflows/frontend-contract.yml'
+
+# Avoid piling up redundant runs on the same ref.
+concurrency:
+  group: frontend-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      # `npm run api:sync` boots the FastAPI app through `uv` to export the
+      # OpenAPI document, so the Python toolchain must be present and the
+      # backend dependencies installed.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install backend dependencies (for the OpenAPI export)
+        run: uv sync --extra dev
+
+      # Pin the Node toolchain and cache npm using the frontend lockfile.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      # Regenerate the typed client from the pinned backend contract. This both
+      # fails fast if the backend schema cannot be produced and ensures the
+      # generated hooks the app references match the current OpenAPI surface.
+      - name: Regenerate the typed API client (api:sync)
+        working-directory: frontend
+        run: npm run api:sync
+
+      # The build-time contract check: `tsc -b` type-checks the app sources, so
+      # a reference to a non-existent generated operation fails here.
+      - name: Type-check (build-time contract check)
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Test
+        working-directory: frontend
+        run: npm run test

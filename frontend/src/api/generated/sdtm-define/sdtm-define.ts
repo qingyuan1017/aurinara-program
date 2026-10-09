@@ -24,10 +24,10 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AppSdtmDefineDefineArtifactRequest,
+  AppSdtmDefineDefineReconcileRequest,
+  AppSdtmDefineDefineResponse,
   ArtifactBuildResponse,
-  DefineArtifactRequest,
-  DefineReconcileRequest,
-  DefineResponse,
   HTTPValidationError,
   ReconciliationResponse,
   RenderDefineParams,
@@ -53,7 +53,7 @@ export const getDefine = (
 ) => {
       
       
-      return customInstance<DefineResponse>(
+      return customInstance<AppSdtmDefineDefineResponse>(
       {url: `/api/v1/sdtms/${sdtmId}/define`, method: 'GET', signal
     },
       options);
@@ -145,7 +145,7 @@ export const putDefine = (
  options?: SecondParameter<typeof customInstance>,) => {
       
       
-      return customInstance<DefineResponse>(
+      return customInstance<AppSdtmDefineDefineResponse>(
       {url: `/api/v1/sdtms/${sdtmId}/define`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
       data: sdtmDefineModel
@@ -210,7 +210,7 @@ export const initializeDefine = (
 ) => {
       
       
-      return customInstance<DefineResponse>(
+      return customInstance<AppSdtmDefineDefineResponse>(
       {url: `/api/v1/sdtms/${sdtmId}/define/initialize`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: sdtmDefineInitialize, signal
@@ -434,7 +434,7 @@ export function useRenderDefine<TData = Awaited<ReturnType<typeof renderDefine>>
  */
 export const createDefineArtifacts = (
     sdtmId: string,
-    defineArtifactRequest: BodyType<DefineArtifactRequest>,
+    appSdtmDefineDefineArtifactRequest: BodyType<AppSdtmDefineDefineArtifactRequest>,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
       
@@ -442,7 +442,7 @@ export const createDefineArtifacts = (
       return customInstance<ArtifactBuildResponse>(
       {url: `/api/v1/sdtms/${sdtmId}/define/artifacts`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
-      data: defineArtifactRequest, signal
+      data: appSdtmDefineDefineArtifactRequest, signal
     },
       options);
     }
@@ -450,8 +450,8 @@ export const createDefineArtifacts = (
 
 
 export const getCreateDefineArtifactsMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDefineArtifacts>>, TError,{sdtmId: string;data: BodyType<DefineArtifactRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof createDefineArtifacts>>, TError,{sdtmId: string;data: BodyType<DefineArtifactRequest>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDefineArtifacts>>, TError,{sdtmId: string;data: BodyType<AppSdtmDefineDefineArtifactRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof createDefineArtifacts>>, TError,{sdtmId: string;data: BodyType<AppSdtmDefineDefineArtifactRequest>}, TContext> => {
 
 const mutationKey = ['createDefineArtifacts'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -463,7 +463,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createDefineArtifacts>>, {sdtmId: string;data: BodyType<DefineArtifactRequest>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createDefineArtifacts>>, {sdtmId: string;data: BodyType<AppSdtmDefineDefineArtifactRequest>}> = (props) => {
           const {sdtmId,data} = props ?? {};
 
           return  createDefineArtifacts(sdtmId,data,requestOptions)
@@ -475,18 +475,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type CreateDefineArtifactsMutationResult = NonNullable<Awaited<ReturnType<typeof createDefineArtifacts>>>
-    export type CreateDefineArtifactsMutationBody = BodyType<DefineArtifactRequest>
+    export type CreateDefineArtifactsMutationBody = BodyType<AppSdtmDefineDefineArtifactRequest>
     export type CreateDefineArtifactsMutationError = ErrorType<HTTPValidationError>
 
     /**
  * @summary Create Define Artifacts
  */
 export const useCreateDefineArtifacts = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDefineArtifacts>>, TError,{sdtmId: string;data: BodyType<DefineArtifactRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDefineArtifacts>>, TError,{sdtmId: string;data: BodyType<AppSdtmDefineDefineArtifactRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof createDefineArtifacts>>,
         TError,
-        {sdtmId: string;data: BodyType<DefineArtifactRequest>},
+        {sdtmId: string;data: BodyType<AppSdtmDefineDefineArtifactRequest>},
         TContext
       > => {
 
@@ -499,7 +499,7 @@ export const useCreateDefineArtifacts = <TError = ErrorType<HTTPValidationError>
  */
 export const reconcileDefine = (
     sdtmId: string,
-    defineReconcileRequest: BodyType<DefineReconcileRequest>,
+    appSdtmDefineDefineReconcileRequest: BodyType<AppSdtmDefineDefineReconcileRequest>,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
       
@@ -507,7 +507,7 @@ export const reconcileDefine = (
       return customInstance<ReconciliationResponse>(
       {url: `/api/v1/sdtms/${sdtmId}/define/reconcile`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
-      data: defineReconcileRequest, signal
+      data: appSdtmDefineDefineReconcileRequest, signal
     },
       options);
     }
@@ -515,8 +515,8 @@ export const reconcileDefine = (
 
 
 export const getReconcileDefineMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reconcileDefine>>, TError,{sdtmId: string;data: BodyType<DefineReconcileRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof reconcileDefine>>, TError,{sdtmId: string;data: BodyType<DefineReconcileRequest>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reconcileDefine>>, TError,{sdtmId: string;data: BodyType<AppSdtmDefineDefineReconcileRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof reconcileDefine>>, TError,{sdtmId: string;data: BodyType<AppSdtmDefineDefineReconcileRequest>}, TContext> => {
 
 const mutationKey = ['reconcileDefine'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -528,7 +528,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reconcileDefine>>, {sdtmId: string;data: BodyType<DefineReconcileRequest>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reconcileDefine>>, {sdtmId: string;data: BodyType<AppSdtmDefineDefineReconcileRequest>}> = (props) => {
           const {sdtmId,data} = props ?? {};
 
           return  reconcileDefine(sdtmId,data,requestOptions)
@@ -540,18 +540,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type ReconcileDefineMutationResult = NonNullable<Awaited<ReturnType<typeof reconcileDefine>>>
-    export type ReconcileDefineMutationBody = BodyType<DefineReconcileRequest>
+    export type ReconcileDefineMutationBody = BodyType<AppSdtmDefineDefineReconcileRequest>
     export type ReconcileDefineMutationError = ErrorType<HTTPValidationError>
 
     /**
  * @summary Reconcile Define
  */
 export const useReconcileDefine = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reconcileDefine>>, TError,{sdtmId: string;data: BodyType<DefineReconcileRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reconcileDefine>>, TError,{sdtmId: string;data: BodyType<AppSdtmDefineDefineReconcileRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof reconcileDefine>>,
         TError,
-        {sdtmId: string;data: BodyType<DefineReconcileRequest>},
+        {sdtmId: string;data: BodyType<AppSdtmDefineDefineReconcileRequest>},
         TContext
       > => {
 

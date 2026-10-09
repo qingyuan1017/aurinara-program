@@ -198,6 +198,26 @@ def seed(session: Session, storage: ObjectStorage) -> None:
             )
         )
 
+    adrg_template_id = UUID("30000000-0000-0000-0000-000000000005")
+    if session.get(TemplateVersion, adrg_template_id) is None:
+        adrg_template = json.loads(document_template_path.read_text(encoding="utf-8"))
+        session.add(
+            TemplateVersion(
+                id=adrg_template_id,
+                family_id=family_id,
+                version="2.2.0",
+                lifecycle="active",
+                checksum=_checksum(document_template_path),
+                asset_path=str(document_template_path.relative_to(ROOT)).replace("\\", "/"),
+                applicable_modules=["adam"],
+                artifact_types=["adam_adrg_docx", "adam_adrg_pdf"],
+                content_schema_versions=["1.0.0"],
+                renderer_versions=[adrg_template["renderer"]],
+                blank_structure={"sections": adrg_template["blank_structure"]},
+                provenance={"source": "repository", "license": "project"},
+            )
+        )
+
     validation_rule_id = UUID("40000000-0000-0000-0000-000000000001")
     rule_pack_id = UUID("40000000-0000-0000-0000-000000000002")
     if session.get(ValidationRule, validation_rule_id) is None:

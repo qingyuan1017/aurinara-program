@@ -133,13 +133,21 @@ def _selected_inputs(program: Artifact) -> dict[UUID, str]:
             "The program does not contain an exact input selection.",
         )
     payload = selection.get("payload")
-    sources = payload.get("source_artifacts") if isinstance(payload, dict) else None
+    sources = None
+    if isinstance(payload, dict):
+        candidates = [
+            payload.get("source_artifacts"),
+            payload.get("xpt_artifacts"),
+        ]
+        selected = [item for item in candidates if isinstance(item, list)]
+        if len(selected) == 1:
+            sources = selected[0]
     if not isinstance(sources, list):
         raise _problem(
             422,
             "execution_manifest_invalid",
             "Program manifest is invalid",
-            "The program input selection does not contain source artifacts.",
+            "The program input selection does not contain one exact artifact collection.",
         )
     try:
         return {

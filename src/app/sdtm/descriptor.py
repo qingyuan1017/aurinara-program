@@ -31,6 +31,7 @@ DESCRIPTOR = ModuleDescriptor(
             ModuleCapability.ARTIFACTS,
             ModuleCapability.RECONCILIATION_INPUTS,
             ModuleCapability.RECONCILIATION,
+            ModuleCapability.CONTEXT_EXPORT,
             ModuleCapability.EXECUTION,
         }
     ),

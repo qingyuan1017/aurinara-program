@@ -1,0 +1,1139 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1.1 Regenerate the Orval client for the Phase 3 Raw/SDTM surface": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405220813
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405239266
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406032882
+      }
+    ],
+    "1.2 Add and pin the new browser-only dependencies": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405221044
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406036924
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406300625
+      }
+    ],
+    "1.3 Build-time typed-hook contract check": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405221277
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406043230
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406301566
+      }
+    ],
+    "2.1 Wire `lib/requests.ts` idempotency/If-Match helpers to real triggers": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405221406
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406044317
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406302968
+      }
+    ],
+    "2.2 Write unit tests for request header helpers": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405221611
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406320425
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406544612
+      }
+    ],
+    "2.3 Write unit tests for problem mapping (reuse `lib/problems.ts`)": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405221724
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406045349
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406304036
+      }
+    ],
+    "3.1 Implement `useOperationPoll` (`src/hooks/use-operation-poll.ts`)": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405221857
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406315697
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406541489
+      }
+    ],
+    "3.2 Implement `useDownload` (`src/hooks/use-download.ts`)": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405222000
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406317493
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406542378
+      }
+    ],
+    "3.3 Implement `useCursorList` helper": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405222122
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406318847
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406543810
+      }
+    ],
+    "3.4 Write unit tests for `useOperationPoll` and `useCursorList`": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405222242
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406902330
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791407833044
+      }
+    ],
+    "4.1 Implement `WorkbenchDetailShell` and study-scope gating": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405222369
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406550544
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406881492
+      }
+    ],
+    "4.2 Implement `IssueList`": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405222501
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406551471
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406875569
+      }
+    ],
+    "4.3 Implement `OperationRunner`, `ArtifactList`, and `DownloadButton`": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405222635
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791407836711
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791408331160
+      }
+    ],
+    "4.4 Implement `StalenessBanner` and `AlignmentBanner`": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405222809
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406557403
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406877707
+      }
+    ],
+    "4.5 Implement `FileDropzone` and the dnd-kit wrappers": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405222936
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406558705
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406872799
+      }
+    ],
+    "4.6 Implement `lib/invalidate.ts` query-key invalidation helpers": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405223105
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406559825
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406879506
+      }
+    ],
+    "4.7 Write component tests for shared components": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405223277
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791407840374
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791408332561
+      }
+    ],
+    "5.1 Convert `_app/raw.tsx` to `raw/index.tsx` list + create": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405223434
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791407838084
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791408333187
+      }
+    ],
+    "5.2 Add `raw/$rawId.tsx` workbench detail (tabbed)": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405223573
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791408341991
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791408546062
+      }
+    ],
+    "5.3 Write component tests for Raw list/create/detail": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405223705
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791408550448
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791408934032
+      }
+    ],
+    "6.1 Implement the Datasets panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405223854
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791408938835
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791409671315
+      }
+    ],
+    "6.2 Write component tests for the Datasets panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405223978
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791410931810
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791411349251
+      }
+    ],
+    "7.1 Implement the Variables panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405224170
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791409963333
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791410920661
+      }
+    ],
+    "7.2 Implement the Preview panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405224312
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791409691190
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791409955029
+      }
+    ],
+    "7.3 Write unit tests for clamping helpers": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405224436
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791409692253
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791410921369
+      }
+    ],
+    "7.4 Write component tests for Variables and Preview": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405224554
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791412102171
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791412389817
+      }
+    ],
+    "8.1 Implement the Raw Validation panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405224740
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791411629134
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791412066659
+      }
+    ],
+    "8.2 Implement the Raw Reconciliation panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405224863
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791411630318
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791412088088
+      }
+    ],
+    "8.3 Implement the Raw Artifacts panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405225009
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791411631431
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791412089703
+      }
+    ],
+    "8.4 Implement the Raw Dependencies panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405225144
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791411633002
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791412091113
+      }
+    ],
+    "8.5 Write component tests for Raw validation/reconcile/artifacts/dependencies": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405225261
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413205246
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413894458
+      }
+    ],
+    "9. Checkpoint - Raw screens": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405225389
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791419493063
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791419557168
+      }
+    ],
+    "10.1 Convert `_app/sdtm.tsx` to `sdtm/index.tsx` list + create": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405225531
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791407839456
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791408334369
+      }
+    ],
+    "10.2 Add `sdtm/$sdtmId.tsx` tabbed workbench detail shell": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405225649
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791408342865
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791408546768
+      }
+    ],
+    "10.3 Write component tests for SDTM list/create/detail shell": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405225780
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791408551460
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791411622458
+      }
+    ],
+    "11.1 Implement the Input selection panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405225916
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791408939736
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791409672143
+      }
+    ],
+    "11.2 Implement the Specification panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405226040
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791408941184
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791409673081
+      }
+    ],
+    "11.3 Write component tests for input selection and Specification": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405226178
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791410932616
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791411348317
+      }
+    ],
+    "12.1 Implement `planToGraph`/`graphToPlan` pure adapters": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405226382
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791408941925
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791409674039
+      }
+    ],
+    "12.2 Implement the `DerivationPlanGraph` React Flow editor": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405226504
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791409963820
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791410922790
+      }
+    ],
+    "12.3 Wire plan save, alignment gating, and conflict handling": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405226703
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791411633727
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791412092659
+      }
+    ],
+    "12.4 Write tests for the graph editor": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405226820
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413206792
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413896777
+      }
+    ],
+    "13.1 Implement derivation preview and lineage": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405226941
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791412100501
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791412388943
+      }
+    ],
+    "13.2 Implement the SDTM Validation panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405227055
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791412101395
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791412387731
+      }
+    ],
+    "13.3 Write component tests for preview, lineage, and validation": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405227187
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413207409
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413895904
+      }
+    ],
+    "14.1 Implement the Compile & artifacts panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405227305
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791412395102
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413198929
+      }
+    ],
+    "14.2 Implement the Execution panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405227458
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791412396545
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413200061
+      }
+    ],
+    "14.3 Write component tests for compile and execution": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405227601
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413902971
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791416053658
+      }
+    ],
+    "15.1 Implement the aCRF panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405227790
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791412397461
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413195716
+      }
+    ],
+    "15.2 Write unit tests for rectangle-bounds validation": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405227923
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413907315
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791416052125
+      }
+    ],
+    "15.3 Write component tests for the aCRF panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405228058
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413903918
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791416052313
+      }
+    ],
+    "16.1 Implement the Define panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405228185
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791412398369
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413196526
+      }
+    ],
+    "16.2 Write component tests for the Define panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405228309
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413905352
+      }
+    ],
+    "17.1 Implement the cSDRG panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405228459
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413204344
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413897838
+      }
+    ],
+    "17.2 Implement the SDTM Dependencies panel": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405228585
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791412399408
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413197682
+      }
+    ],
+    "17.3 Write component tests for cSDRG and SDTM dependencies": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405228776
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413906295
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791416054482
+      }
+    ],
+    "18.1 Wire query-key invalidation across all mutations": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405228924
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791416058950
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791417882763
+      }
+    ],
+    "18.2 Write component tests for invalidation and DnD-vs-fallback parity": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405229064
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791417888227
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791418479452
+      }
+    ],
+    "18.3 Finalize the build-time contract check in CI": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405229189
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791417888887
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791419482168
+      }
+    ],
+    "19. Final checkpoint - Ensure all tests pass": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791405229314
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791419559771
+      },
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791419676574
+      }
+    ],
+    "1. Regenerate the typed Orval client and add new client dependencies": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406301687
+      }
+    ],
+    "2. Extend the shared transport helpers (requests + problems)": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791406544787
+      }
+    ],
+    "3. Build the shared cross-cutting hooks": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791407833202
+      }
+    ],
+    "4. Build the shared reusable components": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791408332762
+      }
+    ],
+    "5. Raw workbench list, create, and detail": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791408934188
+      }
+    ],
+    "11. SDTM input selection and Specification": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791411348499
+      }
+    ],
+    "6. Raw datasets and source-file bindings": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791411349490
+      }
+    ],
+    "10. SDTM workbench list, create, and detail shell": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791411622682
+      }
+    ],
+    "7. Raw variables, initialization, and preview": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791412390067
+      }
+    ],
+    "8. Raw validation, reconciliation, artifacts, and dependencies": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413894663
+      }
+    ],
+    "13. SDTM derivation preview, lineage, and validation": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413896123
+      }
+    ],
+    "12. SDTM Derivation Plan graph editor": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791413896924
+      }
+    ],
+    "16. SDTM Define lifecycle": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791416052476
+      }
+    ],
+    "15. SDTM aCRF annotations, links, and coverage": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791416052589
+      }
+    ],
+    "14. SDTM compile, artifacts, and execution": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791416053781
+      }
+    ],
+    "17. SDTM cSDRG lifecycle and SDTM dependencies": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791416054640
+      }
+    ],
+    "18. Cross-cutting wiring, invalidation, and DnD parity": [
+      {
+        "executionId": "f0285e80-9f34-45a5-be6d-02f66188cc86",
+        "chatSessionId": "sess_032b4e55-8a7a-4bc4-9949-9bda05e5c792",
+        "timestamp": 1791419482365
+      }
+    ]
+  }
+}

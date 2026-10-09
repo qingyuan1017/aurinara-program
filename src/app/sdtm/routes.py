@@ -92,6 +92,10 @@ class ContextExporter(Protocol):
     ) -> tuple[dict[str, object | None], ...]: ...
 
 
+class AdamConsumerStaleness(Protocol):
+    def mark_sdtm_refresh(self, session: Session, sdtm_id: UUID) -> tuple[UUID, ...]: ...
+
+
 class InputSelectionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     revision: int
@@ -219,6 +223,15 @@ def _selection_command(selection: SdtmInputSelection) -> SdtmInputSelectionWrite
     return SdtmInputSelectionWrite.model_validate(payload)
 
 
+def _stale_adam_consumers(session: Session, registry: ModuleRegistry, sdtm_id: UUID) -> None:
+    consumer = cast(
+        AdamConsumerStaleness,
+        registry.require_handler("adam", ModuleCapability.STALENESS),
+    )
+    for adam_id in consumer.mark_sdtm_refresh(session, sdtm_id):
+        artifacts.mark_owner_stale(session, owner_type="adam_workbench", owner_id=adam_id)
+
+
 @router.get("/sdtms/{sdtm_id}/input-selection", response_model=InputSelectionResponse)
 def get_input_selection(
     sdtm_id: UUID,
@@ -285,6 +298,7 @@ def put_input_selection(
         plan.state = "misaligned"
     workbench.revision += 1
     artifacts.mark_owner_stale(session, owner_type="sdtm_workbench", owner_id=workbench.id)
+    _stale_adam_consumers(session, registry, workbench.id)
     session.commit()
     response.headers["ETag"] = etag_for_revision(workbench.revision)
     return InputSelectionResponse.model_validate(record)
@@ -340,6 +354,7 @@ def _save_specification(
         plan.state = "misaligned"
     workbench.revision += 1
     artifacts.mark_owner_stale(session, owner_type="sdtm_workbench", owner_id=workbench.id)
+    _stale_adam_consumers(session, registry, workbench.id)
     return record
 
 
@@ -506,6 +521,7 @@ def put_plan(
     session.add(record)
     workbench.revision += 1
     artifacts.mark_owner_stale(session, owner_type="sdtm_workbench", owner_id=workbench.id)
+    _stale_adam_consumers(session, registry, workbench.id)
     session.commit()
     response.headers["ETag"] = etag_for_revision(workbench.revision)
     return PlanResponse.model_validate(record)

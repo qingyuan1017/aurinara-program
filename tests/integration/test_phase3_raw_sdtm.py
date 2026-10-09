@@ -19,13 +19,13 @@ from sqlalchemy import text
 from app.artifacts.builds import resolve_build_input
 from app.catalog_seed import seed
 from app.common.canonical import fingerprint
-from app.config import Settings
 from app.database import create_database_engine, create_session_factory
 from app.execution.adapters import ExecutionRequest, ExecutionResult
 from app.execution.jobs import JobService
 from app.execution.worker import process_execution_job
 from app.main import create_app
 from app.sdtm.define_xml import validate_define_xml
+from tests.conftest import make_test_settings
 from tests.integration.test_phase1_core import MemoryStorage, TestTokenVerifier
 from workers.job_worker import _process_job
 
@@ -57,7 +57,7 @@ class HostPythonExecutor:
 
 @pytest.fixture
 async def phase3_client() -> AsyncIterator[AsyncClient]:
-    settings = Settings(_env_file=None, app_env="test")
+    settings = make_test_settings()
     engine = create_database_engine(settings)
     factory = create_session_factory(engine)
     with engine.begin() as connection:

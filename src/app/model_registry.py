@@ -1,6 +1,14 @@
 """Import all persistence models for Alembic metadata discovery."""
 
-from app.adam.models import AdamDependencySelection, AdamWorkbench
+from app.adam.models import (
+    AdamAdrgRevision,
+    AdamDefineRevision,
+    AdamDependencySelection,
+    AdamDerivationPlanRevision,
+    AdamInputSelection,
+    AdamSpecificationRevision,
+    AdamWorkbench,
+)
 from app.artifacts.models import Artifact, ArtifactBuild, SourceFile
 from app.common.idempotency import IdempotencyRecord
 from app.common.outbox import OutboxEvent
@@ -65,7 +73,12 @@ from app.validation.models import ValidationRule, ValidationRulePack, Validation
 __all__ = [
     "Artifact",
     "ArtifactBuild",
+    "AdamAdrgRevision",
     "AdamDependencySelection",
+    "AdamDefineRevision",
+    "AdamDerivationPlanRevision",
+    "AdamInputSelection",
+    "AdamSpecificationRevision",
     "AdamWorkbench",
     "Document",
     "DocumentContent",

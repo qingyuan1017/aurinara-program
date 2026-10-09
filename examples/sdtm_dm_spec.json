@@ -1,0 +1,137 @@
+{
+  "schema_version": "1.0.0",
+  "domains": [
+    {
+      "code": "DM",
+      "label": "Demographics",
+      "domain_class": "SPECIAL PURPOSE",
+      "structure": "One record per subject",
+      "keys": ["STUDYID", "USUBJID"],
+      "sort_order": ["STUDYID", "USUBJID"],
+      "expected_output_name": "dm.xpt",
+      "variables": [
+        {
+          "name": "STUDYID",
+          "label": "Study Identifier",
+          "data_type": "character",
+          "length": 20,
+          "role": "Identifier",
+          "core": "Req",
+          "origin": "Protocol",
+          "derived": false
+        },
+        {
+          "name": "DOMAIN",
+          "label": "Domain Abbreviation",
+          "data_type": "character",
+          "length": 2,
+          "role": "Identifier",
+          "core": "Req",
+          "origin": "Assigned",
+          "derived": false
+        },
+        {
+          "name": "USUBJID",
+          "label": "Unique Subject Identifier",
+          "data_type": "character",
+          "length": 40,
+          "role": "Identifier",
+          "core": "Req",
+          "origin": "Derived",
+          "derived": true
+        },
+        {
+          "name": "SUBJID",
+          "label": "Subject Identifier for the Study",
+          "data_type": "character",
+          "length": 20,
+          "role": "Topic",
+          "core": "Req",
+          "origin": "CRF",
+          "derived": false
+        },
+        {
+          "name": "SITEID",
+          "label": "Study Site Identifier",
+          "data_type": "character",
+          "length": 20,
+          "role": "Record Qualifier",
+          "core": "Req",
+          "origin": "CRF",
+          "derived": false
+        },
+        {
+          "name": "AGE",
+          "label": "Age",
+          "data_type": "numeric",
+          "length": 8,
+          "role": "Record Qualifier",
+          "core": "Exp",
+          "origin": "CRF",
+          "derived": false
+        },
+        {
+          "name": "AGEU",
+          "label": "Age Units",
+          "data_type": "character",
+          "length": 10,
+          "role": "Variable Qualifier",
+          "core": "Exp",
+          "origin": "CRF",
+          "derived": false
+        },
+        {
+          "name": "SEX",
+          "label": "Sex",
+          "data_type": "character",
+          "length": 2,
+          "role": "Record Qualifier",
+          "core": "Req",
+          "origin": "CRF",
+          "derived": false
+        },
+        {
+          "name": "RACE",
+          "label": "Race",
+          "data_type": "character",
+          "length": 60,
+          "role": "Record Qualifier",
+          "core": "Exp",
+          "origin": "CRF",
+          "derived": false
+        },
+        {
+          "name": "ARMCD",
+          "label": "Planned Arm Code",
+          "data_type": "character",
+          "length": 20,
+          "role": "Record Qualifier",
+          "core": "Req",
+          "origin": "Derived",
+          "derived": true
+        },
+        {
+          "name": "ARM",
+          "label": "Description of Planned Arm",
+          "data_type": "character",
+          "length": 40,
+          "role": "Synonym Qualifier",
+          "core": "Req",
+          "origin": "Derived",
+          "derived": true
+        },
+        {
+          "name": "COUNTRY",
+          "label": "Country",
+          "data_type": "character",
+          "length": 3,
+          "role": "Record Qualifier",
+          "core": "Req",
+          "origin": "CRF",
+          "derived": false
+        }
+      ],
+      "value_level_metadata": []
+    }
+  ]
+}

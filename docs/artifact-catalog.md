@@ -172,7 +172,8 @@ Define initialization may add missing structures inferred from the exact SDTM Sp
 | `adam_program_python` | Python | Valid Derivation Plan and exact SDTM inputs | Shared compiler framework | `adam/programs/` |
 | `adam_program_r` | R | Same | Deterministic compiler | `adam/programs/` |
 | `adam_program_sas` | SAS | Same | Deterministic compiler | `adam/programs/` |
-| `adam_dataset_xpt` | XPT v5 | Successful execution and output reconciliation | Execution output | `adam/data/` |
+| `adam_dataset_csv` | CSV | Successful execution and declared output-schema validation | Execution output | Supporting execution evidence |
+| `adam_dataset_xpt` | XPT v5 | Successful execution and independent read-back verification | Execution output | `adam/data/` |
 | `adam_execution_log` | Text/JSON | Execution attempt | Runner logs and metrics | `reports/` or `adam/programs/` |
 | `adam_derivation_report` | PDF/JSON | Valid derivations and method alignment | Derivation Plan and ADaM Specification | `reports/` |
 | `adam_traceability_report` | PDF/JSON | Resolved SDTM-to-ADaM links | Trace links and selected inputs | `reports/` |

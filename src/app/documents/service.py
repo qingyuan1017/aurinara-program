@@ -210,7 +210,10 @@ class DocumentsCapability(SqlDependencyCapability):
         if entity_type not in {
             "protocol_objective",
             "protocol_endpoint",
+            "sap_objective",
+            "sap_endpoint",
             "sap_estimand",
+            "sap_population",
             "sap_method",
             "document_record",
         }:
@@ -241,11 +244,32 @@ class DocumentsCapability(SqlDependencyCapability):
         if content_record is not None:
             content = validate_content(document.document_type, content_record.payload)
             if isinstance(content, StatisticalAnalysisPlanContent):
+                for objective in content.objectives:
+                    endpoints.append(
+                        (
+                            "sap_objective",
+                            stable_entity_id(document.id, "objective", objective.id),
+                        )
+                    )
+                for endpoint in content.endpoints:
+                    endpoints.append(
+                        (
+                            "sap_endpoint",
+                            stable_entity_id(document.id, "endpoint", endpoint.id),
+                        )
+                    )
                 for estimand in content.estimands:
                     endpoints.append(
                         (
                             "sap_estimand",
                             stable_entity_id(document.id, "estimand", estimand.id),
+                        )
+                    )
+                for population in content.populations:
+                    endpoints.append(
+                        (
+                            "sap_population",
+                            stable_entity_id(document.id, "population", population.id),
                         )
                     )
                 for method in content.methods:

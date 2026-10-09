@@ -1,0 +1,24 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "label": "Hand-added typed client",
+      "severity": "non-blocking",
+      "confidence": "confirmed",
+      "detail": "The new hook (useGetLatestValidationRun + helpers in raw/raw.ts) and the three model files were hand-authored mirroring orval's getRawDependencies output, not emitted by orval, because of a pre-existing orval duplicate-schema blocker (uncommitted ADaM/SDTM-Define work emits colliding schema names and orval runs clean:true). The committed diff is additive-only and shaped to reconcile with a future regen, and api:export was confirmed to include the new path. Out of scope for this task; track the orval fix so the client becomes machine-reproducible."
+    },
+    {
+      "label": "Unrelated doc edits bundled in the commit",
+      "severity": "non-blocking",
+      "confidence": "likely",
+      "detail": "Commit 9e5bd5b also carries two docs/api-contract.md edits unrelated to input-selection resolve (ADaM Define POST .../define/reconcile route line and a rewrite of ADaM 10.3 preview/compile/execute prose) that belong to in-flight ADaM work. Not a correctness issue; ideally travels with the ADaM change."
+    },
+    {
+      "label": "Unknown-raw integration assertion is coarse",
+      "severity": "non-blocking",
+      "confidence": "confirmed",
+      "detail": "test_raw_latest_validation_run_resolution asserts status 404 for an unknown raw_id but does not assert the raw_not_found code, so it would also pass on an unrelated 404. Minor; tighten if the test is touched again."
+    }
+  ],
+  "reviewDoc": "e:\\Work\\EDETEK\\Python\\aurinara\\.agents\\tasks\\sdtm-input-selection-resolve\\review.md"
+}

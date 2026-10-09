@@ -1,0 +1,18 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "label": "Read-only checksum lacks a disabled/aria affordance",
+      "confidence": "possible",
+      "blocking": false,
+      "detail": "The checksum Input is readOnly required and correctly derived from the chosen source file, but offers no screen-reader cue beyond the native readonly attribute. Optional: add aria-readonly or helper text."
+    },
+    {
+      "label": "Synthetic '(not in current list)' item shows the raw id, not a human label",
+      "confidence": "confirmed",
+      "blocking": false,
+      "detail": "When a seeded raw_id/dataset_code/artifact_id is absent from the loaded options, the fallback SelectItem label is the opaque id. This is the documented trade-off (no label available for a retired/absent record) and preserves the value rather than dropping it. No action needed."
+    }
+  ],
+  "reviewDoc": "e:\\Work\\EDETEK\\Python\\aurinara\\.agents\\tasks\\sdtm-input-selection-dropdowns\\review.md"
+}

@@ -23,6 +23,17 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
+      // Honour the leading-underscore convention for intentionally unused
+      // bindings (e.g. ignored callback/mutation params in test doubles),
+      // matching the `noUnusedLocals`/`noUnusedParameters` behaviour of tsc.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
     },
   },
 )

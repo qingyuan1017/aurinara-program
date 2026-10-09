@@ -1,5 +1,6 @@
 """SDTM revision services, lowering, and deterministic artifact generation."""
 
+import hashlib
 import io
 import json
 from dataclasses import dataclass
@@ -48,7 +49,7 @@ from app.sdtm.models import (
     SdtmWorkbench,
 )
 from app.sdtm.specification_workbook import render_specification_xlsx
-from app.sdtm.xpt import build_xpt_v5
+from app.sdtm.xpt import build_xpt_v5, read_xpt_rows
 from app.templates.models import TemplateVersion
 from app.transformation.contracts import DataflowIR, Edge
 from app.transformation.service import compile_dataflow, ir_fingerprint, lineage
@@ -407,6 +408,105 @@ class SdtmCapability(SqlDependencyCapability):
                 ),
             )
         return specification, selection, plan
+
+    def context_snapshot(
+        self, session: Session, sdtm_id: UUID, study_id: UUID
+    ) -> dict[str, object]:
+        """Export current aligned SDTM metadata and eligible immutable XPT evidence."""
+
+        workbench = cast(SdtmWorkbench, self.require(session, sdtm_id, study_id))
+        specification_record, input_selection, plan = self.require_aligned(session, sdtm_id)
+        specification = context_from_record(specification_record)
+        dependency_selection = self.get_selection(session, sdtm_id, study_id)
+        output_artifacts = tuple(
+            session.scalars(
+                select(Artifact)
+                .where(
+                    Artifact.study_id == study_id,
+                    Artifact.module_key == "sdtm",
+                    Artifact.owner_type == "sdtm_workbench",
+                    Artifact.owner_id == sdtm_id,
+                    Artifact.artifact_type == "sdtm_dataset_xpt",
+                    Artifact.status == "available",
+                    Artifact.input_selection_revision == input_selection.revision,
+                    Artifact.source_specification_revision == specification_record.revision,
+                    Artifact.source_plan_revision == plan.revision,
+                )
+                .order_by(Artifact.created_at, Artifact.id)
+            )
+        )
+        return {
+            "schema_version": "1.0.0",
+            "sdtm_id": str(workbench.id),
+            "sdtm_revision": workbench.revision,
+            "dependency_selection_revision": dependency_selection.revision,
+            "dependency_fingerprint": dependency_selection.fingerprint,
+            "dependency_selection": dependency_selection.model_dump(mode="json"),
+            "input_selection_revision": input_selection.revision,
+            "input_selection_fingerprint": input_selection.fingerprint,
+            "specification_revision": specification_record.revision,
+            "specification_fingerprint": specification_record.fingerprint,
+            "plan_revision": plan.revision,
+            "plan_fingerprint": plan.fingerprint,
+            "datasets": [dataset.model_dump(mode="json") for dataset in specification.domains],
+            "xpt_artifacts": [
+                {
+                    "artifact_id": str(artifact.id),
+                    "dataset_code": artifact.manifest.get("dataset"),
+                    "checksum": artifact.sha256,
+                    "filename": artifact.filename,
+                    "size": artifact.size,
+                    "manifest": artifact.manifest,
+                }
+                for artifact in output_artifacts
+            ],
+        }
+
+    def read_context_dataset(
+        self,
+        session: Session,
+        storage: ObjectStorage,
+        *,
+        sdtm_id: UUID,
+        study_id: UUID,
+        dataset_code: str,
+        artifact_id: UUID,
+        expected_checksum: str,
+        maximum_rows: int = 10_000,
+    ) -> tuple[dict[str, object | None], ...]:
+        """Read an exact current SDTM XPT through the owning module boundary."""
+
+        _, input_selection, plan = self.require_aligned(session, sdtm_id)
+        artifact = session.get(Artifact, artifact_id)
+        if (
+            artifact is None
+            or artifact.study_id != study_id
+            or artifact.module_key != "sdtm"
+            or artifact.owner_type != "sdtm_workbench"
+            or artifact.owner_id != sdtm_id
+            or artifact.artifact_type != "sdtm_dataset_xpt"
+            or artifact.status != "available"
+            or artifact.sha256 != expected_checksum
+            or artifact.manifest.get("dataset") != dataset_code
+            or artifact.input_selection_revision != input_selection.revision
+            or artifact.source_plan_revision != plan.revision
+        ):
+            raise ProblemException(
+                status_code=409,
+                code="sdtm_context_dataset_stale",
+                title="SDTM context dataset is stale",
+                detail=f"SDTM dataset '{dataset_code}' no longer matches the selected artifact.",
+            )
+        with storage.open(artifact.object_key) as stream:
+            data = stream.read()
+        if hashlib.sha256(data).hexdigest() != expected_checksum:
+            raise ProblemException(
+                status_code=409,
+                code="sdtm_context_checksum_mismatch",
+                title="SDTM context checksum does not match",
+                detail="The immutable object bytes do not match the selected checksum.",
+            )
+        return read_xpt_rows(data, maximum_rows=maximum_rows)
 
     def mark_raw_refresh(self, session: Session, raw_id: UUID) -> tuple[UUID, ...]:
         affected: list[UUID] = []

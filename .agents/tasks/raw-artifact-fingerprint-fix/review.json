@@ -1,0 +1,12 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "label": "No committed negative-path test for the preview endpoint",
+      "severity": "non-blocking",
+      "confidence": "likely",
+      "detail": "The 422 unsupported-type and access-denied cases for POST /api/v1/raw/{raw_id}/artifacts/fingerprint are only exercised by a temporary test that was removed during verification. The paths are reused verbatim from create_raw_artifacts (the artifact-type guard) and the shared _raw(...) access resolver, both tested elsewhere, so this is non-blocking. A dedicated contract or integration case would fully satisfy the stated TESTS criterion."
+    }
+  ],
+  "reviewDoc": "e:\\Work\\EDETEK\\Python\\aurinara\\.agents\\tasks\\raw-artifact-fingerprint-fix\\review.md"
+}

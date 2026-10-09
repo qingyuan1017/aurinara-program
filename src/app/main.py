@@ -3,6 +3,7 @@
 from typing import cast
 
 from fastapi import APIRouter, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, sessionmaker
 
 from app import __version__
@@ -61,6 +62,14 @@ def create_app(
     application.state.token_verifier = token_verifier or JwksTokenVerifier(resolved_settings)
     application.state.infrastructure_readiness_enabled = resolved_settings.app_env != "test"
     application.add_middleware(RequestContextMiddleware)
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=resolved_settings.cors_allow_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["ETag", "Location"],
+    )
     install_exception_handlers(application)
     application.include_router(health_router)
     application.include_router(modules_router, prefix=resolved_settings.app_api_prefix)

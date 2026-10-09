@@ -35,7 +35,7 @@ $headers = @{ Authorization = "Bearer $($tokenResponse.access_token)" }
 | Integration | Study integrations, subscriptions, identifiers, and delivery evidence | [Integration](integration.md) |
 | Raw | Phase 3 datasets, variables, preview, validation, and artifacts | [Raw](raw.md) |
 | SDTM | Phase 3 Raw inputs, authoring, execution, XPT v5, aCRF, Define, and cSDRG | [SDTM](sdtm.md) |
-| ADaM | Phase 1 aggregate, dependency selection, and dependency manifest | [ADaM](adam.md) |
+| ADaM | Phase 4 exact inputs, Specification exchange, aligned plan, preview, and lineage | [ADaM](adam.md) |
 | TLF | Phase 1 aggregate, dependency selection, and dependency manifest | [TLF](tlf.md) |
 | Packaging | Registered placeholder; no submission-package API yet | [Packaging](packaging.md) |
 

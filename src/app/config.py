@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     app_log_level: str = "INFO"
     app_api_prefix: str = "/api/v1"
+    app_cors_allow_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     database_url: str = "postgresql+psycopg://clinical:clinical@localhost:55432/clinical"
 
@@ -73,6 +74,14 @@ class Settings(BaseSettings):
     python_runner_image: str = "aurinara-python-runner:local"
     r_runner_image: str = "aurinara-r-runner:local"
     sas_runner_adapter: str | None = None
+
+    @property
+    def cors_allow_origins(self) -> list[str]:
+        """Return the configured CORS origins as a trimmed, non-empty list."""
+
+        return [
+            origin.strip() for origin in self.app_cors_allow_origins.split(",") if origin.strip()
+        ]
 
     @model_validator(mode="after")
     def reject_unsafe_production_configuration(self) -> Self:

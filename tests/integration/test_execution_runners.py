@@ -8,6 +8,8 @@ from uuid import uuid4
 
 import pytest
 
+from app.adam.contracts import AdamDerivationPlan, AdamSpecification
+from app.adam.service import lower_plan
 from app.execution.adapters import DockerExecutor, ExecutionLimits, ExecutionRequest
 from app.transformation.contracts import DataflowIR
 from app.transformation.service import compile_dataflow
@@ -140,6 +142,92 @@ def _advanced_flow() -> DataflowIR:
     )
 
 
+def _adam_flow() -> DataflowIR:
+    specification = AdamSpecification.model_validate(
+        {
+            "datasets": [
+                {
+                    "id": "10000000-0000-0000-0000-000000000001",
+                    "code": "ADSL",
+                    "label": "Subject-Level Analysis Dataset",
+                    "dataset_class": "SUBJECT LEVEL ANALYSIS DATASET",
+                    "structure": "One record per subject",
+                    "keys": ["USUBJID"],
+                    "sort_order": ["USUBJID"],
+                    "expected_output_name": "adsl.xpt",
+                    "variables": [
+                        {
+                            "id": "20000000-0000-0000-0000-000000000001",
+                            "name": "USUBJID",
+                            "label": "Unique Subject Identifier",
+                            "data_type": "character",
+                            "length": 40,
+                            "role": "Identifier",
+                            "origin": {
+                                "origin_type": "Predecessor",
+                                "source_kind": "sdtm",
+                                "source_dataset": "DM",
+                                "source_variable": "USUBJID",
+                            },
+                            "output_node_id": "read_dm",
+                        },
+                        {
+                            "id": "20000000-0000-0000-0000-000000000002",
+                            "name": "TRT01P",
+                            "label": "Planned Treatment Period 01",
+                            "data_type": "character",
+                            "length": 20,
+                            "role": "Treatment",
+                            "origin": {
+                                "origin_type": "Derived",
+                                "description": "Copy the planned SDTM arm.",
+                            },
+                            "method_id": "MT.TRT01P",
+                            "output_node_id": "derive_trt",
+                        },
+                    ],
+                }
+            ],
+            "methods": [
+                {
+                    "id": "MT.TRT01P",
+                    "name": "Planned treatment",
+                    "description": "Copy the planned SDTM arm.",
+                    "plan_node_ids": ["derive_trt"],
+                }
+            ],
+        }
+    )
+    plan = AdamDerivationPlan.model_validate(
+        {
+            "specification_revision": 1,
+            "input_selection_revision": 1,
+            "nodes": [
+                {"node_type": "sdtm_read", "id": "read_dm", "dataset": "DM"},
+                {
+                    "node_type": "derive",
+                    "id": "derive_trt",
+                    "target_dataset": "ADSL",
+                    "method_id": "MT.TRT01P",
+                    "assignments": {"TRT01P": {"kind": "column", "dataset": "DM", "column": "ARM"}},
+                },
+                {
+                    "node_type": "select",
+                    "id": "select_adsl",
+                    "columns": ["USUBJID", "TRT01P"],
+                },
+                {"node_type": "dataset_write", "id": "write_adsl", "dataset": "ADSL"},
+            ],
+            "edges": [
+                {"source_node": "read_dm", "target_node": "derive_trt"},
+                {"source_node": "derive_trt", "target_node": "select_adsl"},
+                {"source_node": "select_adsl", "target_node": "write_adsl"},
+            ],
+        }
+    )
+    return lower_plan(specification, plan)
+
+
 def _run(tmp_path: Path, language: str, image: str) -> list[dict[str, str]]:
     workspace = tmp_path / language
     inputs = workspace / "inputs"
@@ -243,6 +331,61 @@ def test_python_and_r_execute_advanced_operators(tmp_path: Path) -> None:
             ("Male", "2"),
         ]
         assert [float(row["TOTAL"]) for row in language_rows] == [12.0, 30.0]
+
+
+def test_adam_specification_and_plan_match_in_python_and_r(tmp_path: Path) -> None:
+    internal = _adam_flow()
+    expected = [
+        {"USUBJID": "01", "TRT01P": "Placebo"},
+        {"USUBJID": "02", "TRT01P": "Active"},
+    ]
+    results: dict[str, list[dict[str, str]]] = {}
+    compiler_fingerprints: set[str] = set()
+    for language, image in (
+        ("python", "aurinara-python-runner:local"),
+        ("r", "aurinara-r-runner:local"),
+    ):
+        workspace = tmp_path / f"adam-{language}"
+        inputs = workspace / "inputs"
+        outputs = workspace / "outputs"
+        inputs.mkdir(parents=True)
+        outputs.mkdir()
+        workspace.chmod(0o755)
+        inputs.chmod(0o755)
+        outputs.chmod(0o777)
+        with (inputs / "DM.csv").open("w", encoding="utf-8", newline="") as stream:
+            writer = csv.DictWriter(stream, fieldnames=["USUBJID", "ARM"])
+            writer.writeheader()
+            writer.writerows(
+                [
+                    {"USUBJID": "01", "ARM": "Placebo"},
+                    {"USUBJID": "02", "ARM": "Active"},
+                ]
+            )
+        compiled = compile_dataflow(internal, language)
+        compiler_fingerprints.add(compiled.ir_fingerprint)
+        extension = "py" if language == "python" else "R"
+        (workspace / f"program.{extension}").write_text(compiled.source, encoding="utf-8")
+        result = DockerExecutor().execute(
+            ExecutionRequest(
+                execution_id=uuid4(),
+                language=language,
+                workspace=workspace,
+                image=image,
+                limits=ExecutionLimits(
+                    cpu=1,
+                    memory_mb=512,
+                    runtime_seconds=30,
+                    output_bytes=1_048_576,
+                ),
+            )
+        )
+        assert result.status == "succeeded", result.stderr.decode(errors="replace")
+        with (outputs / "ADSL.csv").open(encoding="utf-8-sig", newline="") as stream:
+            results[language] = list(csv.DictReader(stream))
+
+    assert len(compiler_fingerprints) == 1
+    assert results == {"python": expected, "r": expected}
 
 
 def test_python_runner_denies_network_root_and_root_filesystem_writes(tmp_path: Path) -> None:

@@ -4,8 +4,8 @@ A standalone Clinical Artifact Platform for manually authoring, validating, gene
 executing, integrating, and packaging clinical study artifacts.
 
 The Phase 1 platform foundation, Phase 2 Documents vertical slice, and Phase 3 Raw-to-SDTM
-vertical slice are implemented. The
-runnable system provides:
+vertical slice are implemented. Phase 4 has started with exact SDTM-to-ADaM input selection,
+Specification, and Derivation Plan foundations. The runnable system provides:
 
 - FastAPI application composition;
 - typed settings and structured request logging;
@@ -19,8 +19,8 @@ runnable system provides:
 - callback SSRF validation and deterministic event signing;
 - exact Standards, Terminology, Reference, and Templates registries with module-owned
   dependency selections and refresh/staleness propagation;
-- a complete Raw dataset/variable workbench, SDTM/ADaM/TLF aggregate shells, and a complete
-  Documents module composed
+- a complete Raw dataset/variable workbench, an SDTM workbench, an ADaM authoring foundation,
+  a TLF aggregate shell, and a complete Documents module composed
   through registered module routers and typed capabilities;
 - sponsor terminology extension history, atomic Reference import/export, Review,
   traceability, validation rules and rule packs, and immutable reconciliation runs;
@@ -66,6 +66,32 @@ implemented: the same version-neutral model renders deterministic Define-XML
 2.0 and 2.1, validates offline against checksum-pinned local XSD suites, and publishes immutable
 XML artifacts only after current Define validation and exact XPT/aCRF reconciliation. Assembly of
 the complete cross-module submission ZIP remains owned by the later Packaging phase.
+
+The current Phase 4 work pins an error-free SDTM validation and exact XPT checksums, rejects
+conflicting shared Standard or Terminology versions, persists atomic versioned ADaM
+Specifications and Derivation Plans, and lowers the initial ADaM node vocabulary to internal
+Dataflow IR. It also provides atomic JSON/XLSX Specification exchange, checksum-verified bounded
+preview over the exact SDTM XPT inputs, lineage, immutable workbench validation, deterministic
+Python/R/SAS program and metadata/report artifacts, and exact-provenance execution. Python and R
+runs stage selected SDTM XPT inputs and publish strict immutable ADaM CSV and deterministic,
+read-back-verified XPT v5 outputs. The version-neutral ADaM Define foundation persists immutable
+revisions bound to exact Specification/input/output evidence and supports non-destructive factual
+initialization. Both Define-XML 2.0 and 2.1 render deterministically, validate against pinned local
+XSD suites, reconcile with exact ADaM XPT metadata, and publish only with current zero-error
+validation and reconciliation evidence. Versioned ADRG authoring initializes factual dataset,
+program, execution, and checksum tables from that same exact evidence while preserving manual
+narrative across refreshes; zero-error validation and exact presentation-template selections gate
+immutable DOCX/PDF publication through the shared renderer-neutral `Document` model.
+The ADaM conformance fixture lowers one Specification/Derivation Plan pair to one IR fingerprint,
+executes its deterministic Python and R programs in the isolated runner images, and compares the
+ADSL schema, declared column order, and discrete values exactly. Supported typed equality and
+ordering conditions now render as XSD-valid `ValueListDef`/`WhereClauseDef` structures in both
+Define versions; conditions that cannot be represented faithfully remain explicit comments.
+ADaM Specification revisions also persist typed Protocol/SAP-to-ADaM targets as normalized,
+same-study trace links after both endpoints and the registered relationship type are verified.
+Define validation now reconciles the complete factual metadata contract with the current ADaM
+Specification and exact selected SDTM predecessors, while XPT reconciliation checks physical
+dataset and variable metadata before either Define version can be published.
 
 See the [current module usage guides](docs/modules/README.md) for executable workflows,
 [local development](docs/local-development.md) for the intended environment, and

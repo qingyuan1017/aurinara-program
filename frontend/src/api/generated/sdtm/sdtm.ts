@@ -27,6 +27,7 @@ import type {
   AggregateCollection,
   AggregateCreate,
   AggregateResponse,
+  AppSdtmRoutesPreviewRequest,
   ArtifactBuildResponse,
   CompileRequest,
   DependencySelectionInput,
@@ -40,7 +41,6 @@ import type {
   ListSdtmAggregatesParams,
   PlanResponse,
   PreviewPlan200,
-  PreviewRequest,
   SdtmArtifactRequest,
   SdtmDerivationPlan,
   SdtmExecutionRequest,
@@ -1262,7 +1262,7 @@ export const useValidatePlan = <TError = ErrorType<HTTPValidationError>,
  */
 export const previewPlan = (
     sdtmId: string,
-    previewRequest: BodyType<PreviewRequest>,
+    appSdtmRoutesPreviewRequest: BodyType<AppSdtmRoutesPreviewRequest>,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
       
@@ -1270,7 +1270,7 @@ export const previewPlan = (
       return customInstance<PreviewPlan200>(
       {url: `/api/v1/sdtms/${sdtmId}/derivation-plan/preview`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
-      data: previewRequest, signal
+      data: appSdtmRoutesPreviewRequest, signal
     },
       options);
     }
@@ -1278,8 +1278,8 @@ export const previewPlan = (
 
 
 export const getPreviewPlanMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewPlan>>, TError,{sdtmId: string;data: BodyType<PreviewRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof previewPlan>>, TError,{sdtmId: string;data: BodyType<PreviewRequest>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewPlan>>, TError,{sdtmId: string;data: BodyType<AppSdtmRoutesPreviewRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewPlan>>, TError,{sdtmId: string;data: BodyType<AppSdtmRoutesPreviewRequest>}, TContext> => {
 
 const mutationKey = ['previewPlan'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1291,7 +1291,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewPlan>>, {sdtmId: string;data: BodyType<PreviewRequest>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewPlan>>, {sdtmId: string;data: BodyType<AppSdtmRoutesPreviewRequest>}> = (props) => {
           const {sdtmId,data} = props ?? {};
 
           return  previewPlan(sdtmId,data,requestOptions)
@@ -1303,18 +1303,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type PreviewPlanMutationResult = NonNullable<Awaited<ReturnType<typeof previewPlan>>>
-    export type PreviewPlanMutationBody = BodyType<PreviewRequest>
+    export type PreviewPlanMutationBody = BodyType<AppSdtmRoutesPreviewRequest>
     export type PreviewPlanMutationError = ErrorType<HTTPValidationError>
 
     /**
  * @summary Preview Plan
  */
 export const usePreviewPlan = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewPlan>>, TError,{sdtmId: string;data: BodyType<PreviewRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewPlan>>, TError,{sdtmId: string;data: BodyType<AppSdtmRoutesPreviewRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof previewPlan>>,
         TError,
-        {sdtmId: string;data: BodyType<PreviewRequest>},
+        {sdtmId: string;data: BodyType<AppSdtmRoutesPreviewRequest>},
         TContext
       > => {
 

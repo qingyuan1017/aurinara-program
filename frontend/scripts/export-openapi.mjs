@@ -4,28 +4,43 @@
 //
 // Usage: node scripts/export-openapi.mjs
 import { spawnSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { writeFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(dirname, '..', '..')
 const outFile = path.resolve(dirname, '..', 'openapi.json')
 
+// The Python snippet is written to a temporary file rather than passed via
+// `python -c`. On Windows `spawnSync` needs `shell: true` to resolve the `uv`
+// executable, but a shell re-parses the argument list and the `;` statement
+// separators in an inline snippet get split into broken shell commands. A
+// temp file sidesteps all shell-quoting issues and stays cross-platform.
 const pyCode = [
   'import json, os',
   "os.environ.setdefault('APP_ENV', 'test')",
   'from app.main import create_app',
   'app = create_app()',
   'print(json.dumps(app.openapi()))',
-].join('; ')
+].join('\n')
 
-const result = spawnSync('uv', ['run', 'python', '-c', pyCode], {
-  cwd: repoRoot,
-  encoding: 'utf-8',
-  maxBuffer: 64 * 1024 * 1024,
-  shell: process.platform === 'win32',
-})
+const scratchDir = mkdtempSync(path.join(tmpdir(), 'aurinara-openapi-'))
+const scriptFile = path.join(scratchDir, 'export_openapi.py')
+writeFileSync(scriptFile, pyCode, 'utf-8')
+
+let result
+try {
+  result = spawnSync('uv', ['run', 'python', scriptFile], {
+    cwd: repoRoot,
+    encoding: 'utf-8',
+    maxBuffer: 64 * 1024 * 1024,
+    shell: process.platform === 'win32',
+  })
+} finally {
+  rmSync(scratchDir, { recursive: true, force: true })
+}
 
 if (result.status !== 0) {
   console.error('Failed to export OpenAPI schema from the backend.')

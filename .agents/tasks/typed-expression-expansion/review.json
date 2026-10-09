@@ -1,0 +1,29 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "file": "src/app/transformation/evaluator.py",
+      "severity": "info",
+      "problem": "D1 (arithmetic/type error -> null inside a conditional) is implemented by catching ANY ProblemException raised while evaluating when/then/otherwise (except preview_column_unknown). This also swallows function-argument errors such as preview_function_argument_invalid / preview_date_parse_invalid when they occur inside a conditional branch, which is slightly broader than the design's literal 'per-branch arithmetic/type error'. Behavior is consistent (fail-to-null only inside conditionals) and matches the ratified intent; the Python codegen guard() correctly narrows to ZeroDivisionError/TypeError/ValueError. No correctness or conformance impact observed.",
+      "fix": "Optional only: if strict parity with the Python guard is desired, restrict the evaluator's conditional swallowing to the equivalent arithmetic/type/cast problem codes rather than all non-column ProblemExceptions. Not required for approval."
+    },
+    {
+      "file": "src/app/transformation/codegen.py",
+      "severity": "info",
+      "problem": "SAS char/numeric result_type is threaded into _sas_expr only at the top-level derive assignment and down through conditional then/otherwise, but NOT through binary operands. A char-sensitive function (coalesce/nullif/n_missing/n_present) nested directly inside a binary operation would be lowered with result_type=None and fall back to the numeric native (coalesce/nmiss/n). This nesting is not exercised by the conformance matrix and degrades gracefully (no crash) rather than producing wrong-type output in the tested cases; the design explicitly scopes the SAS char/numeric split to derive targets. Note for future hardening only.",
+      "fix": "Optional only: propagate result_type through binary/other recursive _sas_expr calls, or raise BackendCapabilityMissing when a char-sensitive function appears in a context where the result type cannot be determined. Not required for approval."
+    },
+    {
+      "file": "tests/integration/test_phase3_raw_sdtm.py",
+      "severity": "info",
+      "problem": "A formatting-only change (collapsing three multi-line calls to single lines) sits outside the declared transformation/sdtm/validation + frontend scope. It is a no-op resolution of a pre-existing ruff-format drift documented in the FEAT findings; `ruff format --check .` is now clean (253 files). No behavior change.",
+      "fix": "None required. Acceptable as an incidental format fix."
+    },
+    {
+      "file": "frontend/vite.config.ts",
+      "severity": "info",
+      "problem": "The vitest `test` block uses environment 'node' with a custom test/jsdom-harness.ts rather than the plan's literal 'environment jsdom'. Functionally equivalent (Testing Library renders succeed; 78 tests pass) and matches the main workspace setup. Separately, src/hooks/use-cursor-list.test.tsx is excluded for a pre-existing OOM; verified via git that this feature does not touch use-cursor-list, so the narrow, documented exclusion does not mask a regression from this change.",
+      "fix": "None required for this feature. The use-cursor-list OOM should be tracked and fixed as a separate, unrelated defect."
+    }
+  ]
+}

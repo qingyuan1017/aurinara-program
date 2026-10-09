@@ -33,6 +33,7 @@ from app.terminology.models import (
     TerminologyReleaseCompatibility,
     TerminologyTerm,
 )
+from tests.conftest import make_test_settings
 from workers.job_worker import _process_job
 
 pytestmark = pytest.mark.skipif(
@@ -75,7 +76,7 @@ class MemoryStorage(ObjectStorage):
 
 @pytest.fixture
 def integration_settings() -> Settings:
-    return Settings(_env_file=None, app_env="test")
+    return make_test_settings()
 
 
 @pytest.fixture

@@ -13,11 +13,11 @@ from sqlalchemy import text
 from app.artifacts.builds import resolve_build_input
 from app.catalog_seed import seed
 from app.common.canonical import fingerprint
-from app.config import Settings
 from app.database import create_database_engine, create_session_factory
 from app.documents.rendering import normalized_docx_text, normalized_pdf_text
 from app.execution.jobs import JobService
 from app.main import create_app
+from tests.conftest import make_test_settings
 from tests.integration.test_phase1_core import MemoryStorage, TestTokenVerifier
 from workers.job_worker import _process_job
 
@@ -29,7 +29,7 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture
 async def phase2_client() -> AsyncIterator[AsyncClient]:
-    settings = Settings(_env_file=None, app_env="test")
+    settings = make_test_settings()
     engine = create_database_engine(settings)
     factory = create_session_factory(engine)
     with engine.begin() as connection:

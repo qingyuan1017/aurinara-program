@@ -6,6 +6,8 @@ import json
 from pathlib import PurePath
 from typing import cast
 
+import pandas as pd
+import pyreadstat
 from openpyxl import load_workbook
 
 
@@ -16,7 +18,9 @@ def tabular_csv_bytes(data: bytes, filename: str) -> bytes:
     if suffix == ".csv":
         _require_csv_headers(data)
         return data
-    if suffix == ".json":
+    if suffix == ".xpt":
+        headers, rows = _xpt_rows(data)
+    elif suffix == ".json":
         headers, rows = _json_rows(data)
     elif suffix == ".xlsx":
         headers, rows = _xlsx_rows(data)
@@ -76,3 +80,13 @@ def _xlsx_rows(data: bytes) -> tuple[list[str], list[list[object]]]:
         return headers, rows
     finally:
         workbook.close()
+
+
+def _xpt_rows(data: bytes) -> tuple[list[str], list[list[object]]]:
+    try:
+        frame, metadata = pyreadstat.read_xport(io.BytesIO(data), output_format="pandas")
+    except pyreadstat.ReadstatError as error:
+        raise ValueError("execution XPT input is invalid") from error
+    headers = [str(value) for value in metadata.column_names]
+    normalized = frame.astype(object).where(pd.notna(frame), None)
+    return headers, [list(row) for row in normalized.itertuples(index=False, name=None)]

@@ -64,6 +64,14 @@ For faster API iteration:
 uvicorn app.main:app --app-dir src --reload
 ```
 
+Running the API alone does not process the durable job queue. Artifact builds, reconciliation runs, and asynchronous validation are enqueued by the API and executed by the build worker, so without it those operations stay `queued` forever (the frontend polls a status that never changes). Start the worker in a second terminal alongside the local API:
+
+```powershell
+$env:PYTHONPATH = "src"; uv run python -m workers.job_worker
+```
+
+`docker compose up -d ... build-worker` already runs this for you; the manual command is only needed when iterating on the API as a local process.
+
 Run workers through their declared package entry points in `pyproject.toml`; those entry points should call the same worker code used by the container images.
 
 ## 4. Configuration
@@ -255,6 +263,29 @@ Full workflow:
 pytest tests/e2e
 ```
 
+### Integration tests use an isolated database
+
+The integration suites (`tests/integration/test_phase1_core.py`, `test_phase2_documents.py`,
+`test_phase3_raw_sdtm.py`, `test_phase4_adam.py`) `TRUNCATE` tables during fixture setup, so
+they must never run against your working database. Their fixtures build settings through
+`make_test_settings()` in `tests/conftest.py`, which forces the database URL to an **isolated
+test database**: the `DATABASE_URL` database name with a `_test` suffix (so the default
+`clinical` becomes `clinical_test`), unless `AURINARA_TEST_DATABASE_URL` is set, in which case
+that value is used verbatim. The developer database named in `DATABASE_URL` is left untouched.
+
+Create and migrate the test database once before running the integration suites:
+
+```powershell
+docker compose exec postgres createdb -U clinical clinical_test
+$env:DATABASE_URL = "postgresql+psycopg://clinical:clinical@localhost:55432/clinical_test"
+uv run alembic upgrade head
+# restore your working DATABASE_URL afterwards (or rely on .env for the dev app)
+Remove-Item Env:\DATABASE_URL
+```
+
+To point the suites at a different database, set `AURINARA_TEST_DATABASE_URL` instead of
+editing `DATABASE_URL`.
+
 The Phase 2 Documents PostgreSQL workflow can be run independently after migrations and
 catalog seeding:
 
@@ -294,6 +325,11 @@ The exact commands belong in `pyproject.toml` and CI rather than being duplicate
 Golden fixtures cover normalized XML, DOCX, PDF, RTF, XLSX, and generated program output. Updating a golden file is a reviewed change: record the generator/template/schema version change and inspect rendered output before accepting it.
 
 Compiler fixtures include canonical, revision-aligned SDTM and ADaM Specification/Derivation Plan pairs and TLF ARS/ProgramPlans together with their normalized internal IR, generated Python/R/SAS source, lineage, and normalized expected results. Contract fixtures verify that SDTM and ADaM share envelope fields, endpoint lifecycle, concurrency, and alignment behavior while rejecting each other's module-only content. Dataflow fixtures run through Python and R and compare schema, declared ordering, exact structural/discrete values, missing-value behavior, and assertions. Statistical fixtures use procedure-declared numeric tolerances and pinned algorithm/library versions; they never hide a different method behind a broad tolerance. Boundary fixtures prove that stale Specification or input revisions block plan operations, TLF rendering is absent from IR, raw backend code is rejected, IR is not publicly writable, and unsupported backend capabilities fail before program publication.
+
+The runner integration suite also includes an ADaM-specific fixture that starts from one
+Specification/Derivation Plan pair, lowers it through the ADaM adapter, requires an identical IR
+fingerprint for Python and R, executes both isolated programs, and compares the declared ADSL
+columns and discrete values exactly.
 
 Pinned standards assets live under `schemas/`, controlled terminology releases under `terminology/`, and presentation assets under `templates/`. Each asset family has reviewed provenance, version, checksum, license or distribution metadata, and compatibility records loaded by its registry. Tests must run without downloading schemas, terminology, or templates. Define-XML tests cover both 2.0 and 2.1. XPT tests write, read back, and compare the supported metadata and data values.
 

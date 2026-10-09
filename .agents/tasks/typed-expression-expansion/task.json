@@ -1,0 +1,7 @@
+{
+  "task_id": "task-typed-expression-expansion",
+  "task_description": "Implement the typed expression expansion feature in two phases: Phase 1 adds a multi-branch ConditionalExpression (case/when) to the shared typed Expression union with evaluator, three-backend codegen (Python/R/SAS), SDTM result_types threading, validation codes, conformance/unit/property tests, and the frontend conditional editor; Phase 2 adds FunctionCallExpression + ListLiteralExpression with the full design catalog (string/null/numeric/date/datetime) under ratified decisions D3-D11, evaluator registry, per-backend lowering tables, function/list-literal validation, full conformance matrix, and the frontend function editor. No free-text/arbitrary expression. No Alembic migration (IR is JSONB). OpenAPI widening is additive, no /api/v1 version bump. All work targets the worktree at e:\\Work\\EDETEK\\Python\\aurinara\\.worktrees\\typed-expr.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null
+}
