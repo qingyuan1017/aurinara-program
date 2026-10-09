@@ -53,21 +53,26 @@ Because SDTM, ADaM, and TLF all consume the **shared** `Expression`, enriching i
 
 ```python
 class ConditionalBranch(StrictModel):
-    when: "Expression"    # must evaluate to boolean
-    then: "Expression"    # the value produced when `when` is truthy
+    when: "Expression"  # must evaluate to boolean
+    then: "Expression"  # the value produced when `when` is truthy
+
 
 class ConditionalExpression(StrictModel):
     kind: Literal["conditional"]
     branches: tuple[ConditionalBranch, ...] = Field(min_length=1)
-    otherwise: "Expression"   # mandatory else; use a literal null for "no match -> null"
+    otherwise: "Expression"  # mandatory else; use a literal null for "no match -> null"
 ```
 
 Added to the union:
 
 ```python
 Expression = Annotated[
-    LiteralExpression | ColumnExpression | UnaryExpression | BinaryExpression
-    | ConditionalExpression | FunctionCallExpression,
+    LiteralExpression
+    | ColumnExpression
+    | UnaryExpression
+    | BinaryExpression
+    | ConditionalExpression
+    | FunctionCallExpression,
     Field(discriminator="kind"),
 ]
 ```
@@ -133,7 +138,7 @@ Expression = Annotated[
 ```python
 class FunctionCallExpression(StrictModel):
     kind: Literal["function"]
-    function: FunctionName          # a Literal[...] enum of allowlisted names
+    function: FunctionName  # a Literal[...] enum of allowlisted names
     arguments: tuple["Expression", ...]  # positional; arity validated per function
 ```
 

@@ -146,8 +146,8 @@ workflow coverage.
 - Implement an exact Raw input selection and one versioned SDTM Specification containing domains, variables, value-level metadata where applicable, shared-Terminology bindings, keys, sort order, sequencing metadata, expected outputs, and typed trace targets.
 - Keep relational tables and constraints where needed internally, but expose one aggregate Specification contract so partial domain, variable, or binding edits cannot leave metadata inconsistent.
 - Validate SDTM IG, Define-XML, terminology, Reference, and Template compatibility as one dependency set; never upgrade one selection to make another compatible.
-- Implement one atomic SDTM-owned Derivation Plan in SDTM vocabulary for raw-to-domain reads, filters, joins, reshaping, derivations, terminology application, sequencing, assertions, and declared target writes, then lower it internally to Dataflow IR.
-- Align every Derivation Plan to exact Specification and input-selection revisions. A change to either marks the plan misaligned and stales dependent evidence without rewriting it; block validation, preview, compilation, and execution until an explicit plan revision restores alignment.
+- Implement one atomic SDTM-owned Derivation Plan per domain in SDTM vocabulary for raw-to-domain reads, cross-domain `sdtm_read` reads resolved through the Specification, filters, joins, reshaping, derivations, terminology application, sequencing, assertions, and the one declared domain write, then lower each internally to Dataflow IR.
+- Align every per-domain Derivation Plan to exact Specification and input-selection revisions plus server-resolved upstream plan pins. A Specification/input change marks every affected plan misaligned, and a sibling-plan change transitively misaligns the plans that read it, without rewriting any plan; block validation, preview, compilation, and execution until an explicit plan revision restores alignment. The build/packaging orchestration also enforces that the union of per-domain plans covers every derived domain.
 - Validate acyclicity, port/schema compatibility, required target variables, terminology, sequencing, sorting, output coverage, and natural-key uniqueness.
 - Add atomic XLSX/JSON Specification import/export and bounded Derivation Plan preview against exact Raw inputs using the same lowering path as compilation.
 - Implement lineage traversal from Raw variables through stable plan nodes to SDTM variables.
@@ -203,7 +203,7 @@ workflow coverage.
 
 ### 6.3 ADaM Derivation Plan and execution
 
-- Implement one atomic ADaM-owned Derivation Plan using the same outer envelope and alignment lifecycle as SDTM, aligned to exact ADaM Specification and SDTM input-selection revisions; do not create overlapping separately mutable graph-step or variable-rule resources.
+- Implement one atomic ADaM-owned Derivation Plan per dataset using the same outer envelope and alignment lifecycle as SDTM (including transitive upstream-plan staleness), aligned to exact ADaM Specification and SDTM input-selection revisions plus server-resolved upstream plan pins; do not create overlapping separately mutable graph-step or variable-rule resources.
 - Express nodes in ADaM vocabulary with stable dataset, variable, and parameter references, then lower the validated plan internally to Dataflow IR.
 - Permit reads only from the exact SDTM input selection and explicitly declared upstream ADaM outputs; validate dataset-to-dataset acyclicity and complete output coverage.
 - Use one lowering pipeline for bounded previews, compilation, and execution; record exact input-selection, Specification, Derivation Plan, IR/operator/compiler versions.
@@ -267,18 +267,18 @@ workflow coverage.
 
 ### 8.1 Test layers
 
-| Layer                  | Focus                                                                                   |
-| ---------------------- | --------------------------------------------------------------------------------------- |
+| Layer                  | Focus                                                                                                                                                                                                                                                                             |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Unit                   | Domain invariants, module descriptors/capability conflicts, event envelopes/signatures, ADaM specification/traceability, dependency selection/resolution, compatibility, module-plan adapters, IR operators/procedures/lowering, fingerprints, registries, validators, path rules |
-| Property               | Filenames, archive paths, module keys, callback URLs/IP resolution, event canonicalization, PDF coordinates, typed expressions, graph ports/edges/DAGs, rule parameters, reference keys, canonical JSON |
-| Repository integration | PostgreSQL constraints, immutable provider revisions, module selections, integration subscriptions/delivery attempts, refresh/staleness outbox behavior, JSONB queries, transactions, and job leases |
-| Storage integration    | Multipart/streaming I/O, checksum verification, immutable keys, MinIO behavior          |
-| Contract               | REST status/headers/problems, module discovery, import/event schema compatibility, OpenAPI snapshot, typed client compatibility |
-| Conformance            | USDM/Define schemas, XPT round trips, controlled metadata checks                        |
-| Golden file            | XML, DOCX, PDF, RTF, XLSX, canonical Specification/Derivation/Program contracts, normalized IR, and generated programs |
-| Execution security     | No network, non-root, resource ceilings, timeouts, cancellation, cleanup                |
-| Integration security   | Service scopes, webhook signatures, secret redaction, SSRF/DNS-rebinding/redirect defenses, retry bounds |
-| End to end             | The ten release scenarios on real PostgreSQL, MinIO, integration receiver, and runner containers |
+| Property               | Filenames, archive paths, module keys, callback URLs/IP resolution, event canonicalization, PDF coordinates, typed expressions, graph ports/edges/DAGs, rule parameters, reference keys, canonical JSON                                                                           |
+| Repository integration | PostgreSQL constraints, immutable provider revisions, module selections, integration subscriptions/delivery attempts, refresh/staleness outbox behavior, JSONB queries, transactions, and job leases                                                                              |
+| Storage integration    | Multipart/streaming I/O, checksum verification, immutable keys, MinIO behavior                                                                                                                                                                                                    |
+| Contract               | REST status/headers/problems, module discovery, import/event schema compatibility, OpenAPI snapshot, typed client compatibility                                                                                                                                                   |
+| Conformance            | USDM/Define schemas, XPT round trips, controlled metadata checks                                                                                                                                                                                                                  |
+| Golden file            | XML, DOCX, PDF, RTF, XLSX, canonical Specification/Derivation/Program contracts, normalized IR, and generated programs                                                                                                                                                            |
+| Execution security     | No network, non-root, resource ceilings, timeouts, cancellation, cleanup                                                                                                                                                                                                          |
+| Integration security   | Service scopes, webhook signatures, secret redaction, SSRF/DNS-rebinding/redirect defenses, retry bounds                                                                                                                                                                          |
+| End to end             | The ten release scenarios on real PostgreSQL, MinIO, integration receiver, and runner containers                                                                                                                                                                                  |
 
 Golden tests compare stable normalized representations where binary formats contain volatile metadata. A separate visual or rendered comparison catches layout regressions in PDF, DOCX, XLSX, and RTF.
 
@@ -286,11 +286,11 @@ Golden tests compare stable normalized representations where binary formats cont
 
 1. Register exact compatible Standards, Terminology, Reference revisions, and Templates; bind them explicitly to Documents; manually create a Protocol, USDM, and evidence set; review it and generate all Protocol artifacts.
 2. Link Protocol to the Statistical Analysis Plan; author or atomically import all remaining Documents types; generate the required PDF and XLSX artifacts.
-3. Bind separate Raw and SDTM dependencies and an exact Raw input selection; maintain one SDTM Specification and one aligned Derivation Plan; execute it in Python/R through shared Dataflow IR; reconcile outputs; and produce XPT, aCRF, Define, and cSDRG.
-4. Bind an ADaM dependency and exact SDTM input selection; maintain one ADaM Specification and one aligned Derivation Plan; execute through shared Dataflow IR in Python/R; and produce reconciled XPT, Define, and ADRG.
+3. Bind separate Raw and SDTM dependencies and an exact Raw input selection; maintain one SDTM Specification and an aligned per-domain Derivation Plan for each produced domain (including at least one cross-domain `sdtm_read`); execute them in Python/R through shared Dataflow IR; reconcile outputs; and produce XPT, aCRF, Define, and cSDRG. Verify the all-domain deliverables reject an incomplete set (`sdtm_output_coverage_incomplete`) until every derived domain is authored and aligned.
+4. Bind an ADaM dependency and exact SDTM input selection; maintain one ADaM Specification and an aligned per-dataset Derivation Plan for each produced dataset (including at least one cross-dataset `adam_read`); execute through shared Dataflow IR in Python/R; and produce reconciled XPT, Define, and ADRG.
 5. Bind TLF dependencies; author the shell, bindings, ARS, and ProgramPlan; execute through shared Analysis/Dataflow IR and render outputs while proving presentation is outside compiler IR and templates supply no analysis content.
 6. Assemble a complete study package and independently verify checksums.
-7. Publish a new immutable provider version and verify pinned work is unchanged; then supersede a selected Reference or extension revision, verify refresh-required state and transitive staleness, explicitly accept it, and verify deterministic regeneration.
+7. Publish a new immutable provider version and verify pinned work is unchanged; then supersede a selected Reference or extension revision, verify refresh-required state and transitive staleness, explicitly accept it, and verify deterministic regeneration. Additionally, save a new revision of one upstream SDTM domain/ADaM dataset plan and verify only its downstream readers transition to `alignment_required` with reason `upstream_plan_changed` while unrelated plans stay aligned, and that compile/package for the readers is blocked until they are realigned.
 8. Confirm stale or invalid artifacts cannot enter a submission package.
 9. Use an external-system service identity to perform an idempotent typed import, subscribe to registered lifecycle events, verify the signed minimal event at the test receiver, force a retry, and confirm redelivery retains the same event ID without exposing clinical payloads or secrets.
 10. Enable a synthetic `labs` module through one descriptor and its own package/migrations; discover it through `/api/v1/modules`; exercise its study-scoped route, entity resolver, validation, artifact, event, trace, and package contribution; and prove duplicate registrations or undeclared capabilities fail startup.
@@ -318,30 +318,30 @@ Production deployment runs database migrations as a controlled step, deploys API
 
 ## 10. Major risks and mitigations
 
-| Risk                                                    | Mitigation                                                                           |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Standards assets are incomplete or ambiguously licensed | Pin approved local assets, record provenance, and fail clearly when unavailable      |
-| Registry versions are combined incompatibly             | Persist compatibility links and validate exact version selections before use          |
-| New registry versions silently alter existing work       | Require exact module-owned selections; never resolve `latest` or auto-upgrade           |
-| Reference or extension corrections overwrite evidence   | Create immutable revisions, require explicit refresh, and stale dependent evidence      |
-| Templates smuggle in clinical content or decisions       | Restrict and validate template schemas to layout, blank structure, and style             |
+| Risk                                                             | Mitigation                                                                                                                                                                           |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Standards assets are incomplete or ambiguously licensed          | Pin approved local assets, record provenance, and fail clearly when unavailable                                                                                                      |
+| Registry versions are combined incompatibly                      | Persist compatibility links and validate exact version selections before use                                                                                                         |
+| New registry versions silently alter existing work               | Require exact module-owned selections; never resolve `latest` or auto-upgrade                                                                                                        |
+| Reference or extension corrections overwrite evidence            | Create immutable revisions, require explicit refresh, and stale dependent evidence                                                                                                   |
+| Templates smuggle in clinical content or decisions               | Restrict and validate template schemas to layout, blank structure, and style                                                                                                         |
 | Shared compiler becomes a lowest-common-denominator domain model | Share consistent SDTM/ADaM envelopes and internal IR/operators/backends, while keeping module-specific Specification, Derivation Plan, ProgramPlan, and validators in owning modules |
-| Language backends implement nodes differently             | Define language-neutral node semantics and normalized cross-language conformance fixtures |
-| Sponsor rule packs introduce unsafe behavior             | Allow typed parameters over registered rules only; prohibit executable user code       |
-| Review or reconciliation links cross study boundaries    | Resolve every endpoint through study-scoped typed interfaces before committing         |
-| DOCX/PDF content drifts                                 | Use one document model and normalized equivalence tests                              |
-| Workbook columns or controlled values drift             | Use versioned workbook contracts, atomic imports, and normalized XLSX golden tests    |
-| Python/R compiler behavior diverges                     | Compile from one typed intermediate representation and share conformance fixtures    |
-| XPT v5 limitations cause silent loss                    | Validate before write, read back, compare metadata, and report constraints           |
-| Source-file schema and maintained metadata diverge      | Bind exact checksums, validate physical schemas, and stale downstream dependencies    |
-| Staleness misses transitive dependencies                | Persist dependency edges and test multi-hop invalidation                             |
-| Long database transactions block workers                | Claim with short leased transactions and perform work outside locks                  |
-| Runner escapes or exhausts resources                    | Non-root ephemeral containers, disabled network, read-only filesystem, strict limits |
-| Package contains mismatched outputs                     | Require exact IDs and reconcile lineage/checksums immediately before ZIP assembly    |
-| New modules require edits throughout shared services    | Dispatch through typed capability registries and test a synthetic module in CI       |
-| A module descriptor overclaims or collides              | Fail startup on duplicate ownership, missing handlers, or routes outside its prefix  |
-| Outbound callbacks leak data or enable SSRF             | Emit minimal events, sign deliveries, isolate the dispatcher, and enforce destination policy |
-| Event retries duplicate downstream effects              | Use immutable event IDs, at-least-once semantics, receiver deduplication, and bounded attempt history |
+| Language backends implement nodes differently                    | Define language-neutral node semantics and normalized cross-language conformance fixtures                                                                                            |
+| Sponsor rule packs introduce unsafe behavior                     | Allow typed parameters over registered rules only; prohibit executable user code                                                                                                     |
+| Review or reconciliation links cross study boundaries            | Resolve every endpoint through study-scoped typed interfaces before committing                                                                                                       |
+| DOCX/PDF content drifts                                          | Use one document model and normalized equivalence tests                                                                                                                              |
+| Workbook columns or controlled values drift                      | Use versioned workbook contracts, atomic imports, and normalized XLSX golden tests                                                                                                   |
+| Python/R compiler behavior diverges                              | Compile from one typed intermediate representation and share conformance fixtures                                                                                                    |
+| XPT v5 limitations cause silent loss                             | Validate before write, read back, compare metadata, and report constraints                                                                                                           |
+| Source-file schema and maintained metadata diverge               | Bind exact checksums, validate physical schemas, and stale downstream dependencies                                                                                                   |
+| Staleness misses transitive dependencies                         | Persist dependency edges and test multi-hop invalidation                                                                                                                             |
+| Long database transactions block workers                         | Claim with short leased transactions and perform work outside locks                                                                                                                  |
+| Runner escapes or exhausts resources                             | Non-root ephemeral containers, disabled network, read-only filesystem, strict limits                                                                                                 |
+| Package contains mismatched outputs                              | Require exact IDs and reconcile lineage/checksums immediately before ZIP assembly                                                                                                    |
+| New modules require edits throughout shared services             | Dispatch through typed capability registries and test a synthetic module in CI                                                                                                       |
+| A module descriptor overclaims or collides                       | Fail startup on duplicate ownership, missing handlers, or routes outside its prefix                                                                                                  |
+| Outbound callbacks leak data or enable SSRF                      | Emit minimal events, sign deliveries, isolate the dispatcher, and enforce destination policy                                                                                         |
+| Event retries duplicate downstream effects                       | Use immutable event IDs, at-least-once semantics, receiver deduplication, and bounded attempt history                                                                                |
 
 ## 11. Release 1 definition of done
 

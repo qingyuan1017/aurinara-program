@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint, Uuid
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -81,11 +81,17 @@ class SdtmSpecificationRevision(UuidPrimaryKey, Base):
 
 
 class SdtmDerivationPlanRevision(UuidPrimaryKey, Base):
-    """One immutable SDTM plan revision pinned to Specification and Raw selection."""
+    """One immutable per-domain SDTM plan revision pinned to Specification and Raw selection."""
 
     __tablename__ = "sdtm_derivation_plan_revisions"
     __table_args__ = (
-        UniqueConstraint("aggregate_id", "revision", name="uq_sdtm_plan_aggregate_revision"),
+        UniqueConstraint(
+            "aggregate_id",
+            "domain_code",
+            "revision",
+            name="uq_sdtm_plan_aggregate_domain_revision",
+        ),
+        Index("ix_sdtm_plan_aggregate_domain", "aggregate_id", "domain_code"),
     )
 
     aggregate_id: Mapped[UUID] = mapped_column(
@@ -94,11 +100,16 @@ class SdtmDerivationPlanRevision(UuidPrimaryKey, Base):
     study_id: Mapped[UUID] = mapped_column(
         Uuid, ForeignKey("studies.id", ondelete="RESTRICT"), nullable=False, index=True
     )
+    domain_code: Mapped[str] = mapped_column(String(8), nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
     schema_version: Mapped[str] = mapped_column(String(32), nullable=False)
     specification_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     input_selection_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     state: Mapped[str] = mapped_column(String(32), nullable=False)
+    upstream_plan_pins: Mapped[list[dict[str, object]]] = mapped_column(
+        JSONB, nullable=False, default=list
+    )
+    alignment_reasons: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     created_by: Mapped[str] = mapped_column(String(255), nullable=False)

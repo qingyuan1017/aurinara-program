@@ -306,8 +306,7 @@ def _selected_sdtm_context(
         for item in cast(list[dict[str, object]], context["xpt_artifacts"])
     }
     selected = {
-        (str(item.artifact_id), item.dataset_code, item.checksum)
-        for item in command.xpt_artifacts
+        (str(item.artifact_id), item.dataset_code, item.checksum) for item in command.xpt_artifacts
     }
     if not selected <= eligible:
         raise _problem(
@@ -501,12 +500,8 @@ def validate_define_metadata(
                 subject=expected_parameter.code,
                 field_path=f"{path}.terminology_binding",
             )
-        expected_value_levels = {
-            item.id: item for item in expected_dataset.value_level_metadata
-        }
-        observed_value_levels = {
-            item.id: item for item in observed_dataset.value_level_metadata
-        }
+        expected_value_levels = {item.id: item for item in expected_dataset.value_level_metadata}
+        observed_value_levels = {item.id: item for item in observed_dataset.value_level_metadata}
         for identifier in sorted(
             expected_value_levels.keys() - observed_value_levels.keys(), key=str
         ):

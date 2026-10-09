@@ -228,9 +228,15 @@ def _validate_links(
                     "Every SDTM-variable link must resolve in its exact Specification revision.",
                 )
         elif isinstance(link, AcrfPlanNodeLink):
+            if link.domain is None:
+                raise _unprocessable(
+                    "acrf_plan_node_unresolved",
+                    "A plan-node link must name the per-domain plan it targets.",
+                )
             plan_record = session.scalar(
                 select(SdtmDerivationPlanRevision).where(
                     SdtmDerivationPlanRevision.aggregate_id == workbench.id,
+                    SdtmDerivationPlanRevision.domain_code == link.domain,
                     SdtmDerivationPlanRevision.revision == link.plan_revision,
                 )
             )
@@ -451,11 +457,17 @@ def get_coverage(
         .where(SdtmSpecificationRevision.aggregate_id == workbench.id)
         .order_by(SdtmSpecificationRevision.revision.desc())
     )
-    plan_record = session.scalar(
+    head_rows = session.scalars(
         select(SdtmDerivationPlanRevision)
         .where(SdtmDerivationPlanRevision.aggregate_id == workbench.id)
-        .order_by(SdtmDerivationPlanRevision.revision.desc())
+        .order_by(
+            SdtmDerivationPlanRevision.domain_code,
+            SdtmDerivationPlanRevision.revision.desc(),
+        )
     )
+    head_revision_by_domain: dict[str, int] = {}
+    for row in head_rows:
+        head_revision_by_domain.setdefault(row.domain_code, row.revision)
     annotations = tuple(
         session.scalars(
             select(SdtmAcrfAnnotation).where(
@@ -485,13 +497,14 @@ def get_coverage(
                 else:
                     noncurrent += 1
             elif isinstance(link, AcrfPlanNodeLink) and (
-                plan_record is None or link.plan_revision != plan_record.revision
+                link.domain is None
+                or head_revision_by_domain.get(link.domain) != link.plan_revision
             ):
                 noncurrent += 1
     unlinked = tuple(item.id for item in annotations if not item.links)
     return AcrfCoverageResponse(
         specification_revision=(specification_record.revision if specification_record else None),
-        plan_revision=plan_record.revision if plan_record else None,
+        plan_revision=None,
         annotation_count=len(annotations),
         linked_annotation_count=len(annotations) - len(unlinked),
         unlinked_annotation_ids=unlinked,

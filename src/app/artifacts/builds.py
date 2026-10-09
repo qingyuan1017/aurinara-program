@@ -35,7 +35,13 @@ class ArtifactBuilderCapability(Protocol):
     ) -> UUID | None: ...
 
     def build_artifact_payload(
-        self, session: Session, aggregate_id: UUID, study_id: UUID, artifact_type: str
+        self,
+        session: Session,
+        aggregate_id: UUID,
+        study_id: UUID,
+        artifact_type: str,
+        *,
+        domain_code: str | None = None,
     ) -> dict[str, object]: ...
 
     def render_artifact(
@@ -118,8 +124,12 @@ def resolve_build_input(
             title="Artifact owner is invalid",
             detail="The owner does not exist in the selected study.",
         )
+    domain_code_option = options.get("domain_code")
+    extra: dict[str, str] = {}
+    if domain_code_option is not None:
+        extra["domain_code"] = str(domain_code_option)
     payloads = [
-        handler.build_artifact_payload(session, owner_id, study_id, artifact_type)
+        handler.build_artifact_payload(session, owner_id, study_id, artifact_type, **extra)
         for artifact_type in artifact_types
     ]
     resolved: dict[str, object] = {

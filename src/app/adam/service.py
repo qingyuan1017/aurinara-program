@@ -11,9 +11,11 @@ from sqlalchemy.orm import Session
 
 from app.adam.contracts import (
     AdamAdrgModel,
+    AdamDataset,
     AdamDefineModel,
     AdamDerivationPlan,
     AdamSpecification,
+    AdamVariable,
 )
 from app.adam.define_xml import GENERATOR_VERSION as DEFINE_XML_GENERATOR_VERSION
 from app.adam.define_xml import define_schema_fingerprint, render_define_xml
@@ -165,27 +167,128 @@ class AdamCapability(SqlDependencyCapability):
         )
 
     def latest_plan(
-        self, session: Session, aggregate_id: UUID
+        self, session: Session, aggregate_id: UUID, dataset_code: str
     ) -> AdamDerivationPlanRevision | None:
         return session.scalar(
             select(AdamDerivationPlanRevision)
-            .where(AdamDerivationPlanRevision.aggregate_id == aggregate_id)
+            .where(
+                AdamDerivationPlanRevision.aggregate_id == aggregate_id,
+                AdamDerivationPlanRevision.dataset_code == dataset_code,
+            )
             .order_by(AdamDerivationPlanRevision.revision.desc())
         )
 
-    def require_aligned(
+    def list_plan_heads(
         self, session: Session, aggregate_id: UUID
+    ) -> tuple[AdamDerivationPlanRevision, ...]:
+        """Return the newest-first head plan row per dataset for an aggregate."""
+
+        rows = session.scalars(
+            select(AdamDerivationPlanRevision)
+            .where(AdamDerivationPlanRevision.aggregate_id == aggregate_id)
+            .order_by(
+                AdamDerivationPlanRevision.dataset_code,
+                AdamDerivationPlanRevision.revision.desc(),
+            )
+        )
+        heads: dict[str, AdamDerivationPlanRevision] = {}
+        for row in rows:
+            heads.setdefault(row.dataset_code, row)
+        return tuple(sorted(heads.values(), key=lambda row: (row.created_at, row.id), reverse=True))
+
+    def aligned_dataset_plans(
+        self, session: Session, aggregate_id: UUID
+    ) -> dict[str, AdamDerivationPlanRevision]:
+        """All-dataset gate: every dataset with a plan must be aligned with satisfied pins."""
+
+        specification = self.latest_specification(session, aggregate_id)
+        selection = self.current_input(session, aggregate_id)
+        heads = {head.dataset_code: head for head in self.list_plan_heads(session, aggregate_id)}
+        if specification is None or not heads:
+            raise ProblemException(
+                status_code=409,
+                code="adam_authoring_incomplete",
+                title="ADaM authoring is incomplete",
+                detail="An ADaM Specification and at least one Derivation Plan are required.",
+            )
+        for code in sorted(heads):
+            self._require_dataset_head_aligned(
+                session, aggregate_id, heads[code], specification, selection
+            )
+        return heads
+
+    def require_output_coverage(
+        self,
+        session: Session,
+        aggregate_id: UUID,
+        plans: dict[str, AdamDerivationPlanRevision] | None = None,
+    ) -> None:
+        """Collective whole-Specification coverage gate.
+
+        Every dataset that declares a derived variable in the current Specification
+        must have an authored (and aligned) per-dataset plan. A derived dataset for
+        which the user never authored a plan row contributes nothing to
+        ``aligned_dataset_plans`` and is reported here, because no single per-dataset
+        request ever sees the whole set (design 3.3/4). Raises
+        ``409 adam_output_coverage_incomplete`` naming the missing derived datasets.
+        """
+
+        specification = self.latest_specification(session, aggregate_id)
+        if specification is None:
+            raise ProblemException(
+                status_code=409,
+                code="adam_authoring_incomplete",
+                title="ADaM authoring is incomplete",
+                detail="An ADaM Specification is required.",
+            )
+        contract = context_from_record(specification)
+        derived_datasets = {
+            dataset.code
+            for dataset in contract.datasets
+            if any(variable.origin.origin_type == "Derived" for variable in dataset.variables)
+        }
+        covered = (
+            set(plans)
+            if plans is not None
+            else set(self.aligned_dataset_plans(session, aggregate_id))
+        )
+        missing = sorted(derived_datasets - covered)
+        if missing:
+            raise ProblemException(
+                status_code=409,
+                code="adam_output_coverage_incomplete",
+                title="ADaM output coverage is incomplete",
+                detail=(
+                    "Every derived ADaM dataset must have an aligned Derivation Plan before "
+                    "an all-dataset deliverable or the whole output set can be built."
+                ),
+                issues=[{"missing_datasets": missing}],
+            )
+
+    def require_dataset_aligned(
+        self, session: Session, aggregate_id: UUID, dataset_code: str
     ) -> tuple[AdamSpecificationRevision, AdamInputSelection, AdamDerivationPlanRevision]:
         specification = self.latest_specification(session, aggregate_id)
         selection = self.current_input(session, aggregate_id)
-        plan = self.latest_plan(session, aggregate_id)
+        plan = self.latest_plan(session, aggregate_id, dataset_code)
         if specification is None or plan is None:
             raise ProblemException(
                 status_code=409,
                 code="adam_authoring_incomplete",
                 title="ADaM authoring is incomplete",
-                detail="An ADaM Specification and Derivation Plan are required.",
+                detail=f"An ADaM Specification and '{dataset_code}' plan are required.",
             )
+        self._require_dataset_head_aligned(session, aggregate_id, plan, specification, selection)
+        return specification, selection, plan
+
+    def _require_dataset_head_aligned(
+        self,
+        session: Session,
+        aggregate_id: UUID,
+        plan: AdamDerivationPlanRevision,
+        specification: AdamSpecificationRevision,
+        selection: AdamInputSelection,
+    ) -> None:
         if (
             selection.state != "current"
             or plan.state != "aligned"
@@ -197,11 +300,165 @@ class AdamCapability(SqlDependencyCapability):
                 code="adam_plan_misaligned",
                 title="ADaM Derivation Plan is misaligned",
                 detail=(
-                    "Save a validated plan revision against the current Specification "
-                    "and input selection."
+                    f"Save a validated '{plan.dataset_code}' plan revision against the current "
+                    "Specification and input selection."
                 ),
+                issues=[{"dataset": plan.dataset_code}],
             )
-        return specification, selection, plan
+        for pin in plan.upstream_plan_pins:
+            upstream_code = str(pin["dataset_code"])
+            pinned_revision = int(str(pin["plan_revision"]))
+            sibling = self.latest_plan(session, aggregate_id, upstream_code)
+            if (
+                sibling is None
+                or sibling.revision != pinned_revision
+                or sibling.state != "aligned"
+                or sibling.specification_revision != specification.revision
+            ):
+                raise ProblemException(
+                    status_code=409,
+                    code="adam_plan_upstream_misaligned",
+                    title="ADaM upstream plan is misaligned",
+                    detail=(
+                        f"Dataset '{plan.dataset_code}' reads '{upstream_code}' which is no "
+                        "longer aligned at the pinned revision."
+                    ),
+                    issues=[
+                        {
+                            "dataset": plan.dataset_code,
+                            "upstream_code": upstream_code,
+                            "pinned_revision": pinned_revision,
+                            "current_revision": sibling.revision if sibling else None,
+                        }
+                    ],
+                )
+
+    def resolve_upstream_plan_pins(
+        self,
+        session: Session,
+        aggregate_id: UUID,
+        plan: AdamDerivationPlan,
+        specification: AdamSpecificationRevision,
+    ) -> list[dict[str, object]]:
+        """Resolve + gate ``adam_read`` targets into sorted de-duplicated upstream pins."""
+
+        read_targets = sorted(
+            {node.dataset for node in plan.nodes if node.node_type == "adam_read"}
+        )
+        pins: list[dict[str, object]] = []
+        for upstream_code in read_targets:
+            sibling = self.latest_plan(session, aggregate_id, upstream_code)
+            if sibling is None:
+                raise ProblemException(
+                    status_code=409,
+                    code="adam_plan_upstream_misaligned",
+                    title="ADaM upstream plan is missing",
+                    detail=(
+                        f"Dataset '{upstream_code}' has no plan; author and align it before "
+                        f"reading it from '{plan.dataset}'."
+                    ),
+                    issues=[
+                        {
+                            "dataset": plan.dataset,
+                            "upstream_code": upstream_code,
+                            "upstream_state": "absent",
+                        }
+                    ],
+                )
+            if (
+                sibling.state != "aligned"
+                or sibling.specification_revision != specification.revision
+            ):
+                raise ProblemException(
+                    status_code=409,
+                    code="adam_plan_upstream_misaligned",
+                    title="ADaM upstream plan is misaligned",
+                    detail=(
+                        f"Dataset '{upstream_code}' must be aligned against the current "
+                        f"Specification before '{plan.dataset}' can read it."
+                    ),
+                    issues=[
+                        {
+                            "dataset": plan.dataset,
+                            "upstream_code": upstream_code,
+                            "upstream_state": sibling.state,
+                        }
+                    ],
+                )
+            pins.append({"dataset_code": upstream_code, "plan_revision": sibling.revision})
+        return pins
+
+    def check_cross_plan_cycle(
+        self, session: Session, aggregate_id: UUID, plan: AdamDerivationPlan
+    ) -> None:
+        """Reject a write whose read targets plus sibling pins would form a cycle."""
+
+        adjacency: dict[str, set[str]] = {}
+        this_code = plan.dataset
+        adjacency[this_code] = {
+            node.dataset for node in plan.nodes if node.node_type == "adam_read"
+        }
+        for head in self.list_plan_heads(session, aggregate_id):
+            if head.dataset_code == this_code:
+                continue
+            adjacency.setdefault(head.dataset_code, set()).update(
+                str(pin["dataset_code"]) for pin in head.upstream_plan_pins
+            )
+        visiting: set[str] = set()
+        done: set[str] = set()
+
+        def visit(code: str) -> None:
+            if code in visiting:
+                raise _invalid_plan(
+                    "adam_plan_dataset_cycle",
+                    "Cross-dataset reads must be acyclic across the aggregate's plans.",
+                )
+            if code in done:
+                return
+            visiting.add(code)
+            for target in adjacency.get(code, set()):
+                visit(target)
+            visiting.discard(code)
+            done.add(code)
+
+        visit(this_code)
+
+    def mark_sibling_plan_change(
+        self, session: Session, aggregate_id: UUID, changed_code: str, reason: str
+    ) -> None:
+        """Transitively misalign heads that pin ``changed_code`` within the aggregate."""
+
+        for head in self.list_plan_heads(session, aggregate_id):
+            if head.state != "aligned":
+                continue
+            if not any(str(pin["dataset_code"]) == changed_code for pin in head.upstream_plan_pins):
+                continue
+            head.state = "misaligned"
+            head.alignment_reasons = _append_reason(head.alignment_reasons, reason)
+            self.mark_sibling_plan_change(
+                session, aggregate_id, head.dataset_code, "upstream_plan_changed"
+            )
+
+    def specification_slice(
+        self, specification: AdamSpecification, code: str
+    ) -> tuple[AdamDataset, dict[str, tuple[AdamVariable, ...]]]:
+        """Return the owned target dataset plus sibling variable views."""
+
+        datasets = {dataset.code: dataset for dataset in specification.datasets}
+        target = datasets.get(code)
+        if target is None:
+            raise ProblemException(
+                status_code=404,
+                code="adam_dataset_unknown",
+                title="ADaM dataset is unknown",
+                detail=f"Dataset '{code}' is not declared in the current Specification.",
+            )
+        siblings = {
+            dataset.code: dataset.variables
+            for dataset in specification.datasets
+            if dataset.code != code
+        }
+        return target, siblings
 
     def mark_sdtm_refresh(self, session: Session, sdtm_id: UUID) -> tuple[UUID, ...]:
         """Mark every exact ADaM consumer of an updated SDTM aggregate as stale."""
@@ -211,9 +468,16 @@ class AdamCapability(SqlDependencyCapability):
             if selection.payload.get("sdtm_id") != str(sdtm_id):
                 continue
             selection.state = "input_refresh_required"
-            plan = self.latest_plan(session, selection.aggregate_id)
-            if plan is not None:
-                plan.state = "misaligned"
+            for head in self.list_plan_heads(session, selection.aggregate_id):
+                if head.state == "aligned":
+                    head.state = "misaligned"
+                    head.alignment_reasons = _append_reason(head.alignment_reasons, "input_changed")
+                    self.mark_sibling_plan_change(
+                        session,
+                        selection.aggregate_id,
+                        head.dataset_code,
+                        "upstream_plan_changed",
+                    )
             evidence_owner_ids = {
                 selection.aggregate_id,
                 *session.scalars(
@@ -341,10 +605,7 @@ class AdamCapability(SqlDependencyCapability):
                 issues.append(
                     _reconciliation_issue("ADAM_DEFINE_VARIABLE_ORDER_MISMATCH", dataset.code)
                 )
-            variables = {
-                str(item["name"]): item
-                for item in manifest_variables
-            }
+            variables = {str(item["name"]): item for item in manifest_variables}
             for variable in dataset.variables:
                 observed = variables.get(variable.name)
                 if observed is None:
@@ -405,8 +666,15 @@ class AdamCapability(SqlDependencyCapability):
         )
 
     def build_artifact_payload(
-        self, session: Session, aggregate_id: UUID, study_id: UUID, artifact_type: str
+        self,
+        session: Session,
+        aggregate_id: UUID,
+        study_id: UUID,
+        artifact_type: str,
+        *,
+        domain_code: str | None = None,
     ) -> dict[str, object]:
+        dataset_code = domain_code
         if artifact_type == "adam_dependency_manifest":
             return SqlDependencyCapability.build_artifact_payload(
                 self, session, aggregate_id, study_id, artifact_type
@@ -422,10 +690,19 @@ class AdamCapability(SqlDependencyCapability):
             return self._build_define_xml_payload(session, aggregate_id, study_id, artifact_type)
         if artifact_type in {"adam_adrg_docx", "adam_adrg_pdf"}:
             return self._build_adrg_payload(session, aggregate_id, study_id, artifact_type)
-        specification, selection, plan = self.require_aligned(session, aggregate_id)
         workbench = session.get(AdamWorkbench, aggregate_id)
         if workbench is None or workbench.study_id != study_id:
             raise RuntimeError("ADaM workbench is missing")
+        if dataset_code is None:
+            raise ProblemException(
+                status_code=422,
+                code="adam_dataset_code_required",
+                title="ADaM dataset code is required",
+                detail=f"Building '{artifact_type}' requires a dataset_code.",
+            )
+        specification, selection, plan = self.require_dataset_aligned(
+            session, aggregate_id, dataset_code
+        )
         validation = session.scalar(
             select(ValidationRun)
             .where(
@@ -434,12 +711,13 @@ class AdamCapability(SqlDependencyCapability):
                 ValidationRun.owner_id == aggregate_id,
                 ValidationRun.status == "succeeded",
                 ValidationRun.error_count == 0,
+                ValidationRun.input_manifest["dataset_code"].astext == dataset_code,
             )
             .order_by(ValidationRun.completed_at.desc())
         )
         if validation is None or (
-            validation.input_manifest.get("adam_revision") != workbench.revision
-            or validation.input_manifest.get("specification_revision") != specification.revision
+            validation.input_manifest.get("specification_revision") != specification.revision
+            or validation.input_manifest.get("dataset_code") != dataset_code
             or validation.input_manifest.get("plan_revision") != plan.revision
             or validation.input_manifest.get("input_selection_revision") != selection.revision
         ):
@@ -447,7 +725,7 @@ class AdamCapability(SqlDependencyCapability):
                 status_code=409,
                 code="successful_validation_required",
                 title="Current ADaM validation is required",
-                detail="Validate the aligned current authoring revisions before building.",
+                detail="Validate the aligned current dataset plan before building.",
             )
         base = SqlDependencyCapability.build_artifact_payload(
             self, session, aggregate_id, study_id, "adam_dependency_manifest"
@@ -458,6 +736,7 @@ class AdamCapability(SqlDependencyCapability):
         return {
             **base,
             "artifact_type": artifact_type,
+            "dataset_code": dataset_code,
             "input_selection": {
                 "revision": selection.revision,
                 "fingerprint": selection.fingerprint,
@@ -470,6 +749,7 @@ class AdamCapability(SqlDependencyCapability):
             },
             "source_plan": {
                 "type": "adam_derivation_plan",
+                "dataset_code": dataset_code,
                 "revision": plan.revision,
                 "fingerprint": plan.fingerprint,
                 "payload": plan.payload,
@@ -487,6 +767,10 @@ class AdamCapability(SqlDependencyCapability):
     def _build_define_xml_payload(
         self, session: Session, aggregate_id: UUID, study_id: UUID, artifact_type: str
     ) -> dict[str, object]:
+        # All-dataset deliverable: gate on every produced dataset being aligned and on
+        # whole-Specification coverage of derived datasets.
+        plans = self.aligned_dataset_plans(session, aggregate_id)
+        self.require_output_coverage(session, aggregate_id, plans)
         base = SqlDependencyCapability.build_artifact_payload(
             self, session, aggregate_id, study_id, "adam_dependency_manifest"
         )
@@ -532,10 +816,8 @@ class AdamCapability(SqlDependencyCapability):
                 and candidate.validator_version == DEFINE_VALIDATOR_VERSION
                 and candidate.input_manifest.get("define_revision") == record.revision
                 and candidate.input_manifest.get("define_fingerprint") == record.fingerprint
-                and candidate.input_manifest.get("specification_revision")
-                == specification.revision
-                and candidate.input_manifest.get("input_selection_revision")
-                == selection.revision
+                and candidate.input_manifest.get("specification_revision") == specification.revision
+                and candidate.input_manifest.get("input_selection_revision") == selection.revision
                 and candidate.input_manifest.get("define_xml_generator_version")
                 == DEFINE_XML_GENERATOR_VERSION
                 and candidate.input_manifest.get("define_xml_schema_fingerprints") == schemas
@@ -585,7 +867,11 @@ class AdamCapability(SqlDependencyCapability):
     def _build_adrg_payload(
         self, session: Session, aggregate_id: UUID, study_id: UUID, artifact_type: str
     ) -> dict[str, object]:
-        specification, input_selection, plan = self.require_aligned(session, aggregate_id)
+        plans = self.aligned_dataset_plans(session, aggregate_id)
+        self.require_output_coverage(session, aggregate_id, plans)
+        specification = self.latest_specification(session, aggregate_id)
+        input_selection = self.current_input(session, aggregate_id)
+        assert specification is not None
         base = SqlDependencyCapability.build_artifact_payload(
             self, session, aggregate_id, study_id, "adam_dependency_manifest"
         )
@@ -613,10 +899,13 @@ class AdamCapability(SqlDependencyCapability):
             .order_by(AdamDefineRevision.revision.desc())
         )
         reconciliation = session.get(ReconciliationRun, model.reconciliation_run_id)
+        # Per-dataset plans: aligned_dataset_plans already gated every dataset plan;
+        # the ADRG's recorded plan_revision must match an aligned dataset head revision.
+        aligned_revisions = {head.revision for head in plans.values()}
         revisions_are_current = (
             model.specification_revision == specification.revision
             and model.input_selection_revision == input_selection.revision
-            and model.plan_revision == plan.revision
+            and model.plan_revision in aligned_revisions
             and current_define is not None
             and model.define_revision == current_define.revision
         )
@@ -965,6 +1254,15 @@ def plan_from_record(record: AdamDerivationPlanRevision) -> AdamDerivationPlan:
     return AdamDerivationPlan.model_validate(record.payload)
 
 
+def _append_reason(reasons: list[str] | None, reason: str) -> list[str]:
+    """Return the alignment-reasons list with ``reason`` appended once."""
+
+    current = list(reasons or [])
+    if reason not in current:
+        current.append(reason)
+    return current
+
+
 def _json_artifact(
     content: object,
     filename: str,
@@ -1176,17 +1474,24 @@ def lower_plan(specification: AdamSpecification, plan: AdamDerivationPlan) -> Da
     datasets = {dataset.code: dataset for dataset in specification.datasets}
     methods = {method.id: method for method in specification.methods}
     node_ids = {node.id for node in plan.nodes}
+    if plan.dataset not in datasets:
+        raise ProblemException(
+            status_code=404,
+            code="adam_dataset_unknown",
+            title="ADaM dataset is unknown",
+            detail=f"Dataset '{plan.dataset}' is not declared in the current Specification.",
+        )
+    target = datasets[plan.dataset]
     write_nodes: dict[str, list[str]] = {}
     for node in plan.nodes:
         if node.node_type == "dataset_write":
             write_nodes.setdefault(node.dataset, []).append(node.id)
-    duplicate_writes = sorted(
-        dataset for dataset, identifiers in write_nodes.items() if len(identifiers) > 1
-    )
-    if duplicate_writes:
+    if len(write_nodes.get(plan.dataset, [])) > 1 or any(
+        code != plan.dataset for code in write_nodes
+    ):
         raise _invalid_plan(
             "adam_plan_output_duplicate",
-            f"Datasets may have only one declared write: {', '.join(duplicate_writes)}.",
+            f"A per-dataset plan declares exactly one write of '{plan.dataset}'.",
         )
     internal_nodes: list[dict[str, object]] = []
     writes: set[str] = set()
@@ -1194,11 +1499,16 @@ def lower_plan(specification: AdamSpecification, plan: AdamDerivationPlan) -> Da
         if node.node_type == "sdtm_read":
             internal_nodes.append({"node_type": "read", "id": node.id, "dataset": node.dataset})
         elif node.node_type == "adam_read":
+            if node.dataset == plan.dataset:
+                raise _invalid_plan(
+                    "adam_read_self",
+                    "Read a plan's own dataset rows directly, not via adam_read.",
+                )
             dataset = datasets.get(node.dataset)
             if dataset is None:
                 raise _invalid_plan(
-                    "adam_plan_predecessor_unknown",
-                    f"ADaM predecessor '{node.dataset}' is absent from the Specification.",
+                    "adam_read_target_unknown",
+                    f"ADaM read '{node.dataset}' is absent from the Specification.",
                 )
             internal_nodes.append(
                 {
@@ -1208,14 +1518,19 @@ def lower_plan(specification: AdamSpecification, plan: AdamDerivationPlan) -> Da
                 }
             )
         elif node.node_type == "dataset_write":
-            if node.dataset not in datasets:
+            if node.dataset != plan.dataset:
                 raise _invalid_plan(
-                    "adam_plan_output_unknown",
-                    f"Dataset '{node.dataset}' is absent from the Specification.",
+                    "adam_plan_output_scope",
+                    f"A '{plan.dataset}' plan may only write '{plan.dataset}'.",
                 )
             writes.add(node.dataset)
             internal_nodes.append({"node_type": "write", "id": node.id, "dataset": node.dataset})
         elif node.node_type == "derive":
+            if node.target_dataset != plan.dataset:
+                raise _invalid_plan(
+                    "adam_plan_output_scope",
+                    f"A '{plan.dataset}' plan may only derive into '{plan.dataset}'.",
+                )
             dataset = datasets.get(node.target_dataset)
             if dataset is None:
                 raise _invalid_plan(
@@ -1251,30 +1566,26 @@ def lower_plan(specification: AdamSpecification, plan: AdamDerivationPlan) -> Da
         else:
             internal_nodes.append(node.model_dump(mode="json"))
 
+    # Methods that reference this plan's own nodes must resolve within it. Methods
+    # that reference other datasets' nodes are owned by those per-dataset plans.
     for method in specification.methods:
-        if not set(method.plan_node_ids) <= node_ids:
+        if set(method.plan_node_ids) & node_ids and not set(method.plan_node_ids) <= node_ids:
             raise _invalid_plan(
                 "adam_plan_method_nodes_unknown", f"Method '{method.id}' references unknown nodes."
             )
-    for dataset in specification.datasets:
-        for variable in dataset.variables:
-            if variable.output_node_id not in node_ids:
-                raise _invalid_plan(
-                    "adam_plan_variable_lineage_missing",
-                    f"Variable '{dataset.code}.{variable.name}' has no resolved output node.",
-                )
-    required_writes = {
-        dataset.code
-        for dataset in specification.datasets
-        if any(variable.origin.origin_type == "Derived" for variable in dataset.variables)
-    }
-    if not required_writes <= writes:
-        missing = ", ".join(sorted(required_writes - writes))
+    # Variable-level output coverage scoped to this plan's own dataset.
+    for variable in target.variables:
+        if variable.output_node_id not in node_ids:
+            raise _invalid_plan(
+                "adam_plan_variable_lineage_missing",
+                f"Variable '{target.code}.{variable.name}' has no resolved output node.",
+            )
+    required = any(variable.origin.origin_type == "Derived" for variable in target.variables)
+    if required and plan.dataset not in writes:
         raise _invalid_plan(
             "adam_plan_output_coverage_missing",
-            f"Derived targets require dataset writes for: {missing}.",
+            f"Derived dataset '{plan.dataset}' requires its one dataset_write.",
         )
-    _validate_dataset_dependencies(plan, writes)
     return DataflowIR.model_validate(
         {
             "nodes": internal_nodes,
@@ -1284,64 +1595,6 @@ def lower_plan(specification: AdamSpecification, plan: AdamDerivationPlan) -> Da
             ],
         }
     )
-
-
-def _validate_dataset_dependencies(plan: AdamDerivationPlan, writes: set[str]) -> None:
-    node_outgoing: dict[str, list[str]] = {node.id: [] for node in plan.nodes}
-    write_by_node = {
-        node.id: node.dataset for node in plan.nodes if node.node_type == "dataset_write"
-    }
-    write_node_by_dataset = {dataset: node_id for node_id, dataset in write_by_node.items()}
-    edge_pairs = {(edge.source_node, edge.target_node) for edge in plan.edges}
-    for edge in plan.edges:
-        node_outgoing[edge.source_node].append(edge.target_node)
-    dependencies: dict[str, set[str]] = {dataset: set() for dataset in writes}
-    for node in plan.nodes:
-        if node.node_type != "adam_read":
-            continue
-        if node.dataset not in writes:
-            raise _invalid_plan(
-                "adam_plan_predecessor_output_missing",
-                f"ADaM read '{node.dataset}' has no declared dataset output.",
-            )
-        if (write_node_by_dataset[node.dataset], node.id) not in edge_pairs:
-            raise _invalid_plan(
-                "adam_plan_predecessor_edge_missing",
-                (
-                    f"ADaM read '{node.id}' must consume the declared "
-                    f"'{node.dataset}' dataset write."
-                ),
-            )
-        pending = list(node_outgoing[node.id])
-        visited: set[str] = set()
-        while pending:
-            current = pending.pop()
-            if current in visited:
-                continue
-            visited.add(current)
-            if current in write_by_node:
-                dependencies[node.dataset].add(write_by_node[current])
-            pending.extend(node_outgoing[current])
-
-    visiting: set[str] = set()
-    complete: set[str] = set()
-
-    def visit(dataset: str) -> None:
-        if dataset in visiting:
-            raise _invalid_plan(
-                "adam_plan_dataset_cycle",
-                "ADaM dataset predecessor dependencies must be acyclic.",
-            )
-        if dataset in complete:
-            return
-        visiting.add(dataset)
-        for target in dependencies.get(dataset, set()):
-            visit(target)
-        visiting.remove(dataset)
-        complete.add(dataset)
-
-    for dataset in dependencies:
-        visit(dataset)
 
 
 def _invalid_plan(code: str, detail: str) -> ProblemException:

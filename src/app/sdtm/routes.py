@@ -28,6 +28,7 @@ from app.artifacts.storage import ObjectStorage
 from app.common.canonical import fingerprint
 from app.common.etag import etag_for_revision, require_matching_etag
 from app.common.idempotency import IdempotencyRecord
+from app.common.pagination import paginate
 from app.common.problems import ProblemException
 from app.common.time import utc_now
 from app.config import Settings
@@ -118,31 +119,77 @@ class SpecificationResponse(BaseModel):
     created_at: datetime
 
 
+def _alignment_state(state: str) -> str:
+    return "current" if state == "aligned" else "alignment_required"
+
+
 class PlanResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
     aggregate_id: UUID
+    domain: str
     revision: int
     schema_version: str
     specification_revision: int
     input_selection_revision: int
     state: str
+    alignment_state: str
+    alignment_reasons: tuple[str, ...]
+    upstream_plan_pins: tuple[dict[str, object], ...]
     payload: dict[str, object]
     fingerprint: str
     created_by: str
     created_at: datetime
+
+    @classmethod
+    def from_record(cls, record: SdtmDerivationPlanRevision) -> "PlanResponse":
+        return cls(
+            id=record.id,
+            aggregate_id=record.aggregate_id,
+            domain=record.domain_code,
+            revision=record.revision,
+            schema_version=record.schema_version,
+            specification_revision=record.specification_revision,
+            input_selection_revision=record.input_selection_revision,
+            state=record.state,
+            alignment_state=_alignment_state(record.state),
+            alignment_reasons=tuple(record.alignment_reasons or ()),
+            upstream_plan_pins=tuple(record.upstream_plan_pins),
+            payload=record.payload,
+            fingerprint=record.fingerprint,
+            created_by=record.created_by,
+            created_at=record.created_at,
+        )
+
+
+class PlanHeadSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: UUID
+    domain: str
+    revision: int
+    alignment_state: str
+    alignment_reasons: tuple[str, ...]
+    fingerprint: str
+
+
+class PlanHeadPage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    items: tuple[PlanHeadSummary, ...]
+    next_cursor: str | None
 
 
 class SdtmArtifactRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     artifact_types: tuple[str, ...] = Field(min_length=1)
     expected_input_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    domain_code: str | None = Field(default=None, pattern=r"^[A-Z][A-Z0-9]{1,7}$")
 
 
 class CompileRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     backend: str = Field(pattern=r"^(python|r|sas)$")
     expected_input_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    domain_code: str = Field(pattern=r"^[A-Z][A-Z0-9]{1,7}$")
 
 
 class PreviewRequest(BaseModel):
@@ -225,6 +272,23 @@ def _selection_command(selection: SdtmInputSelection) -> SdtmInputSelectionWrite
     return SdtmInputSelectionWrite.model_validate(payload)
 
 
+def _misalign_all_domain_plans(
+    handler: SdtmCapability, session: Session, aggregate_id: UUID, reason: str
+) -> None:
+    """Misalign every per-domain head plan for a spec/input change and fan out."""
+
+    for head in handler.list_plan_heads(session, aggregate_id):
+        if head.state == "aligned":
+            head.state = "misaligned"
+            current = list(head.alignment_reasons or [])
+            if reason not in current:
+                current.append(reason)
+            head.alignment_reasons = current
+            handler.mark_sibling_plan_change(
+                session, aggregate_id, head.domain_code, "upstream_plan_changed"
+            )
+
+
 def _stale_adam_consumers(session: Session, registry: ModuleRegistry, sdtm_id: UUID) -> None:
     consumer = cast(
         AdamConsumerStaleness,
@@ -295,9 +359,7 @@ def put_input_selection(
         record.state = "current"
         record.payload = payload
         record.fingerprint = fingerprint(payload)
-    plan = _handler(registry).latest_plan(session, workbench.id)
-    if plan is not None:
-        plan.state = "misaligned"
+    _misalign_all_domain_plans(_handler(registry), session, workbench.id, "input_changed")
     workbench.revision += 1
     artifacts.mark_owner_stale(session, owner_type="sdtm_workbench", owner_id=workbench.id)
     _stale_adam_consumers(session, registry, workbench.id)
@@ -351,9 +413,7 @@ def _save_specification(
         created_by=principal.subject,
     )
     session.add(record)
-    plan = _handler(registry).latest_plan(session, workbench.id)
-    if plan is not None:
-        plan.state = "misaligned"
+    _misalign_all_domain_plans(_handler(registry), session, workbench.id, "specification_changed")
     workbench.revision += 1
     artifacts.mark_owner_stale(session, owner_type="sdtm_workbench", owner_id=workbench.id)
     _stale_adam_consumers(session, registry, workbench.id)
@@ -470,23 +530,87 @@ def export_specification(
     )
 
 
-@router.get("/sdtms/{sdtm_id}/derivation-plan", response_model=PlanResponse)
+def _require_domain(
+    handler: SdtmCapability, session: Session, aggregate_id: UUID, domain_code: str
+) -> SdtmSpecificationRevision:
+    """Validate the path domain against the pattern and current Specification."""
+
+    import re
+
+    if not re.fullmatch(r"[A-Z][A-Z0-9]{1,7}", domain_code):
+        raise ProblemException(
+            status_code=404,
+            code="sdtm_domain_unknown",
+            title="SDTM domain is unknown",
+            detail=f"'{domain_code}' is not a valid domain code.",
+        )
+    specification = handler.latest_specification(session, aggregate_id)
+    if specification is None:
+        raise _missing("sdtm_specification_required", "SDTM Specification is not saved.")
+    codes = {domain.code for domain in context_from_record(specification).domains}
+    if domain_code not in codes:
+        raise ProblemException(
+            status_code=404,
+            code="sdtm_domain_unknown",
+            title="SDTM domain is unknown",
+            detail=f"Domain '{domain_code}' is not declared in the current Specification.",
+        )
+    return specification
+
+
+@router.get("/sdtms/{sdtm_id}/derivation-plans", response_model=PlanHeadPage)
+def list_plans(
+    sdtm_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    after: Annotated[str | None, Query()] = None,
+) -> PlanHeadPage:
+    workbench = _sdtm(session, sdtm_id, principal)
+    heads = _handler(registry).list_plan_heads(session, workbench.id)
+    page, next_cursor = paginate(
+        heads, limit=limit, after=after, filters={"aggregate_id": str(workbench.id)}
+    )
+    return PlanHeadPage(
+        items=tuple(
+            PlanHeadSummary(
+                id=head.id,
+                domain=head.domain_code,
+                revision=head.revision,
+                alignment_state=_alignment_state(head.state),
+                alignment_reasons=tuple(head.alignment_reasons or ()),
+                fingerprint=head.fingerprint,
+            )
+            for head in page
+        ),
+        next_cursor=next_cursor,
+    )
+
+
+@router.get("/sdtms/{sdtm_id}/domains/{domain_code}/derivation-plan", response_model=PlanResponse)
 def get_plan(
     sdtm_id: UUID,
+    domain_code: str,
+    response: Response,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
     principal: Annotated[Principal, Depends(get_principal)],
 ) -> PlanResponse:
     workbench = _sdtm(session, sdtm_id, principal)
-    record = _handler(registry).latest_plan(session, workbench.id)
+    handler = _handler(registry)
+    _require_domain(handler, session, workbench.id, domain_code)
+    record = handler.latest_plan(session, workbench.id, domain_code)
     if record is None:
         raise _missing("sdtm_derivation_plan_required", "SDTM Derivation Plan is not saved.")
-    return PlanResponse.model_validate(record)
+    response.headers["ETag"] = etag_for_revision(record.revision)
+    return PlanResponse.from_record(record)
 
 
-@router.put("/sdtms/{sdtm_id}/derivation-plan", response_model=PlanResponse)
+@router.put("/sdtms/{sdtm_id}/domains/{domain_code}/derivation-plan", response_model=PlanResponse)
 def put_plan(
     sdtm_id: UUID,
+    domain_code: str,
     command: SdtmDerivationPlan,
     response: Response,
     session: Annotated[Session, Depends(get_session)],
@@ -495,38 +619,63 @@ def put_plan(
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
 ) -> PlanResponse:
     workbench = _sdtm(session, sdtm_id, principal)
-    require_matching_etag(if_match, workbench.revision)
     handler = _handler(registry)
-    specification = handler.latest_specification(session, workbench.id)
+    specification = _require_domain(handler, session, workbench.id, domain_code)
+    if command.domain != domain_code:
+        raise ProblemException(
+            status_code=422,
+            code="sdtm_plan_domain_mismatch",
+            title="SDTM plan domain mismatch",
+            detail="The plan body domain must equal the path domain.",
+        )
+    # Serialize all plan writes within the aggregate by locking the workbench row.
+    session.execute(
+        select(SdtmWorkbench.id).where(SdtmWorkbench.id == workbench.id).with_for_update()
+    )
     selection = handler.current_input(session, workbench.id)
+    current = handler.latest_plan(session, workbench.id, domain_code)
+    if current is None:
+        if if_match not in (None, "*"):
+            raise ProblemException(
+                status_code=412,
+                code="precondition_failed",
+                title="The resource has changed",
+                detail="No plan exists yet for this domain.",
+            )
+    else:
+        require_matching_etag(if_match, current.revision)
     if (
-        specification is None
-        or command.specification_revision != specification.revision
+        command.specification_revision != specification.revision
         or command.input_selection_revision != selection.revision
         or selection.state != "current"
     ):
         raise _stale("sdtm_plan_alignment", "Plan revisions do not match current inputs.")
     lower_plan(context_from_record(specification), command)
-    current = handler.latest_plan(session, workbench.id)
+    handler.check_cross_plan_cycle(session, workbench.id, command)
+    pins = handler.resolve_upstream_plan_pins(session, workbench.id, command, specification)
     record = SdtmDerivationPlanRevision(
         aggregate_id=workbench.id,
         study_id=workbench.study_id,
+        domain_code=domain_code,
         revision=1 if current is None else current.revision + 1,
         schema_version=command.schema_version,
         specification_revision=command.specification_revision,
         input_selection_revision=command.input_selection_revision,
         state="aligned",
+        upstream_plan_pins=pins,
+        alignment_reasons=[],
         payload=command.model_dump(mode="json"),
         fingerprint=fingerprint(command.model_dump(mode="json")),
         created_by=principal.subject,
     )
     session.add(record)
-    workbench.revision += 1
+    session.flush()
+    handler.mark_sibling_plan_change(session, workbench.id, domain_code, "upstream_plan_changed")
     artifacts.mark_owner_stale(session, owner_type="sdtm_workbench", owner_id=workbench.id)
     _stale_adam_consumers(session, registry, workbench.id)
     session.commit()
-    response.headers["ETag"] = etag_for_revision(workbench.revision)
-    return PlanResponse.model_validate(record)
+    response.headers["ETag"] = etag_for_revision(record.revision)
+    return PlanResponse.from_record(record)
 
 
 def _plan_expressions(plan: SdtmDerivationPlan) -> list[tuple[str, Expression]]:
@@ -545,15 +694,18 @@ def _plan_expressions(plan: SdtmDerivationPlan) -> list[tuple[str, Expression]]:
     return pairs
 
 
-@router.post("/sdtms/{sdtm_id}/derivation-plan/validate")
+@router.post("/sdtms/{sdtm_id}/domains/{domain_code}/derivation-plan/validate")
 def validate_plan(
     sdtm_id: UUID,
+    domain_code: str,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
     principal: Annotated[Principal, Depends(get_principal)],
 ) -> dict[str, object]:
     workbench = _sdtm(session, sdtm_id, principal)
-    specification, _, plan = _handler(registry).require_aligned(session, workbench.id)
+    handler = _handler(registry)
+    _require_domain(handler, session, workbench.id, domain_code)
+    specification, _, plan = handler.require_domain_aligned(session, workbench.id, domain_code)
     plan_contract = plan_from_record(plan)
     internal = lower_plan(context_from_record(specification), plan_contract)
     issues = validate_expressions(
@@ -565,24 +717,30 @@ def validate_plan(
     status_value = "invalid" if any(issue.severity == "error" for issue in issues) else "valid"
     return {
         "status": status_value,
+        "domain": domain_code,
         "ir_fingerprint": ir_fingerprint(internal),
         "issues": [issue.model_dump(mode="json") for issue in issues],
     }
 
 
-@router.post("/sdtms/{sdtm_id}/derivation-plan/preview")
+@router.post("/sdtms/{sdtm_id}/domains/{domain_code}/derivation-plan/preview")
 def preview_plan(
     sdtm_id: UUID,
+    domain_code: str,
     command: PreviewRequest,
     session: Annotated[Session, Depends(get_session)],
     storage: Annotated[ObjectStorage, Depends(get_object_storage)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
     principal: Annotated[Principal, Depends(get_principal)],
 ) -> dict[str, object]:
-    """Evaluate the aligned plan over exact selected Raw inputs with strict row bounds."""
+    """Evaluate the aligned per-domain plan over exact Raw inputs with strict row bounds."""
 
     workbench = _sdtm(session, sdtm_id, principal)
-    specification, selection, plan = _handler(registry).require_aligned(session, workbench.id)
+    handler = _handler(registry)
+    _require_domain(handler, session, workbench.id, domain_code)
+    specification, selection, plan = handler.require_domain_aligned(
+        session, workbench.id, domain_code
+    )
     selected = _selection_command(selection)
     _raw_context(session, registry, selected, workbench.study_id)
     provider = cast(
@@ -630,9 +788,79 @@ def get_lineage(
     principal: Annotated[Principal, Depends(get_principal)],
 ) -> dict[str, object]:
     workbench = _sdtm(session, sdtm_id, principal)
-    specification, _, plan = _handler(registry).require_aligned(session, workbench.id)
+    handler = _handler(registry)
+    specification = handler.latest_specification(session, workbench.id)
+    plans = handler.aligned_domain_plans(session, workbench.id)
+    assert specification is not None
+    specification_contract = context_from_record(specification)
+    domains: dict[str, object] = {}
+    fingerprints: dict[str, str] = {}
+    for code in sorted(plans):
+        internal = lower_plan(specification_contract, plan_from_record(plans[code]))
+        ir_fp = ir_fingerprint(internal)
+        fingerprints[code] = ir_fp
+        domains[code] = {"ir_fingerprint": ir_fp, "outputs": lineage(internal)}
+    return {
+        "plan_set_fingerprint": fingerprint(fingerprints),
+        "domains": domains,
+    }
+
+
+@router.post(
+    "/sdtms/{sdtm_id}/domains/{domain_code}/validate",
+    response_model=ValidationRunResponse,
+)
+def validate_sdtm_domain(
+    sdtm_id: UUID,
+    domain_code: str,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> ValidationRunResponse:
+    """Per-domain validation run for authoring feedback and per-domain program builds."""
+
+    workbench = _sdtm(session, sdtm_id, principal)
+    handler = _handler(registry)
+    _require_domain(handler, session, workbench.id, domain_code)
+    specification, selection, plan = handler.require_domain_aligned(
+        session, workbench.id, domain_code
+    )
     internal = lower_plan(context_from_record(specification), plan_from_record(plan))
-    return {"ir_fingerprint": ir_fingerprint(internal), "outputs": lineage(internal)}
+    manifest = {
+        "sdtm_revision": workbench.revision,
+        "dependency_fingerprint": handler.get_selection(
+            session, workbench.id, workbench.study_id
+        ).fingerprint,
+        "input_selection_revision": selection.revision,
+        "specification_revision": specification.revision,
+        "specification_fingerprint": specification.fingerprint,
+        "domain_code": domain_code,
+        "plan_revision": plan.revision,
+        "plan_fingerprint": plan.fingerprint,
+        "normalized_ir": canonical_ir(internal),
+    }
+    run = ValidationRun(
+        study_id=workbench.study_id,
+        module_key="sdtm",
+        owner_type="sdtm_workbench",
+        owner_id=workbench.id,
+        status="succeeded",
+        validator_name="sdtm-authoring-validator",
+        validator_version="1.0.0",
+        input_fingerprint=fingerprint(manifest),
+        input_manifest=manifest,
+        started_at=utc_now(),
+        completed_at=utc_now(),
+        error_count=0,
+        warning_count=0,
+        info_count=0,
+        issues=[],
+        report_artifact_ids=[],
+        created_by=principal.subject,
+    )
+    session.add(run)
+    session.commit()
+    return ValidationRunResponse.model_validate(run)
 
 
 @router.post("/sdtms/{sdtm_id}/validate", response_model=ValidationRunResponse)
@@ -643,8 +871,20 @@ def validate_sdtm(
     principal: Annotated[Principal, Depends(get_principal)],
 ) -> ValidationRunResponse:
     workbench = _sdtm(session, sdtm_id, principal)
-    specification, selection, plan = _handler(registry).require_aligned(session, workbench.id)
-    internal = lower_plan(context_from_record(specification), plan_from_record(plan))
+    handler = _handler(registry)
+    specification = handler.latest_specification(session, workbench.id)
+    selection = handler.current_input(session, workbench.id)
+    plans = handler.aligned_domain_plans(session, workbench.id)
+    assert specification is not None
+    specification_contract = context_from_record(specification)
+    normalized_ir: dict[str, object] = {}
+    plan_revisions: dict[str, int] = {}
+    plan_fingerprints: dict[str, str] = {}
+    for code in sorted(plans):
+        internal = lower_plan(specification_contract, plan_from_record(plans[code]))
+        normalized_ir[code] = canonical_ir(internal)
+        plan_revisions[code] = plans[code].revision
+        plan_fingerprints[code] = plans[code].fingerprint
     acrf_annotations = tuple(
         session.scalars(
             select(SdtmAcrfAnnotation).where(
@@ -655,19 +895,19 @@ def validate_sdtm(
     )
     manifest = {
         "sdtm_revision": workbench.revision,
-        "dependency_fingerprint": _handler(registry)
-        .get_selection(session, workbench.id, workbench.study_id)
-        .fingerprint,
+        "dependency_fingerprint": handler.get_selection(
+            session, workbench.id, workbench.study_id
+        ).fingerprint,
         "input_selection_revision": selection.revision,
         "specification_revision": specification.revision,
         "specification_fingerprint": specification.fingerprint,
-        "plan_revision": plan.revision,
-        "plan_fingerprint": plan.fingerprint,
+        "plan_revisions": plan_revisions,
+        "plan_set_fingerprint": fingerprint(plan_fingerprints),
         "acrf_annotations": [
             {"id": str(item.id), "revision": item.revision, "fingerprint": item.fingerprint}
             for item in sorted(acrf_annotations, key=lambda item: str(item.id))
         ],
-        "normalized_ir": canonical_ir(internal),
+        "normalized_ir": normalized_ir,
     }
     run = ValidationRun(
         study_id=workbench.study_id,
@@ -702,6 +942,7 @@ def _build(
     registry: ModuleRegistry,
     principal: Principal,
     idempotency_key: str | None,
+    domain_code: str | None = None,
 ) -> ArtifactBuildResponse:
     unsupported = sorted(set(artifact_types) - set(SDTM_BUILD_ARTIFACT_TYPES))
     if unsupported:
@@ -711,6 +952,9 @@ def _build(
             title="Artifact type is unsupported",
             detail=f"Unsupported SDTM artifact types: {', '.join(unsupported)}",
         )
+    options: dict[str, str | int | float | bool | None] = {}
+    if domain_code is not None:
+        options["domain_code"] = domain_code
     return create_artifact_build(
         ArtifactBuildCreate(
             study_id=workbench.study_id,
@@ -718,7 +962,7 @@ def _build(
             owner_id=workbench.id,
             artifact_types=artifact_types,
             expected_input_fingerprint=expected_input_fingerprint,
-            options={},
+            options=options,
         ),
         response,
         session,
@@ -752,6 +996,7 @@ def create_sdtm_artifacts(
         registry,
         principal,
         idempotency_key,
+        command.domain_code,
     )
 
 
@@ -779,6 +1024,7 @@ def compile_sdtm(
         registry,
         principal,
         idempotency_key,
+        command.domain_code,
     )
 
 

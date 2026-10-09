@@ -106,6 +106,12 @@ class RawReadNode(StrictModel):
     raw_dataset_code: str
 
 
+class SdtmReadNode(StrictModel):
+    node_type: Literal["sdtm_read"]
+    id: str = Field(min_length=1, max_length=128)
+    dataset: str = Field(pattern=r"^[A-Z][A-Z0-9]{1,7}$")  # upstream SDTM domain code
+
+
 class FilterNode(StrictModel):
     node_type: Literal["filter"]
     id: str
@@ -218,6 +224,7 @@ class DomainWriteNode(StrictModel):
 
 SdtmPlanNode = Annotated[
     RawReadNode
+    | SdtmReadNode
     | FilterNode
     | DeriveNode
     | CastNode
@@ -241,7 +248,8 @@ class PlanEdge(StrictModel):
 
 
 class SdtmDerivationPlan(StrictModel):
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.1.0"] = "1.1.0"
+    domain: str = Field(pattern=r"^[A-Z][A-Z0-9]{1,7}$")
     specification_revision: int = Field(ge=1)
     input_selection_revision: int = Field(ge=1)
     nodes: tuple[SdtmPlanNode, ...] = Field(min_length=1)
@@ -316,6 +324,7 @@ class AcrfPlanNodeLink(StrictModel):
     target_type: Literal["derivation_plan_node"]
     plan_revision: int = Field(ge=1)
     node_id: str = Field(min_length=1, max_length=128)
+    domain: str | None = Field(default=None, pattern=r"^[A-Z][A-Z0-9]{1,7}$")
 
 
 AcrfLink = Annotated[

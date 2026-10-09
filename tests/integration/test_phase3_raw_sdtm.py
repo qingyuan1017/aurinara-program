@@ -452,9 +452,10 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
     )
     assert specification.status_code == 200, specification.text
     plan = await client.put(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/derivation-plan",
-        headers={**headers, "If-Match": specification.headers["etag"]},
+        f"/api/v1/sdtms/{sdtm.json()['id']}/domains/DM/derivation-plan",
+        headers={**headers, "If-Match": "*"},
         json={
+            "domain": "DM",
             "specification_revision": 1,
             "input_selection_revision": 1,
             "nodes": [
@@ -477,8 +478,9 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
         },
     )
     assert plan.status_code == 200, plan.text
+    assert plan.json()["alignment_state"] == "current"
     plan_preview = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/derivation-plan/preview",
+        f"/api/v1/sdtms/{sdtm.json()['id']}/domains/DM/derivation-plan/preview",
         headers=headers,
         json={"domains": ["DM"], "limit": 1},
     )
@@ -499,7 +501,7 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
     raw_variable_id = initialized.json()["variables"][0]["id"]
     annotation = await client.post(
         f"/api/v1/sdtms/{sdtm.json()['id']}/acrf/annotations",
-        headers={**headers, "If-Match": plan.headers["etag"]},
+        headers={**headers, "If-Match": specification.headers["etag"]},
         json={
             "source_pdf_artifact_id": crf.json()["artifact_id"],
             "page_number": 1,
@@ -527,6 +529,7 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
                     "target_type": "derivation_plan_node",
                     "plan_revision": 1,
                     "node_id": "derive",
+                    "domain": "DM",
                 }
             ],
         },
@@ -541,6 +544,10 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
     }
     validation = await client.post(f"/api/v1/sdtms/{sdtm.json()['id']}/validate", headers=headers)
     assert validation.json()["status"] == "succeeded", validation.text
+    domain_validation = await client.post(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/domains/DM/validate", headers=headers
+    )
+    assert domain_validation.json()["status"] == "succeeded", domain_validation.text
 
     metadata_artifact_types = (
         "sdtm_specification",
@@ -556,7 +563,7 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
             owner_type="sdtm_workbench",
             owner_id=UUID(sdtm.json()["id"]),
             artifact_types=metadata_artifact_types,
-            options={},
+            options={"domain_code": "DM"},
         )
     metadata_build = await client.post(
         f"/api/v1/sdtms/{sdtm.json()['id']}/artifacts",
@@ -564,6 +571,7 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
         json={
             "artifact_types": list(metadata_artifact_types),
             "expected_input_fingerprint": fingerprint(metadata_resolved),
+            "domain_code": "DM",
         },
     )
     assert metadata_build.status_code == 202, metadata_build.text
@@ -647,12 +655,16 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
             owner_type="sdtm_workbench",
             owner_id=UUID(sdtm.json()["id"]),
             artifact_types=("sdtm_program_python",),
-            options={},
+            options={"domain_code": "DM"},
         )
     compiled = await client.post(
         f"/api/v1/sdtms/{sdtm.json()['id']}/compile",
         headers={**headers, "Idempotency-Key": "compile-python-1"},
-        json={"backend": "python", "expected_input_fingerprint": fingerprint(resolved)},
+        json={
+            "backend": "python",
+            "expected_input_fingerprint": fingerprint(resolved),
+            "domain_code": "DM",
+        },
     )
     assert compiled.status_code == 202, compiled.text
     with factory.begin() as session:
@@ -682,7 +694,7 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
             "language": "python",
             "program_artifact_id": python_program["id"],
             "input_artifact_ids": [source.json()["artifact_id"]],
-            "validation_run_id": validation.json()["id"],
+            "validation_run_id": domain_validation.json()["id"],
             "input_selection_revision": 1,
             "source_specification_revision": 1,
             "source_plan_revision": 1,
@@ -1012,12 +1024,16 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
             owner_type="sdtm_workbench",
             owner_id=UUID(sdtm.json()["id"]),
             artifact_types=("sdtm_program_sas",),
-            options={},
+            options={"domain_code": "DM"},
         )
     sas_build = await client.post(
         f"/api/v1/sdtms/{sdtm.json()['id']}/compile",
         headers={**headers, "Idempotency-Key": "compile-sas-1"},
-        json={"backend": "sas", "expected_input_fingerprint": fingerprint(sas_resolved)},
+        json={
+            "backend": "sas",
+            "expected_input_fingerprint": fingerprint(sas_resolved),
+            "domain_code": "DM",
+        },
     )
     with factory.begin() as session:
         sas_job = JobService().claim(session, worker_id="phase3-worker", lease_seconds=60)
@@ -1042,7 +1058,7 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
             "language": "sas",
             "program_artifact_id": sas_program["id"],
             "input_artifact_ids": [source.json()["artifact_id"]],
-            "validation_run_id": validation.json()["id"],
+            "validation_run_id": domain_validation.json()["id"],
             "input_selection_revision": 1,
             "source_specification_revision": 1,
             "source_plan_revision": 1,

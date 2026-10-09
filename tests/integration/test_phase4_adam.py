@@ -151,12 +151,15 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
         ],
     }
     plan_payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
+        "domain": "DM",
         "specification_revision": 1,
         "input_selection_revision": 1,
         "nodes": [{"node_type": "raw_read", "id": "read", "raw_dataset_code": "DEMOG"}],
         "edges": [],
     }
+    plan_fingerprint = fingerprint(plan_payload)
+    plan_set_fingerprint = fingerprint({"DM": plan_fingerprint})
     sdtm_specification = SdtmSpecification.model_validate(specification_payload)
     xpt = build_xpt_v5(
         b"USUBJID,ARM\n01,Placebo\n02,Active\n",
@@ -185,13 +188,16 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
         plan = SdtmDerivationPlanRevision(
             aggregate_id=sdtm_uuid,
             study_id=study_uuid,
+            domain_code="DM",
             revision=1,
-            schema_version="1.0.0",
+            schema_version="1.1.0",
             specification_revision=1,
             input_selection_revision=1,
             state="aligned",
+            upstream_plan_pins=[],
+            alignment_reasons=None,
             payload=plan_payload,
-            fingerprint=fingerprint(plan_payload),
+            fingerprint=plan_fingerprint,
             created_by="user-1",
         )
         artifact = Artifact(
@@ -233,7 +239,8 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
                 "dependency_fingerprint": dependency_fingerprint,
                 "input_selection_revision": 1,
                 "specification_revision": 1,
-                "plan_revision": 1,
+                "plan_revisions": {"DM": 1},
+                "plan_set_fingerprint": plan_set_fingerprint,
             },
             started_at=utc_now(),
             completed_at=utc_now(),
@@ -346,6 +353,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     )
     assert saved_specification.status_code == 200, saved_specification.text
     adam_plan = {
+        "dataset": "ADSL",
         "specification_revision": 1,
         "input_selection_revision": 1,
         "nodes": [
@@ -371,19 +379,19 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
         ],
     }
     saved_plan = await client.put(
-        f"/api/v1/adams/{adam_id}/derivation-plan",
-        headers={**headers, "If-Match": saved_specification.headers["etag"]},
+        f"/api/v1/adams/{adam_id}/datasets/ADSL/derivation-plan",
+        headers={**headers, "If-Match": "*"},
         json=adam_plan,
     )
     assert saved_plan.status_code == 200, saved_plan.text
     validated = await client.post(
-        f"/api/v1/adams/{adam_id}/derivation-plan/validate", headers=headers
+        f"/api/v1/adams/{adam_id}/datasets/ADSL/derivation-plan/validate", headers=headers
     )
     assert validated.status_code == 200, validated.text
     assert validated.json()["status"] == "valid"
 
     preview = await client.post(
-        f"/api/v1/adams/{adam_id}/derivation-plan/preview",
+        f"/api/v1/adams/{adam_id}/datasets/ADSL/derivation-plan/preview",
         headers=headers,
         json={"datasets": ["ADSL"], "limit": 1},
     )
@@ -391,12 +399,21 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     assert preview.json()["outputs"]["ADSL"] == [{"USUBJID": "01", "TRT01P": "Placebo"}]
     lineage = await client.get(f"/api/v1/adams/{adam_id}/lineage", headers=headers)
     assert lineage.status_code == 200, lineage.text
-    assert lineage.json()["outputs"]["ADSL"] == ["derive_trt", "read_dm", "select_adsl"]
+    assert lineage.json()["datasets"]["ADSL"]["outputs"]["ADSL"] == [
+        "derive_trt",
+        "read_dm",
+        "select_adsl",
+    ]
 
     validation = await client.post(f"/api/v1/adams/{adam_id}/validate", headers=headers)
     assert validation.status_code == 200, validation.text
     assert validation.json()["status"] == "succeeded"
     assert validation.json()["error_count"] == 0
+    dataset_validation = await client.post(
+        f"/api/v1/adams/{adam_id}/datasets/ADSL/validate", headers=headers
+    )
+    assert dataset_validation.status_code == 200, dataset_validation.text
+    assert dataset_validation.json()["status"] == "succeeded"
 
     metadata_artifact_types = (
         "adam_specification",
@@ -416,7 +433,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
             owner_type="adam_workbench",
             owner_id=UUID(adam_id),
             artifact_types=metadata_artifact_types,
-            options={},
+            options={"domain_code": "ADSL"},
         )
     metadata_build = await client.post(
         f"/api/v1/adams/{adam_id}/artifacts",
@@ -424,6 +441,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
         json={
             "artifact_types": list(metadata_artifact_types),
             "expected_input_fingerprint": fingerprint(metadata_resolved),
+            "dataset_code": "ADSL",
         },
     )
     assert metadata_build.status_code == 202, metadata_build.text
@@ -461,12 +479,16 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
             owner_type="adam_workbench",
             owner_id=UUID(adam_id),
             artifact_types=("adam_program_python",),
-            options={},
+            options={"domain_code": "ADSL"},
         )
     compiled = await client.post(
         f"/api/v1/adams/{adam_id}/compile",
         headers={**headers, "Idempotency-Key": "adam-compile-python-1"},
-        json={"backend": "python", "expected_input_fingerprint": fingerprint(resolved)},
+        json={
+            "backend": "python",
+            "expected_input_fingerprint": fingerprint(resolved),
+            "dataset_code": "ADSL",
+        },
     )
     assert compiled.status_code == 202, compiled.text
     with factory.begin() as session:
@@ -502,7 +524,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
             "language": "python",
             "program_artifact_id": program.json()["id"],
             "input_artifact_ids": [artifact_id],
-            "validation_run_id": validation.json()["id"],
+            "validation_run_id": dataset_validation.json()["id"],
             "input_selection_revision": 1,
             "source_specification_revision": 1,
             "source_plan_revision": 1,
@@ -558,7 +580,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
 
     define = await client.post(
         f"/api/v1/adams/{adam_id}/define/initialize",
-        headers={**headers, "If-Match": saved_plan.headers["etag"]},
+        headers={**headers, "If-Match": saved_specification.headers["etag"]},
         json={
             "expected_define_revision": None,
             "study_oid": "STUDY.P4-001",
@@ -843,7 +865,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     assert replay.status_code == 200, replay.text
     assert replay.json()["id"] == imported.json()["id"]
     blocked = await client.post(
-        f"/api/v1/adams/{adam_id}/derivation-plan/validate", headers=headers
+        f"/api/v1/adams/{adam_id}/datasets/ADSL/derivation-plan/validate", headers=headers
     )
     assert blocked.status_code == 409
     assert blocked.json()["code"] == "adam_plan_misaligned"
@@ -858,9 +880,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     assert stale_selection.status_code == 200, stale_selection.text
     assert stale_selection.json()["state"] == "input_refresh_required"
     with factory() as session:
-        stale_define_validation = session.get(
-            ValidationRun, UUID(define_validation.json()["id"])
-        )
+        stale_define_validation = session.get(ValidationRun, UUID(define_validation.json()["id"]))
         assert stale_define_validation is not None
         assert stale_define_validation.status == "stale"
 
@@ -919,13 +939,9 @@ async def test_specification_replaces_verified_normalized_trace_targets(
                 }
             ],
             "populations": [{"id": "POP1", "name": "ITT", "description": "Text"}],
-            "methods": [
-                {"id": "M1", "name": "ANCOVA", "description": "Manually authored method."}
-            ],
+            "methods": [{"id": "M1", "name": "ANCOVA", "description": "Manually authored method."}],
             "missing_data": [{"id": "MD1", "name": "Missing", "description": "Text"}],
-            "output_requirements": [
-                {"id": "OUT1", "name": "Table", "description": "Text"}
-            ],
+            "output_requirements": [{"id": "OUT1", "name": "Table", "description": "Text"}],
             "qc_items": [{"id": "QC1", "name": "QC", "description": "Text"}],
             "narrative_sections": [
                 {"section_id": "methods", "heading": "Methods", "paragraphs": ["Text"]}

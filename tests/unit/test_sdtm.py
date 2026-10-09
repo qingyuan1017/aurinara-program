@@ -15,6 +15,44 @@ from app.sdtm.contracts import (
 from app.sdtm.service import _csdrg_document, lower_plan
 
 
+def _multi_domain_specification() -> SdtmSpecification:
+    base = _specification().model_dump(mode="json")
+    base["domains"].append(
+        {
+            "code": "AE",
+            "label": "Adverse Events",
+            "domain_class": "Events",
+            "structure": "One record per event",
+            "keys": ["STUDYID", "USUBJID"],
+            "sort_order": ["STUDYID", "USUBJID"],
+            "expected_output_name": "ae.xpt",
+            "variables": [
+                {
+                    "name": "STUDYID",
+                    "label": "Study Identifier",
+                    "data_type": "character",
+                    "length": 20,
+                    "role": "Identifier",
+                    "core": "Req",
+                    "origin": "Assigned",
+                    "derived": False,
+                },
+                {
+                    "name": "USUBJID",
+                    "label": "Unique Subject Identifier",
+                    "data_type": "character",
+                    "length": 40,
+                    "role": "Identifier",
+                    "core": "Req",
+                    "origin": "Derived",
+                    "derived": True,
+                },
+            ],
+        }
+    )
+    return SdtmSpecification.model_validate(base)
+
+
 def test_csdrg_document_keeps_manual_narrative_and_exact_facts_separate() -> None:
     model = SdtmCsdrgModel.model_validate(
         {
@@ -93,6 +131,7 @@ def _specification() -> SdtmSpecification:
 def test_plan_lowers_to_internal_ir_with_output_coverage() -> None:
     plan = SdtmDerivationPlan.model_validate(
         {
+            "domain": "DM",
             "specification_revision": 1,
             "input_selection_revision": 1,
             "nodes": [
@@ -118,14 +157,153 @@ def test_plan_lowers_to_internal_ir_with_output_coverage() -> None:
             ],
         }
     )
+    assert plan.schema_version == "1.1.0"
     internal = lower_plan(_specification(), plan)
     assert [node.node_type for node in internal.nodes] == ["read", "derive", "write"]
+
+
+def test_sdtm_read_lowers_to_ir_read() -> None:
+    plan = SdtmDerivationPlan.model_validate(
+        {
+            "domain": "AE",
+            "specification_revision": 1,
+            "input_selection_revision": 1,
+            "nodes": [
+                {"node_type": "sdtm_read", "id": "read_dm", "dataset": "DM"},
+                {"node_type": "domain_write", "id": "write_ae", "domain": "AE"},
+            ],
+            "edges": [{"source_node": "read_dm", "target_node": "write_ae"}],
+        }
+    )
+    internal = lower_plan(_multi_domain_specification(), plan)
+    read_node = next(node for node in internal.nodes if node.node_type == "read")
+    assert read_node.dataset == "DM"
+
+
+def test_sdtm_read_rejects_self_and_unknown_targets() -> None:
+    self_plan = SdtmDerivationPlan.model_validate(
+        {
+            "domain": "AE",
+            "specification_revision": 1,
+            "input_selection_revision": 1,
+            "nodes": [
+                {"node_type": "sdtm_read", "id": "read_ae", "dataset": "AE"},
+                {"node_type": "domain_write", "id": "write_ae", "domain": "AE"},
+            ],
+            "edges": [{"source_node": "read_ae", "target_node": "write_ae"}],
+        }
+    )
+    with pytest.raises(ProblemException) as self_error:
+        lower_plan(_multi_domain_specification(), self_plan)
+    assert self_error.value.code == "sdtm_read_self"
+
+    unknown_plan = SdtmDerivationPlan.model_validate(
+        {
+            "domain": "AE",
+            "specification_revision": 1,
+            "input_selection_revision": 1,
+            "nodes": [
+                {"node_type": "sdtm_read", "id": "read_zz", "dataset": "ZZ"},
+                {"node_type": "domain_write", "id": "write_ae", "domain": "AE"},
+            ],
+            "edges": [{"source_node": "read_zz", "target_node": "write_ae"}],
+        }
+    )
+    with pytest.raises(ProblemException) as unknown_error:
+        lower_plan(_multi_domain_specification(), unknown_plan)
+    assert unknown_error.value.code == "sdtm_read_target_unknown"
+
+
+def test_plan_rejects_write_out_of_scope() -> None:
+    plan = SdtmDerivationPlan.model_validate(
+        {
+            "domain": "AE",
+            "specification_revision": 1,
+            "input_selection_revision": 1,
+            "nodes": [
+                {"node_type": "raw_read", "id": "read", "raw_dataset_code": "AE"},
+                {"node_type": "domain_write", "id": "write_dm", "domain": "DM"},
+            ],
+            "edges": [{"source_node": "read", "target_node": "write_dm"}],
+        }
+    )
+    with pytest.raises(ProblemException) as captured:
+        lower_plan(_multi_domain_specification(), plan)
+    assert captured.value.code == "sdtm_plan_output_scope"
+
+
+def test_plan_rejects_duplicate_writes() -> None:
+    plan = SdtmDerivationPlan.model_validate(
+        {
+            "domain": "DM",
+            "specification_revision": 1,
+            "input_selection_revision": 1,
+            "nodes": [
+                {"node_type": "raw_read", "id": "read", "raw_dataset_code": "DEMOG"},
+                {"node_type": "domain_write", "id": "write_dm", "domain": "DM"},
+                {"node_type": "domain_write", "id": "write_dm2", "domain": "DM"},
+            ],
+            "edges": [{"source_node": "read", "target_node": "write_dm"}],
+        }
+    )
+    with pytest.raises(ProblemException) as captured:
+        lower_plan(_specification(), plan)
+    assert captured.value.code == "sdtm_plan_output_duplicate"
+
+
+def test_non_derived_domain_accepts_zero_write() -> None:
+    base = _specification().model_dump(mode="json")
+    base["domains"].append(
+        {
+            "code": "SU",
+            "label": "Substance Use",
+            "domain_class": "Interventions",
+            "structure": "One record per use",
+            "keys": ["STUDYID", "USUBJID"],
+            "sort_order": ["STUDYID", "USUBJID"],
+            "expected_output_name": "su.xpt",
+            "variables": [
+                {
+                    "name": "STUDYID",
+                    "label": "Study Identifier",
+                    "data_type": "character",
+                    "length": 20,
+                    "role": "Identifier",
+                    "core": "Req",
+                    "origin": "Collected",
+                    "derived": False,
+                },
+                {
+                    "name": "USUBJID",
+                    "label": "Unique Subject Identifier",
+                    "data_type": "character",
+                    "length": 40,
+                    "role": "Identifier",
+                    "core": "Req",
+                    "origin": "Collected",
+                    "derived": False,
+                },
+            ],
+        }
+    )
+    specification = SdtmSpecification.model_validate(base)
+    plan = SdtmDerivationPlan.model_validate(
+        {
+            "domain": "SU",
+            "specification_revision": 1,
+            "input_selection_revision": 1,
+            "nodes": [{"node_type": "raw_read", "id": "read", "raw_dataset_code": "SU"}],
+        }
+    )
+    internal = lower_plan(specification, plan)
+    assert [node.node_type for node in internal.nodes] == ["read"]
 
 
 def test_plan_rejects_raw_backend_code() -> None:
     with pytest.raises(ValidationError):
         SdtmDerivationPlan.model_validate(
             {
+                "domain": "DM",
                 "specification_revision": 1,
                 "input_selection_revision": 1,
                 "nodes": [
@@ -143,6 +321,7 @@ def test_plan_rejects_raw_backend_code() -> None:
 def test_plan_lowers_join_reshape_terminology_and_aggregate_operators() -> None:
     plan = SdtmDerivationPlan.model_validate(
         {
+            "domain": "DM",
             "specification_revision": 1,
             "input_selection_revision": 1,
             "nodes": [
@@ -229,6 +408,7 @@ def test_plan_join_requires_declared_left_and_right_edges() -> None:
     with pytest.raises(ValidationError):
         SdtmDerivationPlan.model_validate(
             {
+                "domain": "DM",
                 "specification_revision": 1,
                 "input_selection_revision": 1,
                 "nodes": [
@@ -251,6 +431,7 @@ def test_plan_join_requires_declared_left_and_right_edges() -> None:
 def test_derived_domain_requires_declared_write() -> None:
     plan = SdtmDerivationPlan.model_validate(
         {
+            "domain": "DM",
             "specification_revision": 1,
             "input_selection_revision": 1,
             "nodes": [{"node_type": "raw_read", "id": "read", "raw_dataset_code": "DEMOG"}],

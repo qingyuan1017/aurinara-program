@@ -91,9 +91,7 @@ class TraceabilityService:
             )
 
     @staticmethod
-    def _matching_statement(
-        study_id: UUID, command: TraceCommand
-    ) -> Select[TraceLink]:
+    def _matching_statement(study_id: UUID, command: TraceCommand) -> Select[TraceLink]:
         return select(TraceLink).where(
             TraceLink.study_id == study_id,
             TraceLink.relationship_type == command.relationship_type,

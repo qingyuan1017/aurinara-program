@@ -36,7 +36,9 @@ from app.sdtm.contracts import (
     SdtmCsdrgModel,
     SdtmDefineModel,
     SdtmDerivationPlan,
+    SdtmDomain,
     SdtmSpecification,
+    SdtmVariable,
 )
 from app.sdtm.define_xml import define_schema_fingerprint, render_define_xml
 from app.sdtm.models import (
@@ -371,27 +373,132 @@ class SdtmCapability(SqlDependencyCapability):
         )
 
     def latest_plan(
-        self, session: Session, aggregate_id: UUID
+        self, session: Session, aggregate_id: UUID, domain_code: str
     ) -> SdtmDerivationPlanRevision | None:
+        """Return the max-revision plan row for one ``(aggregate, domain)`` pair."""
+
         return session.scalar(
             select(SdtmDerivationPlanRevision)
-            .where(SdtmDerivationPlanRevision.aggregate_id == aggregate_id)
+            .where(
+                SdtmDerivationPlanRevision.aggregate_id == aggregate_id,
+                SdtmDerivationPlanRevision.domain_code == domain_code,
+            )
             .order_by(SdtmDerivationPlanRevision.revision.desc())
         )
 
-    def require_aligned(
+    def list_plan_heads(
         self, session: Session, aggregate_id: UUID
-    ) -> tuple[SdtmSpecificationRevision, SdtmInputSelection, SdtmDerivationPlanRevision]:
+    ) -> tuple[SdtmDerivationPlanRevision, ...]:
+        """Return the newest-first head plan row per domain for an aggregate."""
+
+        rows = session.scalars(
+            select(SdtmDerivationPlanRevision)
+            .where(SdtmDerivationPlanRevision.aggregate_id == aggregate_id)
+            .order_by(
+                SdtmDerivationPlanRevision.domain_code,
+                SdtmDerivationPlanRevision.revision.desc(),
+            )
+        )
+        heads: dict[str, SdtmDerivationPlanRevision] = {}
+        for row in rows:
+            heads.setdefault(row.domain_code, row)
+        return tuple(sorted(heads.values(), key=lambda row: (row.created_at, row.id), reverse=True))
+
+    def aligned_domain_plans(
+        self, session: Session, aggregate_id: UUID
+    ) -> dict[str, SdtmDerivationPlanRevision]:
+        """All-domain gate: every domain with a plan must be aligned with satisfied pins."""
+
         specification = self.latest_specification(session, aggregate_id)
         selection = self.current_input(session, aggregate_id)
-        plan = self.latest_plan(session, aggregate_id)
+        heads = {head.domain_code: head for head in self.list_plan_heads(session, aggregate_id)}
+        if specification is None or not heads:
+            raise ProblemException(
+                status_code=409,
+                code="sdtm_authoring_incomplete",
+                title="SDTM authoring is incomplete",
+                detail="A Specification and at least one Derivation Plan are required.",
+            )
+        for code in sorted(heads):
+            self._require_domain_head_aligned(
+                session, aggregate_id, heads[code], specification, selection
+            )
+        return heads
+
+    def require_output_coverage(
+        self,
+        session: Session,
+        aggregate_id: UUID,
+        plans: dict[str, SdtmDerivationPlanRevision] | None = None,
+    ) -> None:
+        """Collective whole-Specification coverage gate.
+
+        Every domain that declares a derived variable in the current Specification must
+        have an authored (and aligned) per-domain plan. A derived domain for which the
+        user never authored a plan row contributes nothing to ``aligned_domain_plans``
+        and is reported here, because no single per-domain request ever sees the whole
+        set (design 3.3/4). Raises ``409 sdtm_output_coverage_incomplete`` naming the
+        missing derived domains.
+        """
+
+        specification = self.latest_specification(session, aggregate_id)
+        if specification is None:
+            raise ProblemException(
+                status_code=409,
+                code="sdtm_authoring_incomplete",
+                title="SDTM authoring is incomplete",
+                detail="A Specification is required.",
+            )
+        contract = context_from_record(specification)
+        derived_domains = {
+            domain.code
+            for domain in contract.domains
+            if any(variable.derived for variable in domain.variables)
+        }
+        covered = (
+            set(plans)
+            if plans is not None
+            else set(self.aligned_domain_plans(session, aggregate_id))
+        )
+        missing = sorted(derived_domains - covered)
+        if missing:
+            raise ProblemException(
+                status_code=409,
+                code="sdtm_output_coverage_incomplete",
+                title="SDTM output coverage is incomplete",
+                detail=(
+                    "Every derived SDTM domain must have an aligned Derivation Plan before "
+                    "an all-domain deliverable or the whole output set can be built."
+                ),
+                issues=[{"missing_domains": missing}],
+            )
+
+    def require_domain_aligned(
+        self, session: Session, aggregate_id: UUID, domain_code: str
+    ) -> tuple[SdtmSpecificationRevision, SdtmInputSelection, SdtmDerivationPlanRevision]:
+        """Domain-scoped alignment gate for validate/compile/preview/artifacts/execute."""
+
+        specification = self.latest_specification(session, aggregate_id)
+        selection = self.current_input(session, aggregate_id)
+        plan = self.latest_plan(session, aggregate_id, domain_code)
         if specification is None or plan is None:
             raise ProblemException(
                 status_code=409,
                 code="sdtm_authoring_incomplete",
                 title="SDTM authoring is incomplete",
-                detail="A Specification and Derivation Plan are required.",
+                detail=f"A Specification and a '{domain_code}' Derivation Plan are required.",
             )
+        self._require_domain_head_aligned(session, aggregate_id, plan, specification, selection)
+        return specification, selection, plan
+
+    def _require_domain_head_aligned(
+        self,
+        session: Session,
+        aggregate_id: UUID,
+        plan: SdtmDerivationPlanRevision,
+        specification: SdtmSpecificationRevision,
+        selection: SdtmInputSelection,
+    ) -> None:
         if (
             selection.state != "current"
             or plan.state != "aligned"
@@ -403,11 +510,168 @@ class SdtmCapability(SqlDependencyCapability):
                 code="sdtm_plan_misaligned",
                 title="SDTM Derivation Plan is misaligned",
                 detail=(
-                    "Save a validated plan revision against the current Specification "
-                    "and input selection."
+                    f"Save a validated '{plan.domain_code}' plan revision against the current "
+                    "Specification and input selection."
                 ),
+                issues=[{"domain": plan.domain_code}],
             )
-        return specification, selection, plan
+        for pin in plan.upstream_plan_pins:
+            upstream_code = str(pin["domain_code"])
+            pinned_revision = int(str(pin["plan_revision"]))
+            sibling = self.latest_plan(session, aggregate_id, upstream_code)
+            if (
+                sibling is None
+                or sibling.revision != pinned_revision
+                or sibling.state != "aligned"
+                or sibling.specification_revision != specification.revision
+            ):
+                raise ProblemException(
+                    status_code=409,
+                    code="sdtm_plan_upstream_misaligned",
+                    title="SDTM upstream plan is misaligned",
+                    detail=(
+                        f"Domain '{plan.domain_code}' reads '{upstream_code}' which is no "
+                        "longer aligned at the pinned revision."
+                    ),
+                    issues=[
+                        {
+                            "domain": plan.domain_code,
+                            "upstream_code": upstream_code,
+                            "pinned_revision": pinned_revision,
+                            "current_revision": sibling.revision if sibling else None,
+                        }
+                    ],
+                )
+
+    def specification_slice(
+        self, specification: SdtmSpecification, code: str
+    ) -> tuple["SdtmDomain", dict[str, tuple["SdtmVariable", ...]]]:
+        """Return the owned target domain plus sibling variable views for read typing."""
+
+        domains = {domain.code: domain for domain in specification.domains}
+        target = domains.get(code)
+        if target is None:
+            raise ProblemException(
+                status_code=404,
+                code="sdtm_domain_unknown",
+                title="SDTM domain is unknown",
+                detail=f"Domain '{code}' is not declared in the current Specification.",
+            )
+        siblings = {
+            domain.code: domain.variables for domain in specification.domains if domain.code != code
+        }
+        return target, siblings
+
+    def resolve_upstream_plan_pins(
+        self,
+        session: Session,
+        aggregate_id: UUID,
+        plan: SdtmDerivationPlan,
+        specification: SdtmSpecificationRevision,
+    ) -> list[dict[str, object]]:
+        """Resolve + gate ``sdtm_read`` targets into sorted de-duplicated upstream pins."""
+
+        read_targets = sorted(
+            {node.dataset for node in plan.nodes if node.node_type == "sdtm_read"}
+        )
+        pins: list[dict[str, object]] = []
+        for upstream_code in read_targets:
+            sibling = self.latest_plan(session, aggregate_id, upstream_code)
+            if sibling is None:
+                raise ProblemException(
+                    status_code=409,
+                    code="sdtm_plan_upstream_misaligned",
+                    title="SDTM upstream plan is missing",
+                    detail=(
+                        f"Domain '{upstream_code}' has no plan; author and align it before "
+                        f"reading it from '{plan.domain}'."
+                    ),
+                    issues=[
+                        {
+                            "domain": plan.domain,
+                            "upstream_code": upstream_code,
+                            "upstream_state": "absent",
+                        }
+                    ],
+                )
+            if (
+                sibling.state != "aligned"
+                or sibling.specification_revision != specification.revision
+            ):
+                raise ProblemException(
+                    status_code=409,
+                    code="sdtm_plan_upstream_misaligned",
+                    title="SDTM upstream plan is misaligned",
+                    detail=(
+                        f"Domain '{upstream_code}' must be aligned against the current "
+                        f"Specification before '{plan.domain}' can read it."
+                    ),
+                    issues=[
+                        {
+                            "domain": plan.domain,
+                            "upstream_code": upstream_code,
+                            "upstream_state": sibling.state,
+                        }
+                    ],
+                )
+            pins.append({"domain_code": upstream_code, "plan_revision": sibling.revision})
+        return pins
+
+    def check_cross_plan_cycle(
+        self,
+        session: Session,
+        aggregate_id: UUID,
+        plan: SdtmDerivationPlan,
+    ) -> None:
+        """Reject a write whose read targets plus sibling pins would form a cycle."""
+
+        adjacency: dict[str, set[str]] = {}
+        this_code = plan.domain
+        adjacency[this_code] = {
+            node.dataset for node in plan.nodes if node.node_type == "sdtm_read"
+        }
+        for head in self.list_plan_heads(session, aggregate_id):
+            if head.domain_code == this_code:
+                continue
+            adjacency.setdefault(head.domain_code, set()).update(
+                str(pin["domain_code"]) for pin in head.upstream_plan_pins
+            )
+        visiting: set[str] = set()
+        done: set[str] = set()
+
+        def visit(code: str) -> None:
+            if code in visiting:
+                raise ProblemException(
+                    status_code=422,
+                    code="sdtm_plan_dataset_cycle",
+                    title="SDTM plan dependencies form a cycle",
+                    detail="Cross-domain reads must be acyclic across the aggregate's plans.",
+                )
+            if code in done:
+                return
+            visiting.add(code)
+            for target in adjacency.get(code, set()):
+                visit(target)
+            visiting.discard(code)
+            done.add(code)
+
+        visit(this_code)
+
+    def mark_sibling_plan_change(
+        self, session: Session, aggregate_id: UUID, changed_code: str, reason: str
+    ) -> None:
+        """Transitively misalign heads that pin ``changed_code`` within the aggregate."""
+
+        for head in self.list_plan_heads(session, aggregate_id):
+            if head.state != "aligned":
+                continue
+            if not any(str(pin["domain_code"]) == changed_code for pin in head.upstream_plan_pins):
+                continue
+            head.state = "misaligned"
+            head.alignment_reasons = _append_reason(head.alignment_reasons, reason)
+            self.mark_sibling_plan_change(
+                session, aggregate_id, head.domain_code, "upstream_plan_changed"
+            )
 
     def context_snapshot(
         self, session: Session, sdtm_id: UUID, study_id: UUID
@@ -415,10 +679,13 @@ class SdtmCapability(SqlDependencyCapability):
         """Export current aligned SDTM metadata and eligible immutable XPT evidence."""
 
         workbench = cast(SdtmWorkbench, self.require(session, sdtm_id, study_id))
-        specification_record, input_selection, plan = self.require_aligned(session, sdtm_id)
+        specification_record = self.latest_specification(session, sdtm_id)
+        input_selection = self.current_input(session, sdtm_id)
+        plans = self.aligned_domain_plans(session, sdtm_id)
+        assert specification_record is not None  # aligned_domain_plans enforces this
         specification = context_from_record(specification_record)
         dependency_selection = self.get_selection(session, sdtm_id, study_id)
-        output_artifacts = tuple(
+        candidate_artifacts = tuple(
             session.scalars(
                 select(Artifact)
                 .where(
@@ -430,13 +697,25 @@ class SdtmCapability(SqlDependencyCapability):
                     Artifact.status == "available",
                     Artifact.input_selection_revision == input_selection.revision,
                     Artifact.source_specification_revision == specification_record.revision,
-                    Artifact.source_plan_revision == plan.revision,
                 )
                 .order_by(Artifact.created_at, Artifact.id)
             )
         )
+        output_artifacts = [
+            artifact
+            for artifact in candidate_artifacts
+            if (code := str(artifact.manifest.get("dataset"))) in plans
+            and artifact.source_plan_revision == plans[code].revision
+        ]
+        plan_revisions = {
+            code: {"plan_revision": plan.revision, "plan_fingerprint": plan.fingerprint}
+            for code, plan in sorted(plans.items())
+        }
+        plan_set_fingerprint = fingerprint(
+            {code: plans[code].fingerprint for code in sorted(plans)}
+        )
         return {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "sdtm_id": str(workbench.id),
             "sdtm_revision": workbench.revision,
             "dependency_selection_revision": dependency_selection.revision,
@@ -446,8 +725,8 @@ class SdtmCapability(SqlDependencyCapability):
             "input_selection_fingerprint": input_selection.fingerprint,
             "specification_revision": specification_record.revision,
             "specification_fingerprint": specification_record.fingerprint,
-            "plan_revision": plan.revision,
-            "plan_fingerprint": plan.fingerprint,
+            "plan_revisions": plan_revisions,
+            "plan_set_fingerprint": plan_set_fingerprint,
             "datasets": [dataset.model_dump(mode="json") for dataset in specification.domains],
             "xpt_artifacts": [
                 {
@@ -476,7 +755,7 @@ class SdtmCapability(SqlDependencyCapability):
     ) -> tuple[dict[str, object | None], ...]:
         """Read an exact current SDTM XPT through the owning module boundary."""
 
-        _, input_selection, plan = self.require_aligned(session, sdtm_id)
+        _, input_selection, plan = self.require_domain_aligned(session, sdtm_id, dataset_code)
         artifact = session.get(Artifact, artifact_id)
         if (
             artifact is None
@@ -513,9 +792,18 @@ class SdtmCapability(SqlDependencyCapability):
         for selection in session.scalars(select(SdtmInputSelection)):
             if selection.payload.get("raw_id") == str(raw_id):
                 selection.state = "input_refresh_required"
-                plan = self.latest_plan(session, selection.aggregate_id)
-                if plan is not None:
-                    plan.state = "misaligned"
+                for head in self.list_plan_heads(session, selection.aggregate_id):
+                    if head.state == "aligned":
+                        head.state = "misaligned"
+                        head.alignment_reasons = _append_reason(
+                            head.alignment_reasons, "input_changed"
+                        )
+                        self.mark_sibling_plan_change(
+                            session,
+                            selection.aggregate_id,
+                            head.domain_code,
+                            "upstream_plan_changed",
+                        )
                 for run in session.scalars(
                     select(ValidationRun).where(
                         ValidationRun.module_key == "sdtm",
@@ -536,7 +824,13 @@ class SdtmCapability(SqlDependencyCapability):
         return tuple(affected)
 
     def build_artifact_payload(
-        self, session: Session, aggregate_id: UUID, study_id: UUID, artifact_type: str
+        self,
+        session: Session,
+        aggregate_id: UUID,
+        study_id: UUID,
+        artifact_type: str,
+        *,
+        domain_code: str | None = None,
     ) -> dict[str, object]:
         if artifact_type == "sdtm_dependency_manifest":
             return SqlDependencyCapability.build_artifact_payload(
@@ -553,10 +847,83 @@ class SdtmCapability(SqlDependencyCapability):
             return self._build_csdrg_payload(session, aggregate_id, study_id, artifact_type)
         if artifact_type in {"sdtm_define_xml_20", "sdtm_define_xml_21"}:
             return self._build_define_xml_payload(session, aggregate_id, study_id, artifact_type)
-        specification, selection, plan = self.require_aligned(session, aggregate_id)
         workbench = session.get(SdtmWorkbench, aggregate_id)
         if workbench is None or workbench.study_id != study_id:
             raise RuntimeError("SDTM workbench is missing")
+        if artifact_type == "sdtm_acrf":
+            # All-domain deliverable: gate on every produced domain being aligned and
+            # on the whole-Specification coverage of derived domains.
+            plans = self.aligned_domain_plans(session, aggregate_id)
+            self.require_output_coverage(session, aggregate_id, plans)
+            specification = self.latest_specification(session, aggregate_id)
+            selection = self.current_input(session, aggregate_id)
+            assert specification is not None
+            plan_revisions = {code: plan.revision for code, plan in sorted(plans.items())}
+            plan_set_fingerprint = fingerprint(
+                {code: plans[code].fingerprint for code in sorted(plans)}
+            )
+            validation = session.scalar(
+                select(ValidationRun)
+                .where(
+                    ValidationRun.module_key == "sdtm",
+                    ValidationRun.owner_type == "sdtm_workbench",
+                    ValidationRun.owner_id == aggregate_id,
+                    ValidationRun.status == "succeeded",
+                    ValidationRun.input_manifest["plan_set_fingerprint"].astext.isnot(None),
+                )
+                .order_by(ValidationRun.completed_at.desc())
+            )
+            if validation is None or (
+                validation.input_manifest.get("sdtm_revision") != workbench.revision
+                or validation.input_manifest.get("specification_revision") != specification.revision
+                or validation.input_manifest.get("plan_revisions") != plan_revisions
+                or validation.input_manifest.get("plan_set_fingerprint") != plan_set_fingerprint
+                or validation.input_manifest.get("input_selection_revision") != selection.revision
+            ):
+                raise ProblemException(
+                    status_code=409,
+                    code="successful_validation_required",
+                    title="Current SDTM validation is required",
+                    detail="Validate the aligned current authoring revisions before building.",
+                )
+            specification_contract = context_from_record(specification)
+            base = SqlDependencyCapability.build_artifact_payload(
+                self, session, aggregate_id, study_id, "sdtm_dependency_manifest"
+            )
+            acrf_result: dict[str, object] = {
+                **base,
+                "artifact_type": artifact_type,
+                "input_selection": {
+                    "revision": selection.revision,
+                    "fingerprint": selection.fingerprint,
+                    "payload": selection.payload,
+                },
+                "specification": {
+                    "revision": specification.revision,
+                    "fingerprint": specification.fingerprint,
+                    "payload": specification.payload,
+                },
+                "plan_revisions": plan_revisions,
+                "plan_set_fingerprint": plan_set_fingerprint,
+                "validation_run": {
+                    "id": str(validation.id),
+                    "input_fingerprint": validation.input_fingerprint,
+                    "warning_count": validation.warning_count,
+                    "issues": validation.issues,
+                },
+            }
+            self._attach_acrf(session, aggregate_id, study_id, acrf_result)
+            return acrf_result
+        if domain_code is None:
+            raise ProblemException(
+                status_code=422,
+                code="sdtm_domain_code_required",
+                title="SDTM domain code is required",
+                detail=f"Building '{artifact_type}' requires a domain_code.",
+            )
+        specification, selection, plan = self.require_domain_aligned(
+            session, aggregate_id, domain_code
+        )
         validation = session.scalar(
             select(ValidationRun)
             .where(
@@ -565,13 +932,11 @@ class SdtmCapability(SqlDependencyCapability):
                 ValidationRun.status == "succeeded",
             )
             .order_by(ValidationRun.completed_at.desc())
+            .where(ValidationRun.input_manifest["domain_code"].astext == domain_code)
         )
         if validation is None or (
-            (
-                artifact_type == "sdtm_acrf"
-                and validation.input_manifest.get("sdtm_revision") != workbench.revision
-            )
-            or validation.input_manifest.get("specification_revision") != specification.revision
+            validation.input_manifest.get("specification_revision") != specification.revision
+            or validation.input_manifest.get("domain_code") != domain_code
             or validation.input_manifest.get("plan_revision") != plan.revision
             or validation.input_manifest.get("input_selection_revision") != selection.revision
         ):
@@ -579,7 +944,7 @@ class SdtmCapability(SqlDependencyCapability):
                 status_code=409,
                 code="successful_validation_required",
                 title="Current SDTM validation is required",
-                detail="Validate the aligned current authoring revisions before building.",
+                detail="Validate the aligned current domain plan before building.",
             )
         base = SqlDependencyCapability.build_artifact_payload(
             self, session, aggregate_id, study_id, "sdtm_dependency_manifest"
@@ -590,6 +955,7 @@ class SdtmCapability(SqlDependencyCapability):
         result: dict[str, object] = {
             **base,
             "artifact_type": artifact_type,
+            "domain_code": domain_code,
             "input_selection": {
                 "revision": selection.revision,
                 "fingerprint": selection.fingerprint,
@@ -602,6 +968,7 @@ class SdtmCapability(SqlDependencyCapability):
             },
             "source_plan": {
                 "type": "sdtm_derivation_plan",
+                "domain_code": domain_code,
                 "revision": plan.revision,
                 "fingerprint": plan.fingerprint,
                 "payload": plan.payload,
@@ -615,75 +982,86 @@ class SdtmCapability(SqlDependencyCapability):
                 "issues": validation.issues,
             },
         }
-        if artifact_type == "sdtm_acrf":
-            annotations = tuple(
-                session.scalars(
-                    select(SdtmAcrfAnnotation)
-                    .where(
-                        SdtmAcrfAnnotation.sdtm_id == aggregate_id,
-                        SdtmAcrfAnnotation.status != "deleted",
-                    )
-                    .order_by(SdtmAcrfAnnotation.page_number, SdtmAcrfAnnotation.id)
-                )
-            )
-            if not annotations or any(not item.links for item in annotations):
-                raise ProblemException(
-                    status_code=409,
-                    code="acrf_annotations_incomplete",
-                    title="aCRF annotations are incomplete",
-                    detail=(
-                        "At least one active annotation is required and every annotation "
-                        "needs a link."
-                    ),
-                )
-            source_ids = {item.source_pdf_artifact_id for item in annotations}
-            if len(source_ids) != 1:
-                raise ProblemException(
-                    status_code=409,
-                    code="acrf_source_pdf_mismatch",
-                    title="aCRF source PDF is inconsistent",
-                    detail="All active annotations must reference the same immutable source PDF.",
-                )
-            source = session.get(Artifact, source_ids.pop())
-            if (
-                source is None
-                or source.study_id != study_id
-                or source.status != "available"
-                or source.media_type != "application/pdf"
-            ):
-                raise ProblemException(
-                    status_code=409,
-                    code="acrf_source_pdf_unavailable",
-                    title="aCRF source PDF is unavailable",
-                    detail="The exact annotated source PDF must still be available.",
-                )
-            result["acrf"] = {
-                "schema_version": "1.0.0",
-                "source_pdf_artifact_id": str(source.id),
-                "source_pdf_checksum": source.sha256,
-                "annotations": [
-                    {
-                        "id": str(item.id),
-                        "revision": item.revision,
-                        "page_number": item.page_number,
-                        "region": item.region,
-                        "annotation_text": item.annotation_text,
-                        "links": item.links,
-                        "status": item.status,
-                        "fingerprint": item.fingerprint,
-                    }
-                    for item in annotations
-                ],
-            }
-            result["_source_object_key"] = source.object_key
         return result
+
+    def _attach_acrf(
+        self, session: Session, aggregate_id: UUID, study_id: UUID, result: dict[str, object]
+    ) -> None:
+        annotations = tuple(
+            session.scalars(
+                select(SdtmAcrfAnnotation)
+                .where(
+                    SdtmAcrfAnnotation.sdtm_id == aggregate_id,
+                    SdtmAcrfAnnotation.status != "deleted",
+                )
+                .order_by(SdtmAcrfAnnotation.page_number, SdtmAcrfAnnotation.id)
+            )
+        )
+        if not annotations or any(not item.links for item in annotations):
+            raise ProblemException(
+                status_code=409,
+                code="acrf_annotations_incomplete",
+                title="aCRF annotations are incomplete",
+                detail=(
+                    "At least one active annotation is required and every annotation needs a link."
+                ),
+            )
+        source_ids = {item.source_pdf_artifact_id for item in annotations}
+        if len(source_ids) != 1:
+            raise ProblemException(
+                status_code=409,
+                code="acrf_source_pdf_mismatch",
+                title="aCRF source PDF is inconsistent",
+                detail="All active annotations must reference the same immutable source PDF.",
+            )
+        source = session.get(Artifact, source_ids.pop())
+        if (
+            source is None
+            or source.study_id != study_id
+            or source.status != "available"
+            or source.media_type != "application/pdf"
+        ):
+            raise ProblemException(
+                status_code=409,
+                code="acrf_source_pdf_unavailable",
+                title="aCRF source PDF is unavailable",
+                detail="The exact annotated source PDF must still be available.",
+            )
+        result["acrf"] = {
+            "schema_version": "1.0.0",
+            "source_pdf_artifact_id": str(source.id),
+            "source_pdf_checksum": source.sha256,
+            "annotations": [
+                {
+                    "id": str(item.id),
+                    "revision": item.revision,
+                    "page_number": item.page_number,
+                    "region": item.region,
+                    "annotation_text": item.annotation_text,
+                    "links": item.links,
+                    "status": item.status,
+                    "fingerprint": item.fingerprint,
+                }
+                for item in annotations
+            ],
+        }
+        result["_source_object_key"] = source.object_key
 
     def _build_define_xml_payload(
         self, session: Session, aggregate_id: UUID, study_id: UUID, artifact_type: str
     ) -> dict[str, object]:
         """Freeze validated Define metadata, XPT evidence, and local schema provenance."""
 
-        specification, _, _ = self.require_aligned(session, aggregate_id)
+        plans = self.aligned_domain_plans(session, aggregate_id)
+        self.require_output_coverage(session, aggregate_id, plans)
+        specification = self.latest_specification(session, aggregate_id)
+        if specification is None:
+            raise ProblemException(
+                status_code=409,
+                code="sdtm_authoring_incomplete",
+                title="SDTM authoring is incomplete",
+                detail="A Specification is required.",
+            )
         base = SqlDependencyCapability.build_artifact_payload(
             self, session, aggregate_id, study_id, "sdtm_dependency_manifest"
         )
@@ -801,7 +1179,8 @@ class SdtmCapability(SqlDependencyCapability):
     ) -> dict[str, object]:
         """Freeze one validated cSDRG revision and its exact presentation dependency."""
 
-        self.require_aligned(session, aggregate_id)
+        plans = self.aligned_domain_plans(session, aggregate_id)
+        self.require_output_coverage(session, aggregate_id, plans)
         base = SqlDependencyCapability.build_artifact_payload(
             self, session, aggregate_id, study_id, "sdtm_dependency_manifest"
         )
@@ -1082,29 +1461,67 @@ class SdtmCapability(SqlDependencyCapability):
 
 
 def lower_plan(specification: SdtmSpecification, plan: SdtmDerivationPlan) -> DataflowIR:
-    """Lower one validated SDTM-owned plan into internal Dataflow IR."""
+    """Lower one validated per-domain SDTM plan into internal Dataflow IR.
+
+    The IR ``read`` node means "read a named dataset"; a ``read`` whose dataset is a
+    Raw dataset code (``raw_read``) resolves to the Raw input selection, while a
+    ``read`` lowered from an ``sdtm_read`` names a produced sibling SDTM domain
+    pinned via the plan's ``upstream_plan_pins``.
+    """
 
     domains = {domain.code: domain for domain in specification.domains}
+    if plan.domain not in domains:
+        raise ProblemException(
+            status_code=404,
+            code="sdtm_domain_unknown",
+            title="SDTM domain is unknown",
+            detail=f"Domain '{plan.domain}' is not declared in the current Specification.",
+        )
+    target = domains[plan.domain]
     nodes: list[dict[str, object]] = []
     for node in plan.nodes:
         if node.node_type == "raw_read":
             nodes.append({"node_type": "read", "id": node.id, "dataset": node.raw_dataset_code})
-        elif node.node_type == "domain_write":
-            if node.domain not in domains:
+        elif node.node_type == "sdtm_read":
+            if node.dataset == plan.domain:
                 raise ProblemException(
                     status_code=422,
-                    code="sdtm_plan_output_unknown",
-                    title="SDTM plan output is unknown",
-                    detail=f"Domain '{node.domain}' is absent from the Specification.",
+                    code="sdtm_read_self",
+                    title="SDTM read targets its own domain",
+                    detail="Read a plan's own domain rows via raw_read, not sdtm_read.",
+                )
+            if node.dataset not in domains:
+                raise ProblemException(
+                    status_code=422,
+                    code="sdtm_read_target_unknown",
+                    title="SDTM read target is unknown",
+                    detail=f"Domain '{node.dataset}' is absent from the Specification.",
+                )
+            nodes.append({"node_type": "read", "id": node.id, "dataset": node.dataset})
+        elif node.node_type == "domain_write":
+            if node.domain != plan.domain:
+                raise ProblemException(
+                    status_code=422,
+                    code="sdtm_plan_output_scope",
+                    title="SDTM plan output is out of scope",
+                    detail=(
+                        f"A '{plan.domain}' plan may only write '{plan.domain}', "
+                        f"not '{node.domain}'."
+                    ),
                 )
             nodes.append({"node_type": "write", "id": node.id, "dataset": node.domain})
         elif node.node_type == "derive":
-            target_domain = domains.get(node.target_domain)
-            variable_types = (
-                {variable.name: variable.data_type for variable in target_domain.variables}
-                if target_domain is not None
-                else {}
-            )
+            if node.target_domain != plan.domain:
+                raise ProblemException(
+                    status_code=422,
+                    code="sdtm_plan_output_scope",
+                    title="SDTM plan output is out of scope",
+                    detail=(
+                        f"A '{plan.domain}' plan may only derive into '{plan.domain}', "
+                        f"not '{node.target_domain}'."
+                    ),
+                )
+            variable_types = {variable.name: variable.data_type for variable in target.variables}
             result_types = {
                 name: variable_types[name] for name in node.assignments if name in variable_types
             }
@@ -1121,19 +1538,21 @@ def lower_plan(specification: SdtmSpecification, plan: SdtmDerivationPlan) -> Da
             )
         else:
             nodes.append(node.model_dump(mode="json"))
-    writes = {node.domain for node in plan.nodes if node.node_type == "domain_write"}
-    required = {
-        domain.code
-        for domain in specification.domains
-        if any(variable.derived for variable in domain.variables)
-    }
-    if not required <= writes:
-        missing = ", ".join(sorted(required - writes))
+    write_count = sum(1 for node in plan.nodes if node.node_type == "domain_write")
+    if write_count > 1:
+        raise ProblemException(
+            status_code=422,
+            code="sdtm_plan_output_duplicate",
+            title="SDTM plan declares duplicate outputs",
+            detail=f"A per-domain plan declares exactly one write; found {write_count}.",
+        )
+    required = any(variable.derived for variable in target.variables)
+    if required and write_count == 0:
         raise ProblemException(
             status_code=422,
             code="sdtm_plan_output_coverage_missing",
             title="SDTM plan output coverage is incomplete",
-            detail=f"Derived targets require writes for: {missing}",
+            detail=f"Derived domain '{plan.domain}' requires its one domain_write.",
         )
     return DataflowIR.model_validate(
         {
@@ -1152,6 +1571,15 @@ def context_from_record(record: SdtmSpecificationRevision) -> SdtmSpecification:
 
 def plan_from_record(record: SdtmDerivationPlanRevision) -> SdtmDerivationPlan:
     return SdtmDerivationPlan.model_validate(record.payload)
+
+
+def _append_reason(reasons: list[str] | None, reason: str) -> list[str]:
+    """Return the alignment-reasons list with ``reason`` appended once."""
+
+    current = list(reasons or [])
+    if reason not in current:
+        current.append(reason)
+    return current
 
 
 def _json_artifact(

@@ -86,6 +86,7 @@ def _specification() -> AdamSpecification:
 def _plan() -> AdamDerivationPlan:
     return AdamDerivationPlan.model_validate(
         {
+            "dataset": "ADSL",
             "specification_revision": 1,
             "input_selection_revision": 1,
             "nodes": [
@@ -247,7 +248,13 @@ def test_plan_rejects_cycles_and_raw_backend_code() -> None:
 
 
 def test_sdtm_and_adam_plan_envelopes_match_but_node_vocabularies_do_not() -> None:
-    assert AdamDerivationPlan.model_fields.keys() == SdtmDerivationPlan.model_fields.keys()
+    # The two modules stay structurally symmetric: identical shared envelope fields,
+    # differing only by the per-domain (SDTM) vs per-dataset (ADaM) owned key.
+    sdtm_fields = set(SdtmDerivationPlan.model_fields) - {"domain"}
+    adam_fields = set(AdamDerivationPlan.model_fields) - {"dataset"}
+    assert sdtm_fields == adam_fields
+    assert "domain" in SdtmDerivationPlan.model_fields
+    assert "dataset" in AdamDerivationPlan.model_fields
 
     adam_payload = _plan().model_dump(mode="json")
     adam_payload["nodes"] = [
@@ -291,8 +298,8 @@ def test_predecessor_origins_resolve_against_selected_sdtm_metadata() -> None:
     assert captured.value.code == "adam_origin_unresolved"
 
 
-def test_adam_predecessor_reads_require_declared_output_edges() -> None:
-    specification = AdamSpecification.model_validate(
+def _two_dataset_specification() -> AdamSpecification:
+    return AdamSpecification.model_validate(
         {
             "datasets": [
                 {
@@ -328,33 +335,67 @@ def test_adam_predecessor_reads_require_declared_output_edges() -> None:
                         "ADLB",
                         "10000000-0000-0000-0000-000000000002",
                         "20000000-0000-0000-0000-000000000002",
-                        "write_adlb",
+                        "read_adsl",
                     ),
                 )
             ]
         }
     )
+
+
+def test_adam_read_resolves_cross_dataset_without_in_plan_write() -> None:
+    """Per-dataset ADLB reads sibling ADSL via adam_read; no in-plan ADSL write needed."""
+
     plan = AdamDerivationPlan.model_validate(
         {
+            "dataset": "ADLB",
             "specification_revision": 1,
             "input_selection_revision": 1,
             "nodes": [
                 {"node_type": "adam_read", "id": "read_adsl", "dataset": "ADSL"},
                 {"node_type": "dataset_write", "id": "write_adlb", "dataset": "ADLB"},
-                {"node_type": "adam_read", "id": "read_adlb", "dataset": "ADLB"},
-                {"node_type": "dataset_write", "id": "write_adsl", "dataset": "ADSL"},
             ],
-            "edges": [
-                {"source_node": "read_adsl", "target_node": "write_adlb"},
-                {"source_node": "read_adlb", "target_node": "write_adsl"},
-            ],
+            "edges": [{"source_node": "read_adsl", "target_node": "write_adlb"}],
         }
     )
+    internal = lower_plan(_two_dataset_specification(), plan)
+    assert [node.node_type for node in internal.nodes] == ["select", "write"]
 
+
+def test_adam_read_rejects_self_and_unknown_targets() -> None:
+    self_plan = AdamDerivationPlan.model_validate(
+        {
+            "dataset": "ADLB",
+            "specification_revision": 1,
+            "input_selection_revision": 1,
+            "nodes": [
+                {"node_type": "adam_read", "id": "read_adlb", "dataset": "ADLB"},
+                {"node_type": "dataset_write", "id": "write_adlb", "dataset": "ADLB"},
+            ],
+            "edges": [{"source_node": "read_adlb", "target_node": "write_adlb"}],
+        }
+    )
+    with pytest.raises(ProblemException) as self_error:
+        lower_plan(_two_dataset_specification(), self_plan)
+    assert self_error.value.code == "adam_read_self"
+
+
+def test_adam_plan_rejects_write_out_of_scope() -> None:
+    plan = AdamDerivationPlan.model_validate(
+        {
+            "dataset": "ADLB",
+            "specification_revision": 1,
+            "input_selection_revision": 1,
+            "nodes": [
+                {"node_type": "adam_read", "id": "read_adsl", "dataset": "ADSL"},
+                {"node_type": "dataset_write", "id": "write_adsl", "dataset": "ADSL"},
+            ],
+            "edges": [{"source_node": "read_adsl", "target_node": "write_adsl"}],
+        }
+    )
     with pytest.raises(ProblemException) as captured:
-        lower_plan(specification, plan)
-
-    assert captured.value.code == "adam_plan_predecessor_edge_missing"
+        lower_plan(_two_dataset_specification(), plan)
+    assert captured.value.code in {"adam_plan_output_scope", "adam_plan_output_duplicate"}
 
 
 def test_shared_sdtm_dependencies_must_select_exact_same_versions() -> None:

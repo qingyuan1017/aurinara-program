@@ -154,9 +154,7 @@ class AdamTraceSource(StrictModel):
 
 class AdamTraceDestination(StrictModel):
     module: Literal["adam"] = "adam"
-    entity_type: Literal[
-        "adam_dataset", "adam_variable", "adam_parameter", "adam_value_level"
-    ]
+    entity_type: Literal["adam_dataset", "adam_variable", "adam_parameter", "adam_value_level"]
     entity_id: UUID
 
 
@@ -307,7 +305,8 @@ class AdamPlanEdge(StrictModel):
 
 
 class AdamDerivationPlan(StrictModel):
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.1.0"] = "1.1.0"
+    dataset: str = Field(pattern=r"^[A-Z][A-Z0-9]{1,7}$")
     specification_revision: int = Field(ge=1)
     input_selection_revision: int = Field(ge=1)
     nodes: tuple[AdamPlanNode, ...] = Field(min_length=1)
