@@ -4,6 +4,7 @@
  * Aurinara Clinical Artifact Platform
  * OpenAPI spec version: 0.1.0
  */
+import type { AcrfPlanNodeLinkDomain } from './acrfPlanNodeLinkDomain';
 
 export interface AcrfPlanNodeLink {
   target_type: 'derivation_plan_node';
@@ -14,4 +15,5 @@ export interface AcrfPlanNodeLink {
    * @maxLength 128
    */
   node_id: string;
+  domain?: AcrfPlanNodeLinkDomain;
 }

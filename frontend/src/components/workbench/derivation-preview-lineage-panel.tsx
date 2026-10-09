@@ -73,6 +73,8 @@ import type { AppSdtmRoutesPreviewRequest as PreviewRequest } from '@/api/genera
  */
 export interface DerivationPreviewLineagePanelProps {
   sdtmId: string
+  /** The SDTM domain whose per-domain plan is previewed/validated. */
+  domainCode: string
   /**
    * When true the plan is misaligned (or otherwise not previewable/validatable);
    * the preview and validate controls are disabled. Lineage also requires an
@@ -106,12 +108,13 @@ interface LineageResult {
 
 export function DerivationPreviewLineagePanel({
   sdtmId,
+  domainCode,
   disabled = false,
 }: DerivationPreviewLineagePanelProps) {
   return (
     <div className="flex flex-col gap-4">
-      <PlanValidation sdtmId={sdtmId} disabled={disabled} />
-      <PlanPreview sdtmId={sdtmId} disabled={disabled} />
+      <PlanValidation sdtmId={sdtmId} domainCode={domainCode} disabled={disabled} />
+      <PlanPreview sdtmId={sdtmId} domainCode={domainCode} disabled={disabled} />
       <PlanLineage sdtmId={sdtmId} disabled={disabled} />
     </div>
   )
@@ -123,9 +126,11 @@ export function DerivationPreviewLineagePanel({
 
 function PlanValidation({
   sdtmId,
+  domainCode,
   disabled,
 }: {
   sdtmId: string
+  domainCode: string
   disabled: boolean
 }) {
   // The last successful validation result, kept so a later problem+json leaves
@@ -138,7 +143,10 @@ function PlanValidation({
   async function handleValidate() {
     setError(null)
     try {
-      const response = (await validate.mutateAsync({ sdtmId })) as ValidateResult
+      const response = (await validate.mutateAsync({
+        sdtmId,
+        domainCode,
+      })) as ValidateResult
       setResult(response)
     } catch (err) {
       // A problem leaves the previously displayed result untouched; only the
@@ -202,9 +210,11 @@ function PlanValidation({
 
 function PlanPreview({
   sdtmId,
+  domainCode,
   disabled,
 }: {
   sdtmId: string
+  domainCode: string
   disabled: boolean
 }) {
   // Preview rows live only in local state so they are never cached beyond this
@@ -247,6 +257,7 @@ function PlanPreview({
     try {
       const response = (await preview.mutateAsync({
         sdtmId,
+        domainCode,
         data: body,
       })) as unknown as PreviewResult
       setResult(response)

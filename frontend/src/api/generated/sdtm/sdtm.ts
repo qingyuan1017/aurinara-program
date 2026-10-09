@@ -27,9 +27,11 @@ import type {
   AggregateCollection,
   AggregateCreate,
   AggregateResponse,
+  AppSdtmRoutesCompileRequest,
+  AppSdtmRoutesPlanHeadPage,
+  AppSdtmRoutesPlanResponse,
   AppSdtmRoutesPreviewRequest,
   ArtifactBuildResponse,
-  CompileRequest,
   DependencySelectionInput,
   DependencySelectionResponse,
   ExecutionRunResponse,
@@ -39,7 +41,7 @@ import type {
   HTTPValidationError,
   InputSelectionResponse,
   ListSdtmAggregatesParams,
-  PlanResponse,
+  ListSdtmPlansParams,
   PreviewPlan200,
   SdtmArtifactRequest,
   SdtmDerivationPlan,
@@ -1039,16 +1041,18 @@ export function useExportSpecification<TData = Awaited<ReturnType<typeof exportS
 
 
 /**
- * @summary Get Plan
+ * @summary List Plans
  */
-export const getPlan = (
+export const listSdtmPlans = (
     sdtmId: string,
+    params?: ListSdtmPlansParams,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
       
       
-      return customInstance<PlanResponse>(
-      {url: `/api/v1/sdtms/${sdtmId}/derivation-plan`, method: 'GET', signal
+      return customInstance<AppSdtmRoutesPlanHeadPage>(
+      {url: `/api/v1/sdtms/${sdtmId}/derivation-plans`, method: 'GET',
+        params, signal
     },
       options);
     }
@@ -1056,29 +1060,130 @@ export const getPlan = (
 
 
 
-export const getGetPlanQueryKey = (sdtmId?: string,) => {
+export const getListSdtmPlansQueryKey = (sdtmId?: string,
+    params?: ListSdtmPlansParams,) => {
     return [
-    `/api/v1/sdtms/${sdtmId}/derivation-plan`
+    `/api/v1/sdtms/${sdtmId}/derivation-plans`, ...(params ? [params]: [])
     ] as const;
     }
 
     
-export const getGetPlanQueryOptions = <TData = Awaited<ReturnType<typeof getPlan>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getListSdtmPlansQueryOptions = <TData = Awaited<ReturnType<typeof listSdtmPlans>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string,
+    params?: ListSdtmPlansParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSdtmPlans>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetPlanQueryKey(sdtmId);
+  const queryKey =  queryOptions?.queryKey ?? getListSdtmPlansQueryKey(sdtmId,params);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPlan>>> = ({ signal }) => getPlan(sdtmId, requestOptions, signal);
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSdtmPlans>>> = ({ signal }) => listSdtmPlans(sdtmId,params, requestOptions, signal);
 
       
 
       
 
-   return  { queryKey, queryFn, enabled: !!(sdtmId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+   return  { queryKey, queryFn, enabled: !!(sdtmId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSdtmPlans>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type ListSdtmPlansQueryResult = NonNullable<Awaited<ReturnType<typeof listSdtmPlans>>>
+export type ListSdtmPlansQueryError = ErrorType<HTTPValidationError>
+
+
+export function useListSdtmPlans<TData = Awaited<ReturnType<typeof listSdtmPlans>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    params: undefined |  ListSdtmPlansParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSdtmPlans>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listSdtmPlans>>,
+          TError,
+          Awaited<ReturnType<typeof listSdtmPlans>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListSdtmPlans<TData = Awaited<ReturnType<typeof listSdtmPlans>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    params?: ListSdtmPlansParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSdtmPlans>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listSdtmPlans>>,
+          TError,
+          Awaited<ReturnType<typeof listSdtmPlans>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListSdtmPlans<TData = Awaited<ReturnType<typeof listSdtmPlans>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    params?: ListSdtmPlansParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSdtmPlans>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary List Plans
+ */
+
+export function useListSdtmPlans<TData = Awaited<ReturnType<typeof listSdtmPlans>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    params?: ListSdtmPlansParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSdtmPlans>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getListSdtmPlansQueryOptions(sdtmId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Get Plan
+ */
+export const getPlan = (
+    sdtmId: string,
+    domainCode: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<AppSdtmRoutesPlanResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/domains/${domainCode}/derivation-plan`, method: 'GET', signal
+    },
+      options);
+    }
+  
+
+
+
+export const getGetPlanQueryKey = (sdtmId?: string,
+    domainCode?: string,) => {
+    return [
+    `/api/v1/sdtms/${sdtmId}/domains/${domainCode}/derivation-plan`
+    ] as const;
+    }
+
+    
+export const getGetPlanQueryOptions = <TData = Awaited<ReturnType<typeof getPlan>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string,
+    domainCode: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPlanQueryKey(sdtmId,domainCode);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPlan>>> = ({ signal }) => getPlan(sdtmId,domainCode, requestOptions, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(sdtmId && domainCode), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
 }
 
 export type GetPlanQueryResult = NonNullable<Awaited<ReturnType<typeof getPlan>>>
@@ -1086,7 +1191,8 @@ export type GetPlanQueryError = ErrorType<HTTPValidationError>
 
 
 export function useGetPlan<TData = Awaited<ReturnType<typeof getPlan>>, TError = ErrorType<HTTPValidationError>>(
- sdtmId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>> & Pick<
+ sdtmId: string,
+    domainCode: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getPlan>>,
           TError,
@@ -1096,7 +1202,8 @@ export function useGetPlan<TData = Awaited<ReturnType<typeof getPlan>>, TError =
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 export function useGetPlan<TData = Awaited<ReturnType<typeof getPlan>>, TError = ErrorType<HTTPValidationError>>(
- sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>> & Pick<
+ sdtmId: string,
+    domainCode: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getPlan>>,
           TError,
@@ -1106,7 +1213,8 @@ export function useGetPlan<TData = Awaited<ReturnType<typeof getPlan>>, TError =
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 export function useGetPlan<TData = Awaited<ReturnType<typeof getPlan>>, TError = ErrorType<HTTPValidationError>>(
- sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ sdtmId: string,
+    domainCode: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
@@ -1114,11 +1222,12 @@ export function useGetPlan<TData = Awaited<ReturnType<typeof getPlan>>, TError =
  */
 
 export function useGetPlan<TData = Awaited<ReturnType<typeof getPlan>>, TError = ErrorType<HTTPValidationError>>(
- sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ sdtmId: string,
+    domainCode: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const queryOptions = getGetPlanQueryOptions(sdtmId,options)
+  const queryOptions = getGetPlanQueryOptions(sdtmId,domainCode,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
@@ -1135,12 +1244,13 @@ export function useGetPlan<TData = Awaited<ReturnType<typeof getPlan>>, TError =
  */
 export const putPlan = (
     sdtmId: string,
+    domainCode: string,
     sdtmDerivationPlan: BodyType<SdtmDerivationPlan>,
  options?: SecondParameter<typeof customInstance>,) => {
       
       
-      return customInstance<PlanResponse>(
-      {url: `/api/v1/sdtms/${sdtmId}/derivation-plan`, method: 'PUT',
+      return customInstance<AppSdtmRoutesPlanResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/domains/${domainCode}/derivation-plan`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
       data: sdtmDerivationPlan
     },
@@ -1150,8 +1260,8 @@ export const putPlan = (
 
 
 export const getPutPlanMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putPlan>>, TError,{sdtmId: string;data: BodyType<SdtmDerivationPlan>}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof putPlan>>, TError,{sdtmId: string;data: BodyType<SdtmDerivationPlan>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putPlan>>, TError,{sdtmId: string;domainCode: string;data: BodyType<SdtmDerivationPlan>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof putPlan>>, TError,{sdtmId: string;domainCode: string;data: BodyType<SdtmDerivationPlan>}, TContext> => {
 
 const mutationKey = ['putPlan'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1163,10 +1273,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putPlan>>, {sdtmId: string;data: BodyType<SdtmDerivationPlan>}> = (props) => {
-          const {sdtmId,data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putPlan>>, {sdtmId: string;domainCode: string;data: BodyType<SdtmDerivationPlan>}> = (props) => {
+          const {sdtmId,domainCode,data} = props ?? {};
 
-          return  putPlan(sdtmId,data,requestOptions)
+          return  putPlan(sdtmId,domainCode,data,requestOptions)
         }
 
         
@@ -1182,11 +1292,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Put Plan
  */
 export const usePutPlan = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putPlan>>, TError,{sdtmId: string;data: BodyType<SdtmDerivationPlan>}, TContext>, request?: SecondParameter<typeof customInstance>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putPlan>>, TError,{sdtmId: string;domainCode: string;data: BodyType<SdtmDerivationPlan>}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof putPlan>>,
         TError,
-        {sdtmId: string;data: BodyType<SdtmDerivationPlan>},
+        {sdtmId: string;domainCode: string;data: BodyType<SdtmDerivationPlan>},
         TContext
       > => {
 
@@ -1199,12 +1309,13 @@ export const usePutPlan = <TError = ErrorType<HTTPValidationError>,
  */
 export const validatePlan = (
     sdtmId: string,
+    domainCode: string,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
       
       
       return customInstance<ValidatePlan200>(
-      {url: `/api/v1/sdtms/${sdtmId}/derivation-plan/validate`, method: 'POST', signal
+      {url: `/api/v1/sdtms/${sdtmId}/domains/${domainCode}/derivation-plan/validate`, method: 'POST', signal
     },
       options);
     }
@@ -1212,8 +1323,8 @@ export const validatePlan = (
 
 
 export const getValidatePlanMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validatePlan>>, TError,{sdtmId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof validatePlan>>, TError,{sdtmId: string}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validatePlan>>, TError,{sdtmId: string;domainCode: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof validatePlan>>, TError,{sdtmId: string;domainCode: string}, TContext> => {
 
 const mutationKey = ['validatePlan'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1225,10 +1336,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof validatePlan>>, {sdtmId: string}> = (props) => {
-          const {sdtmId} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof validatePlan>>, {sdtmId: string;domainCode: string}> = (props) => {
+          const {sdtmId,domainCode} = props ?? {};
 
-          return  validatePlan(sdtmId,requestOptions)
+          return  validatePlan(sdtmId,domainCode,requestOptions)
         }
 
         
@@ -1244,11 +1355,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Validate Plan
  */
 export const useValidatePlan = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validatePlan>>, TError,{sdtmId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validatePlan>>, TError,{sdtmId: string;domainCode: string}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof validatePlan>>,
         TError,
-        {sdtmId: string},
+        {sdtmId: string;domainCode: string},
         TContext
       > => {
 
@@ -1257,18 +1368,19 @@ export const useValidatePlan = <TError = ErrorType<HTTPValidationError>,
       return useMutation(mutationOptions, queryClient);
     }
     /**
- * Evaluate the aligned plan over exact selected Raw inputs with strict row bounds.
+ * Evaluate the aligned per-domain plan over exact Raw inputs with strict row bounds.
  * @summary Preview Plan
  */
 export const previewPlan = (
     sdtmId: string,
+    domainCode: string,
     appSdtmRoutesPreviewRequest: BodyType<AppSdtmRoutesPreviewRequest>,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
       
       
       return customInstance<PreviewPlan200>(
-      {url: `/api/v1/sdtms/${sdtmId}/derivation-plan/preview`, method: 'POST',
+      {url: `/api/v1/sdtms/${sdtmId}/domains/${domainCode}/derivation-plan/preview`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: appSdtmRoutesPreviewRequest, signal
     },
@@ -1278,8 +1390,8 @@ export const previewPlan = (
 
 
 export const getPreviewPlanMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewPlan>>, TError,{sdtmId: string;data: BodyType<AppSdtmRoutesPreviewRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof previewPlan>>, TError,{sdtmId: string;data: BodyType<AppSdtmRoutesPreviewRequest>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewPlan>>, TError,{sdtmId: string;domainCode: string;data: BodyType<AppSdtmRoutesPreviewRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewPlan>>, TError,{sdtmId: string;domainCode: string;data: BodyType<AppSdtmRoutesPreviewRequest>}, TContext> => {
 
 const mutationKey = ['previewPlan'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1291,10 +1403,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewPlan>>, {sdtmId: string;data: BodyType<AppSdtmRoutesPreviewRequest>}> = (props) => {
-          const {sdtmId,data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewPlan>>, {sdtmId: string;domainCode: string;data: BodyType<AppSdtmRoutesPreviewRequest>}> = (props) => {
+          const {sdtmId,domainCode,data} = props ?? {};
 
-          return  previewPlan(sdtmId,data,requestOptions)
+          return  previewPlan(sdtmId,domainCode,data,requestOptions)
         }
 
         
@@ -1310,11 +1422,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Preview Plan
  */
 export const usePreviewPlan = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewPlan>>, TError,{sdtmId: string;data: BodyType<AppSdtmRoutesPreviewRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewPlan>>, TError,{sdtmId: string;domainCode: string;data: BodyType<AppSdtmRoutesPreviewRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof previewPlan>>,
         TError,
-        {sdtmId: string;data: BodyType<AppSdtmRoutesPreviewRequest>},
+        {sdtmId: string;domainCode: string;data: BodyType<AppSdtmRoutesPreviewRequest>},
         TContext
       > => {
 
@@ -1415,6 +1527,70 @@ export function useGetLineage<TData = Awaited<ReturnType<typeof getLineage>>, TE
 
 
 /**
+ * Per-domain validation run for authoring feedback and per-domain program builds.
+ * @summary Validate Sdtm Domain
+ */
+export const validateSdtmDomain = (
+    sdtmId: string,
+    domainCode: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<ValidationRunResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/domains/${domainCode}/validate`, method: 'POST', signal
+    },
+      options);
+    }
+  
+
+
+export const getValidateSdtmDomainMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateSdtmDomain>>, TError,{sdtmId: string;domainCode: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof validateSdtmDomain>>, TError,{sdtmId: string;domainCode: string}, TContext> => {
+
+const mutationKey = ['validateSdtmDomain'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof validateSdtmDomain>>, {sdtmId: string;domainCode: string}> = (props) => {
+          const {sdtmId,domainCode} = props ?? {};
+
+          return  validateSdtmDomain(sdtmId,domainCode,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ValidateSdtmDomainMutationResult = NonNullable<Awaited<ReturnType<typeof validateSdtmDomain>>>
+    
+    export type ValidateSdtmDomainMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Validate Sdtm Domain
+ */
+export const useValidateSdtmDomain = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateSdtmDomain>>, TError,{sdtmId: string;domainCode: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof validateSdtmDomain>>,
+        TError,
+        {sdtmId: string;domainCode: string},
+        TContext
+      > => {
+
+      const mutationOptions = getValidateSdtmDomainMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * @summary Validate Sdtm
  */
 export const validateSdtm = (
@@ -1546,7 +1722,7 @@ export const useCreateSdtmArtifacts = <TError = ErrorType<HTTPValidationError>,
  */
 export const compileSdtm = (
     sdtmId: string,
-    compileRequest: BodyType<CompileRequest>,
+    appSdtmRoutesCompileRequest: BodyType<AppSdtmRoutesCompileRequest>,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
       
@@ -1554,7 +1730,7 @@ export const compileSdtm = (
       return customInstance<ArtifactBuildResponse>(
       {url: `/api/v1/sdtms/${sdtmId}/compile`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
-      data: compileRequest, signal
+      data: appSdtmRoutesCompileRequest, signal
     },
       options);
     }
@@ -1562,8 +1738,8 @@ export const compileSdtm = (
 
 
 export const getCompileSdtmMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof compileSdtm>>, TError,{sdtmId: string;data: BodyType<CompileRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof compileSdtm>>, TError,{sdtmId: string;data: BodyType<CompileRequest>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof compileSdtm>>, TError,{sdtmId: string;data: BodyType<AppSdtmRoutesCompileRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof compileSdtm>>, TError,{sdtmId: string;data: BodyType<AppSdtmRoutesCompileRequest>}, TContext> => {
 
 const mutationKey = ['compileSdtm'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1575,7 +1751,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof compileSdtm>>, {sdtmId: string;data: BodyType<CompileRequest>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof compileSdtm>>, {sdtmId: string;data: BodyType<AppSdtmRoutesCompileRequest>}> = (props) => {
           const {sdtmId,data} = props ?? {};
 
           return  compileSdtm(sdtmId,data,requestOptions)
@@ -1587,18 +1763,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type CompileSdtmMutationResult = NonNullable<Awaited<ReturnType<typeof compileSdtm>>>
-    export type CompileSdtmMutationBody = BodyType<CompileRequest>
+    export type CompileSdtmMutationBody = BodyType<AppSdtmRoutesCompileRequest>
     export type CompileSdtmMutationError = ErrorType<HTTPValidationError>
 
     /**
  * @summary Compile Sdtm
  */
 export const useCompileSdtm = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof compileSdtm>>, TError,{sdtmId: string;data: BodyType<CompileRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof compileSdtm>>, TError,{sdtmId: string;data: BodyType<AppSdtmRoutesCompileRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof compileSdtm>>,
         TError,
-        {sdtmId: string;data: BodyType<CompileRequest>},
+        {sdtmId: string;data: BodyType<AppSdtmRoutesCompileRequest>},
         TContext
       > => {
 

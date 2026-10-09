@@ -55,7 +55,7 @@ beforeAll(() => {
 // ---------------------------------------------------------------------------
 const navigateSpy = vi.fn()
 const routeParams: { sdtmId: string } = { sdtmId: 'sdtm-1' }
-const routeSearch: { tab: string } = { tab: 'input-selection' }
+const routeSearch: { tab: string; domain?: string } = { tab: 'input-selection' }
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@tanstack/react-router')>()
@@ -172,11 +172,15 @@ const sdtmApi: {
   listCalls: ListCall[]
   createImpl: (vars: { studyId: string; data: unknown }) => Promise<unknown>
   aggregate: AggregateResponse | undefined
+  planHeads: { items: Array<{ id: string; domain: string }> }
 } = {
   listPages: {},
   listCalls: [],
   createImpl: async () => ({}),
   aggregate: undefined,
+  // One per-domain plan head so the Derivation plan tab's domain selector has a
+  // default and mounts the (mocked) per-domain panel for routing assertions.
+  planHeads: { items: [{ id: 'plan-dm', domain: 'DM' }] },
 }
 
 vi.mock('@/api/generated/sdtm/sdtm', () => {
@@ -233,6 +237,14 @@ vi.mock('@/api/generated/sdtm/sdtm', () => {
     }
   }
 
+  const useListSdtmPlans = () => ({
+    data: sdtmApi.planHeads,
+    isLoading: false,
+    isFetching: false,
+    isError: false,
+    error: null,
+  })
+
   return {
     useListSdtmAggregates,
     getListSdtmAggregatesQueryKey: (studyId?: string) => [
@@ -243,6 +255,7 @@ vi.mock('@/api/generated/sdtm/sdtm', () => {
     useCreateSdtmAggregate,
     useGetSdtmAggregate,
     getGetSdtmAggregateQueryKey: (sdtmId: string) => [`/api/v1/sdtms/${sdtmId}`],
+    useListSdtmPlans,
   }
 })
 

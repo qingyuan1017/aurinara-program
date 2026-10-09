@@ -28,6 +28,7 @@ import type {
   PivotLongerNode,
   RawReadNode,
   SdtmDerivationPlanNodesItem,
+  SdtmReadNode,
   SelectNode,
   SequenceNode,
   SortNode,
@@ -98,6 +99,8 @@ function NodeFields({
   switch (node.node_type) {
     case 'raw_read':
       return <RawReadFields node={node} onChange={onChange} readOnly={readOnly} />
+    case 'sdtm_read':
+      return <SdtmReadFields node={node} onChange={onChange} readOnly={readOnly} />
     case 'select':
       return <SelectFields node={node} onChange={onChange} readOnly={readOnly} />
     case 'filter':
@@ -245,6 +248,26 @@ function RawReadFields({
       label="Raw dataset code"
       value={node.raw_dataset_code}
       onChange={(next) => onChange({ ...node, raw_dataset_code: next })}
+      readOnly={readOnly}
+      placeholder="e.g. DM"
+    />
+  )
+}
+
+function SdtmReadFields({
+  node,
+  onChange,
+  readOnly,
+}: {
+  node: SdtmReadNode
+  onChange: (next: SdtmDerivationPlanNodesItem) => void
+  readOnly: boolean
+}) {
+  return (
+    <TextField
+      label="SDTM domain to read"
+      value={node.dataset}
+      onChange={(next) => onChange({ ...node, dataset: next })}
       readOnly={readOnly}
       placeholder="e.g. DM"
     />

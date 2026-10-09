@@ -5,4 +5,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type PlanResponsePayload = { [key: string]: unknown };
+export type AdamArtifactRequestDatasetCode = string | null;

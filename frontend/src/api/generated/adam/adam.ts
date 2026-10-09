@@ -32,9 +32,11 @@ import type {
   AggregateCollection,
   AggregateCreate,
   AggregateResponse,
+  AppAdamRoutesCompileRequest,
+  AppAdamRoutesPlanHeadPage,
+  AppAdamRoutesPlanResponse,
   AppAdamRoutesPreviewRequest,
   ArtifactBuildResponse,
-  CompileRequest,
   DependencySelectionInput,
   DependencySelectionResponse,
   ExecutionRunResponse,
@@ -44,7 +46,7 @@ import type {
   HTTPValidationError,
   InputSelectionResponse,
   ListAdamAggregatesParams,
-  PlanResponse,
+  ListAdamPlansParams,
   PreviewAdamPlan200,
   SpecificationResponse,
   ValidateAdamPlan200,
@@ -1039,16 +1041,18 @@ export function useExportAdamSpecification<TData = Awaited<ReturnType<typeof exp
 
 
 /**
- * @summary Get Plan
+ * @summary List Plans
  */
-export const getPlan = (
+export const listAdamPlans = (
     adamId: string,
+    params?: ListAdamPlansParams,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
       
       
-      return customInstance<PlanResponse>(
-      {url: `/api/v1/adams/${adamId}/derivation-plan`, method: 'GET', signal
+      return customInstance<AppAdamRoutesPlanHeadPage>(
+      {url: `/api/v1/adams/${adamId}/derivation-plans`, method: 'GET',
+        params, signal
     },
       options);
     }
@@ -1056,29 +1060,130 @@ export const getPlan = (
 
 
 
-export const getGetPlanQueryKey = (adamId?: string,) => {
+export const getListAdamPlansQueryKey = (adamId?: string,
+    params?: ListAdamPlansParams,) => {
     return [
-    `/api/v1/adams/${adamId}/derivation-plan`
+    `/api/v1/adams/${adamId}/derivation-plans`, ...(params ? [params]: [])
     ] as const;
     }
 
     
-export const getGetPlanQueryOptions = <TData = Awaited<ReturnType<typeof getPlan>>, TError = ErrorType<HTTPValidationError>>(adamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getListAdamPlansQueryOptions = <TData = Awaited<ReturnType<typeof listAdamPlans>>, TError = ErrorType<HTTPValidationError>>(adamId: string,
+    params?: ListAdamPlansParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdamPlans>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetPlanQueryKey(adamId);
+  const queryKey =  queryOptions?.queryKey ?? getListAdamPlansQueryKey(adamId,params);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPlan>>> = ({ signal }) => getPlan(adamId, requestOptions, signal);
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdamPlans>>> = ({ signal }) => listAdamPlans(adamId,params, requestOptions, signal);
 
       
 
       
 
-   return  { queryKey, queryFn, enabled: !!(adamId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+   return  { queryKey, queryFn, enabled: !!(adamId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAdamPlans>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type ListAdamPlansQueryResult = NonNullable<Awaited<ReturnType<typeof listAdamPlans>>>
+export type ListAdamPlansQueryError = ErrorType<HTTPValidationError>
+
+
+export function useListAdamPlans<TData = Awaited<ReturnType<typeof listAdamPlans>>, TError = ErrorType<HTTPValidationError>>(
+ adamId: string,
+    params: undefined |  ListAdamPlansParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdamPlans>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAdamPlans>>,
+          TError,
+          Awaited<ReturnType<typeof listAdamPlans>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListAdamPlans<TData = Awaited<ReturnType<typeof listAdamPlans>>, TError = ErrorType<HTTPValidationError>>(
+ adamId: string,
+    params?: ListAdamPlansParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdamPlans>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAdamPlans>>,
+          TError,
+          Awaited<ReturnType<typeof listAdamPlans>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListAdamPlans<TData = Awaited<ReturnType<typeof listAdamPlans>>, TError = ErrorType<HTTPValidationError>>(
+ adamId: string,
+    params?: ListAdamPlansParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdamPlans>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary List Plans
+ */
+
+export function useListAdamPlans<TData = Awaited<ReturnType<typeof listAdamPlans>>, TError = ErrorType<HTTPValidationError>>(
+ adamId: string,
+    params?: ListAdamPlansParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdamPlans>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getListAdamPlansQueryOptions(adamId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Get Plan
+ */
+export const getPlan = (
+    adamId: string,
+    datasetCode: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<AppAdamRoutesPlanResponse>(
+      {url: `/api/v1/adams/${adamId}/datasets/${datasetCode}/derivation-plan`, method: 'GET', signal
+    },
+      options);
+    }
+  
+
+
+
+export const getGetPlanQueryKey = (adamId?: string,
+    datasetCode?: string,) => {
+    return [
+    `/api/v1/adams/${adamId}/datasets/${datasetCode}/derivation-plan`
+    ] as const;
+    }
+
+    
+export const getGetPlanQueryOptions = <TData = Awaited<ReturnType<typeof getPlan>>, TError = ErrorType<HTTPValidationError>>(adamId: string,
+    datasetCode: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPlanQueryKey(adamId,datasetCode);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPlan>>> = ({ signal }) => getPlan(adamId,datasetCode, requestOptions, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(adamId && datasetCode), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
 }
 
 export type GetPlanQueryResult = NonNullable<Awaited<ReturnType<typeof getPlan>>>
@@ -1086,7 +1191,8 @@ export type GetPlanQueryError = ErrorType<HTTPValidationError>
 
 
 export function useGetPlan<TData = Awaited<ReturnType<typeof getPlan>>, TError = ErrorType<HTTPValidationError>>(
- adamId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>> & Pick<
+ adamId: string,
+    datasetCode: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getPlan>>,
           TError,
@@ -1096,7 +1202,8 @@ export function useGetPlan<TData = Awaited<ReturnType<typeof getPlan>>, TError =
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 export function useGetPlan<TData = Awaited<ReturnType<typeof getPlan>>, TError = ErrorType<HTTPValidationError>>(
- adamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>> & Pick<
+ adamId: string,
+    datasetCode: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getPlan>>,
           TError,
@@ -1106,7 +1213,8 @@ export function useGetPlan<TData = Awaited<ReturnType<typeof getPlan>>, TError =
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 export function useGetPlan<TData = Awaited<ReturnType<typeof getPlan>>, TError = ErrorType<HTTPValidationError>>(
- adamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ adamId: string,
+    datasetCode: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
@@ -1114,11 +1222,12 @@ export function useGetPlan<TData = Awaited<ReturnType<typeof getPlan>>, TError =
  */
 
 export function useGetPlan<TData = Awaited<ReturnType<typeof getPlan>>, TError = ErrorType<HTTPValidationError>>(
- adamId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ adamId: string,
+    datasetCode: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPlan>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const queryOptions = getGetPlanQueryOptions(adamId,options)
+  const queryOptions = getGetPlanQueryOptions(adamId,datasetCode,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
@@ -1135,12 +1244,13 @@ export function useGetPlan<TData = Awaited<ReturnType<typeof getPlan>>, TError =
  */
 export const putPlan = (
     adamId: string,
+    datasetCode: string,
     adamDerivationPlan: BodyType<AdamDerivationPlan>,
  options?: SecondParameter<typeof customInstance>,) => {
       
       
-      return customInstance<PlanResponse>(
-      {url: `/api/v1/adams/${adamId}/derivation-plan`, method: 'PUT',
+      return customInstance<AppAdamRoutesPlanResponse>(
+      {url: `/api/v1/adams/${adamId}/datasets/${datasetCode}/derivation-plan`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
       data: adamDerivationPlan
     },
@@ -1150,8 +1260,8 @@ export const putPlan = (
 
 
 export const getPutPlanMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putPlan>>, TError,{adamId: string;data: BodyType<AdamDerivationPlan>}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof putPlan>>, TError,{adamId: string;data: BodyType<AdamDerivationPlan>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putPlan>>, TError,{adamId: string;datasetCode: string;data: BodyType<AdamDerivationPlan>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof putPlan>>, TError,{adamId: string;datasetCode: string;data: BodyType<AdamDerivationPlan>}, TContext> => {
 
 const mutationKey = ['putPlan'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1163,10 +1273,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putPlan>>, {adamId: string;data: BodyType<AdamDerivationPlan>}> = (props) => {
-          const {adamId,data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putPlan>>, {adamId: string;datasetCode: string;data: BodyType<AdamDerivationPlan>}> = (props) => {
+          const {adamId,datasetCode,data} = props ?? {};
 
-          return  putPlan(adamId,data,requestOptions)
+          return  putPlan(adamId,datasetCode,data,requestOptions)
         }
 
         
@@ -1182,11 +1292,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Put Plan
  */
 export const usePutPlan = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putPlan>>, TError,{adamId: string;data: BodyType<AdamDerivationPlan>}, TContext>, request?: SecondParameter<typeof customInstance>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putPlan>>, TError,{adamId: string;datasetCode: string;data: BodyType<AdamDerivationPlan>}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof putPlan>>,
         TError,
-        {adamId: string;data: BodyType<AdamDerivationPlan>},
+        {adamId: string;datasetCode: string;data: BodyType<AdamDerivationPlan>},
         TContext
       > => {
 
@@ -1199,12 +1309,13 @@ export const usePutPlan = <TError = ErrorType<HTTPValidationError>,
  */
 export const validateAdamPlan = (
     adamId: string,
+    datasetCode: string,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
       
       
       return customInstance<ValidateAdamPlan200>(
-      {url: `/api/v1/adams/${adamId}/derivation-plan/validate`, method: 'POST', signal
+      {url: `/api/v1/adams/${adamId}/datasets/${datasetCode}/derivation-plan/validate`, method: 'POST', signal
     },
       options);
     }
@@ -1212,8 +1323,8 @@ export const validateAdamPlan = (
 
 
 export const getValidateAdamPlanMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateAdamPlan>>, TError,{adamId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof validateAdamPlan>>, TError,{adamId: string}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateAdamPlan>>, TError,{adamId: string;datasetCode: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof validateAdamPlan>>, TError,{adamId: string;datasetCode: string}, TContext> => {
 
 const mutationKey = ['validateAdamPlan'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1225,10 +1336,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof validateAdamPlan>>, {adamId: string}> = (props) => {
-          const {adamId} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof validateAdamPlan>>, {adamId: string;datasetCode: string}> = (props) => {
+          const {adamId,datasetCode} = props ?? {};
 
-          return  validateAdamPlan(adamId,requestOptions)
+          return  validateAdamPlan(adamId,datasetCode,requestOptions)
         }
 
         
@@ -1244,11 +1355,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Validate Plan
  */
 export const useValidateAdamPlan = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateAdamPlan>>, TError,{adamId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateAdamPlan>>, TError,{adamId: string;datasetCode: string}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof validateAdamPlan>>,
         TError,
-        {adamId: string},
+        {adamId: string;datasetCode: string},
         TContext
       > => {
 
@@ -1257,18 +1368,19 @@ export const useValidateAdamPlan = <TError = ErrorType<HTTPValidationError>,
       return useMutation(mutationOptions, queryClient);
     }
     /**
- * Evaluate the aligned plan over exact selected SDTM XPTs with bounded rows.
+ * Evaluate the aligned per-dataset plan over exact SDTM XPTs with bounded rows.
  * @summary Preview Plan
  */
 export const previewAdamPlan = (
     adamId: string,
+    datasetCode: string,
     appAdamRoutesPreviewRequest: BodyType<AppAdamRoutesPreviewRequest>,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
       
       
       return customInstance<PreviewAdamPlan200>(
-      {url: `/api/v1/adams/${adamId}/derivation-plan/preview`, method: 'POST',
+      {url: `/api/v1/adams/${adamId}/datasets/${datasetCode}/derivation-plan/preview`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: appAdamRoutesPreviewRequest, signal
     },
@@ -1278,8 +1390,8 @@ export const previewAdamPlan = (
 
 
 export const getPreviewAdamPlanMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewAdamPlan>>, TError,{adamId: string;data: BodyType<AppAdamRoutesPreviewRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof previewAdamPlan>>, TError,{adamId: string;data: BodyType<AppAdamRoutesPreviewRequest>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewAdamPlan>>, TError,{adamId: string;datasetCode: string;data: BodyType<AppAdamRoutesPreviewRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewAdamPlan>>, TError,{adamId: string;datasetCode: string;data: BodyType<AppAdamRoutesPreviewRequest>}, TContext> => {
 
 const mutationKey = ['previewAdamPlan'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1291,10 +1403,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewAdamPlan>>, {adamId: string;data: BodyType<AppAdamRoutesPreviewRequest>}> = (props) => {
-          const {adamId,data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewAdamPlan>>, {adamId: string;datasetCode: string;data: BodyType<AppAdamRoutesPreviewRequest>}> = (props) => {
+          const {adamId,datasetCode,data} = props ?? {};
 
-          return  previewAdamPlan(adamId,data,requestOptions)
+          return  previewAdamPlan(adamId,datasetCode,data,requestOptions)
         }
 
         
@@ -1310,11 +1422,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Preview Plan
  */
 export const usePreviewAdamPlan = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewAdamPlan>>, TError,{adamId: string;data: BodyType<AppAdamRoutesPreviewRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewAdamPlan>>, TError,{adamId: string;datasetCode: string;data: BodyType<AppAdamRoutesPreviewRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof previewAdamPlan>>,
         TError,
-        {adamId: string;data: BodyType<AppAdamRoutesPreviewRequest>},
+        {adamId: string;datasetCode: string;data: BodyType<AppAdamRoutesPreviewRequest>},
         TContext
       > => {
 
@@ -1415,7 +1527,71 @@ export function useGetAdamLineage<TData = Awaited<ReturnType<typeof getAdamLinea
 
 
 /**
- * Snapshot validation of the exact aligned ADaM authoring inputs.
+ * Per-dataset validation run for authoring feedback and per-dataset program builds.
+ * @summary Validate Adam Dataset
+ */
+export const validateAdamDataset = (
+    adamId: string,
+    datasetCode: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<ValidationRunResponse>(
+      {url: `/api/v1/adams/${adamId}/datasets/${datasetCode}/validate`, method: 'POST', signal
+    },
+      options);
+    }
+  
+
+
+export const getValidateAdamDatasetMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateAdamDataset>>, TError,{adamId: string;datasetCode: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof validateAdamDataset>>, TError,{adamId: string;datasetCode: string}, TContext> => {
+
+const mutationKey = ['validateAdamDataset'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof validateAdamDataset>>, {adamId: string;datasetCode: string}> = (props) => {
+          const {adamId,datasetCode} = props ?? {};
+
+          return  validateAdamDataset(adamId,datasetCode,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ValidateAdamDatasetMutationResult = NonNullable<Awaited<ReturnType<typeof validateAdamDataset>>>
+    
+    export type ValidateAdamDatasetMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Validate Adam Dataset
+ */
+export const useValidateAdamDataset = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateAdamDataset>>, TError,{adamId: string;datasetCode: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof validateAdamDataset>>,
+        TError,
+        {adamId: string;datasetCode: string},
+        TContext
+      > => {
+
+      const mutationOptions = getValidateAdamDatasetMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * Snapshot validation of the exact aligned ADaM authoring inputs (all datasets).
  * @summary Validate Adam
  */
 export const validateAdam = (
@@ -1547,7 +1723,7 @@ export const useCreateAdamArtifacts = <TError = ErrorType<HTTPValidationError>,
  */
 export const compileAdam = (
     adamId: string,
-    compileRequest: BodyType<CompileRequest>,
+    appAdamRoutesCompileRequest: BodyType<AppAdamRoutesCompileRequest>,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
       
@@ -1555,7 +1731,7 @@ export const compileAdam = (
       return customInstance<ArtifactBuildResponse>(
       {url: `/api/v1/adams/${adamId}/compile`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
-      data: compileRequest, signal
+      data: appAdamRoutesCompileRequest, signal
     },
       options);
     }
@@ -1563,8 +1739,8 @@ export const compileAdam = (
 
 
 export const getCompileAdamMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof compileAdam>>, TError,{adamId: string;data: BodyType<CompileRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof compileAdam>>, TError,{adamId: string;data: BodyType<CompileRequest>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof compileAdam>>, TError,{adamId: string;data: BodyType<AppAdamRoutesCompileRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof compileAdam>>, TError,{adamId: string;data: BodyType<AppAdamRoutesCompileRequest>}, TContext> => {
 
 const mutationKey = ['compileAdam'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1576,7 +1752,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof compileAdam>>, {adamId: string;data: BodyType<CompileRequest>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof compileAdam>>, {adamId: string;data: BodyType<AppAdamRoutesCompileRequest>}> = (props) => {
           const {adamId,data} = props ?? {};
 
           return  compileAdam(adamId,data,requestOptions)
@@ -1588,18 +1764,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type CompileAdamMutationResult = NonNullable<Awaited<ReturnType<typeof compileAdam>>>
-    export type CompileAdamMutationBody = BodyType<CompileRequest>
+    export type CompileAdamMutationBody = BodyType<AppAdamRoutesCompileRequest>
     export type CompileAdamMutationError = ErrorType<HTTPValidationError>
 
     /**
  * @summary Compile Adam
  */
 export const useCompileAdam = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof compileAdam>>, TError,{adamId: string;data: BodyType<CompileRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof compileAdam>>, TError,{adamId: string;data: BodyType<AppAdamRoutesCompileRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof compileAdam>>,
         TError,
-        {adamId: string;data: BodyType<CompileRequest>},
+        {adamId: string;data: BodyType<AppAdamRoutesCompileRequest>},
         TContext
       > => {
 

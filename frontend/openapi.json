@@ -2296,13 +2296,13 @@
         }
       }
     },
-    "/api/v1/adams/{adam_id}/derivation-plan": {
+    "/api/v1/adams/{adam_id}/derivation-plans": {
       "get": {
         "tags": [
           "adam"
         ],
-        "summary": "Get Plan",
-        "operationId": "get_plan_api_v1_adams__adam_id__derivation_plan_get",
+        "summary": "List Plans",
+        "operationId": "list_plans_api_v1_adams__adam_id__derivation_plans_get",
         "parameters": [
           {
             "name": "adam_id",
@@ -2312,6 +2312,34 @@
               "type": "string",
               "format": "uuid",
               "title": "Adam Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
             }
           },
           {
@@ -2337,7 +2365,75 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlanResponse"
+                  "$ref": "#/components/schemas/app__adam__routes__PlanHeadPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/adams/{adam_id}/datasets/{dataset_code}/derivation-plan": {
+      "get": {
+        "tags": [
+          "adam"
+        ],
+        "summary": "Get Plan",
+        "operationId": "get_plan_api_v1_adams__adam_id__datasets__dataset_code__derivation_plan_get",
+        "parameters": [
+          {
+            "name": "adam_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Adam Id"
+            }
+          },
+          {
+            "name": "dataset_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dataset Code"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__adam__routes__PlanResponse"
                 }
               }
             }
@@ -2359,7 +2455,7 @@
           "adam"
         ],
         "summary": "Put Plan",
-        "operationId": "put_plan_api_v1_adams__adam_id__derivation_plan_put",
+        "operationId": "put_plan_api_v1_adams__adam_id__datasets__dataset_code__derivation_plan_put",
         "parameters": [
           {
             "name": "adam_id",
@@ -2369,6 +2465,15 @@
               "type": "string",
               "format": "uuid",
               "title": "Adam Id"
+            }
+          },
+          {
+            "name": "dataset_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dataset Code"
             }
           },
           {
@@ -2420,7 +2525,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlanResponse"
+                  "$ref": "#/components/schemas/app__adam__routes__PlanResponse"
                 }
               }
             }
@@ -2438,7 +2543,7 @@
         }
       }
     },
-    "/api/v1/adams/{adam_id}/derivation-plan/validate": {
+    "/api/v1/adams/{adam_id}/datasets/{dataset_code}/derivation-plan/validate": {
       "post": {
         "tags": [
           "adam"
@@ -2454,6 +2559,15 @@
               "type": "string",
               "format": "uuid",
               "title": "Adam Id"
+            }
+          },
+          {
+            "name": "dataset_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dataset Code"
             }
           },
           {
@@ -2499,13 +2613,13 @@
         }
       }
     },
-    "/api/v1/adams/{adam_id}/derivation-plan/preview": {
+    "/api/v1/adams/{adam_id}/datasets/{dataset_code}/derivation-plan/preview": {
       "post": {
         "tags": [
           "adam"
         ],
         "summary": "Preview Plan",
-        "description": "Evaluate the aligned plan over exact selected SDTM XPTs with bounded rows.",
+        "description": "Evaluate the aligned per-dataset plan over exact SDTM XPTs with bounded rows.",
         "operationId": "preview_adam_plan",
         "parameters": [
           {
@@ -2516,6 +2630,15 @@
               "type": "string",
               "format": "uuid",
               "title": "Adam Id"
+            }
+          },
+          {
+            "name": "dataset_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dataset Code"
             }
           },
           {
@@ -2632,13 +2755,82 @@
         }
       }
     },
+    "/api/v1/adams/{adam_id}/datasets/{dataset_code}/validate": {
+      "post": {
+        "tags": [
+          "adam"
+        ],
+        "summary": "Validate Adam Dataset",
+        "description": "Per-dataset validation run for authoring feedback and per-dataset program builds.",
+        "operationId": "validate_adam_dataset",
+        "parameters": [
+          {
+            "name": "adam_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Adam Id"
+            }
+          },
+          {
+            "name": "dataset_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dataset Code"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationRunResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/adams/{adam_id}/validate": {
       "post": {
         "tags": [
           "adam"
         ],
         "summary": "Validate Adam",
-        "description": "Snapshot validation of the exact aligned ADaM authoring inputs.",
+        "description": "Snapshot validation of the exact aligned ADaM authoring inputs (all datasets).",
         "operationId": "validate_adam_api_v1_adams__adam_id__validate_post",
         "parameters": [
           {
@@ -2833,7 +3025,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CompileRequest"
+                "$ref": "#/components/schemas/app__adam__routes__CompileRequest"
               }
             }
           }
@@ -7856,13 +8048,13 @@
         }
       }
     },
-    "/api/v1/sdtms/{sdtm_id}/derivation-plan": {
+    "/api/v1/sdtms/{sdtm_id}/derivation-plans": {
       "get": {
         "tags": [
           "sdtm"
         ],
-        "summary": "Get Plan",
-        "operationId": "get_plan_api_v1_sdtms__sdtm_id__derivation_plan_get",
+        "summary": "List Plans",
+        "operationId": "list_plans_api_v1_sdtms__sdtm_id__derivation_plans_get",
         "parameters": [
           {
             "name": "sdtm_id",
@@ -7872,6 +8064,34 @@
               "type": "string",
               "format": "uuid",
               "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
             }
           },
           {
@@ -7897,7 +8117,75 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlanResponse"
+                  "$ref": "#/components/schemas/app__sdtm__routes__PlanHeadPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sdtms/{sdtm_id}/domains/{domain_code}/derivation-plan": {
+      "get": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Get Plan",
+        "operationId": "get_plan_api_v1_sdtms__sdtm_id__domains__domain_code__derivation_plan_get",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "domain_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Domain Code"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__sdtm__routes__PlanResponse"
                 }
               }
             }
@@ -7919,7 +8207,7 @@
           "sdtm"
         ],
         "summary": "Put Plan",
-        "operationId": "put_plan_api_v1_sdtms__sdtm_id__derivation_plan_put",
+        "operationId": "put_plan_api_v1_sdtms__sdtm_id__domains__domain_code__derivation_plan_put",
         "parameters": [
           {
             "name": "sdtm_id",
@@ -7929,6 +8217,15 @@
               "type": "string",
               "format": "uuid",
               "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "domain_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Domain Code"
             }
           },
           {
@@ -7980,7 +8277,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlanResponse"
+                  "$ref": "#/components/schemas/app__sdtm__routes__PlanResponse"
                 }
               }
             }
@@ -7998,13 +8295,13 @@
         }
       }
     },
-    "/api/v1/sdtms/{sdtm_id}/derivation-plan/validate": {
+    "/api/v1/sdtms/{sdtm_id}/domains/{domain_code}/derivation-plan/validate": {
       "post": {
         "tags": [
           "sdtm"
         ],
         "summary": "Validate Plan",
-        "operationId": "validate_plan_api_v1_sdtms__sdtm_id__derivation_plan_validate_post",
+        "operationId": "validate_plan_api_v1_sdtms__sdtm_id__domains__domain_code__derivation_plan_validate_post",
         "parameters": [
           {
             "name": "sdtm_id",
@@ -8014,6 +8311,15 @@
               "type": "string",
               "format": "uuid",
               "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "domain_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Domain Code"
             }
           },
           {
@@ -8041,7 +8347,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Validate Plan Api V1 Sdtms  Sdtm Id  Derivation Plan Validate Post"
+                  "title": "Response Validate Plan Api V1 Sdtms  Sdtm Id  Domains  Domain Code  Derivation Plan Validate Post"
                 }
               }
             }
@@ -8059,14 +8365,14 @@
         }
       }
     },
-    "/api/v1/sdtms/{sdtm_id}/derivation-plan/preview": {
+    "/api/v1/sdtms/{sdtm_id}/domains/{domain_code}/derivation-plan/preview": {
       "post": {
         "tags": [
           "sdtm"
         ],
         "summary": "Preview Plan",
-        "description": "Evaluate the aligned plan over exact selected Raw inputs with strict row bounds.",
-        "operationId": "preview_plan_api_v1_sdtms__sdtm_id__derivation_plan_preview_post",
+        "description": "Evaluate the aligned per-domain plan over exact Raw inputs with strict row bounds.",
+        "operationId": "preview_plan_api_v1_sdtms__sdtm_id__domains__domain_code__derivation_plan_preview_post",
         "parameters": [
           {
             "name": "sdtm_id",
@@ -8076,6 +8382,15 @@
               "type": "string",
               "format": "uuid",
               "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "domain_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Domain Code"
             }
           },
           {
@@ -8113,7 +8428,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Preview Plan Api V1 Sdtms  Sdtm Id  Derivation Plan Preview Post"
+                  "title": "Response Preview Plan Api V1 Sdtms  Sdtm Id  Domains  Domain Code  Derivation Plan Preview Post"
                 }
               }
             }
@@ -8175,6 +8490,75 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Get Lineage Api V1 Sdtms  Sdtm Id  Lineage Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sdtms/{sdtm_id}/domains/{domain_code}/validate": {
+      "post": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Validate Sdtm Domain",
+        "description": "Per-domain validation run for authoring feedback and per-domain program builds.",
+        "operationId": "validate_sdtm_domain_api_v1_sdtms__sdtm_id__domains__domain_code__validate_post",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "domain_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Domain Code"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationRunResponse"
                 }
               }
             }
@@ -8392,7 +8776,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CompileRequest"
+                "$ref": "#/components/schemas/app__sdtm__routes__CompileRequest"
               }
             }
           }
@@ -16407,6 +16791,18 @@
             "maxLength": 128,
             "minLength": 1,
             "title": "Node Id"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9]{1,7}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
           }
         },
         "additionalProperties": false,
@@ -16673,6 +17069,18 @@
             "type": "string",
             "pattern": "^[0-9a-f]{64}$",
             "title": "Expected Input Fingerprint"
+          },
+          "dataset_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9]{1,7}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Code"
           }
         },
         "additionalProperties": false,
@@ -17105,9 +17513,14 @@
         "properties": {
           "schema_version": {
             "type": "string",
-            "const": "1.0.0",
+            "const": "1.1.0",
             "title": "Schema Version",
-            "default": "1.0.0"
+            "default": "1.1.0"
+          },
+          "dataset": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]{1,7}$",
+            "title": "Dataset"
           },
           "specification_revision": {
             "type": "integer",
@@ -17173,6 +17586,7 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "dataset",
           "specification_revision",
           "input_selection_revision",
           "nodes"
@@ -19371,27 +19785,6 @@
           "created_at"
         ],
         "title": "CommentResponse"
-      },
-      "CompileRequest": {
-        "properties": {
-          "backend": {
-            "type": "string",
-            "pattern": "^(python|r|sas)$",
-            "title": "Backend"
-          },
-          "expected_input_fingerprint": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Expected Input Fingerprint"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "backend",
-          "expected_input_fingerprint"
-        ],
-        "title": "CompileRequest"
       },
       "ConditionalBranch": {
         "properties": {
@@ -22791,73 +23184,6 @@
         ],
         "title": "PlanEdge"
       },
-      "PlanResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "aggregate_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Aggregate Id"
-          },
-          "revision": {
-            "type": "integer",
-            "title": "Revision"
-          },
-          "schema_version": {
-            "type": "string",
-            "title": "Schema Version"
-          },
-          "specification_revision": {
-            "type": "integer",
-            "title": "Specification Revision"
-          },
-          "input_selection_revision": {
-            "type": "integer",
-            "title": "Input Selection Revision"
-          },
-          "state": {
-            "type": "string",
-            "title": "State"
-          },
-          "payload": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Payload"
-          },
-          "fingerprint": {
-            "type": "string",
-            "title": "Fingerprint"
-          },
-          "created_by": {
-            "type": "string",
-            "title": "Created By"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "aggregate_id",
-          "revision",
-          "schema_version",
-          "specification_revision",
-          "input_selection_revision",
-          "state",
-          "payload",
-          "fingerprint",
-          "created_by",
-          "created_at"
-        ],
-        "title": "PlanResponse"
-      },
       "ProtocolContextEntity": {
         "properties": {
           "endpoint_id": {
@@ -24898,6 +25224,18 @@
             "type": "string",
             "pattern": "^[0-9a-f]{64}$",
             "title": "Expected Input Fingerprint"
+          },
+          "domain_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9]{1,7}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain Code"
           }
         },
         "additionalProperties": false,
@@ -25234,9 +25572,14 @@
         "properties": {
           "schema_version": {
             "type": "string",
-            "const": "1.0.0",
+            "const": "1.1.0",
             "title": "Schema Version",
-            "default": "1.0.0"
+            "default": "1.1.0"
+          },
+          "domain": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]{1,7}$",
+            "title": "Domain"
           },
           "specification_revision": {
             "type": "integer",
@@ -25253,6 +25596,9 @@
               "oneOf": [
                 {
                   "$ref": "#/components/schemas/RawReadNode"
+                },
+                {
+                  "$ref": "#/components/schemas/SdtmReadNode"
                 },
                 {
                   "$ref": "#/components/schemas/FilterNode"
@@ -25306,6 +25652,7 @@
                   "join": "#/components/schemas/JoinNode",
                   "pivot_longer": "#/components/schemas/PivotLongerNode",
                   "raw_read": "#/components/schemas/RawReadNode",
+                  "sdtm_read": "#/components/schemas/SdtmReadNode",
                   "select": "#/components/schemas/SelectNode",
                   "sequence": "#/components/schemas/SequenceNode",
                   "sort": "#/components/schemas/SortNode",
@@ -25330,6 +25677,7 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "domain",
           "specification_revision",
           "input_selection_revision",
           "nodes"
@@ -27788,6 +28136,199 @@
         ],
         "title": "DefineResponse"
       },
+      "app__adam__routes__CompileRequest": {
+        "properties": {
+          "backend": {
+            "type": "string",
+            "pattern": "^(python|r|sas)$",
+            "title": "Backend"
+          },
+          "expected_input_fingerprint": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expected Input Fingerprint"
+          },
+          "dataset_code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]{1,7}$",
+            "title": "Dataset Code"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "backend",
+          "expected_input_fingerprint",
+          "dataset_code"
+        ],
+        "title": "CompileRequest"
+      },
+      "app__adam__routes__PlanHeadPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/app__adam__routes__PlanHeadSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "PlanHeadPage"
+      },
+      "app__adam__routes__PlanHeadSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "dataset": {
+            "type": "string",
+            "title": "Dataset"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "alignment_state": {
+            "type": "string",
+            "title": "Alignment State"
+          },
+          "alignment_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Alignment Reasons"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "dataset",
+          "revision",
+          "alignment_state",
+          "alignment_reasons",
+          "fingerprint"
+        ],
+        "title": "PlanHeadSummary"
+      },
+      "app__adam__routes__PlanResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "aggregate_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Aggregate Id"
+          },
+          "dataset": {
+            "type": "string",
+            "title": "Dataset"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "schema_version": {
+            "type": "string",
+            "title": "Schema Version"
+          },
+          "specification_revision": {
+            "type": "integer",
+            "title": "Specification Revision"
+          },
+          "input_selection_revision": {
+            "type": "integer",
+            "title": "Input Selection Revision"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "alignment_state": {
+            "type": "string",
+            "title": "Alignment State"
+          },
+          "alignment_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Alignment Reasons"
+          },
+          "upstream_plan_pins": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Upstream Plan Pins"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "aggregate_id",
+          "dataset",
+          "revision",
+          "schema_version",
+          "specification_revision",
+          "input_selection_revision",
+          "state",
+          "alignment_state",
+          "alignment_reasons",
+          "upstream_plan_pins",
+          "payload",
+          "fingerprint",
+          "created_by",
+          "created_at"
+        ],
+        "title": "PlanResponse"
+      },
       "app__adam__routes__PreviewRequest": {
         "properties": {
           "datasets": {
@@ -27930,6 +28471,199 @@
           "created_at"
         ],
         "title": "DefineResponse"
+      },
+      "app__sdtm__routes__CompileRequest": {
+        "properties": {
+          "backend": {
+            "type": "string",
+            "pattern": "^(python|r|sas)$",
+            "title": "Backend"
+          },
+          "expected_input_fingerprint": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expected Input Fingerprint"
+          },
+          "domain_code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]{1,7}$",
+            "title": "Domain Code"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "backend",
+          "expected_input_fingerprint",
+          "domain_code"
+        ],
+        "title": "CompileRequest"
+      },
+      "app__sdtm__routes__PlanHeadPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/app__sdtm__routes__PlanHeadSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "PlanHeadPage"
+      },
+      "app__sdtm__routes__PlanHeadSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "domain": {
+            "type": "string",
+            "title": "Domain"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "alignment_state": {
+            "type": "string",
+            "title": "Alignment State"
+          },
+          "alignment_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Alignment Reasons"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "domain",
+          "revision",
+          "alignment_state",
+          "alignment_reasons",
+          "fingerprint"
+        ],
+        "title": "PlanHeadSummary"
+      },
+      "app__sdtm__routes__PlanResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "aggregate_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Aggregate Id"
+          },
+          "domain": {
+            "type": "string",
+            "title": "Domain"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "schema_version": {
+            "type": "string",
+            "title": "Schema Version"
+          },
+          "specification_revision": {
+            "type": "integer",
+            "title": "Specification Revision"
+          },
+          "input_selection_revision": {
+            "type": "integer",
+            "title": "Input Selection Revision"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "alignment_state": {
+            "type": "string",
+            "title": "Alignment State"
+          },
+          "alignment_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Alignment Reasons"
+          },
+          "upstream_plan_pins": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Upstream Plan Pins"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "aggregate_id",
+          "domain",
+          "revision",
+          "schema_version",
+          "specification_revision",
+          "input_selection_revision",
+          "state",
+          "alignment_state",
+          "alignment_reasons",
+          "upstream_plan_pins",
+          "payload",
+          "fingerprint",
+          "created_by",
+          "created_at"
+        ],
+        "title": "PlanResponse"
       },
       "app__sdtm__routes__PreviewRequest": {
         "properties": {

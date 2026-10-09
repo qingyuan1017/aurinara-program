@@ -141,6 +141,7 @@ export type SdtmSubResource =
 function sdtmSubResourceKeys(
   subResource: SdtmSubResource,
   sdtmId: string,
+  domainCode?: string,
 ): (readonly unknown[])[] {
   switch (subResource) {
     case 'input-selection':
@@ -148,7 +149,14 @@ function sdtmSubResourceKeys(
     case 'specification':
       return [getGetSpecificationQueryKey(sdtmId)]
     case 'derivation-plan':
-      return [getGetPlanQueryKey(sdtmId)]
+      // The derivation plan is per-domain. Invalidate the exact per-domain plan
+      // key when a domain is known; otherwise fall back to the bare path prefix
+      // (which TanStack Query matches against every per-domain variant).
+      return [
+        domainCode === undefined
+          ? getGetPlanQueryKey(sdtmId)
+          : getGetPlanQueryKey(sdtmId, domainCode),
+      ]
     case 'define':
       return [getGetDefineQueryKey(sdtmId)]
     case 'csdrg':
@@ -168,15 +176,19 @@ function sdtmSubResourceKeys(
  * @param withInputContext - force lineage/raw-context invalidation (defaults to
  *   true for `input-selection`, false otherwise). A derivation-plan save may set
  *   this when its graph changes lineage-affecting structure.
+ * @param domainCode - for the per-domain `derivation-plan` sub-resource, the
+ *   domain whose plan key should be invalidated. Omitted for every other
+ *   sub-resource.
  */
 export function invalidateSdtmSubResource(
   qc: QueryClient,
   subResource: SdtmSubResource,
   sdtmId: string,
   withInputContext: boolean = subResource === 'input-selection',
+  domainCode?: string,
 ): void {
   const keys: (readonly unknown[])[] = [
-    ...sdtmSubResourceKeys(subResource, sdtmId),
+    ...sdtmSubResourceKeys(subResource, sdtmId, domainCode),
     getGetSdtmAggregateQueryKey(sdtmId),
   ]
   if (withInputContext) {

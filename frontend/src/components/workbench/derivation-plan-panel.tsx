@@ -29,7 +29,8 @@ import {
   type PlanGraphNode,
 } from '@/components/workbench/plan-graph-adapters'
 import { useWorkbench } from '@/components/workbench/workbench-context'
-import { parseProblem, stalenessAlert } from '@/lib/problems'
+import { parseProblem, stalenessAlert, type ProblemDetail } from '@/lib/problems'
+import { ifMatchRequest } from '@/lib/requests'
 import { invalidateSdtmSubResource } from '@/lib/invalidate'
 import {
   getGetPlanQueryKey,
@@ -39,7 +40,7 @@ import {
   usePutPlan,
 } from '@/api/generated/sdtm/sdtm'
 import type {
-  PlanResponse,
+  AppSdtmRoutesPlanResponse as PlanResponse,
   SdtmDerivationPlan,
 } from '@/api/generated/model'
 
@@ -50,15 +51,22 @@ import type {
  * {@link DerivationPlanGraph} (the pure controlled editor from task 12.2)
  * deliberately leaves out:
  *
- * - Load the current plan via `GET /derivation-plan`, deserialize its typed
- *   `nodes`/`edges` with {@link planToGraph}, and render the editor as a
- *   controlled surface driven by local `nodes`/`edges` state (12.1).
+ * The plan is per-domain: the panel is scoped to a single `domainCode` and
+ * drives the `GET|PUT /sdtms/{sdtm_id}/domains/{domain_code}/derivation-plan`
+ * routes. Each per-domain plan carries its own revision, which is the ETag.
+ *
+ * - Load the current plan via `GET .../domains/{domain_code}/derivation-plan`,
+ *   deserialize its typed `nodes`/`edges` with {@link planToGraph}, and render
+ *   the editor as a controlled surface driven by local `nodes`/`edges` state
+ *   (12.1).
  * - Show the plan `revision`, the pinned `specification_revision` /
  *   `input_selection_revision`, and the server Alignment_State (`state`).
  * - Save serializes the on-canvas graph with {@link graphToPlan} through
- *   `PUT /derivation-plan`, carrying `If-Match` for the current *aggregate*
- *   revision (the single SDTM concurrency token) and the pinned specification /
- *   input-selection revisions the plan is authored against (12.1).
+ *   `PUT .../domains/{domain_code}/derivation-plan`, carrying `If-Match` for the
+ *   loaded *per-domain plan* revision (the plan's own concurrency token) and the
+ *   pinned specification / input-selection revisions the plan is authored
+ *   against (12.1). A brand-new plan has no revision yet, so its first save
+ *   falls back to the aggregate `If-Match`.
  * - A `409 stale_input_fingerprint` identifies which pinned input drifted
  *   (Specification vs Input Selection) by comparing the plan's pinned revisions
  *   against the freshly fetched current ones, and keeps the user's unsaved
@@ -84,18 +92,28 @@ import type {
  * user adds a node and retries. When the prerequisites are not yet current
  * (still loading or genuinely absent) the guidance empty state is kept instead.
  */
-export function DerivationPlanPanel({ sdtmId }: { sdtmId: string }) {
+export function DerivationPlanPanel({
+  sdtmId,
+  domainCode,
+}: {
+  sdtmId: string
+  domainCode: string
+}) {
   const qc = useQueryClient()
-  // `ifMatch()` carries `If-Match` for the current aggregate revision — the
-  // single SDTM concurrency token the shell holds (Requirement 21.1).
+  // `ifMatch()` carries `If-Match` for the current aggregate revision. It is
+  // only used for a brand-new plan's first save (no per-domain plan revision
+  // exists yet); a loaded plan uses its own revision as the ETag.
   const { ifMatch } = useWorkbench()
 
-  const planKey = React.useMemo(() => getGetPlanQueryKey(sdtmId), [sdtmId])
+  const planKey = React.useMemo(
+    () => getGetPlanQueryKey(sdtmId, domainCode),
+    [sdtmId, domainCode],
+  )
 
-  // The current plan. A `404 sdtm_derivation_plan_required` means "no plan
-  // authored yet" and is rendered as an unsaved empty editor rather than an
-  // error.
-  const query = useGetPlan(sdtmId)
+  // The current per-domain plan. A `404 sdtm_derivation_plan_required` means
+  // "no plan authored yet" and is rendered as an unsaved empty editor rather
+  // than an error.
+  const query = useGetPlan(sdtmId, domainCode)
   const plan = query.data
 
   // The current Specification / Input Selection revisions. These serve two
@@ -127,12 +145,31 @@ export function DerivationPlanPanel({ sdtmId }: { sdtmId: string }) {
 
   const [concurrency, setConcurrency] = React.useState<string | null>(null)
   const [staleInput, setStaleInput] = React.useState<string | null>(null)
+  // Per-domain plan 409s surfaced beside the existing stale-input notice: an
+  // upstream `sdtm_read` sibling that is misaligned/absent, or an incomplete
+  // all-domain output coverage.
+  const [upstreamMisaligned, setUpstreamMisaligned] = React.useState<
+    string | null
+  >(null)
+  const [coverageIncomplete, setCoverageIncomplete] = React.useState<
+    string | null
+  >(null)
 
   const put = usePutPlan({
     mutation: {
-      onSuccess: () => invalidateSdtmSubResource(qc, 'derivation-plan', sdtmId),
+      onSuccess: () =>
+        invalidateSdtmSubResource(
+          qc,
+          'derivation-plan',
+          sdtmId,
+          undefined,
+          domainCode,
+        ),
     },
-    request: ifMatch(),
+    // The per-domain plan revision is the ETag. When a plan is loaded, send
+    // `If-Match` for its own revision; a brand-new plan (no revision yet) falls
+    // back to the aggregate `If-Match` for its first save.
+    request: plan ? ifMatchRequest(plan.revision) : ifMatch(),
   })
 
   const status = query.error?.response?.status
@@ -178,19 +215,24 @@ export function DerivationPlanPanel({ sdtmId }: { sdtmId: string }) {
     }
     setConcurrency(null)
     setStaleInput(null)
-    // Serialize the on-canvas graph to the typed plan body, pinning the exact
-    // specification / input-selection revisions the plan is authored against.
+    setUpstreamMisaligned(null)
+    setCoverageIncomplete(null)
+    // Serialize the on-canvas graph to the typed plan body, naming the domain
+    // this per-domain plan produces and pinning the exact specification /
+    // input-selection revisions the plan is authored against.
     const body: SdtmDerivationPlan = graphToPlan(nodes, edges, {
+      domain: domainCode,
       specificationRevision: pinnedSpecRevision,
       inputSelectionRevision: pinnedInputRevision,
-      schemaVersion: '1.0.0',
+      schemaVersion: '1.1.0',
     })
     try {
-      await put.mutateAsync({ sdtmId, data: body })
+      await put.mutateAsync({ sdtmId, domainCode, data: body })
       toast.success('Derivation plan saved.')
     } catch (error) {
       const err = error as AxiosError
-      const code = parseProblem(err).code
+      const problem = parseProblem(err)
+      const code = problem.code
       if (err.response?.status === 409 && code === 'stale_input_fingerprint') {
         // A pinned input drifted. The on-canvas edits are retained; identify
         // which input (Specification vs Input Selection) changed by comparing
@@ -202,6 +244,25 @@ export function DerivationPlanPanel({ sdtmId }: { sdtmId: string }) {
             inputQuery.data,
           ),
         )
+        return
+      }
+      if (
+        err.response?.status === 409 &&
+        code === 'sdtm_plan_upstream_misaligned'
+      ) {
+        // An `sdtm_read` sibling this plan reads is no longer aligned (or has
+        // no plan at all — `upstream_state: "absent"`). Keep the on-canvas
+        // edits and name the upstream domain(s) and their state.
+        setUpstreamMisaligned(describeUpstreamMisaligned(problem))
+        return
+      }
+      if (
+        err.response?.status === 409 &&
+        code === 'sdtm_output_coverage_incomplete'
+      ) {
+        // The union of per-domain plans does not yet cover every derived domain
+        // in the Specification. Name the missing domains from the problem body.
+        setCoverageIncomplete(describeCoverageIncomplete(problem))
         return
       }
       if (err.response?.status === 412) {
@@ -222,6 +283,8 @@ export function DerivationPlanPanel({ sdtmId }: { sdtmId: string }) {
   async function reloadCurrentRevision() {
     setConcurrency(null)
     setStaleInput(null)
+    setUpstreamMisaligned(null)
+    setCoverageIncomplete(null)
     // Force the editor to re-seed from the freshly fetched plan revision.
     seededRevision.current = null
     await qc.invalidateQueries({ queryKey: planKey })
@@ -288,9 +351,9 @@ export function DerivationPlanPanel({ sdtmId }: { sdtmId: string }) {
               </>
             ) : (
               <>
-                New plan (unsaved) · pins Specification revision{' '}
+                New {domainCode} plan (unsaved) · pins Specification revision{' '}
                 {pinnedSpecRevision} · Input Selection revision{' '}
-                {pinnedInputRevision} · schema version 1.0.0. Add at least one
+                {pinnedInputRevision} · schema version 1.1.0. Add at least one
                 node, then save to create revision 1.
               </>
             )}
@@ -318,6 +381,11 @@ export function DerivationPlanPanel({ sdtmId }: { sdtmId: string }) {
       <AlignmentBanner state={alignmentState} />
 
       <StaleInputNotice message={staleInput} onReload={reloadCurrentRevision} />
+      <UpstreamMisalignedNotice
+        message={upstreamMisaligned}
+        onReload={reloadCurrentRevision}
+      />
+      <CoverageIncompleteNotice message={coverageIncomplete} />
       <ConcurrencyNotice message={concurrency} onReload={reloadCurrentRevision} />
 
       <DerivationPlanGraph
@@ -333,7 +401,11 @@ export function DerivationPlanPanel({ sdtmId }: { sdtmId: string }) {
           disables preview/validate and hides lineage, matching the server-side
           alignment gate (Requirements 12.5-12.7, 13). */}
       {plan && (
-        <DerivationPreviewLineagePanel sdtmId={sdtmId} disabled={misaligned} />
+        <DerivationPreviewLineagePanel
+          sdtmId={sdtmId}
+          domainCode={domainCode}
+          disabled={misaligned}
+        />
       )}
     </div>
   )
@@ -388,6 +460,58 @@ function StaleInputNotice({ message, onReload }: NoticeProps) {
   )
 }
 
+/**
+ * 409 sdtm_plan_upstream_misaligned notice. An `sdtm_read` sibling this plan
+ * reads is misaligned or has no plan yet (`upstream_state: "absent"`). The
+ * on-canvas edits are retained; the user must align (or author) the upstream
+ * domain plan first, then reload and re-save.
+ */
+function UpstreamMisalignedNotice({ message, onReload }: NoticeProps) {
+  if (!message) return null
+  return (
+    <div
+      role="alert"
+      className="border-destructive/50 text-destructive flex flex-col gap-2 rounded-md border px-4 py-3 text-sm"
+    >
+      <span className="font-medium">Upstream plan is not aligned</span>
+      <span className="text-destructive/90">{message}</span>
+      <span className="text-destructive/80 text-xs">
+        Your on-canvas edits are kept. Align (or author) the upstream domain
+        plan, then reload the current plan revision and save again.
+      </span>
+      <button
+        type="button"
+        onClick={onReload}
+        className="text-destructive w-fit text-sm font-medium underline underline-offset-2"
+      >
+        Reload current plan revision
+      </button>
+    </div>
+  )
+}
+
+/**
+ * 409 sdtm_output_coverage_incomplete notice. The union of per-domain plans
+ * does not yet cover every derived domain in the Specification; name the
+ * domains still missing a plan.
+ */
+function CoverageIncompleteNotice({ message }: { message: string | null }) {
+  if (!message) return null
+  return (
+    <div
+      role="alert"
+      className="border-destructive/50 text-destructive flex flex-col gap-2 rounded-md border px-4 py-3 text-sm"
+    >
+      <span className="font-medium">Output coverage is incomplete</span>
+      <span className="text-destructive/90">{message}</span>
+      <span className="text-destructive/80 text-xs">
+        Author and align a plan for each listed domain before an all-domain
+        deliverable can be built.
+      </span>
+    </div>
+  )
+}
+
 /** Persistent 412 concurrency notice with a reload action. */
 function ConcurrencyNotice({ message, onReload }: NoticeProps) {
   if (!message) return null
@@ -429,12 +553,63 @@ function planBodyFromResponse(plan: PlanResponse): SdtmDerivationPlan {
     ? (payload.edges as SdtmDerivationPlan['edges'])
     : []
   return {
-    schema_version: '1.0.0',
+    schema_version: '1.1.0',
+    domain: plan.domain,
     specification_revision: plan.specification_revision,
     input_selection_revision: plan.input_selection_revision,
     nodes,
     edges,
   }
+}
+
+/**
+ * Describe a 409 sdtm_plan_upstream_misaligned problem by naming the upstream
+ * `sdtm_read` domain(s) and their state. The backend fills `issues[]` with
+ * `{ upstream_code, upstream_state }` entries; `upstream_state` is `"absent"`
+ * when the referenced sibling has no plan yet, otherwise the sibling's state.
+ * Falls back to the problem `detail` when the issue shape is unavailable.
+ */
+function describeUpstreamMisaligned(problem: ProblemDetail): string {
+  const parts = (problem.issues ?? [])
+    .map((issue) => {
+      const code = issue.upstream_code
+      const state = issue.upstream_state
+      if (typeof code !== 'string') return null
+      if (state === 'absent') {
+        return `${code} (no plan authored yet)`
+      }
+      return typeof state === 'string' ? `${code} (${state})` : code
+    })
+    .filter((part): part is string => part !== null)
+
+  if (parts.length > 0) {
+    return `This plan reads an SDTM domain whose plan is not aligned: ${parts.join(', ')}.`
+  }
+  return (
+    problem.detail ??
+    'This plan reads an SDTM domain whose plan is not aligned at the pinned revision.'
+  )
+}
+
+/**
+ * Describe a 409 sdtm_output_coverage_incomplete problem by listing the derived
+ * domains still missing a plan. The backend fills `issues[]` with a single
+ * `{ missing_domains: [...] }` entry; falls back to the problem `detail`.
+ */
+function describeCoverageIncomplete(problem: ProblemDetail): string {
+  const missing = (problem.issues ?? [])
+    .flatMap((issue) =>
+      Array.isArray(issue.missing_domains) ? issue.missing_domains : [],
+    )
+    .filter((domain): domain is string => typeof domain === 'string')
+
+  if (missing.length > 0) {
+    return `These derived domains have no aligned plan yet: ${missing.join(', ')}.`
+  }
+  return (
+    problem.detail ??
+    'Not every derived domain in the Specification has an aligned plan yet.'
+  )
 }
 
 /** The specification / input-selection revisions a plan is pinned against. */

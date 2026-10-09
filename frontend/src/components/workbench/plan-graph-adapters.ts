@@ -67,6 +67,8 @@ export interface PlanToGraphOptions {
 }
 
 export interface GraphToPlanMeta {
+  /** The SDTM domain this per-domain plan produces (the plan's natural key). */
+  domain: string
   /** Pinned specification revision the plan is authored against. */
   specificationRevision: number
   /** Pinned input-selection revision the plan is authored against. */
@@ -75,7 +77,7 @@ export interface GraphToPlanMeta {
   schemaVersion?: SdtmDerivationPlan['schema_version']
 }
 
-const DEFAULT_SCHEMA_VERSION: SdtmDerivationPlan['schema_version'] = '1.0.0'
+const DEFAULT_SCHEMA_VERSION: SdtmDerivationPlan['schema_version'] = '1.1.0'
 
 // Deterministic auto-layout spacing (px). Columns are dependency layers (left -> right),
 // rows are nodes within a layer, both in a stable order derived from node/edge order.
@@ -218,6 +220,7 @@ export function graphToPlan(
 
   const body: SdtmDerivationPlan = {
     schema_version: meta.schemaVersion ?? DEFAULT_SCHEMA_VERSION,
+    domain: meta.domain,
     specification_revision: meta.specificationRevision,
     input_selection_revision: meta.inputSelectionRevision,
     nodes: planNodes,

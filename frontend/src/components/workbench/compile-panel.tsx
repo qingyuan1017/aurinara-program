@@ -8,6 +8,13 @@ import { EmptyState } from '@/components/data/states'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Card,
   CardContent,
   CardDescription,
@@ -29,6 +36,7 @@ import {
   useCompileSdtm,
   useCreateSdtmArtifacts,
   useGetInputSelection,
+  useListSdtmPlans,
 } from '@/api/generated/sdtm/sdtm'
 import {
   getGetArtifactBuildQueryKey,
@@ -176,6 +184,17 @@ export function CompilePanel({ sdtmId }: CompilePanelProps) {
   const selectionNotFound =
     (selectionQuery.error as AxiosError | null)?.response?.status === 404
 
+  // Compilation is per-domain: the compile request pins the exact domain whose
+  // aligned plan is compiled. Resolve the available domains from the plan head
+  // list and let the user pick one.
+  const plansQuery = useListSdtmPlans(sdtmId)
+  const planHeads = plansQuery.data?.items ?? []
+  const [domainCode, setDomainCode] = React.useState<string | null>(null)
+  const activeDomain =
+    domainCode !== null && planHeads.some((head) => head.domain === domainCode)
+      ? domainCode
+      : (planHeads[0]?.domain ?? null)
+
   // --- Compile (one backend -> generated program) ---
   const [backend, setBackend] = React.useState<CompileBackend>('python')
   const [compileBuildId, setCompileBuildId] = React.useState<string | null>(null)
@@ -191,10 +210,10 @@ export function CompilePanel({ sdtmId }: CompilePanelProps) {
     compileProblem?.code === 'backend_capability_missing'
 
   const canCompile =
-    inputFingerprint !== null && !compile.isPending
+    inputFingerprint !== null && activeDomain !== null && !compile.isPending
 
   async function handleCompile() {
-    if (inputFingerprint === null) return
+    if (inputFingerprint === null || activeDomain === null) return
     // New attempt: mint a fresh key so the compile's automatic retries reuse it
     // while a distinct compile gets a distinct key.
     compileIdempotency.begin()
@@ -204,6 +223,7 @@ export function CompilePanel({ sdtmId }: CompilePanelProps) {
         data: {
           backend,
           expected_input_fingerprint: inputFingerprint,
+          domain_code: activeDomain,
         },
       })
       setCompileBuildId(build.id)
@@ -322,6 +342,39 @@ export function CompilePanel({ sdtmId }: CompilePanelProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="compile-domain" className="text-sm font-medium">
+              Domain
+            </Label>
+            {planHeads.length === 0 ? (
+              <p className="text-destructive text-sm">
+                This workbench has no per-domain derivation plans yet. Author and
+                align a domain plan before compiling.
+              </p>
+            ) : (
+              <Select
+                value={activeDomain ?? undefined}
+                onValueChange={setDomainCode}
+              >
+                <SelectTrigger
+                  id="compile-domain"
+                  size="sm"
+                  className="w-48"
+                  aria-label="Compile domain"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {planHeads.map((head) => (
+                    <SelectItem key={head.id} value={head.domain}>
+                      {head.domain}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
           <fieldset className="flex flex-col gap-2">
             <legend className="mb-1 text-sm font-medium">Backend</legend>
             <div className="flex flex-wrap gap-4">

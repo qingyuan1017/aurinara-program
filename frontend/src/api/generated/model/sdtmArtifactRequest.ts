@@ -4,10 +4,12 @@
  * Aurinara Clinical Artifact Platform
  * OpenAPI spec version: 0.1.0
  */
+import type { SdtmArtifactRequestDomainCode } from './sdtmArtifactRequestDomainCode';
 
 export interface SdtmArtifactRequest {
   /** @minItems 1 */
   artifact_types: string[];
   /** @pattern ^[0-9a-f]{64}$ */
   expected_input_fingerprint: string;
+  domain_code?: SdtmArtifactRequestDomainCode;
 }

@@ -8,7 +8,9 @@ import type { SdtmDerivationPlanNodesItem } from './sdtmDerivationPlanNodesItem'
 import type { PlanEdge } from './planEdge';
 
 export interface SdtmDerivationPlan {
-  schema_version?: '1.0.0';
+  schema_version?: '1.1.0';
+  /** @pattern ^[A-Z][A-Z0-9]{1,7}$ */
+  domain: string;
   /** @minimum 1 */
   specification_revision: number;
   /** @minimum 1 */

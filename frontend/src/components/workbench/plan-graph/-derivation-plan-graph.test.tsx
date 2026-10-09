@@ -39,9 +39,10 @@ import { installJsdomHarness } from '@/test/jsdom-harness'
 import { ifMatchRequest } from '@/lib/requests'
 import type {
   AggregateResponse,
-  PlanResponse,
+  AppSdtmRoutesPlanResponse as PlanResponse,
   RawReadNode,
   SdtmDerivationPlan,
+  SdtmReadNode,
 } from '@/api/generated/model'
 
 beforeAll(() => {
@@ -139,7 +140,11 @@ const sdtmApi: {
   planError: AxiosError | null
   spec: { revision: number } | undefined
   input: { revision: number; state?: string } | undefined
-  putPlanImpl: (vars: { sdtmId: string; data: SdtmDerivationPlan }) => Promise<unknown>
+  putPlanImpl: (vars: {
+    sdtmId: string
+    domainCode: string
+    data: SdtmDerivationPlan
+  }) => Promise<unknown>
   putPlanCalls: MutationCall[]
 } = {
   plan: undefined,
@@ -179,7 +184,11 @@ vi.mock('@/api/generated/sdtm/sdtm', () => {
       error: null as AxiosError | null,
       reset: () => {},
       mutate: () => {},
-      mutateAsync: async (vars: { sdtmId: string; data: SdtmDerivationPlan }) => {
+      mutateAsync: async (vars: {
+        sdtmId: string
+        domainCode: string
+        data: SdtmDerivationPlan
+      }) => {
         setIsPending(true)
         try {
           sdtmApi.putPlanCalls.push({ vars, request: options?.request })
@@ -218,7 +227,13 @@ vi.mock('@/api/generated/sdtm/sdtm', () => {
     useValidatePlan,
     usePreviewPlan,
     useGetLineage,
-    getGetPlanQueryKey: (sdtmId: string) => ['/sdtms', sdtmId, 'derivation-plan'],
+    getGetPlanQueryKey: (sdtmId: string, domainCode: string) => [
+      '/sdtms',
+      sdtmId,
+      'domains',
+      domainCode,
+      'derivation-plan',
+    ],
   }
 })
 
@@ -293,11 +308,15 @@ function makePlan(overrides: Partial<PlanResponse> = {}): PlanResponse {
   return {
     id: 'plan-1',
     aggregate_id: 'sdtm-1',
+    domain: 'DM',
     revision: 4,
-    schema_version: '1.0.0',
+    schema_version: '1.1.0',
     specification_revision: 3,
     input_selection_revision: 2,
     state: 'aligned',
+    alignment_state: 'aligned',
+    alignment_reasons: [],
+    upstream_plan_pins: [],
     fingerprint: 'fp-plan',
     created_by: 'user-1',
     created_at: '2024-01-01T00:00:00Z',
@@ -348,6 +367,24 @@ describe('NodeInspector', () => {
     expect(
       (screen.getByLabelText(/raw dataset code/i) as HTMLInputElement).disabled,
     ).toBe(true)
+  })
+
+  it('creates and edits a typed sdtm_read node (per-domain sdtm_read source)', () => {
+    // The catalog produces a fully-typed SdtmReadNode with an empty dataset…
+    const created = createNode('sdtm_read', 'sread1') as SdtmReadNode
+    expect(created).toEqual({ node_type: 'sdtm_read', id: 'sread1', dataset: '' })
+
+    const onChange = vi.fn()
+    render(<NodeInspector node={created} onChange={onChange} />)
+
+    // …and the inspector binds the typed `dataset` field, round-tripping it as
+    // the SAME typed node shape (never a free-text bag).
+    const field = screen.getByLabelText(/sdtm domain to read/i)
+    fireEvent.change(field, { target: { value: 'VS' } })
+
+    expect(onChange).toHaveBeenCalledTimes(1)
+    const next = onChange.mock.calls[0][0] as SdtmReadNode
+    expect(next).toEqual({ node_type: 'sdtm_read', id: 'sread1', dataset: 'VS' })
   })
 })
 
@@ -421,11 +458,11 @@ describe('DerivationPlanGraph palette drop', () => {
 // DerivationPlanPanel — save / 409 stale / misaligned (Req 12.1/12.3/12.4)
 // ===========================================================================
 describe('DerivationPlanPanel', () => {
-  it('save issues the PUT with the aggregate If-Match + pinned revisions (Req 12.1)', async () => {
+  it('save issues the per-domain PUT with the plan-revision If-Match + pinned revisions (Req 12.1)', async () => {
     sdtmApi.plan = makePlan()
     sdtmApi.putPlanImpl = vi.fn(async () => makePlan({ revision: 5 }))
 
-    renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" />)
+    renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" domainCode="DM" />)
 
     fireEvent.click(screen.getByRole('button', { name: /save plan/i }))
 
@@ -434,21 +471,24 @@ describe('DerivationPlanPanel', () => {
     })
 
     const call = sdtmApi.putPlanCalls[0]
+    // The mutation is scoped to the per-domain route (sdtmId + domainCode).
     expect((call.vars as { sdtmId: string }).sdtmId).toBe('sdtm-1')
+    expect((call.vars as { domainCode: string }).domainCode).toBe('DM')
     const data = (call.vars as { data: SdtmDerivationPlan }).data
-    // The serialized body pins the exact spec/input revisions the plan is
-    // authored against and round-trips the typed nodes/edges.
+    // The serialized body names the domain, pins the exact spec/input revisions
+    // the plan is authored against, and round-trips the typed nodes/edges.
+    expect(data.domain).toBe('DM')
     expect(data.specification_revision).toBe(3)
     expect(data.input_selection_revision).toBe(2)
-    expect(data.schema_version).toBe('1.0.0')
+    expect(data.schema_version).toBe('1.1.0')
     expect(data.nodes.map((n) => n.id)).toEqual(['read1', 'write1'])
     expect(data.edges).toEqual([{ source_node: 'read1', target_node: 'write1' }])
 
-    // The mutation carried the aggregate ETag as If-Match (the single SDTM
-    // concurrency token).
+    // The mutation carried the loaded PER-DOMAIN PLAN revision as If-Match (the
+    // plan's own concurrency token), not the aggregate revision.
     const request = call.request as AxiosRequestConfig
-    expect(request).toEqual(ifMatchRequest(AGGREGATE_REVISION))
-    expect(request.headers?.['If-Match']).toBe(`"revision-${AGGREGATE_REVISION}"`)
+    expect(request).toEqual(ifMatchRequest(4))
+    expect(request.headers?.['If-Match']).toBe('"revision-4"')
   })
 
   it('a 409 stale_input_fingerprint names the drifted input and keeps on-canvas edits (Req 12.3)', async () => {
@@ -463,7 +503,7 @@ describe('DerivationPlanPanel', () => {
       })
     })
 
-    renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" />)
+    renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" domainCode="DM" />)
 
     // The canvas renders the loaded plan's nodes (edits are "on canvas").
     await waitFor(() => {
@@ -494,7 +534,7 @@ describe('DerivationPlanPanel', () => {
   it('renders the editor read-only with the AlignmentBanner when misaligned (Req 12.4)', () => {
     sdtmApi.plan = makePlan({ state: 'misaligned' })
 
-    renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" />)
+    renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" domainCode="DM" />)
 
     // The persistent misalignment banner is shown.
     const banners = document.querySelectorAll('[data-slot="alignment-banner"]')
@@ -509,6 +549,72 @@ describe('DerivationPlanPanel', () => {
 
     // The palette is hidden in read-only mode (no operator palette landmark).
     expect(screen.queryByLabelText(/operator palette/i)).toBeNull()
+  })
+
+  it('a 409 sdtm_plan_upstream_misaligned (upstream_state "absent") names the upstream domain and keeps on-canvas edits', async () => {
+    sdtmApi.plan = makePlan()
+    sdtmApi.putPlanImpl = vi.fn(async () => {
+      throw problemError(409, {
+        code: 'sdtm_plan_upstream_misaligned',
+        title: 'SDTM upstream plan is missing',
+        detail: "Domain 'VS' has no plan; author and align it before reading it.",
+        issues: [
+          { domain: 'DM', upstream_code: 'VS', upstream_state: 'absent' },
+        ],
+      })
+    })
+
+    renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" domainCode="DM" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('read1')).toBeTruthy()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /save plan/i }))
+
+    await waitFor(() => {
+      expect(sdtmApi.putPlanImpl).toHaveBeenCalledTimes(1)
+    })
+
+    // The upstream-misaligned notice names the upstream domain and its state
+    // (the "absent" case renders as "no plan authored yet").
+    await waitFor(() => {
+      expect(screen.getByText(/upstream plan is not aligned/i)).toBeTruthy()
+    })
+    expect(screen.getByText(/VS \(no plan authored yet\)/i)).toBeTruthy()
+
+    // The on-canvas graph is retained (the panel did NOT re-seed/discard edits).
+    expect(screen.getByText('read1')).toBeTruthy()
+    expect(screen.getByText('write1')).toBeTruthy()
+  })
+
+  it('a 409 sdtm_output_coverage_incomplete lists the missing domains', async () => {
+    sdtmApi.plan = makePlan()
+    sdtmApi.putPlanImpl = vi.fn(async () => {
+      throw problemError(409, {
+        code: 'sdtm_output_coverage_incomplete',
+        title: 'SDTM output coverage is incomplete',
+        detail: 'Some derived domains have no aligned plan.',
+        issues: [{ missing_domains: ['AE', 'VS'] }],
+      })
+    })
+
+    renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" domainCode="DM" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('read1')).toBeTruthy()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /save plan/i }))
+
+    await waitFor(() => {
+      expect(sdtmApi.putPlanImpl).toHaveBeenCalledTimes(1)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText(/output coverage is incomplete/i)).toBeTruthy()
+    })
+    expect(screen.getByText(/AE, VS/)).toBeTruthy()
   })
 })
 
@@ -528,7 +634,7 @@ describe('DerivationPlanPanel new-plan mode', () => {
     sdtmApi.spec = { revision: 3 }
     sdtmApi.input = { revision: 2, state: 'current' }
 
-    renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" />)
+    renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" domainCode="DM" />)
 
     // The interactive editor mounts (palette present, canvas present) instead
     // of returning early at the "No derivation plan yet" empty state.
@@ -537,7 +643,7 @@ describe('DerivationPlanPanel new-plan mode', () => {
     expect(screen.queryByText(/no derivation plan yet/i)).toBeNull()
 
     // The header shows the unsaved new-plan state pinning the current revisions.
-    expect(screen.getByText(/new plan \(unsaved\)/i)).toBeTruthy()
+    expect(screen.getByText(/new dm plan \(unsaved\)/i)).toBeTruthy()
 
     // Save is enabled (new plans are editable, not read-only).
     expect(
@@ -553,7 +659,7 @@ describe('DerivationPlanPanel new-plan mode', () => {
     sdtmApi.spec = { revision: 3 }
     sdtmApi.input = { revision: 2, state: 'input_refresh_required' }
 
-    renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" />)
+    renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" domainCode="DM" />)
 
     // The guidance empty state is kept; the editor does NOT mount.
     expect(screen.getByText(/no derivation plan yet/i)).toBeTruthy()
@@ -568,7 +674,7 @@ describe('DerivationPlanPanel new-plan mode', () => {
     sdtmApi.spec = undefined
     sdtmApi.input = { revision: 2, state: 'current' }
 
-    renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" />)
+    renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" domainCode="DM" />)
 
     expect(screen.getByText(/no derivation plan yet/i)).toBeTruthy()
     expect(screen.queryByLabelText(/operator palette/i)).toBeNull()
@@ -581,7 +687,7 @@ describe('DerivationPlanPanel new-plan mode', () => {
     sdtmApi.input = { revision: 9, state: 'current' }
     sdtmApi.putPlanImpl = vi.fn(async () => ({}))
 
-    const { container } = renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" />)
+    const { container } = renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" domainCode="DM" />)
 
     // Author the first node by dropping a palette operator onto the canvas so
     // the save body carries at least one node (the backend rejects zero nodes).
@@ -619,7 +725,8 @@ describe('DerivationPlanPanel new-plan mode', () => {
     // (there is no loaded plan to read pinned revisions from).
     expect(data.specification_revision).toBe(5)
     expect(data.input_selection_revision).toBe(9)
-    expect(data.schema_version).toBe('1.0.0')
+    expect(data.schema_version).toBe('1.1.0')
+    expect(data.domain).toBe('DM')
     // At least one node was authored before the save.
     expect(data.nodes.length).toBeGreaterThanOrEqual(1)
 
@@ -642,7 +749,7 @@ describe('DerivationPlanPanel new-plan mode', () => {
       })
     })
 
-    renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" />)
+    renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" domainCode="DM" />)
 
     // Save with an empty canvas (zero nodes) -> backend 422 -> toast.
     fireEvent.click(screen.getByRole('button', { name: /save plan/i }))

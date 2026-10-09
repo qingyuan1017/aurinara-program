@@ -23,6 +23,7 @@ import type {
   PivotLongerNode,
   RawReadNode,
   SdtmDerivationPlanNodesItem,
+  SdtmReadNode,
   SelectNode,
   SequenceNode,
   SortNode,
@@ -88,6 +89,19 @@ const rawRead: OperatorDescriptor<RawReadNode> = {
   hasOutput: true,
   create: (id) => ({ node_type: 'raw_read', id, raw_dataset_code: '' }),
   summary: (node) => [`dataset: ${node.raw_dataset_code || '—'}`],
+}
+
+const sdtmRead: OperatorDescriptor<SdtmReadNode> = {
+  nodeType: 'sdtm_read',
+  label: 'SDTM read',
+  description:
+    'Read an already-produced SDTM domain (resolved against this workbench Specification).',
+  category: 'source',
+  inputs: [],
+  inputArity: 'none',
+  hasOutput: true,
+  create: (id) => ({ node_type: 'sdtm_read', id, dataset: '' }),
+  summary: (node) => [`dataset: ${node.dataset || '—'}`],
 }
 
 const select: OperatorDescriptor<SelectNode> = {
@@ -313,9 +327,9 @@ const domainWrite: OperatorDescriptor<DomainWriteNode> = {
 }
 
 /**
- * The complete typed operator catalog keyed by `node_type`. The 14 entries
- * mirror the `SdtmDerivationPlanNodesItem` union exactly, so adding or removing
- * a backend operator surfaces here as a compile error.
+ * The complete typed operator catalog keyed by `node_type`. The entries mirror
+ * the `SdtmDerivationPlanNodesItem` union exactly, so adding or removing a
+ * backend operator surfaces here as a compile error.
  */
 export const OPERATOR_CATALOG: {
   [K in PlanNodeType]: OperatorDescriptor<
@@ -323,6 +337,7 @@ export const OPERATOR_CATALOG: {
   >
 } = {
   raw_read: rawRead,
+  sdtm_read: sdtmRead,
   select,
   filter,
   join,
@@ -341,6 +356,7 @@ export const OPERATOR_CATALOG: {
 /** Stable palette order (sources first, sink last). */
 export const PALETTE_ORDER: PlanNodeType[] = [
   'raw_read',
+  'sdtm_read',
   'select',
   'filter',
   'join',

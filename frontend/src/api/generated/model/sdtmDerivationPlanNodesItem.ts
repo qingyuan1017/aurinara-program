@@ -5,6 +5,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { RawReadNode } from './rawReadNode';
+import type { SdtmReadNode } from './sdtmReadNode';
 import type { FilterNode } from './filterNode';
 import type { DeriveNode } from './deriveNode';
 import type { CastNode } from './castNode';
@@ -19,4 +20,4 @@ import type { SortNode } from './sortNode';
 import type { AssertNode } from './assertNode';
 import type { DomainWriteNode } from './domainWriteNode';
 
-export type SdtmDerivationPlanNodesItem = RawReadNode | FilterNode | DeriveNode | CastNode | SelectNode | JoinNode | UnionNode | AggregateNode | PivotLongerNode | TerminologyMapNode | SequenceNode | SortNode | AssertNode | DomainWriteNode;
+export type SdtmDerivationPlanNodesItem = RawReadNode | SdtmReadNode | FilterNode | DeriveNode | CastNode | SelectNode | JoinNode | UnionNode | AggregateNode | PivotLongerNode | TerminologyMapNode | SequenceNode | SortNode | AssertNode | DomainWriteNode;

@@ -5,9 +5,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface CompileRequest {
+export interface AppAdamRoutesCompileRequest {
   /** @pattern ^(python|r|sas)$ */
   backend: string;
   /** @pattern ^[0-9a-f]{64}$ */
   expected_input_fingerprint: string;
+  /** @pattern ^[A-Z][A-Z0-9]{1,7}$ */
+  dataset_code: string;
 }

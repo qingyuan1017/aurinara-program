@@ -51,7 +51,8 @@ function makePlan(): SdtmDerivationPlan {
     { source_node: 'filter1', target_node: 'write1' },
   ]
   return {
-    schema_version: '1.0.0',
+    schema_version: '1.1.0',
+    domain: 'DM',
     specification_revision: 3,
     input_selection_revision: 2,
     nodes,
@@ -164,6 +165,28 @@ describe('evaluateConnection — typed-model permission', () => {
     expect(decision.ok).toBe(true)
   })
 
+  it('permits sdtm_read as a connection SOURCE (it has an output)', () => {
+    const sdtmRead = createNode('sdtm_read', 'sread1')
+    const decision = evaluateConnection(
+      { source: 'sread1', target: 'filter1', targetHandle: 'in' },
+      [...nodes, nodeEntry(sdtmRead)],
+      [],
+    )
+    expect(decision.ok).toBe(true)
+    expect(decision.reason).toBeUndefined()
+  })
+
+  it('rejects sdtm_read as a connection TARGET (a source accepts no input)', () => {
+    const sdtmRead = createNode('sdtm_read', 'sread1')
+    const decision = evaluateConnection(
+      { source: 'filter1', target: 'sread1', targetHandle: 'in' },
+      [...nodes, nodeEntry(sdtmRead)],
+      [],
+    )
+    expect(decision.ok).toBe(false)
+    expect(decision.reason).toMatch(/do not accept an input/i)
+  })
+
   it("permits each of a join's two distinct single-arity ports", () => {
     const read2 = createNode('raw_read', 'read2')
     const join = createNode('join', 'join1')
@@ -248,16 +271,18 @@ describe('planToGraph / graphToPlan round-trip', () => {
     const graph = planToGraph(plan)
 
     const back = graphToPlan(graph.nodes, graph.edges, {
+      domain: plan.domain,
       specificationRevision: plan.specification_revision,
       inputSelectionRevision: plan.input_selection_revision,
-      schemaVersion: '1.0.0',
+      schemaVersion: '1.1.0',
     })
 
     expect(back.nodes).toEqual(plan.nodes)
     expect(back.edges).toEqual(plan.edges)
+    expect(back.domain).toBe(plan.domain)
     expect(back.specification_revision).toBe(plan.specification_revision)
     expect(back.input_selection_revision).toBe(plan.input_selection_revision)
-    expect(back.schema_version).toBe('1.0.0')
+    expect(back.schema_version).toBe('1.1.0')
   })
 
   it('never writes node positions into the typed body (layout is view-only)', () => {
@@ -265,6 +290,7 @@ describe('planToGraph / graphToPlan round-trip', () => {
     const graph = planToGraph(plan)
 
     const back = graphToPlan(graph.nodes, graph.edges, {
+      domain: plan.domain,
       specificationRevision: plan.specification_revision,
       inputSelectionRevision: plan.input_selection_revision,
     })
@@ -311,6 +337,7 @@ describe('planToGraph / graphToPlan round-trip', () => {
 
     // …but the typed body produced from the graph still carries no positions.
     const back = graphToPlan(graph.nodes, graph.edges, {
+      domain: plan.domain,
       specificationRevision: plan.specification_revision,
       inputSelectionRevision: plan.input_selection_revision,
     })

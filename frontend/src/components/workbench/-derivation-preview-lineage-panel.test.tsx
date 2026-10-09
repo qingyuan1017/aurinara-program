@@ -55,6 +55,7 @@ beforeAll(() => {
 // ---------------------------------------------------------------------------
 interface PreviewCall {
   sdtmId: string
+  domainCode: string
   data: { limit?: number; domains?: string[] }
 }
 
@@ -62,8 +63,8 @@ const sdtmApi: {
   previewImpl: (vars: PreviewCall) => Promise<unknown>
   previewCalls: PreviewCall[]
   previewRequests: unknown[]
-  validateImpl: (vars: { sdtmId: string }) => Promise<unknown>
-  validateCalls: Array<{ sdtmId: string }>
+  validateImpl: (vars: { sdtmId: string; domainCode: string }) => Promise<unknown>
+  validateCalls: Array<{ sdtmId: string; domainCode: string }>
   lineage: { data?: unknown; isLoading: boolean; isError: boolean; error: unknown }
   lineageEnabled: boolean[]
 } = {
@@ -101,7 +102,7 @@ vi.mock('@/api/generated/sdtm/sdtm', () => {
   }
 
   const useValidatePlan = () =>
-    makeMutationResult((vars: { sdtmId: string }) => {
+    makeMutationResult((vars: { sdtmId: string; domainCode: string }) => {
       sdtmApi.validateCalls.push(vars)
       return sdtmApi.validateImpl(vars)
     })
@@ -190,7 +191,11 @@ afterEach(() => {
 
 function renderPanel(disabled = false) {
   return renderWithClient(
-    <DerivationPreviewLineagePanel sdtmId="sdtm-1" disabled={disabled} />,
+    <DerivationPreviewLineagePanel
+      sdtmId="sdtm-1"
+      domainCode="DM"
+      disabled={disabled}
+    />,
   )
 }
 
@@ -214,6 +219,8 @@ describe('Preview constrains the limit and renders outputs + revisions (Req 13.1
     await waitFor(() => expect(sdtmApi.previewCalls.length).toBe(1))
     const call = sdtmApi.previewCalls[0]
     expect(call.sdtmId).toBe('sdtm-1')
+    // The preview mutate is scoped to the per-domain route.
+    expect(call.domainCode).toBe('DM')
     // limit clamped 5000 -> 200; no `domains` key sent when the field is blank.
     expect(call.data).toEqual({ limit: 200 })
     expect('domains' in call.data).toBe(false)
@@ -343,6 +350,21 @@ describe('Preview rows are not cached beyond the view (Req 13.5)', () => {
 // ===========================================================================
 // Preview is disabled when the plan is misaligned (Req 12.4 gate)
 // ===========================================================================
+describe('Validate is scoped to the per-domain route', () => {
+  it('carries the domainCode in the validate mutate vars', async () => {
+    sdtmApi.validateImpl = vi.fn(async () => ({
+      status: 'valid',
+      ir_fingerprint: 'ir-abc',
+    }))
+
+    renderPanel()
+    fireEvent.click(screen.getByRole('button', { name: /validate plan/i }))
+
+    await waitFor(() => expect(sdtmApi.validateCalls.length).toBe(1))
+    expect(sdtmApi.validateCalls[0]).toEqual({ sdtmId: 'sdtm-1', domainCode: 'DM' })
+  })
+})
+
 describe('Preview/validate controls honour the alignment gate', () => {
   it('disables the preview and validate buttons when disabled', () => {
     renderPanel(true)

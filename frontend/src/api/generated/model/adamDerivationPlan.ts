@@ -8,7 +8,9 @@ import type { AdamDerivationPlanNodesItem } from './adamDerivationPlanNodesItem'
 import type { AdamPlanEdge } from './adamPlanEdge';
 
 export interface AdamDerivationPlan {
-  schema_version?: '1.0.0';
+  schema_version?: '1.1.0';
+  /** @pattern ^[A-Z][A-Z0-9]{1,7}$ */
+  dataset: string;
   /** @minimum 1 */
   specification_revision: number;
   /** @minimum 1 */

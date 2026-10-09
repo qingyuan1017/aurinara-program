@@ -211,11 +211,23 @@ vi.mock('@/api/generated/sdtm/sdtm', () => {
     )
   }
 
+  // Compilation is per-domain: the compile panel resolves the available
+  // domains from the plan head list. Return one head so its domain selector
+  // defaults to DM and the compile request carries `domain_code: 'DM'`.
+  const useListSdtmPlans = () => ({
+    data: { items: [{ id: 'plan-dm', domain: 'DM' }], next_cursor: null },
+    isLoading: false,
+    isFetching: false,
+    isError: false,
+    error: null,
+  })
+
   return {
     useGetInputSelection,
     useCompileSdtm,
     useCreateSdtmArtifacts,
     useExecuteSdtm,
+    useListSdtmPlans,
   }
 })
 
@@ -476,7 +488,11 @@ describe('CompilePanel start request (Req 15.1)', () => {
     expect(sdtmApi.compileVars).toHaveLength(1)
     expect(sdtmApi.compileVars[0]).toMatchObject({
       sdtmId: 'sdtm-1',
-      data: { backend: 'r', expected_input_fingerprint: 'input-fp-9' },
+      data: {
+        backend: 'r',
+        expected_input_fingerprint: 'input-fp-9',
+        domain_code: 'DM',
+      },
     })
 
     // The compile carried a syntactically valid Idempotency-Key (R21.2).
