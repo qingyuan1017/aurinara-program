@@ -110,3 +110,35 @@ class RawVariable(UuidPrimaryKey, Revisioned, Timestamped, Base):
     role: Mapped[str | None] = mapped_column(String(64))
     description: Mapped[str | None] = mapped_column(String(4000))
     terminology_binding: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+
+
+class RawDatasetImport(UuidPrimaryKey, Base):
+    """Operation row for one asynchronous bulk dataset import.
+
+    This is an operation row (like ``artifact_builds``), not an owned entity
+    type; study ownership for its status endpoints is enforced directly.
+    """
+
+    __tablename__ = "raw_dataset_imports"
+
+    raw_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("raw_workbenches.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    study_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("studies.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    schema_version: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued")
+    entries: Mapped[list[dict[str, object]]] = mapped_column(JSONB, nullable=False)
+    input_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    entry_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    files_inspected: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    result_dataset_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    issues: Mapped[list[dict[str, object]]] = mapped_column(JSONB, nullable=False, default=list)
+    failure: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )

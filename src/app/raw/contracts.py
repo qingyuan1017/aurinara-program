@@ -1,9 +1,16 @@
 """Strict public contracts for manually maintained Raw metadata."""
 
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.validation.contracts import ValidationIssue
+
+# Mirrors ``Settings.raw_bulk_import_max_entries`` so the request contract field
+# constraint is a compile-time bound; the settings layer stays the runtime source.
+RAW_BULK_IMPORT_MAX_ENTRIES = 500
 
 
 class StrictModel(BaseModel):
@@ -82,3 +89,67 @@ class RawPhysicalSnapshot(StrictModel):
     schema_version: Literal["1.0.0"] = "1.0.0"
     columns: tuple[RawPhysicalColumn, ...]
     row_count: int
+
+
+class RawDatasetImportEntry(StrictModel):
+    """One dataset to create and bind in a bulk import request."""
+
+    code: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
+    label: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=4000)
+    source_file_id: UUID
+    initialize_variables: bool = False
+
+
+class RawDatasetImportRequest(StrictModel):
+    """Versioned JSON-array envelope for an asynchronous bulk dataset import."""
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    expected_raw_revision: int | None = Field(default=None, ge=1)
+    entries: tuple[RawDatasetImportEntry, ...] = Field(
+        min_length=1, max_length=RAW_BULK_IMPORT_MAX_ENTRIES
+    )
+
+    @model_validator(mode="after")
+    def unique_codes(self) -> "RawDatasetImportRequest":
+        codes = [entry.code for entry in self.entries]
+        if len(codes) != len(set(codes)):
+            raise ValueError("entry codes must be unique within a bulk import")
+        return self
+
+
+ImportStatus = Literal["queued", "running", "succeeded", "failed", "cancelled"]
+
+
+class RawDatasetImportResponse(BaseModel):
+    """Addressable status resource for an asynchronous bulk dataset import."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    raw_id: UUID
+    study_id: UUID
+    status: ImportStatus
+    schema_version: str
+    entry_count: int
+    files_inspected: int
+    input_fingerprint: str
+    result_dataset_ids: list[UUID]
+    issues: list[ValidationIssue]
+    failure: dict[str, object] | None
+    started_at: datetime | None
+    completed_at: datetime | None
+    created_by: str
+    created_at: datetime
+
+    @field_validator("issues", mode="before")
+    @classmethod
+    def _validate_issues(cls, value: object) -> object:
+        """Rehydrate stored JSONB issue dicts into typed ``ValidationIssue`` models."""
+
+        if isinstance(value, list):
+            return [
+                ValidationIssue.model_validate(item) if isinstance(item, dict) else item
+                for item in value
+            ]
+        return value

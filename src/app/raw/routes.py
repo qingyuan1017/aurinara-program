@@ -2,10 +2,10 @@
 
 import hashlib
 from datetime import datetime
-from typing import Annotated, Protocol, cast
+from typing import Annotated, cast
 from uuid import UUID, uuid5
 
-from fastapi import APIRouter, Depends, Header, Response, status
+from fastapi import APIRouter, Depends, Header, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -24,12 +24,18 @@ from app.artifacts.service import ArtifactService
 from app.artifacts.storage import ObjectStorage
 from app.common.canonical import fingerprint
 from app.common.etag import etag_for_revision, require_matching_etag
+from app.common.idempotency import IdempotencyRecord
 from app.common.problems import ProblemException
 from app.common.time import utc_now
+from app.config import Settings
+from app.execution.jobs import Job
 from app.kernel.contracts import ModuleCapability
 from app.kernel.registry import ModuleRegistry
 from app.raw.contracts import (
     RawDatasetCreate,
+    RawDatasetImportEntry,
+    RawDatasetImportRequest,
+    RawDatasetImportResponse,
     RawDatasetPatch,
     RawPhysicalSnapshot,
     RawPreviewRequest,
@@ -37,8 +43,14 @@ from app.raw.contracts import (
     RawVariableWrite,
 )
 from app.raw.files import inspect_file, preview_rows
-from app.raw.models import RawDataset, RawVariable, RawWorkbench
-from app.raw.service import RAW_ARTIFACT_TYPES, RawCapability, binding_for
+from app.raw.models import RawDataset, RawDatasetImport, RawVariable, RawWorkbench
+from app.raw.service import (
+    RAW_ARTIFACT_TYPES,
+    RawCapability,
+    binding_for,
+    resolve_bulk_sources,
+    stale_raw_consumers,
+)
 from app.reconciliation.routes import (
     ReconciliationCreate,
     ReconciliationInput,
@@ -139,10 +151,6 @@ class RawLatestValidationRunResponse(BaseModel):
     input_fingerprint: str
 
 
-class RawConsumerStaleness(Protocol):
-    def mark_raw_refresh(self, session: Session, raw_id: UUID) -> tuple[UUID, ...]: ...
-
-
 def _handler(registry: ModuleRegistry) -> RawCapability:
     return cast(RawCapability, registry.require_handler("raw", ModuleCapability.DEPENDENCIES))
 
@@ -174,33 +182,28 @@ def _variable(session: Session, variable_id: UUID, principal: Principal) -> RawV
 
 
 def _source(session: Session, source_file_id: UUID, study_id: UUID) -> SourceFile:
-    source = session.get(SourceFile, source_file_id)
-    if source is None or source.study_id != study_id:
+    """Resolve one study-owned source file, preserving single-dataset HTTP behavior.
+
+    Shares resolution with the bulk path via ``resolve_bulk_sources`` and raises
+    ``422 raw_source_file_invalid`` when it reports a missing or foreign source.
+    """
+
+    entry = RawDatasetImportEntry(code="X", label="x", source_file_id=source_file_id)
+    _, issues = resolve_bulk_sources(session, study_id=study_id, entries=[entry])
+    if issues:
         raise ProblemException(
             status_code=422,
             code="raw_source_file_invalid",
             title="Raw source file is invalid",
             detail="The immutable source file does not exist in this study.",
         )
+    source = session.get(SourceFile, source_file_id)
+    assert source is not None  # resolve_bulk_sources reported no issue
     return source
 
 
 def _stale(session: Session, registry: ModuleRegistry, raw: RawWorkbench) -> None:
-    artifacts.mark_owner_stale(session, owner_type="raw_workbench", owner_id=raw.id)
-    for run in session.scalars(
-        select(ValidationRun).where(
-            ValidationRun.module_key == "raw",
-            ValidationRun.owner_id == raw.id,
-            ValidationRun.status == "succeeded",
-        )
-    ):
-        run.status = "stale"
-    consumer = cast(
-        RawConsumerStaleness,
-        registry.require_handler("sdtm", ModuleCapability.STALENESS),
-    )
-    for sdtm_id in consumer.mark_raw_refresh(session, raw.id):
-        artifacts.mark_owner_stale(session, owner_type="sdtm_workbench", owner_id=sdtm_id)
+    stale_raw_consumers(session, registry, raw)
 
 
 @router.patch("/raw/{raw_id}", response_model=dict[str, object])
@@ -917,6 +920,137 @@ def create_raw_artifacts(
         principal,
         idempotency_key,
     )
+
+
+@router.post(
+    "/raw/{raw_id}/datasets/import",
+    response_model=RawDatasetImportResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def create_dataset_import(
+    raw_id: UUID,
+    command: RawDatasetImportRequest,
+    request: Request,
+    response: Response,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> RawDatasetImportResponse:
+    """Enqueue an asynchronous JSON-array bulk dataset import."""
+
+    raw = _raw(session, registry, raw_id, principal)
+    if not idempotency_key:
+        raise ProblemException(
+            status_code=400,
+            code="idempotency_key_required",
+            title="Idempotency-Key is required",
+            detail="Supply an Idempotency-Key header.",
+        )
+    settings: Settings = request.app.state.settings
+    input_fingerprint = fingerprint(command.model_dump(mode="json"))
+    existing = session.scalar(
+        select(IdempotencyRecord).where(
+            IdempotencyRecord.subject == principal.subject,
+            IdempotencyRecord.route == "raw-dataset-import",
+            IdempotencyRecord.study_id == raw.study_id,
+            IdempotencyRecord.key == idempotency_key,
+        )
+    )
+    if existing is not None:
+        if existing.request_fingerprint != input_fingerprint:
+            raise ProblemException(
+                status_code=409,
+                code="idempotency_key_reused",
+                title="Idempotency key was reused",
+                detail="The key is already bound to a different bulk import request.",
+            )
+        prior = session.get(RawDatasetImport, existing.resource_id)
+        if prior is None:
+            raise RuntimeError("idempotency record references a missing raw dataset import")
+        return RawDatasetImportResponse.model_validate(prior)
+    record = RawDatasetImport(
+        raw_id=raw.id,
+        study_id=raw.study_id,
+        schema_version=command.schema_version,
+        entries=[entry.model_dump(mode="json") for entry in command.entries],
+        input_fingerprint=input_fingerprint,
+        entry_count=len(command.entries),
+        created_by=principal.subject,
+    )
+    session.add(record)
+    session.flush()
+    payload: dict[str, object] = {"import_id": str(record.id)}
+    if command.expected_raw_revision is not None:
+        payload["expected_raw_revision"] = command.expected_raw_revision
+    session.add(
+        Job(
+            operation_id=record.id,
+            job_type="raw_dataset_import",
+            payload=payload,
+            max_attempts=settings.job_max_attempts,
+        )
+    )
+    session.add(
+        IdempotencyRecord(
+            subject=principal.subject,
+            route="raw-dataset-import",
+            study_id=raw.study_id,
+            key=idempotency_key,
+            request_fingerprint=input_fingerprint,
+            resource_type="raw_dataset_import",
+            resource_id=record.id,
+        )
+    )
+    session.commit()
+    response.headers["Location"] = f"/api/v1/raw-dataset-imports/{record.id}"
+    return RawDatasetImportResponse.model_validate(record)
+
+
+def _require_import(session: Session, import_id: UUID, principal: Principal) -> RawDatasetImport:
+    record = session.get(RawDatasetImport, import_id)
+    if record is None:
+        raise _not_found("raw_dataset_import_not_found", "Raw dataset import not found")
+    studies.require_access(session, record.study_id, principal)
+    return record
+
+
+@router.get(
+    "/raw-dataset-imports/{import_id}",
+    response_model=RawDatasetImportResponse,
+)
+def get_dataset_import(
+    import_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> RawDatasetImportResponse:
+    return RawDatasetImportResponse.model_validate(_require_import(session, import_id, principal))
+
+
+@router.post(
+    "/raw-dataset-imports/{import_id}/cancel",
+    response_model=RawDatasetImportResponse,
+)
+def cancel_dataset_import(
+    import_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> RawDatasetImportResponse:
+    record = _require_import(session, import_id, principal)
+    if record.status not in {"queued", "running"}:
+        raise ProblemException(
+            status_code=409,
+            code="invalid_lifecycle_transition",
+            title="Import cannot be cancelled",
+            detail="Only queued or running imports can be cancelled.",
+        )
+    record.status = "cancelled"
+    record.completed_at = utc_now()
+    job = session.scalar(select(Job).where(Job.operation_id == record.id))
+    if job is not None:
+        job.cancellation_requested_at = utc_now()
+    session.commit()
+    return RawDatasetImportResponse.model_validate(record)
 
 
 def _not_found(code: str, title: str) -> ProblemException:

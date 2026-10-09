@@ -95,6 +95,8 @@ Shared provider artifacts are study-scoped exports of exact dependency selection
 
 Each raw dataset record binds to an exact immutable source-file record and its corresponding `source_file` artifact from the shared catalog. The Raw module does not copy or overwrite the uploaded bytes. A replacement upload creates a new source-file record and artifact, and rebinding a dataset creates a new workbench revision whose dependency fingerprint includes the file artifact ID and checksum.
 
+Bulk dataset import (`POST /api/v1/raw/{raw_id}/datasets/import`) creates the same `raw_dataset` and `raw_dataset_file_bindings` records with identical provenance as single-dataset create; it introduces no new artifact type.
+
 Raw metadata artifacts include dataset and variable natural keys, labels, physical attributes, ordinal positions, user-authored descriptions, roles, controlled terminology references, source-file artifact IDs and checksums, and the validated workbench revision. They do not contain data rows. Original source files are excluded from submission packages unless an explicit package policy permits them and the caller selects their exact artifact IDs.
 
 ## 5. Documents artifacts

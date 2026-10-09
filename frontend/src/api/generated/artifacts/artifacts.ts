@@ -27,9 +27,11 @@ import type {
   ArtifactCollection,
   ArtifactResponse,
   BodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost,
+  BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost,
   HTTPValidationError,
   ListArtifactsParams,
   ListSourceFilesParams,
+  SourceFileBulkResponse,
   SourceFileCollection,
   SourceFileResponse
 } from '.././model';
@@ -212,6 +214,74 @@ export function useListSourceFiles<TData = Awaited<ReturnType<typeof listSourceF
 
 
 /**
+ * Upload many immutable source files atomically in request order.
+ * @summary Create Source Files Bulk
+ */
+export const createSourceFilesBulk = (
+    studyId: string,
+    bodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost: BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      const formData = new FormData();
+bodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost.files.forEach(value => formData.append(`files`, value));
+
+      return customInstance<SourceFileBulkResponse>(
+      {url: `/api/v1/studies/${studyId}/source-files:bulk`, method: 'POST',
+      headers: {'Content-Type': 'multipart/form-data', },
+       data: formData, signal
+    },
+      options);
+    }
+  
+
+
+export const getCreateSourceFilesBulkMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSourceFilesBulk>>, TError,{studyId: string;data: BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSourceFilesBulk>>, TError,{studyId: string;data: BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>}, TContext> => {
+
+const mutationKey = ['createSourceFilesBulk'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSourceFilesBulk>>, {studyId: string;data: BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>}> = (props) => {
+          const {studyId,data} = props ?? {};
+
+          return  createSourceFilesBulk(studyId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSourceFilesBulkMutationResult = NonNullable<Awaited<ReturnType<typeof createSourceFilesBulk>>>
+    export type CreateSourceFilesBulkMutationBody = BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>
+    export type CreateSourceFilesBulkMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Create Source Files Bulk
+ */
+export const useCreateSourceFilesBulk = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSourceFilesBulk>>, TError,{studyId: string;data: BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createSourceFilesBulk>>,
+        TError,
+        {studyId: string;data: BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateSourceFilesBulkMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * Get one authorized source-file record.
  * @summary Get Source File
  */

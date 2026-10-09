@@ -4,17 +4,21 @@ import hashlib
 import io
 import json
 from dataclasses import dataclass
-from typing import cast
-from uuid import UUID
+from typing import Protocol, cast
+from uuid import UUID, uuid5
 
 from openpyxl import Workbook
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.artifacts.models import SourceFile
+from app.artifacts.service import ArtifactService
 from app.artifacts.storage import ObjectStorage
 from app.common.problems import ProblemException
+from app.kernel.contracts import ModuleCapability
 from app.kernel.dependencies import RenderedArtifact, SqlDependencyCapability
+from app.kernel.registry import ModuleRegistry
+from app.raw.contracts import RawDatasetImportEntry, RawPhysicalSnapshot
 from app.raw.files import inspect_file, read_rows
 from app.raw.models import (
     RawDataset,
@@ -23,7 +27,12 @@ from app.raw.models import (
     RawWorkbench,
 )
 from app.reconciliation.service import ReconciliationEvaluation
+from app.validation.contracts import IssueSeverity, ValidationIssue
 from app.validation.models import ValidationRun
+
+# Shared with routes._issue; keeps bulk-import issue identities deterministic
+# and aligned with single-dataset Raw issues.
+ISSUE_NAMESPACE = UUID("ebdfc410-3adc-4f6a-aebc-59eb058e92fe")
 
 RAW_ARTIFACT_TYPES = (
     "raw_dependency_manifest",
@@ -538,3 +547,210 @@ def binding_for(
         source_sha256=source.sha256,
         created_by=created_by,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedSource:
+    """Plain value describing one resolved, study-owned source file.
+
+    Carries only the facts the untransacted worker middle needs, so no ORM row
+    is retained across object-store I/O.
+    """
+
+    id: UUID
+    artifact_id: UUID
+    object_key: str
+    sha256: str
+    filename: str
+    study_id: UUID
+    size: int
+
+
+class _RawConsumerStaleness(Protocol):
+    def mark_raw_refresh(self, session: Session, raw_id: UUID) -> tuple[UUID, ...]: ...
+
+
+_artifacts = ArtifactService()
+
+
+def _bulk_issue(
+    code: str, message: str, raw_id: UUID, *, dataset: str | None = None
+) -> ValidationIssue:
+    """Build a typed per-entry issue mirroring routes._issue identity rules."""
+
+    key = f"{raw_id}:{code}:{dataset}:None:None"
+    return ValidationIssue(
+        id=uuid5(ISSUE_NAMESPACE, key),
+        code=code,
+        severity=IssueSeverity.ERROR,
+        message=message,
+        suggestion="Correct the source binding or maintained Raw metadata and revalidate.",
+        module="raw",
+        entity_type="raw_workbench",
+        entity_id=raw_id,
+        dataset=dataset,
+    )
+
+
+def stale_raw_consumers(session: Session, registry: ModuleRegistry, raw: RawWorkbench) -> None:
+    """Fan-out staleness to Raw artifacts, Raw validation runs, and SDTM consumers.
+
+    Relocated from ``routes._stale`` so the single-dataset routes and the bulk
+    worker share exactly one staleness implementation.
+    """
+
+    _artifacts.mark_owner_stale(session, owner_type="raw_workbench", owner_id=raw.id)
+    for run in session.scalars(
+        select(ValidationRun).where(
+            ValidationRun.module_key == "raw",
+            ValidationRun.owner_id == raw.id,
+            ValidationRun.status == "succeeded",
+        )
+    ):
+        run.status = "stale"
+    consumer = cast(
+        _RawConsumerStaleness,
+        registry.require_handler("sdtm", ModuleCapability.STALENESS),
+    )
+    for sdtm_id in consumer.mark_raw_refresh(session, raw.id):
+        _artifacts.mark_owner_stale(session, owner_type="sdtm_workbench", owner_id=sdtm_id)
+
+
+def resolve_bulk_sources(
+    session: Session,
+    *,
+    study_id: UUID,
+    entries: list[RawDatasetImportEntry],
+) -> tuple[list[ResolvedSource | None], list[ValidationIssue]]:
+    """Resolve each entry's SourceFile within the study, positionally aligned.
+
+    Returns a list the same length as ``entries`` (index i -> entries[i]): a
+    ``ResolvedSource`` where the source exists in the study, or ``None`` where a
+    ``raw_source_file_invalid`` issue was collected. Never raises for a missing
+    or foreign-study source.
+    """
+
+    resolved: list[ResolvedSource | None] = []
+    issues: list[ValidationIssue] = []
+    for entry in entries:
+        source = session.get(SourceFile, entry.source_file_id)
+        if source is None or source.study_id != study_id:
+            resolved.append(None)
+            issues.append(
+                _bulk_issue(
+                    "raw_source_file_invalid",
+                    "The immutable source file does not exist in this study.",
+                    raw_id=study_id,
+                    dataset=entry.code,
+                )
+            )
+            continue
+        resolved.append(
+            ResolvedSource(
+                id=source.id,
+                artifact_id=source.artifact_id,
+                object_key=source.object_key,
+                sha256=source.sha256,
+                filename=source.filename,
+                study_id=source.study_id,
+                size=source.size,
+            )
+        )
+    return resolved, issues
+
+
+def apply_bulk_dataset_import(
+    session: Session,
+    registry: ModuleRegistry,
+    *,
+    raw: RawWorkbench,
+    entries: list[RawDatasetImportEntry],
+    resolved_sources: list[ResolvedSource | None],
+    snapshots: list[RawPhysicalSnapshot | None],
+    created_by: str,
+) -> list[RawDataset]:
+    """Create every dataset + binding atomically; the caller commits once.
+
+    Precondition: called only when the collected issue list is empty, so every
+    position of ``entries``/``resolved_sources``/``snapshots`` is non-``None``
+    and index-aligned. The function asserts these invariants.
+    """
+
+    if not (len(entries) == len(resolved_sources) == len(snapshots)):
+        raise RuntimeError("bulk import lists are not positionally aligned")
+    if any(source is None for source in resolved_sources) or any(
+        snapshot is None for snapshot in snapshots
+    ):
+        raise RuntimeError("apply_bulk_dataset_import requires fully resolved inputs")
+
+    created: list[RawDataset] = []
+    for index, entry in enumerate(entries):
+        source = resolved_sources[index]
+        snapshot = snapshots[index]
+        if source is None or snapshot is None:  # defensive; checked above
+            raise RuntimeError("apply_bulk_dataset_import requires fully resolved inputs")
+        dataset = RawDataset(
+            raw_id=raw.id,
+            study_id=raw.study_id,
+            code=entry.code,
+            label=entry.label,
+            description=entry.description,
+            current_source_file_id=source.id,
+        )
+        session.add(dataset)
+        session.flush()
+        session.add(
+            RawDatasetFileBinding(
+                dataset_id=dataset.id,
+                study_id=dataset.study_id,
+                dataset_revision=dataset.revision,
+                source_file_id=source.id,
+                source_artifact_id=source.artifact_id,
+                source_sha256=source.sha256,
+                created_by=created_by,
+            )
+        )
+        if entry.initialize_variables:
+            _initialize_from_snapshot(session, dataset, snapshot)
+        created.append(dataset)
+    raw.revision += 1
+    stale_raw_consumers(session, registry, raw)
+    return created
+
+
+def _initialize_from_snapshot(
+    session: Session, dataset: RawDataset, snapshot: RawPhysicalSnapshot
+) -> None:
+    """Fill missing variable metadata from an inspected snapshot (create/fill only).
+
+    Mirrors ``routes.initialize_variables``: create missing variables and fill
+    missing ``physical_type``/``length``/``precision`` on existing ones; never
+    overwrite maintained values.
+    """
+
+    existing = {
+        item.name: item
+        for item in session.scalars(select(RawVariable).where(RawVariable.dataset_id == dataset.id))
+    }
+    for column in snapshot.columns:
+        variable = existing.get(column.name)
+        if variable is None:
+            variable = RawVariable(
+                dataset_id=dataset.id,
+                study_id=dataset.study_id,
+                name=column.name,
+                physical_type=column.physical_type,
+                length=column.length,
+                precision=column.precision,
+                ordinal=column.ordinal,
+            )
+            session.add(variable)
+            existing[column.name] = variable
+        else:
+            variable_filled = False
+            for name in ("physical_type", "length", "precision"):
+                if getattr(variable, name) is None and getattr(column, name) is not None:
+                    setattr(variable, name, getattr(column, name))
+                    variable_filled = True
+            if variable_filled:
+                variable.revision += 1

@@ -6,8 +6,9 @@ import signal
 import time
 from types import FrameType
 from typing import cast
-from uuid import UUID
+from uuid import UUID, uuid5
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.artifacts.builds import resolve_build_input
@@ -29,8 +30,18 @@ from app.execution.jobs import Job, JobService
 from app.kernel.contracts import ModuleCapability
 from app.kernel.dependencies import RenderedArtifact
 from app.kernel.registry import ModuleRegistry
+from app.raw.contracts import RawDatasetImportEntry, RawPhysicalSnapshot
+from app.raw.files import inspect_file
+from app.raw.models import RawDatasetImport, RawWorkbench
+from app.raw.service import (
+    ISSUE_NAMESPACE,
+    ResolvedSource,
+    apply_bulk_dataset_import,
+    resolve_bulk_sources,
+)
 from app.reconciliation.models import ReconciliationRun
 from app.reconciliation.service import ReconciliationCapability
+from app.validation.contracts import IssueSeverity, ValidationIssue
 from app.validation.models import ValidationRun
 
 logger = logging.getLogger(__name__)
@@ -360,6 +371,211 @@ def _handle_validation(
             JobService().complete(job)
 
 
+def _import_issue(
+    code: str, message: str, raw_id: UUID, *, dataset: str | None = None
+) -> ValidationIssue:
+    """Build a typed bulk-import issue aligned with Raw issue identity rules."""
+
+    key = f"{raw_id}:{code}:{dataset}:None:None"
+    return ValidationIssue(
+        id=uuid5(ISSUE_NAMESPACE, key),
+        code=code,
+        severity=IssueSeverity.ERROR,
+        message=message,
+        suggestion="Correct the source binding or maintained Raw metadata and revalidate.",
+        module="raw",
+        entity_type="raw_workbench",
+        entity_id=raw_id,
+        dataset=dataset,
+    )
+
+
+def _handle_raw_dataset_import(
+    factory: sessionmaker[Session],
+    registry: ModuleRegistry,
+    storage: ObjectStorage,
+    settings: Settings,
+    job_id: UUID,
+) -> None:
+    """Validate a JSON-array bulk import outside any transaction, then apply atomically.
+
+    Follows the T1 / untransacted-middle / T2 skeleton: a content rejection is a
+    *completed* job (never requeued); only transient infra errors propagate to
+    ``_process_job`` and use ``fail()``.
+    """
+
+    # T1 (short): claim-time state, terminal/cancel guards, resolve sources.
+    with factory.begin() as session:
+        job = session.get(Job, job_id)
+        if job is None:
+            return
+        record = session.get(RawDatasetImport, UUID(str(job.payload["import_id"])))
+        if record is None:
+            JobService().fail(job, {"code": "raw_dataset_import_missing"})
+            return
+        if record.status in {"succeeded", "failed", "cancelled"}:
+            JobService().complete(job)
+            return
+        if job.cancellation_requested_at is not None or record.status == "cancelled":
+            record.status = "cancelled"
+            record.completed_at = utc_now()
+            JobService().complete(job)
+            return
+        raw = session.get(RawWorkbench, record.raw_id)
+        if raw is None:
+            record.status = "failed"
+            record.failure = {"code": "raw_not_found"}
+            record.completed_at = utc_now()
+            JobService().complete(job)
+            return
+        record.status = "running"
+        record.started_at = record.started_at or utc_now()
+        entries = [RawDatasetImportEntry.model_validate(item) for item in record.entries]
+        resolved_sources, issues = resolve_bulk_sources(
+            session, study_id=record.study_id, entries=entries
+        )
+        raw_id = raw.id
+        pin = job.payload.get("expected_raw_revision")
+        pinned_revision = int(cast(int, pin)) if pin is not None else None
+
+    # Middle (no transaction): size cap, then inspect each distinct file once.
+    snapshots: list[RawPhysicalSnapshot | None] = [None] * len(entries)
+    if not issues:
+        total_bytes = sum(source.size for source in resolved_sources if source is not None)
+        if total_bytes > settings.raw_bulk_import_max_total_bytes:
+            issues.append(
+                _import_issue(
+                    "raw_bulk_import_too_large",
+                    "The summed size of referenced source files exceeds the import limit.",
+                    raw_id,
+                )
+            )
+        else:
+            cache: dict[UUID, RawPhysicalSnapshot] = {}
+            for index, source in enumerate(resolved_sources):
+                if source is None:
+                    continue
+                snapshot = cache.get(source.id)
+                if snapshot is None:
+                    snapshot = _inspect_resolved(storage, source, entries[index], raw_id, issues)
+                    if snapshot is None:
+                        continue
+                    cache[source.id] = snapshot
+                snapshots[index] = snapshot
+
+    # T2 (short, atomic): re-guard, then fail-with-issues or apply.
+    with factory.begin() as session:
+        job = session.get(Job, job_id)
+        record = session.get(RawDatasetImport, UUID(str(job.payload["import_id"]))) if job else None
+        if job is None or record is None:
+            return
+        if record.status in {"succeeded", "failed", "cancelled"}:
+            JobService().complete(job)
+            return
+        if job.cancellation_requested_at is not None or record.status == "cancelled":
+            record.status = "cancelled"
+            record.completed_at = utc_now()
+            JobService().complete(job)
+            return
+        raw = session.get(RawWorkbench, record.raw_id)
+        if raw is None:
+            record.status = "failed"
+            record.failure = {"code": "raw_not_found"}
+            record.completed_at = utc_now()
+            JobService().complete(job)
+            return
+        if pinned_revision is not None and raw.revision != pinned_revision:
+            record.issues = [
+                _import_issue(
+                    "stale_raw_revision",
+                    "The Raw workbench revision moved since the import was requested.",
+                    raw.id,
+                ).model_dump(mode="json")
+            ]
+            record.status = "failed"
+            record.failure = {"code": "stale_raw_revision"}
+            record.completed_at = utc_now()
+            JobService().complete(job)
+            return
+        if issues:
+            record.issues = [issue.model_dump(mode="json") for issue in issues]
+            record.status = "failed"
+            record.failure = {"code": "raw_bulk_import_failed"}
+            record.completed_at = utc_now()
+            JobService().complete(job)
+            return
+        try:
+            datasets = apply_bulk_dataset_import(
+                session,
+                registry,
+                raw=raw,
+                entries=entries,
+                resolved_sources=resolved_sources,
+                snapshots=snapshots,
+                created_by=record.created_by,
+            )
+            session.flush()
+        except IntegrityError:
+            session.rollback()
+            with factory.begin() as fresh:
+                fresh_job = fresh.get(Job, job_id)
+                fresh_record = (
+                    fresh.get(RawDatasetImport, UUID(str(fresh_job.payload["import_id"])))
+                    if fresh_job
+                    else None
+                )
+                if fresh_job is None or fresh_record is None:
+                    return
+                fresh_record.issues = [
+                    _import_issue(
+                        "duplicate_raw_dataset_code",
+                        "A dataset code already exists in the Raw workbench.",
+                        raw_id,
+                    ).model_dump(mode="json")
+                ]
+                fresh_record.status = "failed"
+                fresh_record.failure = {"code": "duplicate_raw_dataset_code"}
+                fresh_record.completed_at = utc_now()
+                JobService().complete(fresh_job)
+            return
+        record.result_dataset_ids = [str(dataset.id) for dataset in datasets]
+        record.files_inspected = len({source.id for source in resolved_sources if source})
+        record.status = "succeeded"
+        record.completed_at = utc_now()
+        JobService().complete(job)
+
+
+def _inspect_resolved(
+    storage: ObjectStorage,
+    source: ResolvedSource,
+    entry: RawDatasetImportEntry,
+    raw_id: UUID,
+    issues: list[ValidationIssue],
+) -> RawPhysicalSnapshot | None:
+    """Verify checksum and inspect one resolved file; record a typed issue on failure."""
+
+    digest = hashlib.sha256()
+    with storage.open(source.object_key) as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+    if digest.hexdigest() != source.sha256:
+        issues.append(
+            _import_issue(
+                "raw_source_checksum_mismatch",
+                "The bound source bytes do not match their immutable checksum.",
+                raw_id,
+                dataset=entry.code,
+            )
+        )
+        return None
+    try:
+        with storage.open(source.object_key) as stream:
+            return inspect_file(stream, source.filename)
+    except ProblemException as error:
+        issues.append(_import_issue(error.code, error.detail, raw_id, dataset=entry.code))
+        return None
+
+
 def _record_failure(
     factory: sessionmaker[Session], job_id: UUID, failure: dict[str, object]
 ) -> None:
@@ -386,6 +602,12 @@ def _record_failure(
                 validation_run.status = "failed"
                 validation_run.failure = failure
                 validation_run.completed_at = utc_now()
+        elif job.job_type == "raw_dataset_import":
+            record = session.get(RawDatasetImport, UUID(str(job.payload["import_id"])))
+            if record is not None and job.status == "failed":
+                record.status = "failed"
+                record.failure = failure
+                record.completed_at = utc_now()
 
 
 def _process_job(
@@ -393,7 +615,9 @@ def _process_job(
     registry: ModuleRegistry,
     storage: ObjectStorage,
     job: Job,
+    settings: Settings | None = None,
 ) -> None:
+    resolved_settings = settings or get_settings()
     try:
         if job.job_type == "artifact_build":
             _handle_artifact_build(factory, registry, storage, job.id)
@@ -401,6 +625,8 @@ def _process_job(
             _handle_reconciliation(factory, registry, storage, job.id)
         elif job.job_type == "validation":
             _handle_validation(factory, storage, job.id)
+        elif job.job_type == "raw_dataset_import":
+            _handle_raw_dataset_import(factory, registry, storage, resolved_settings, job.id)
         else:
             _record_failure(
                 factory,
@@ -437,12 +663,17 @@ def main() -> None:
                 session,
                 worker_id="build-worker",
                 lease_seconds=settings.job_lease_seconds,
-                job_types=("artifact_build", "reconciliation", "validation"),
+                job_types=(
+                    "artifact_build",
+                    "reconciliation",
+                    "validation",
+                    "raw_dataset_import",
+                ),
             )
         if job is None:
             time.sleep(1)
             continue
-        _process_job(factory, registry, storage, job)
+        _process_job(factory, registry, storage, job, settings)
 
 
 if __name__ == "__main__":

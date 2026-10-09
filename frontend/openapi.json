@@ -605,6 +605,76 @@
         }
       }
     },
+    "/api/v1/studies/{study_id}/source-files:bulk": {
+      "post": {
+        "tags": [
+          "artifacts"
+        ],
+        "summary": "Create Source Files Bulk",
+        "description": "Upload many immutable source files atomically in request order.",
+        "operationId": "create_source_files_bulk_api_v1_studies__study_id__source_files_bulk_post",
+        "parameters": [
+          {
+            "name": "study_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Study Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_source_files_bulk_api_v1_studies__study_id__source_files_bulk_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceFileBulkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/source-files/{source_file_id}": {
       "get": {
         "tags": [
@@ -7172,6 +7242,210 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ArtifactBuildResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/raw/{raw_id}/datasets/import": {
+      "post": {
+        "tags": [
+          "raw"
+        ],
+        "summary": "Create Dataset Import",
+        "description": "Enqueue an asynchronous JSON-array bulk dataset import.",
+        "operationId": "create_dataset_import_api_v1_raw__raw_id__datasets_import_post",
+        "parameters": [
+          {
+            "name": "raw_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Raw Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RawDatasetImportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RawDatasetImportResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/raw-dataset-imports/{import_id}": {
+      "get": {
+        "tags": [
+          "raw"
+        ],
+        "summary": "Get Dataset Import",
+        "operationId": "get_dataset_import_api_v1_raw_dataset_imports__import_id__get",
+        "parameters": [
+          {
+            "name": "import_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Import Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RawDatasetImportResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/raw-dataset-imports/{import_id}/cancel": {
+      "post": {
+        "tags": [
+          "raw"
+        ],
+        "summary": "Cancel Dataset Import",
+        "operationId": "cancel_dataset_import_api_v1_raw_dataset_imports__import_id__cancel_post",
+        "parameters": [
+          {
+            "name": "import_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Import Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RawDatasetImportResponse"
                 }
               }
             }
@@ -19531,6 +19805,23 @@
         ],
         "title": "Body_create_source_file_api_v1_studies__study_id__source_files_post"
       },
+      "Body_create_source_files_bulk_api_v1_studies__study_id__source_files_bulk_post": {
+        "properties": {
+          "files": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "title": "Body_create_source_files_bulk_api_v1_studies__study_id__source_files_bulk_post"
+      },
       "CastNode": {
         "properties": {
           "node_type": {
@@ -22783,6 +23074,16 @@
         ],
         "title": "IntegrationWrite"
       },
+      "IssueSeverity": {
+        "type": "string",
+        "enum": [
+          "error",
+          "warning",
+          "info"
+        ],
+        "title": "IssueSeverity",
+        "description": "Stable issue severity levels."
+      },
       "JoinNode": {
         "properties": {
           "node_type": {
@@ -23368,6 +23669,216 @@
           "source_file_id"
         ],
         "title": "RawDatasetCreate"
+      },
+      "RawDatasetImportEntry": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$",
+            "title": "Code"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "source_file_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source File Id"
+          },
+          "initialize_variables": {
+            "type": "boolean",
+            "title": "Initialize Variables",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "label",
+          "source_file_id"
+        ],
+        "title": "RawDatasetImportEntry",
+        "description": "One dataset to create and bind in a bulk import request."
+      },
+      "RawDatasetImportRequest": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "1.0.0",
+            "title": "Schema Version",
+            "default": "1.0.0"
+          },
+          "expected_raw_revision": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Raw Revision"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/RawDatasetImportEntry"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Entries"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "entries"
+        ],
+        "title": "RawDatasetImportRequest",
+        "description": "Versioned JSON-array envelope for an asynchronous bulk dataset import."
+      },
+      "RawDatasetImportResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "raw_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Raw Id"
+          },
+          "study_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Study Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status"
+          },
+          "schema_version": {
+            "type": "string",
+            "title": "Schema Version"
+          },
+          "entry_count": {
+            "type": "integer",
+            "title": "Entry Count"
+          },
+          "files_inspected": {
+            "type": "integer",
+            "title": "Files Inspected"
+          },
+          "input_fingerprint": {
+            "type": "string",
+            "title": "Input Fingerprint"
+          },
+          "result_dataset_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Result Dataset Ids"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationIssue"
+            },
+            "type": "array",
+            "title": "Issues"
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "raw_id",
+          "study_id",
+          "status",
+          "schema_version",
+          "entry_count",
+          "files_inspected",
+          "input_fingerprint",
+          "result_dataset_ids",
+          "issues",
+          "failure",
+          "started_at",
+          "completed_at",
+          "created_by",
+          "created_at"
+        ],
+        "title": "RawDatasetImportResponse",
+        "description": "Addressable status resource for an asynchronous bulk dataset import."
       },
       "RawDatasetPatch": {
         "properties": {
@@ -26327,6 +26838,23 @@
         ],
         "title": "SortNode"
       },
+      "SourceFileBulkResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SourceFileResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "SourceFileBulkResponse",
+        "description": "Atomic bulk-upload result: one source file per request part, in order."
+      },
       "SourceFileCollection": {
         "properties": {
           "items": {
@@ -27878,6 +28406,114 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "ValidationIssue": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/IssueSeverity"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "suggestion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestion"
+          },
+          "module": {
+            "type": "string",
+            "title": "Module"
+          },
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "field_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Path"
+          },
+          "dataset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset"
+          },
+          "variable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variable"
+          },
+          "artifact_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artifact Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "severity",
+          "message",
+          "module",
+          "entity_type"
+        ],
+        "title": "ValidationIssue",
+        "description": "Machine-readable issue shared by validation and reconciliation."
       },
       "ValidationRunResponse": {
         "properties": {
