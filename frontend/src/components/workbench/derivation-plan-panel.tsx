@@ -1,7 +1,7 @@
 import * as React from 'react'
 import type { AxiosError } from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
-import { Save, Upload } from 'lucide-react'
+import { Download, Save, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
@@ -318,6 +318,28 @@ export function DerivationPlanPanel({
     toast.success('Plan JSON loaded onto the canvas. Review, then Save plan.')
   }
 
+  // Export the current on-canvas graph as a downloadable plan JSON. Serializes
+  // through the same `graphToPlan` the Save flow uses, so the exported file
+  // round-trips exactly with the Import affordance. This is purely client-side
+  // (the plan is already in memory); it never calls the API and the pinned
+  // revisions reflect the panel's current/loaded ones.
+  function handleExport() {
+    if (pinnedSpecRevision === undefined || pinnedInputRevision === undefined) {
+      return
+    }
+    const body = graphToPlan(nodes, edges, {
+      domain: domainCode,
+      specificationRevision: pinnedSpecRevision,
+      inputSelectionRevision: pinnedInputRevision,
+      schemaVersion: '1.1.0',
+    })
+    const revision = plan?.revision ?? 'draft'
+    downloadJson(
+      body,
+      `sdtm-${domainCode}-derivation-plan-r${revision}.json`,
+    )
+  }
+
   // ---- render -------------------------------------------------------------
 
   if (query.isLoading) {
@@ -402,6 +424,14 @@ export function DerivationPlanPanel({
             disabled={misaligned}
           >
             <Upload /> Import JSON
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleExport}
+            disabled={nodes.length === 0}
+          >
+            <Download /> Export JSON
           </Button>
           {misaligned && (
             <span className="text-muted-foreground text-sm">
@@ -587,6 +617,30 @@ function ConcurrencyNotice({ message, onReload }: NoticeProps) {
  * `edges` round-trip through it; the pinned revisions are taken from the
  * typed response columns, which are authoritative.
  */
+/**
+ * Save a value as a pretty-printed JSON file via a transient object-URL anchor
+ * (the same browser-download technique as the `useDownload` hook). Client-side
+ * only: no network, no credentials. The object URL is always revoked.
+ */
+function downloadJson(value: unknown, filename: string): void {
+  const blob = new Blob([JSON.stringify(value, null, 2)], {
+    type: 'application/json',
+  })
+  const objectUrl = URL.createObjectURL(blob)
+  try {
+    const anchor = document.createElement('a')
+    anchor.href = objectUrl
+    anchor.download = filename
+    anchor.rel = 'noopener'
+    anchor.style.display = 'none'
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+  } finally {
+    URL.revokeObjectURL(objectUrl)
+  }
+}
+
 function planBodyFromResponse(plan: PlanResponse): SdtmDerivationPlan {
   const payload = plan.payload as Record<string, unknown>
   const nodes = Array.isArray(payload.nodes)
