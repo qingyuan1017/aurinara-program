@@ -1,7 +1,7 @@
 import * as React from 'react'
 import type { AxiosError } from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
-import { Save } from 'lucide-react'
+import { Save, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
@@ -22,12 +22,14 @@ import {
 } from '@/components/workbench/alignment-banner'
 import { DerivationPlanGraph } from '@/components/workbench/plan-graph/derivation-plan-graph'
 import { DerivationPreviewLineagePanel } from '@/components/workbench/derivation-preview-lineage-panel'
+import { PlanJsonImportDialog } from '@/components/workbench/plan-json-import-dialog'
 import {
   graphToPlan,
   planToGraph,
   type PlanGraphEdge,
   type PlanGraphNode,
 } from '@/components/workbench/plan-graph-adapters'
+import type { ImportedPlanGraph } from '@/components/workbench/plan-json-import'
 import { parseProblem, stalenessAlert, type ProblemDetail } from '@/lib/problems'
 import { ifMatchRequest, jsonRequest } from '@/lib/requests'
 import { invalidateSdtmSubResource } from '@/lib/invalidate'
@@ -147,6 +149,7 @@ export function DerivationPlanPanel({
     setEdges(graph.edges)
   }, [plan])
 
+  const [importOpen, setImportOpen] = React.useState(false)
   const [concurrency, setConcurrency] = React.useState<string | null>(null)
   const [staleInput, setStaleInput] = React.useState<string | null>(null)
   // Per-domain plan 409s surfaced beside the existing stale-input notice: an
@@ -295,6 +298,26 @@ export function DerivationPlanPanel({
     await qc.invalidateQueries({ queryKey: planKey })
   }
 
+  // Load an imported plan's nodes/edges onto the canvas. This only populates the
+  // editor (reusing the same `planToGraph` deserialization as a normal load so
+  // auto-layout runs); the existing Save flow still pins the current revisions,
+  // sends If-Match, and lets the backend validate. The imported body is pinned
+  // against the panel's current/loaded revisions, never the JSON's own, so a
+  // plan exported from a different revision still saves against current inputs.
+  function handleImport(graph: ImportedPlanGraph) {
+    const view = planToGraph({
+      schema_version: '1.1.0',
+      domain: domainCode,
+      specification_revision: pinnedSpecRevision ?? 0,
+      input_selection_revision: pinnedInputRevision ?? 0,
+      nodes: graph.nodes,
+      edges: graph.edges,
+    })
+    setNodes(view.nodes)
+    setEdges(view.edges)
+    toast.success('Plan JSON loaded onto the canvas. Review, then Save plan.')
+  }
+
   // ---- render -------------------------------------------------------------
 
   if (query.isLoading) {
@@ -372,6 +395,14 @@ export function DerivationPlanPanel({
           >
             <Save /> Save plan
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setImportOpen(true)}
+            disabled={misaligned}
+          >
+            <Upload /> Import JSON
+          </Button>
           {misaligned && (
             <span className="text-muted-foreground text-sm">
               The plan is read-only while misaligned.
@@ -412,6 +443,13 @@ export function DerivationPlanPanel({
           disabled={misaligned}
         />
       )}
+
+      <PlanJsonImportDialog
+        domainCode={domainCode}
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImport={handleImport}
+      />
     </div>
   )
 }
