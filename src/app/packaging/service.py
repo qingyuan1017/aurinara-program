@@ -421,9 +421,7 @@ def _validate_evidence(
             )
 
 
-def _validate_artifact_references(
-    session: Session, study_id: UUID, artifact: Artifact
-) -> None:
+def _validate_artifact_references(session: Session, study_id: UUID, artifact: Artifact) -> None:
     """Resolve standard frozen provenance references without module-name dispatch."""
 
     references: list[tuple[UUID, str | None]] = []

@@ -69,13 +69,9 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("id", sa.Uuid(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["report_artifact_id"], ["artifacts.id"], ondelete="RESTRICT"
-        ),
+        sa.ForeignKeyConstraint(["report_artifact_id"], ["artifacts.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["study_id"], ["studies.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(
-            ["zip_artifact_id"], ["artifacts.id"], ondelete="RESTRICT"
-        ),
+        sa.ForeignKeyConstraint(["zip_artifact_id"], ["artifacts.id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(

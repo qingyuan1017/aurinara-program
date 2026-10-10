@@ -22,7 +22,9 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     app_log_level: str = "INFO"
     app_api_prefix: str = "/api/v1"
-    app_cors_allow_origins: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174 "
+    app_cors_allow_origins: str = (
+        "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174"
+    )
 
     database_url: str = "postgresql+psycopg://clinical:clinical@localhost:55432/clinical"
 
