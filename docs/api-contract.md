@@ -131,11 +131,12 @@ Long-running action endpoints use the same result contract in every module:
 | `/validate`                                          | `202 Accepted` with a validation run and `Location: /api/v1/validation-runs/{validation_run_id}`             |
 | `/reconcile` or reconciliation-run collection `POST` | `202 Accepted` with a reconciliation run and `Location: /api/v1/reconciliation-runs/{reconciliation_run_id}` |
 | `/compile` or `/artifacts`                           | `202 Accepted` with an artifact build and `Location: /api/v1/artifact-builds/{build_id}`                     |
+| `/raw/{raw_id}/datasets/import`                      | `202 Accepted` with a raw dataset import and `Location: /api/v1/raw-dataset-imports/{import_id}`             |
 | `/execute`                                           | `202 Accepted` with an execution run and `Location: /api/v1/execution-runs/{run_id}`                         |
 | `/render` when it creates artifacts                  | `202 Accepted` with an artifact build and `Location: /api/v1/artifact-builds/{build_id}`                     |
 | Submission-package collection `POST`                 | `202 Accepted` with a submission package and `Location: /api/v1/submission-packages/{package_id}`            |
 
-Synchronous previews and non-persisting renders return `200 OK` and do not create operation resources. All artifact-producing requests include an expected input fingerprint. Artifact builds, execution runs, reconciliation runs, and submission-package creation require `Idempotency-Key`.
+Synchronous previews and non-persisting renders return `200 OK` and do not create operation resources. All artifact-producing requests include an expected input fingerprint. Artifact builds, execution runs, reconciliation runs, bulk raw dataset imports, and submission-package creation require `Idempotency-Key`.
 
 ## 4. Common resource contracts
 
@@ -445,12 +446,15 @@ GET  /api/v1/studies/{study_id}
 PATCH /api/v1/studies/{study_id}
 
 POST /api/v1/studies/{study_id}/source-files
+POST /api/v1/studies/{study_id}/source-files:bulk
 GET  /api/v1/studies/{study_id}/source-files
 GET  /api/v1/source-files/{source_file_id}
 GET  /api/v1/source-files/{source_file_id}/download
 ```
 
 Source-file creation streams the upload, calculates SHA-256, applies size and media checks, and returns an immutable source-file record containing the ID of its corresponding `source_file` artifact. Neither response exposes an object-store key. A corrected file is a new resource and artifact.
+
+The `:bulk` upload accepts a multipart request with many file parts (1..`raw_bulk_upload_max_files`) and returns `201 Created` with one source-file record per part in request order. It is all-or-nothing: a single rejected part (size, media type, or filename) fails the whole request with `problem+json` and commits no `source_files` rows.
 
 ## 7. Raw routes
 
@@ -464,6 +468,9 @@ PUT   /api/v1/raw/{raw_id}/dependencies
 
 GET    /api/v1/raw/{raw_id}/datasets
 POST   /api/v1/raw/{raw_id}/datasets
+POST   /api/v1/raw/{raw_id}/datasets/import
+GET    /api/v1/raw-dataset-imports/{import_id}
+POST   /api/v1/raw-dataset-imports/{import_id}/cancel
 GET    /api/v1/raw-datasets/{dataset_id}
 PATCH  /api/v1/raw-datasets/{dataset_id}
 DELETE /api/v1/raw-datasets/{dataset_id}
@@ -484,6 +491,8 @@ POST /api/v1/raw/{raw_id}/artifacts
 ```
 
 A raw dataset binds a manually maintained dataset record to an exact, study-owned immutable source-file record and its corresponding artifact. Dataset natural keys are unique within the Raw workbench. Replacing the file binding uses `PATCH` with `If-Match`, creates a new aggregate revision, and makes dependent input selections, Derivation Plans, validation runs, artifacts, and executions stale or alignment-required as applicable; it never overwrites the source file.
+
+`POST /api/v1/raw/{raw_id}/datasets/import` is the asynchronous bulk create. It takes a versioned JSON-array envelope (`schema_version`, optional `expected_raw_revision`, and `entries` where each entry carries `code`, `label`, optional `description`, `source_file_id`, and `initialize_variables`) and requires an `Idempotency-Key`. It returns `202 Accepted` with `Location: /api/v1/raw-dataset-imports/{import_id}` and a status resource whose `status` is `queued`. Omitting the key returns `400 idempotency_key_required`; replaying the same key and body returns the prior run at `202`; the same key with a different body returns `409 idempotency_key_reused`. A durable worker validates the whole array (source resolution, summed byte cap, checksum, file inspection, workbench-duplicate codes) before committing anything, then atomically creates one dataset and one immutable binding per entry, bumps the workbench revision once, and stales consumers exactly as a single create. `GET /api/v1/raw-dataset-imports/{import_id}` reports the current status, the created `raw_dataset` IDs on success, or the full typed issue list on failure (no datasets written). `POST /api/v1/raw-dataset-imports/{import_id}/cancel` cancels a `queued` import synchronously and requests cancellation of a `running` import, which the worker observes at its next transaction boundary; a terminal import returns `409 invalid_lifecycle_transition`. Content rejections terminate the run `failed` with per-entry issues while the backing job completes successfully and is never requeued.
 
 Variable metadata includes the source name, label, physical type, length or precision where applicable, ordinal position, role, controlled terminology reference, and user-authored description. `variables/initialize` inspects the selected file and fills only missing factual physical metadata. It preserves manual edits and does not infer clinical meaning, mappings, derivations, annotations, or review decisions. Raw dependencies may select applicable raw-layout or metadata standards, terminology for explicitly bound values, study Reference revisions for source systems, vendors, sites, and units, and templates for dictionary or import/export workbooks; none is inferred from uploaded rows.
 

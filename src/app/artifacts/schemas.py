@@ -99,6 +99,12 @@ class SourceFileCollection(BaseModel):
     next_cursor: str | None = None
 
 
+class SourceFileBulkResponse(BaseModel):
+    """Atomic bulk-upload result: one source file per request part, in order."""
+
+    items: tuple[SourceFileResponse, ...]
+
+
 class ArtifactCollection(BaseModel):
     """Artifact collection."""
 

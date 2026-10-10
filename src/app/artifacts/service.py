@@ -49,76 +49,79 @@ class ArtifactService:
         """Stream, validate, checksum, upload, and commit one immutable source file."""
 
         self._studies.require_access(session, study_id, principal)
-        filename = _safe_display_filename(upload.filename)
-        media_type = upload.content_type or "application/octet-stream"
         allowed = frozenset(settings.source_file_allowed_media_types.split(","))
-        if media_type not in allowed:
-            raise ProblemException(
-                status_code=415,
-                code="unsupported_media_type",
-                title="Unsupported source-file media type",
-                detail=f"Media type '{media_type}' is not allowed.",
-            )
-
-        digest = hashlib.sha256()
-        size = 0
-        temporary_path: Path | None = None
-        try:
-            with tempfile.NamedTemporaryFile(delete=False) as temporary:
-                temporary_path = Path(temporary.name)
-                while chunk := await upload.read(1024 * 1024):
-                    size += len(chunk)
-                    if size > settings.source_file_max_bytes:
-                        raise ProblemException(
-                            status_code=413,
-                            code="source_file_too_large",
-                            title="Source file is too large",
-                            detail="The upload exceeds the configured byte limit.",
-                        )
-                    digest.update(chunk)
-                    temporary.write(chunk)
-            sha256 = digest.hexdigest()
-            object_key = checksum_object_key(sha256)
-            storage.put_file(object_key, temporary_path, media_type)
-        finally:
-            await upload.close()
-            if temporary_path is not None:
-                temporary_path.unlink(missing_ok=True)
-
-        artifact_id = uuid4()
-        source_file_id = uuid4()
-        artifact = Artifact(
-            id=artifact_id,
+        filename, media_type = _validate_upload_metadata(upload, allowed)
+        stored = await _stream_upload(upload, storage, settings, media_type)
+        artifact, source_file = _build_source_file_rows(
             study_id=study_id,
-            module_key="raw",
-            artifact_type="source_file",
-            owner_type="source_file",
-            owner_id=source_file_id,
             filename=filename,
             media_type=media_type,
-            object_key=object_key,
-            sha256=sha256,
-            size=size,
-            input_fingerprint=sha256,
-            manifest={"schema_version": "1.0.0", "source": "upload"},
-            generator_name="source-file-upload",
-            generator_version="1.0.0",
-            created_by=principal.subject,
-        )
-        source_file = SourceFile(
-            id=source_file_id,
-            study_id=study_id,
-            artifact_id=artifact_id,
-            filename=filename,
-            media_type=media_type,
-            object_key=object_key,
-            sha256=sha256,
-            size=size,
+            stored=stored,
             created_by=principal.subject,
         )
         session.add_all((artifact, source_file))
         session.commit()
         return source_file
+
+    async def create_source_files_bulk(
+        self,
+        session: Session,
+        storage: ObjectStorage,
+        settings: Settings,
+        study_id: UUID,
+        uploads: list[UploadFile],
+        principal: Principal,
+    ) -> list[SourceFile]:
+        """Stream, validate, and atomically commit many immutable source files.
+
+        The whole request is all-or-nothing: every part's filename and media type is
+        validated before any byte is streamed, each part is streamed to its own temp
+        file one at a time (at most one temp file on disk at a moment), and the staged
+        metadata rows are committed exactly once.
+        """
+
+        self._studies.require_access(session, study_id, principal)
+        if not uploads:
+            raise ProblemException(
+                status_code=422,
+                code="raw_bulk_upload_empty",
+                title="No files to upload",
+                detail="The bulk upload request must include at least one file part.",
+            )
+        if len(uploads) > settings.raw_bulk_upload_max_files:
+            raise ProblemException(
+                status_code=413,
+                code="raw_bulk_upload_too_many",
+                title="Too many files",
+                detail=(
+                    "The bulk upload request exceeds the configured "
+                    f"maximum of {settings.raw_bulk_upload_max_files} files."
+                ),
+            )
+
+        allowed = frozenset(settings.source_file_allowed_media_types.split(","))
+        # Metadata pass: validate every part before streaming any bytes.
+        validated = [_validate_upload_metadata(upload, allowed) for upload in uploads]
+
+        # Upload pass: stream strictly one part at a time; at most one temp file exists.
+        staged: list[tuple[Artifact, SourceFile]] = []
+        source_files: list[SourceFile] = []
+        for upload, (filename, media_type) in zip(uploads, validated, strict=True):
+            stored = await _stream_upload(upload, storage, settings, media_type)
+            artifact, source_file = _build_source_file_rows(
+                study_id=study_id,
+                filename=filename,
+                media_type=media_type,
+                stored=stored,
+                created_by=principal.subject,
+            )
+            staged.append((artifact, source_file))
+            source_files.append(source_file)
+
+        for artifact, source_file in staged:
+            session.add_all((artifact, source_file))
+        session.commit()
+        return source_files
 
     def list_source_files(
         self, session: Session, study_id: UUID, principal: Principal
@@ -359,6 +362,102 @@ def store_bytes_object(storage: ObjectStorage, data: bytes, media_type: str) -> 
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)
     return StoredJsonObject(object_key=object_key, sha256=sha256, size=len(data))
+
+
+def _validate_upload_metadata(
+    upload: UploadFile, allowed_media_types: frozenset[str]
+) -> tuple[str, str]:
+    """Validate the display filename and media type before any bytes are streamed."""
+
+    filename = _safe_display_filename(upload.filename)
+    media_type = upload.content_type or "application/octet-stream"
+    if media_type not in allowed_media_types:
+        raise ProblemException(
+            status_code=415,
+            code="unsupported_media_type",
+            title="Unsupported source-file media type",
+            detail=f"Media type '{media_type}' is not allowed.",
+        )
+    return filename, media_type
+
+
+async def _stream_upload(
+    upload: UploadFile,
+    storage: ObjectStorage,
+    settings: Settings,
+    media_type: str,
+) -> StoredObject:
+    """Stream one upload to a temp file, checksum, and publish its immutable bytes."""
+
+    digest = hashlib.sha256()
+    size = 0
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False) as temporary:
+            temporary_path = Path(temporary.name)
+            while chunk := await upload.read(1024 * 1024):
+                size += len(chunk)
+                if size > settings.source_file_max_bytes:
+                    raise ProblemException(
+                        status_code=413,
+                        code="source_file_too_large",
+                        title="Source file is too large",
+                        detail="The upload exceeds the configured byte limit.",
+                    )
+                digest.update(chunk)
+                temporary.write(chunk)
+        sha256 = digest.hexdigest()
+        object_key = checksum_object_key(sha256)
+        storage.put_file(object_key, temporary_path, media_type)
+    finally:
+        await upload.close()
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+    return StoredJsonObject(object_key=object_key, sha256=sha256, size=size)
+
+
+def _build_source_file_rows(
+    *,
+    study_id: UUID,
+    filename: str,
+    media_type: str,
+    stored: StoredObject,
+    created_by: str,
+) -> tuple[Artifact, SourceFile]:
+    """Build the immutable Artifact + SourceFile metadata rows for a stored upload."""
+
+    artifact_id = uuid4()
+    source_file_id = uuid4()
+    artifact = Artifact(
+        id=artifact_id,
+        study_id=study_id,
+        module_key="raw",
+        artifact_type="source_file",
+        owner_type="source_file",
+        owner_id=source_file_id,
+        filename=filename,
+        media_type=media_type,
+        object_key=stored.object_key,
+        sha256=stored.sha256,
+        size=stored.size,
+        input_fingerprint=stored.sha256,
+        manifest={"schema_version": "1.0.0", "source": "upload"},
+        generator_name="source-file-upload",
+        generator_version="1.0.0",
+        created_by=created_by,
+    )
+    source_file = SourceFile(
+        id=source_file_id,
+        study_id=study_id,
+        artifact_id=artifact_id,
+        filename=filename,
+        media_type=media_type,
+        object_key=stored.object_key,
+        sha256=stored.sha256,
+        size=stored.size,
+        created_by=created_by,
+    )
+    return artifact, source_file
 
 
 def _safe_display_filename(value: str | None) -> str:

@@ -38,6 +38,8 @@ import type {
   RawArtifactFingerprintResponse,
   RawArtifactRequest,
   RawDatasetCreate,
+  RawDatasetImportRequest,
+  RawDatasetImportResponse,
   RawDatasetPatch,
   RawDatasetResponse,
   RawInitializeResponse,
@@ -1771,6 +1773,226 @@ export const useCreateRawArtifacts = <TError = ErrorType<HTTPValidationError>,
       > => {
 
       const mutationOptions = getCreateRawArtifactsMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * Enqueue an asynchronous JSON-array bulk dataset import.
+ * @summary Create Dataset Import
+ */
+export const createDatasetImport = (
+    rawId: string,
+    rawDatasetImportRequest: BodyType<RawDatasetImportRequest>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<RawDatasetImportResponse>(
+      {url: `/api/v1/raw/${rawId}/datasets/import`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: rawDatasetImportRequest, signal
+    },
+      options);
+    }
+  
+
+
+export const getCreateDatasetImportMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDatasetImport>>, TError,{rawId: string;data: BodyType<RawDatasetImportRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof createDatasetImport>>, TError,{rawId: string;data: BodyType<RawDatasetImportRequest>}, TContext> => {
+
+const mutationKey = ['createDatasetImport'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createDatasetImport>>, {rawId: string;data: BodyType<RawDatasetImportRequest>}> = (props) => {
+          const {rawId,data} = props ?? {};
+
+          return  createDatasetImport(rawId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateDatasetImportMutationResult = NonNullable<Awaited<ReturnType<typeof createDatasetImport>>>
+    export type CreateDatasetImportMutationBody = BodyType<RawDatasetImportRequest>
+    export type CreateDatasetImportMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Create Dataset Import
+ */
+export const useCreateDatasetImport = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDatasetImport>>, TError,{rawId: string;data: BodyType<RawDatasetImportRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createDatasetImport>>,
+        TError,
+        {rawId: string;data: BodyType<RawDatasetImportRequest>},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateDatasetImportMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Get Dataset Import
+ */
+export const getDatasetImport = (
+    importId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<RawDatasetImportResponse>(
+      {url: `/api/v1/raw-dataset-imports/${importId}`, method: 'GET', signal
+    },
+      options);
+    }
+  
+
+
+
+export const getGetDatasetImportQueryKey = (importId?: string,) => {
+    return [
+    `/api/v1/raw-dataset-imports/${importId}`
+    ] as const;
+    }
+
+    
+export const getGetDatasetImportQueryOptions = <TData = Awaited<ReturnType<typeof getDatasetImport>>, TError = ErrorType<HTTPValidationError>>(importId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDatasetImport>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDatasetImportQueryKey(importId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDatasetImport>>> = ({ signal }) => getDatasetImport(importId, requestOptions, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(importId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDatasetImport>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetDatasetImportQueryResult = NonNullable<Awaited<ReturnType<typeof getDatasetImport>>>
+export type GetDatasetImportQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetDatasetImport<TData = Awaited<ReturnType<typeof getDatasetImport>>, TError = ErrorType<HTTPValidationError>>(
+ importId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDatasetImport>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getDatasetImport>>,
+          TError,
+          Awaited<ReturnType<typeof getDatasetImport>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetDatasetImport<TData = Awaited<ReturnType<typeof getDatasetImport>>, TError = ErrorType<HTTPValidationError>>(
+ importId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDatasetImport>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getDatasetImport>>,
+          TError,
+          Awaited<ReturnType<typeof getDatasetImport>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetDatasetImport<TData = Awaited<ReturnType<typeof getDatasetImport>>, TError = ErrorType<HTTPValidationError>>(
+ importId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDatasetImport>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary Get Dataset Import
+ */
+
+export function useGetDatasetImport<TData = Awaited<ReturnType<typeof getDatasetImport>>, TError = ErrorType<HTTPValidationError>>(
+ importId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDatasetImport>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetDatasetImportQueryOptions(importId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Cancel Dataset Import
+ */
+export const cancelDatasetImport = (
+    importId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<RawDatasetImportResponse>(
+      {url: `/api/v1/raw-dataset-imports/${importId}/cancel`, method: 'POST', signal
+    },
+      options);
+    }
+  
+
+
+export const getCancelDatasetImportMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelDatasetImport>>, TError,{importId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelDatasetImport>>, TError,{importId: string}, TContext> => {
+
+const mutationKey = ['cancelDatasetImport'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelDatasetImport>>, {importId: string}> = (props) => {
+          const {importId} = props ?? {};
+
+          return  cancelDatasetImport(importId,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CancelDatasetImportMutationResult = NonNullable<Awaited<ReturnType<typeof cancelDatasetImport>>>
+    
+    export type CancelDatasetImportMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Cancel Dataset Import
+ */
+export const useCancelDatasetImport = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelDatasetImport>>, TError,{importId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof cancelDatasetImport>>,
+        TError,
+        {importId: string},
+        TContext
+      > => {
+
+      const mutationOptions = getCancelDatasetImportMutationOptions(options);
 
       return useMutation(mutationOptions, queryClient);
     }

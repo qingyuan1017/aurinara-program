@@ -46,6 +46,9 @@ class Settings(BaseSettings):
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,"
         "text/csv,text/plain,application/octet-stream"
     )
+    raw_bulk_upload_max_files: int = 50
+    raw_bulk_import_max_entries: int = 500
+    raw_bulk_import_max_total_bytes: int = 2_147_483_648
 
     job_lease_seconds: int = 60
     job_max_attempts: int = 3
