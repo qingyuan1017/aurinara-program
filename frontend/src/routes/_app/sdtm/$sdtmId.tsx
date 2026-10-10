@@ -26,7 +26,11 @@ import { ExecutionPanel } from '@/components/workbench/execution-panel'
 import { SdtmDependenciesPanel } from '@/components/workbench/sdtm-dependencies-panel'
 import { AcrfPanel } from '@/components/workbench/acrf-panel'
 import { CsdrgPanel } from '@/components/workbench/csdrg-panel'
-import { useGetSdtmAggregate, useListSdtmPlans } from '@/api/generated/sdtm/sdtm'
+import {
+  useGetSdtmAggregate,
+  useGetSpecification,
+  useListSdtmPlans,
+} from '@/api/generated/sdtm/sdtm'
 
 /**
  * The ten SDTM workbench tabs. Each `value` doubles as the `?tab=` search-param
@@ -86,15 +90,51 @@ function TabPlaceholder({ label }: { label: string }) {
 }
 
 /**
+ * Read the domain codes declared by the current Specification out of the opaque
+ * `SpecificationResponse.payload`. The payload is the full serialized
+ * `SdtmSpecification`, whose top-level `domains` array carries one object with a
+ * string `code` per domain (e.g. `DM`, `AE`). Returns the codes defensively —
+ * an unsaved/absent spec, a non-array `domains`, or malformed entries yield an
+ * empty list rather than throwing.
+ */
+function specificationDomainCodes(
+  payload: Record<string, unknown> | undefined,
+): string[] {
+  const domains = payload?.domains
+  if (!Array.isArray(domains)) return []
+  return domains
+    .map((entry) =>
+      entry && typeof entry === 'object'
+        ? (entry as Record<string, unknown>).code
+        : undefined,
+    )
+    .filter((code): code is string => typeof code === 'string' && code.length > 0)
+}
+
+/**
  * Derivation plan tab body. SDTM derivation plans are one-per-domain, so this
- * wrapper resolves the available domains from the plan head list
- * (`GET /sdtms/{sdtm_id}/derivation-plans`), lets the user pick which domain's
- * plan to edit, and mounts {@link DerivationPlanPanel} scoped to that domain.
+ * wrapper resolves the available domains and lets the user pick which domain's
+ * plan to edit, then mounts {@link DerivationPlanPanel} scoped to that domain.
+ *
+ * Candidate domains are the UNION of:
+ *   1. existing per-domain plan heads (`GET /sdtms/{sdtm_id}/derivation-plans`),
+ *      i.e. domains that already have a saved plan; and
+ *   2. the domains declared by the current Specification
+ *      (`GET /sdtms/{sdtm_id}/specification` -> `payload.domains[].code`).
+ *
+ * The union is what resolves the first-plan chicken-and-egg: a domain declared
+ * in the Specification but without a saved plan yet is still offered, so the
+ * user can select it and drop into {@link DerivationPlanPanel}'s new-plan mode
+ * (which authors the first plan from an empty canvas against the current
+ * Specification + Input Selection). Without the Specification side of the union
+ * the dropdown would only ever list already-saved plans, leaving no path to
+ * author the first one.
  *
  * The selected domain is driven by the `?domain=` search param (so refresh and
- * deep links are stable, exactly like `?tab=`); it defaults to the first plan
- * head. When the workbench has no plan heads yet, a guidance empty state is
- * shown instead of the editor.
+ * deep links are stable, exactly like `?tab=`); it defaults to the first
+ * candidate. The guidance empty state is shown only when there are genuinely no
+ * candidate domains at all — no plan heads AND no current Specification with
+ * declared domains.
  */
 function DerivationPlanTab({
   sdtmId,
@@ -105,17 +145,51 @@ function DerivationPlanTab({
   domain: string | undefined
   onDomainChange: (domain: string) => void
 }) {
-  const query = useListSdtmPlans(sdtmId)
-  const heads = React.useMemo(() => query.data?.items ?? [], [query.data])
+  const plansQuery = useListSdtmPlans(sdtmId)
+  // The current Specification supplies the declared domains that may not have a
+  // plan yet. A `404 sdtm_specification_required` is the expected "not saved
+  // yet" case, not a hard error, so its error is read only for its domains
+  // (none) and never surfaced as an ErrorState.
+  const specQuery = useGetSpecification(sdtmId)
 
-  // Resolve the active domain: the `?domain=` value when it names a known plan
-  // head, otherwise the first head. Kept as a derived value so a stale deep
-  // link falls back gracefully.
-  const domains = React.useMemo(() => heads.map((head) => head.domain), [heads])
+  const heads = React.useMemo(
+    () => plansQuery.data?.items ?? [],
+    [plansQuery.data],
+  )
+
+  // Union of plan-head domains and Specification-declared domains, deduplicated
+  // and deterministically ordered: existing plan heads first (preserving their
+  // list order), then any additional spec-declared domains in alphabetical
+  // order. This keeps already-authored domains stable at the top while exposing
+  // not-yet-authored domains below them.
+  const domains = React.useMemo(() => {
+    const headDomains = heads.map((head) => head.domain)
+    const specDomains = specificationDomainCodes(
+      specQuery.data?.payload as Record<string, unknown> | undefined,
+    )
+    const seen = new Set(headDomains)
+    const extra = specDomains
+      .filter((code) => !seen.has(code))
+      .sort((a, b) => a.localeCompare(b))
+    return [...headDomains, ...extra]
+  }, [heads, specQuery.data])
+
+  // Whether a given candidate domain already has a saved plan head (so the
+  // dropdown can hint which domains are new/unsaved).
+  const headDomainSet = React.useMemo(
+    () => new Set(heads.map((head) => head.domain)),
+    [heads],
+  )
+
+  // Resolve the active domain: the `?domain=` value when it names a known
+  // candidate, otherwise the first candidate. Kept as a derived value so a
+  // stale deep link falls back gracefully.
   const activeDomain =
     domain !== undefined && domains.includes(domain) ? domain : domains[0]
 
-  if (query.isLoading) {
+  // Show a skeleton while either source is still loading (both feed the
+  // candidate list).
+  if (plansQuery.isLoading || specQuery.isLoading) {
     return (
       <div className="flex flex-col gap-4">
         <Skeleton className="h-9 w-64" />
@@ -124,15 +198,20 @@ function DerivationPlanTab({
     )
   }
 
-  if (query.isError) {
-    return <ErrorState error={query.error} resourceLabel="SDTM derivation plans" />
+  // Only the plan-head list is a fatal error source; a Specification GET error
+  // (typically the 404 "not saved yet") must not block the tab — it simply
+  // contributes no extra domains.
+  if (plansQuery.isError) {
+    return (
+      <ErrorState error={plansQuery.error} resourceLabel="SDTM derivation plans" />
+    )
   }
 
   if (domains.length === 0 || activeDomain === undefined) {
     return (
       <EmptyState
         title="No derivation plan yet"
-        description="This SDTM workbench has no per-domain derivation plans. Save a current Specification and Input Selection, then author a domain plan here."
+        description="This SDTM workbench has no per-domain derivation plans and no current Specification. Save a current Specification and Input Selection, then author a domain plan here."
       />
     )
   }
@@ -153,9 +232,9 @@ function DerivationPlanTab({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {heads.map((head) => (
-              <SelectItem key={head.id} value={head.domain}>
-                {head.domain}
+            {domains.map((code) => (
+              <SelectItem key={code} value={code}>
+                {headDomainSet.has(code) ? code : `${code} (no plan yet)`}
               </SelectItem>
             ))}
           </SelectContent>
@@ -165,6 +244,8 @@ function DerivationPlanTab({
       {/*
         Remount the panel when the domain changes so its per-domain plan query,
         local canvas state, and per-plan ETag reset cleanly for the new domain.
+        For a candidate with no saved plan, the panel's own new-plan mode takes
+        over (404 sdtm_derivation_plan_required -> empty-canvas editor).
       */}
       <DerivationPlanPanel
         key={activeDomain}

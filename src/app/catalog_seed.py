@@ -218,6 +218,34 @@ def seed(session: Session, storage: ObjectStorage) -> None:
             )
         )
 
+    tlf_template_id = UUID("30000000-0000-0000-0000-000000000006")
+    if session.get(TemplateVersion, tlf_template_id) is None:
+        tlf_template = json.loads(document_template_path.read_text(encoding="utf-8"))
+        session.add(
+            TemplateVersion(
+                id=tlf_template_id,
+                family_id=family_id,
+                version="3.0.0",
+                lifecycle="active",
+                checksum=_checksum(document_template_path),
+                asset_path=str(document_template_path.relative_to(ROOT)).replace("\\", "/"),
+                applicable_modules=["tlf"],
+                artifact_types=[
+                    "tlf_table_rtf",
+                    "tlf_table_pdf",
+                    "tlf_listing_rtf",
+                    "tlf_listing_pdf",
+                    "tlf_figure_png",
+                    "tlf_figure_svg",
+                    "tlf_figure_pdf",
+                ],
+                content_schema_versions=["1.0.0"],
+                renderer_versions=[tlf_template["renderer"]],
+                blank_structure={"sections": tlf_template["blank_structure"]},
+                provenance={"source": "repository", "license": "project"},
+            )
+        )
+
     validation_rule_id = UUID("40000000-0000-0000-0000-000000000001")
     rule_pack_id = UUID("40000000-0000-0000-0000-000000000002")
     if session.get(ValidationRule, validation_rule_id) is None:

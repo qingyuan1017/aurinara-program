@@ -152,11 +152,28 @@ function DerivationPlanGraphInner({
       // controlled array upward.
       const applied = applyNodeChanges(effective, flow.getNodes())
       onNodesChange(applied)
-      const sel = effective.find(
+      // React Flow emits selection as a batch of per-node 'select' changes:
+      // switching nodes yields both a deselect (selected:false) of the old node
+      // and a select (selected:true) of the new one in the same batch, in no
+      // guaranteed order. Prefer the newly-selected node; only clear when the
+      // batch deselects without selecting anything.
+      const selectChanges = effective.filter(
         (change): change is Extract<NodeChange<PlanGraphNode>, { type: 'select' }> =>
           change.type === 'select',
       )
-      if (sel) setSelectedId(sel.selected ? sel.id : null)
+      if (selectChanges.length > 0) {
+        const selected = selectChanges.find((change) => change.selected)
+        if (selected) {
+          setSelectedId(selected.id)
+        } else {
+          // All select changes are deselections: clear only if the currently
+          // selected node is among them.
+          const deselectedIds = new Set(selectChanges.map((change) => change.id))
+          setSelectedId((current) =>
+            current !== null && deselectedIds.has(current) ? null : current,
+          )
+        }
+      }
     },
     [readOnly, flow, onNodesChange],
   )

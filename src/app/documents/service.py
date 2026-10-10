@@ -13,7 +13,7 @@ from reportlab.pdfgen.canvas import Canvas
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.artifacts.models import SourceFile
+from app.artifacts.models import Artifact, SourceFile
 from app.artifacts.storage import ObjectStorage
 from app.common.asset_content import read_verified_asset_json_object
 from app.common.canonical import fingerprint
@@ -47,6 +47,7 @@ from app.documents.rendering import (
     render_xlsx,
 )
 from app.kernel.dependencies import RenderedArtifact, SqlDependencyCapability
+from app.packaging.contracts import PackageContribution
 from app.templates.models import TemplateVersion
 from app.validation.models import ValidationRun
 
@@ -180,10 +181,144 @@ FILENAMES = {
 TEMPLATE_CONTROLLED_SUFFIXES = ("_docx", "_pdf", "_xlsx")
 SOURCE_SPECIFIC_ARTIFACTS = frozenset({"protocol_original", "protocol_annotated_evidence"})
 
+REQUIRED_PACKAGE_ARTIFACTS: dict[DocumentType, frozenset[str]] = {
+    DocumentType.PROTOCOL: frozenset(
+        {
+            "protocol_original",
+            "protocol_usdm",
+            "protocol_summary_docx",
+            "protocol_summary_pdf",
+            "protocol_annotated_evidence",
+            "protocol_evidence_manifest_json",
+            "protocol_evidence_manifest_csv",
+        }
+    ),
+    DocumentType.SAP: frozenset(
+        {
+            "statistical_analysis_plan_structured_content_json",
+            "statistical_analysis_plan_docx",
+            "statistical_analysis_plan_pdf",
+        }
+    ),
+    **{
+        document_type: frozenset({artifact_type})
+        for document_type, artifact_type in PRIMARY_ARTIFACT.items()
+    },
+}
+
 
 @dataclass(frozen=True, slots=True)
 class DocumentsCapability(SqlDependencyCapability):
     """Documents-owned dependency, artifact, context, and entity capability."""
+
+    def package_contributions(
+        self,
+        session: Session,
+        study_id: UUID,
+        artifacts: tuple[Artifact, ...],
+        options: dict[str, object],
+    ) -> tuple[PackageContribution, ...]:
+        """Apply explicit per-document-type completeness before assigning paths."""
+
+        selected_types = options.get("document_types")
+        if (
+            set(options) - {"schema_version", "document_types"}
+            or not isinstance(selected_types, list)
+            or not selected_types
+        ):
+            raise ProblemException(
+                status_code=422,
+                code="documents_package_options_invalid",
+                title="Documents package options are invalid",
+                detail="Select a non-empty document_types list and no arbitrary options.",
+            )
+        document_types = {str(value) for value in selected_types}
+        try:
+            for value in document_types:
+                DocumentType(value)
+        except ValueError as error:
+            raise ProblemException(
+                status_code=422,
+                code="documents_package_type_invalid",
+                title="Documents package type is invalid",
+                detail="Every selected document type must be registered by Documents.",
+            ) from error
+        observed: dict[DocumentType, dict[UUID, set[str]]] = {
+            DocumentType(value): {} for value in document_types
+        }
+        documents: dict[UUID, Document] = {}
+        for artifact in artifacts:
+            document = session.get(Document, artifact.owner_id)
+            if document is None or document.study_id != study_id:
+                raise ProblemException(
+                    status_code=422,
+                    code="documents_package_artifact_invalid",
+                    title="Documents package artifact is invalid",
+                    detail="Every selected artifact must be owned by a document in this study.",
+                )
+            if document.document_type not in document_types:
+                raise ProblemException(
+                    status_code=422,
+                    code="documents_package_artifact_unselected",
+                    title="Documents package artifact is not selected",
+                    detail="Every document artifact must match an explicit document_types value.",
+                )
+            document_type = DocumentType(document.document_type)
+            if artifact.artifact_type not in ALLOWED_BY_TYPE[document_type]:
+                raise ProblemException(
+                    status_code=422,
+                    code="documents_package_artifact_invalid",
+                    title="Documents package artifact is invalid",
+                    detail="An artifact is not valid for its owning document type.",
+                )
+            documents[document.id] = document
+            observed[document_type].setdefault(document.id, set()).add(artifact.artifact_type)
+        missing = sorted(value.value for value, owners in observed.items() if not owners)
+        if missing:
+            raise ProblemException(
+                status_code=422,
+                code="documents_package_incomplete",
+                title="Documents package selection is incomplete",
+                detail=f"Select required artifacts for: {', '.join(missing)}.",
+            )
+        for document_type, owners in observed.items():
+            required = REQUIRED_PACKAGE_ARTIFACTS[document_type]
+            for document_id, artifact_types in owners.items():
+                missing_artifacts = sorted(required - artifact_types)
+                if missing_artifacts:
+                    document = documents[document_id]
+                    raise ProblemException(
+                        status_code=422,
+                        code="documents_package_incomplete",
+                        title="Documents package selection is incomplete",
+                        detail=(
+                            f"Document '{document.code}' is missing required artifacts: "
+                            f"{', '.join(missing_artifacts)}."
+                        ),
+                    )
+        validated = SqlDependencyCapability.package_contributions(
+            self, session, study_id, artifacts, {}
+        )
+        artifacts_by_id = {artifact.id: artifact for artifact in artifacts}
+        contributions: list[PackageContribution] = []
+        for item in validated:
+            artifact = artifacts_by_id[item.artifact_id]
+            document = documents[artifact.owner_id]
+            safe_code = "".join(
+                character if character.isalnum() or character in "_-" else "-"
+                for character in document.code
+            ).strip("-")
+            suffix = Path(artifact.filename).suffix.lower()
+            contributions.append(
+                PackageContribution(
+                    artifact_id=artifact.id,
+                    archive_path=(
+                        f"documents/{document.document_type}/{safe_code or document.id.hex}/"
+                        f"{artifact.artifact_type}{suffix}"
+                    ),
+                )
+            )
+        return tuple(contributions)
 
     def latest_content(self, session: Session, document_id: UUID) -> DocumentContent | None:
         return session.scalar(

@@ -16,6 +16,7 @@ dependencies = [
   "lxml>=6,<7",
   "openpyxl>=3.1,<4",
   "pandas>=2.2,<4",
+  "pyarrow>=18,<24",
   "psycopg[binary]>=3.2,<4",
   "pydantic>=2.12,<3",
   "pydantic-settings>=2.7,<3",
@@ -74,5 +75,5 @@ exclude = ["migrations"]
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["boto3.*", "botocore.*"]
+module = ["boto3.*", "botocore.*", "pyarrow.*"]
 ignore_missing_imports = true

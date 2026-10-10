@@ -28,9 +28,8 @@ import {
   type PlanGraphEdge,
   type PlanGraphNode,
 } from '@/components/workbench/plan-graph-adapters'
-import { useWorkbench } from '@/components/workbench/workbench-context'
 import { parseProblem, stalenessAlert, type ProblemDetail } from '@/lib/problems'
-import { ifMatchRequest } from '@/lib/requests'
+import { ifMatchRequest, jsonRequest } from '@/lib/requests'
 import { invalidateSdtmSubResource } from '@/lib/invalidate'
 import {
   getGetPlanQueryKey,
@@ -66,7 +65,8 @@ import type {
  *   loaded *per-domain plan* revision (the plan's own concurrency token) and the
  *   pinned specification / input-selection revisions the plan is authored
  *   against (12.1). A brand-new plan has no revision yet, so its first save
- *   falls back to the aggregate `If-Match`.
+ *   sends NO `If-Match` (the backend only accepts an absent/`*` precondition
+ *   for the first save of a domain and 412s any concrete ETag).
  * - A `409 stale_input_fingerprint` identifies which pinned input drifted
  *   (Specification vs Input Selection) by comparing the plan's pinned revisions
  *   against the freshly fetched current ones, and keeps the user's unsaved
@@ -85,9 +85,10 @@ import type {
  * chicken-and-egg where the editor used to appear only once a plan existed. The
  * first save pins the new plan against the *current* Specification / Input
  * Selection revisions (there is no loaded plan to read pinned revisions from)
- * and carries the same aggregate `If-Match` as a normal save; on success the
- * `onSuccess` invalidation refetches the plan and the panel transitions to the
- * loaded-plan path. The backend rejects a zero-node save (the plan contract
+ * and sends NO `If-Match` (a first save has no plan ETag yet, and the backend
+ * requires an absent/`*` precondition for it); on success the `onSuccess`
+ * invalidation refetches the plan and the panel transitions to the loaded-plan
+ * path. The backend rejects a zero-node save (the plan contract
  * requires at least one node) with a `422`, which surfaces as a toast so the
  * user adds a node and retries. When the prerequisites are not yet current
  * (still loading or genuinely absent) the guidance empty state is kept instead.
@@ -100,10 +101,13 @@ export function DerivationPlanPanel({
   domainCode: string
 }) {
   const qc = useQueryClient()
-  // `ifMatch()` carries `If-Match` for the current aggregate revision. It is
-  // only used for a brand-new plan's first save (no per-domain plan revision
-  // exists yet); a loaded plan uses its own revision as the ETag.
-  const { ifMatch } = useWorkbench()
+  // The per-domain plan is its own concurrency scope. A loaded plan uses its
+  // own `revision` as the `If-Match` ETag; a brand-new plan (no revision yet)
+  // must send NO `If-Match` at all — the backend's `put_plan` rejects any
+  // concrete `If-Match` for a not-yet-existing plan with a 412 and only accepts
+  // an absent (or `*`) precondition for the first save. The aggregate ETag is
+  // deliberately NOT used here (an earlier version sent it and every first-plan
+  // save 412'd).
 
   const planKey = React.useMemo(
     () => getGetPlanQueryKey(sdtmId, domainCode),
@@ -167,9 +171,10 @@ export function DerivationPlanPanel({
         ),
     },
     // The per-domain plan revision is the ETag. When a plan is loaded, send
-    // `If-Match` for its own revision; a brand-new plan (no revision yet) falls
-    // back to the aggregate `If-Match` for its first save.
-    request: plan ? ifMatchRequest(plan.revision) : ifMatch(),
+    // `If-Match` for its own revision; a brand-new plan (no revision yet) sends
+    // NO `If-Match` (jsonRequest) — the backend only accepts an absent/`*`
+    // precondition for the first save of a domain and 412s any concrete ETag.
+    request: plan ? ifMatchRequest(plan.revision) : jsonRequest(),
   })
 
   const status = query.error?.response?.status

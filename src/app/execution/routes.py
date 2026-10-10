@@ -256,6 +256,8 @@ def _resolve_manifest(
         "source_plan_revision": command.source_plan_revision,
         "compiler_fingerprint": command.compiler_fingerprint,
         "program_input_fingerprint": command.expected_input_fingerprint,
+        "source_specification": program.manifest.get("specification"),
+        "resolved_dependencies": program.manifest.get("resolved_dependencies"),
     }
     return program, inputs, validation, manifest
 

@@ -189,15 +189,17 @@ Each ADaM execution fingerprints the exact SDTM input selection, ADaM Specificat
 
 | Artifact type                  | Format    | Prerequisites                                            | Principal source                       | Package location         |
 | ------------------------------ | --------- | -------------------------------------------------------- | -------------------------------------- | ------------------------ |
-| `tlf_shell_specification_json` | JSON      | Valid shell                                              | Shell model                            | Supporting documentation |
-| `tlf_shell_specification_xlsx` | XLSX      | Valid shell                                              | Shell model                            | Supporting documentation |
-| `tlf_ars`                      | JSON      | Complete analysis references                             | ARS model                              | Supporting documentation |
-| `tlf_program_plan`             | JSON      | Every leaf shell row mapped to an analysis step          | ProgramPlan model                      | Supporting documentation |
+| `tlf_dependency_manifest`      | JSON      | Current exact dependency selection                       | Dependency capability                  | Supporting documentation |
+| `tlf_shell_json`               | JSON      | Valid current shell                                      | Shell model                            | Supporting documentation |
+| `tlf_bindings_json`            | JSON      | Exact validated ADaM bindings                            | Bindings model                         | Supporting documentation |
+| `tlf_assumptions_json`         | JSON      | Valid manually authored assumptions                      | Assumptions model                      | Supporting documentation |
+| `tlf_ars_json`                 | JSON      | Complete analysis references and leaf coverage           | ARS model                              | Supporting documentation |
+| `tlf_program_plan_json`        | JSON      | Every ARS analysis mapped to one typed step               | ProgramPlan model                      | Supporting documentation |
 | `tlf_program_python`           | Python    | Valid shell, bindings, assumptions, ARS, and ProgramPlan | Shared compiler framework              | `tlf/programs/`          |
 | `tlf_program_r`                | R         | Same                                                     | Deterministic compiler                 | `tlf/programs/`          |
 | `tlf_program_sas`              | SAS       | Same                                                     | Deterministic compiler                 | `tlf/programs/`          |
 | `tlf_result_csv`               | CSV       | Successful execution and result validation               | Execution output                       | `tlf/results/`           |
-| `tlf_result_parquet`           | Parquet   | Same                                                     | Execution output                       | `tlf/results/`           |
+| `tlf_result_parquet`           | Parquet   | Same normalized result and exact execution                | Execution output                       | `tlf/results/`           |
 | `tlf_table_rtf`                | RTF       | Result bound to shell and run                            | Output renderer                        | `tlf/outputs/`           |
 | `tlf_table_pdf`                | PDF       | Same                                                     | Output renderer                        | `tlf/outputs/`           |
 | `tlf_listing_rtf`              | RTF       | Same                                                     | Output renderer                        | `tlf/outputs/`           |
@@ -206,8 +208,8 @@ Each ADaM execution fingerprints the exact SDTM input selection, ADaM Specificat
 | `tlf_figure_svg`               | SVG       | Same                                                     | Figure renderer                        | `tlf/outputs/`           |
 | `tlf_figure_pdf`               | PDF       | Same                                                     | Figure renderer                        | `tlf/outputs/`           |
 | `tlf_execution_log`            | Text/JSON | Execution attempt                                        | Runner logs and metrics                | `reports/`               |
-| `tlf_validation_report`        | PDF/JSON  | Completed validation                                     | Validation run                         | `reports/`               |
-| `tlf_output_index`             | JSON/CSV  | Selected output set reconciled                           | TLF run, results, and rendered outputs | `tlf/outputs/`           |
+| `tlf_validation_report`        | JSON      | Completed current validation                             | Validation run                         | `reports/`               |
+| `tlf_output_index`             | JSON      | Current successful run and selected normalized result    | TLF run, result, and ProgramPlan       | `tlf/outputs/`           |
 
 Every TLF computation records the source ProgramPlan revision, normalized Analysis/Dataflow IR fingerprint, procedure/operator versions, and compiler version. Every rendered output records the workbench ID, compiled program artifact and checksum, execution run ID, input ADaM artifact IDs and checksums, result artifact ID and checksum, renderer and Template versions, and shell revision. Layout and rendering never enter compiler IR. Programs, results, and rendered outputs from different runs cannot be combined in one package.
 

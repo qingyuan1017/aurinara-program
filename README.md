@@ -3,9 +3,8 @@
 A standalone Clinical Artifact Platform for manually authoring, validating, generating,
 executing, integrating, and packaging clinical study artifacts.
 
-The Phase 1 platform foundation, Phase 2 Documents vertical slice, and Phase 3 Raw-to-SDTM
-vertical slice are implemented. Phase 4 has started with exact SDTM-to-ADaM input selection,
-Specification, and Derivation Plan foundations. The runnable system provides:
+The Phase 1 platform foundation and the Phase 2 through Phase 5 clinical vertical slices are
+implemented. The runnable system provides:
 
 - FastAPI application composition;
 - typed settings and structured request logging;
@@ -20,7 +19,7 @@ Specification, and Derivation Plan foundations. The runnable system provides:
 - exact Standards, Terminology, Reference, and Templates registries with module-owned
   dependency selections and refresh/staleness propagation;
 - a complete Raw dataset/variable workbench, an SDTM workbench, an ADaM authoring foundation,
-  a TLF aggregate shell, and a complete Documents module composed
+  a complete TLF analysis/rendering workbench and Documents module composed
   through registered module routers and typed capabilities;
 - sponsor terminology extension history, atomic Reference import/export, Review,
   traceability, validation rules and rule packs, and immutable reconciliation runs;
@@ -92,6 +91,15 @@ same-study trace links after both endpoints and the registered relationship type
 Define validation now reconciles the complete factual metadata contract with the current ADaM
 Specification and exact selected SDTM predecessors, while XPT reconciliation checks physical
 dataset and variable metadata before either Define version can be published.
+
+Phase 5 adds immutable TLF Shell, exact ADaM Bindings, Assumptions, ARS, and ProgramPlan
+authoring. Validated plans lower directly to internal Analysis IR without presentation content,
+compile deterministically to Python/R/SAS, execute Python/R over exact ADaM artifacts, and publish
+normalized CSV results plus table/listing RTF/PDF and figure PNG/SVG/PDF outputs. Registered
+clinical modules now contribute exact artifacts and trusted paths to deterministic submission
+packages. Package assembly verifies study ownership, current dependency selections, immutable
+validation/reconciliation/execution evidence, recalculated checksums, TLF run cohesion, and safe
+Unicode/case-normalized paths before storing the ZIP and validation report as immutable artifacts.
 
 See the [current module usage guides](docs/modules/README.md) for executable workflows,
 [local development](docs/local-development.md) for the intended environment, and

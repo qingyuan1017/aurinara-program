@@ -5,7 +5,7 @@ from app.documents.descriptor import REGISTRATION as DOCUMENTS_REGISTRATION
 from app.integration.descriptor import REGISTRATION as INTEGRATION_REGISTRATION
 from app.kernel.contracts import ModuleRegistration
 from app.kernel.registry import ModuleRegistry
-from app.packaging.descriptor import DESCRIPTOR as PACKAGING_DESCRIPTOR
+from app.packaging.descriptor import REGISTRATION as PACKAGING_REGISTRATION
 from app.raw.descriptor import REGISTRATION as RAW_REGISTRATION
 from app.reconciliation.descriptor import REGISTRATION as RECONCILIATION_REGISTRATION
 from app.reference.descriptor import REGISTRATION as REFERENCE_REGISTRATION
@@ -21,7 +21,7 @@ BUILTIN_REGISTRATIONS = (
     ADAM_REGISTRATION,
     DOCUMENTS_REGISTRATION,
     INTEGRATION_REGISTRATION,
-    PACKAGING_DESCRIPTOR,
+    PACKAGING_REGISTRATION,
     RAW_REGISTRATION,
     RECONCILIATION_REGISTRATION,
     REFERENCE_REGISTRATION,

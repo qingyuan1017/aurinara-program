@@ -45,6 +45,7 @@ DESCRIPTOR = ModuleDescriptor(
             ModuleCapability.EXECUTION,
             ModuleCapability.RECONCILIATION_INPUTS,
             ModuleCapability.RECONCILIATION,
+            ModuleCapability.PACKAGING,
         }
     ),
 )

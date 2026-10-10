@@ -228,6 +228,10 @@ workflow coverage.
 
 ## 7. Phase 5: TLF and submission packaging
 
+Implementation status: complete in the repository as of 2026-10-09, with unit, contract,
+clean-migration, PostgreSQL-backed TLF execution/rendering, Parquet read-back, and deterministic
+submission-package checksum coverage.
+
 ### 7.1 TLF workflow
 
 - Implement shell, ADaM bindings, assumptions, ARS, and ProgramPlan editing.

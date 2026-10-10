@@ -2,6 +2,7 @@
 
 import json
 from dataclasses import dataclass
+from pathlib import PurePath
 from typing import Any, Protocol, cast
 from uuid import UUID
 
@@ -9,10 +10,13 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.artifacts.models import Artifact
 from app.artifacts.storage import ObjectStorage
 from app.common.canonical import fingerprint
 from app.common.etag import require_matching_etag
 from app.common.problems import ProblemException
+from app.execution.models import ExecutionRun
+from app.packaging.contracts import PackageContribution
 from app.reference.models import ReferenceRecord, ReferenceRevision
 from app.standards.models import StandardVersion, StandardVersionCompatibility
 from app.templates.models import TemplateVersion
@@ -421,6 +425,101 @@ class SqlDependencyCapability:
                 record.state = "dependency_refresh_required"
                 affected.append(cast(UUID, record.aggregate_id))
         return tuple(affected)
+
+    def package_contributions(
+        self,
+        session: Session,
+        study_id: UUID,
+        artifacts: tuple[Artifact, ...],
+        options: dict[str, object],
+    ) -> tuple[PackageContribution, ...]:
+        """Validate generic module-owned artifacts and assign trusted paths."""
+
+        if options not in ({}, {"schema_version": "1.0.0"}):
+            raise ProblemException(
+                status_code=422,
+                code="package_module_options_invalid",
+                title="Package module options are invalid",
+                detail=f"The {self.module_key} package contributor does not accept options.",
+            )
+        contributions: list[PackageContribution] = []
+        for artifact in artifacts:
+            if (
+                artifact.study_id != study_id
+                or artifact.module_key != self.module_key
+                or artifact.status != "available"
+                or self.resolve_entity(session, artifact.owner_type, artifact.owner_id) != study_id
+            ):
+                raise ProblemException(
+                    status_code=422,
+                    code="package_artifact_invalid",
+                    title="Package artifact is invalid",
+                    detail="Every module artifact must be current, available, and study-owned.",
+                )
+            if artifact.dependency_selection_revision is not None:
+                selection = self.get_selection(session, artifact.owner_id, study_id)
+                command = DependencySelectionInput.model_validate(
+                    selection.model_dump(
+                        mode="json",
+                        exclude={"revision", "state", "fingerprint", "reaffirmation_reason"},
+                    )
+                )
+                self._validate_exact_selection(session, study_id, command)
+                if (
+                    selection.state != "current"
+                    or selection.revision != artifact.dependency_selection_revision
+                    or selection.fingerprint != artifact.dependency_fingerprint
+                ):
+                    raise ProblemException(
+                        status_code=409,
+                        code="package_artifact_stale",
+                        title="Package artifact is stale",
+                        detail=(
+                            "A selected artifact no longer matches its exact current dependencies."
+                        ),
+                    )
+                provenance = artifact.manifest
+                if "resolved_dependencies" not in provenance and artifact.execution_run_id:
+                    execution = session.get(ExecutionRun, artifact.execution_run_id)
+                    program = (
+                        session.get(Artifact, execution.program_artifact_id)
+                        if execution is not None
+                        else None
+                    )
+                    if program is not None:
+                        provenance = program.manifest
+                frozen_dependencies = provenance.get("resolved_dependencies")
+                current_dependencies = self._resolve_manifest(session, selection)
+                if frozen_dependencies != current_dependencies:
+                    raise ProblemException(
+                        status_code=409,
+                        code="package_dependency_snapshot_mismatch",
+                        title="Package dependency snapshot does not match",
+                        detail=(
+                            "A selected artifact does not freeze the current exact provider "
+                            "checksums and compatibility evidence."
+                        ),
+                    )
+            suffix = PurePath(artifact.filename).suffix.lower()
+            natural_key = str(
+                artifact.manifest.get("dataset")
+                or artifact.manifest.get("output_code")
+                or artifact.artifact_type
+            )
+            safe_key = "".join(
+                character if character.isalnum() or character in "_-" else "-"
+                for character in natural_key
+            ).strip("-")
+            contributions.append(
+                PackageContribution(
+                    artifact_id=artifact.id,
+                    archive_path=(
+                        f"{self.module_key}/{artifact.artifact_type}/{safe_key or artifact.id.hex}"
+                        f"{suffix}"
+                    ),
+                )
+            )
+        return tuple(contributions)
 
     def build_artifact_payload(
         self, session: Session, aggregate_id: UUID, study_id: UUID, artifact_type: str

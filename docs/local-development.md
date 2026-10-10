@@ -442,3 +442,25 @@ After a volume reset, start infrastructure, recreate the bucket through `minio-i
 ## 15. Definition of a reviewable change
 
 A change is ready for review when module boundaries are preserved, descriptors and capability ownership are conflict-free, migrations upgrade a clean database, OpenAPI and event/import schemas reflect the intended compatible contracts, relevant unit/integration/security/conformance tests pass, generated artifacts have updated golden evidence when needed, and the documentation describes any new setting, module capability, connector, runner dependency, schema/template version, or operational step.
+
+## 16. Phase 5 TLF and packaging checks
+
+TLF program builds use the ordinary build worker. Python and R execution uses the execution
+dispatcher and runner images described above. After applying migrations, exercise the focused
+pure checks with:
+
+```powershell
+uv run pytest tests/unit/test_tlf.py tests/unit/test_packaging.py
+uv run ruff check src/app/tlf src/app/packaging src/app/transformation/analysis.py
+uv run mypy src/app
+```
+
+For a rendered output, author Shell, Bindings, Assumptions, ARS, and ProgramPlan in that order;
+validate; build a language program; run it through the execution dispatcher; and only then submit
+the render build. A render request intentionally fails when no successful exact current result
+exists.
+
+Package creation reads and checks object bytes outside a database transaction. Use only synthetic
+artifacts in development. Independently inspect `checksums.sha256` in the downloaded ZIP and hash
+each named entry; the package is deterministic only for the same exact artifact bytes, module
+selections, reconciliation runs, and study revision.

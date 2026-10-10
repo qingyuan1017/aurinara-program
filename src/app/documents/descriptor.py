@@ -43,6 +43,7 @@ DESCRIPTOR = ModuleDescriptor(
             ModuleCapability.RECONCILIATION_INPUTS,
             ModuleCapability.CONTEXT_EXPORT,
             ModuleCapability.TRACEABILITY,
+            ModuleCapability.PACKAGING,
         }
     ),
 )

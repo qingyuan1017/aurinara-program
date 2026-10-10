@@ -29,6 +29,13 @@ from app.execution.jobs import Job, JobService
 from app.kernel.contracts import ModuleCapability
 from app.kernel.dependencies import RenderedArtifact
 from app.kernel.registry import ModuleRegistry
+from app.packaging.models import SubmissionPackage
+from app.packaging.service import (
+    build_package,
+    publish_package,
+    resolve_package,
+    store_built_package,
+)
 from app.reconciliation.models import ReconciliationRun
 from app.reconciliation.service import ReconciliationCapability
 from app.validation.models import ValidationRun
@@ -360,6 +367,81 @@ def _handle_validation(
             JobService().complete(job)
 
 
+def _handle_submission_package(
+    factory: sessionmaker[Session],
+    registry: ModuleRegistry,
+    storage: ObjectStorage,
+    job_id: UUID,
+) -> None:
+    """Resolve, assemble, upload, and atomically publish one exact package."""
+
+    with factory.begin() as session:
+        job = session.get(Job, job_id)
+        package = (
+            session.get(SubmissionPackage, UUID(str(job.payload["package_id"])))
+            if job is not None
+            else None
+        )
+        if job is None or package is None:
+            return
+        if job.cancellation_requested_at is not None:
+            package.status = "cancelled"
+            package.completed_at = utc_now()
+            JobService().complete(job)
+            return
+        package.status = "running"
+        resolved = resolve_package(
+            session,
+            registry,
+            study_id=package.study_id,
+            module_selections=tuple(package.module_selections),
+            supporting_artifact_ids=tuple(UUID(value) for value in package.artifact_ids),
+            reconciliation_run_ids=tuple(UUID(value) for value in package.reconciliation_run_ids),
+        )
+        if resolved.fingerprint != package.input_fingerprint:
+            raise ProblemException(
+                status_code=409,
+                code="stale_package_inputs",
+                title="Package inputs are stale",
+                detail="The exact package selection changed before assembly.",
+            )
+
+    built = build_package(resolved, storage)
+    stored = store_built_package(storage, built)
+
+    with factory.begin() as session:
+        job = session.get(Job, job_id)
+        package = (
+            session.get(SubmissionPackage, UUID(str(job.payload["package_id"])))
+            if job is not None
+            else None
+        )
+        if job is None or package is None:
+            return
+        if job.cancellation_requested_at is not None:
+            package.status = "cancelled"
+            package.completed_at = utc_now()
+            JobService().complete(job)
+            return
+        current = resolve_package(
+            session,
+            registry,
+            study_id=package.study_id,
+            module_selections=tuple(package.module_selections),
+            supporting_artifact_ids=tuple(UUID(value) for value in package.artifact_ids),
+            reconciliation_run_ids=tuple(UUID(value) for value in package.reconciliation_run_ids),
+        )
+        if current.fingerprint != resolved.fingerprint:
+            raise ProblemException(
+                status_code=409,
+                code="stale_package_inputs",
+                title="Package inputs are stale",
+                detail="The exact package selection changed during assembly.",
+            )
+        publish_package(session, package, built, stored)
+        JobService().complete(job)
+
+
 def _record_failure(
     factory: sessionmaker[Session], job_id: UUID, failure: dict[str, object]
 ) -> None:
@@ -386,6 +468,18 @@ def _record_failure(
                 validation_run.status = "failed"
                 validation_run.failure = failure
                 validation_run.completed_at = utc_now()
+        elif job.job_type == "submission_package":
+            package = session.get(SubmissionPackage, UUID(str(job.payload["package_id"])))
+            if package is not None and job.status == "failed":
+                package.status = "failed"
+                package.issues = [
+                    {
+                        "code": str(failure.get("code", "package_failed")),
+                        "severity": "error",
+                        "message": str(failure.get("detail", "Package assembly failed.")),
+                    }
+                ]
+                package.completed_at = utc_now()
 
 
 def _process_job(
@@ -401,6 +495,8 @@ def _process_job(
             _handle_reconciliation(factory, registry, storage, job.id)
         elif job.job_type == "validation":
             _handle_validation(factory, storage, job.id)
+        elif job.job_type == "submission_package":
+            _handle_submission_package(factory, registry, storage, job.id)
         else:
             _record_failure(
                 factory,
@@ -437,7 +533,12 @@ def main() -> None:
                 session,
                 worker_id="build-worker",
                 lease_seconds=settings.job_lease_seconds,
-                job_types=("artifact_build", "reconciliation", "validation"),
+                job_types=(
+                    "artifact_build",
+                    "reconciliation",
+                    "validation",
+                    "submission_package",
+                ),
             )
         if job is None:
             time.sleep(1)

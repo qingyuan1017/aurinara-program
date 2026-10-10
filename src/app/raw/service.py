@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 from dataclasses import dataclass
+from pathlib import PurePath
 from typing import cast
 from uuid import UUID
 
@@ -11,10 +12,11 @@ from openpyxl import Workbook
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.artifacts.models import SourceFile
+from app.artifacts.models import Artifact, SourceFile
 from app.artifacts.storage import ObjectStorage
 from app.common.problems import ProblemException
 from app.kernel.dependencies import RenderedArtifact, SqlDependencyCapability
+from app.packaging.contracts import PackageContribution
 from app.raw.files import inspect_file, read_rows
 from app.raw.models import (
     RawDataset,
@@ -26,6 +28,7 @@ from app.reconciliation.service import ReconciliationEvaluation
 from app.validation.models import ValidationRun
 
 RAW_ARTIFACT_TYPES = (
+    "source_file",
     "raw_dependency_manifest",
     "raw_metadata_json",
     "raw_data_dictionary_xlsx",
@@ -60,6 +63,106 @@ def _reconciliation_issue(
 @dataclass(frozen=True, slots=True)
 class RawCapability(SqlDependencyCapability):
     """Raw module boundary used by artifacts, review, reconciliation, and SDTM."""
+
+    def package_contributions(
+        self,
+        session: Session,
+        study_id: UUID,
+        artifacts: tuple[Artifact, ...],
+        options: dict[str, object],
+    ) -> tuple[PackageContribution, ...]:
+        """Require Raw metadata and gate current original sources behind explicit policy."""
+
+        allowed_options = {"schema_version", "include_original_sources"}
+        include_sources = options.get("include_original_sources", False)
+        if (
+            set(options) - allowed_options
+            or options.get("schema_version", "1.0.0") != "1.0.0"
+            or not isinstance(include_sources, bool)
+        ):
+            raise ProblemException(
+                status_code=422,
+                code="raw_package_options_invalid",
+                title="Raw package options are invalid",
+                detail=(
+                    "Raw options accept schema_version 1.0.0 and the boolean "
+                    "include_original_sources only."
+                ),
+            )
+        source_artifacts = tuple(
+            artifact for artifact in artifacts if artifact.artifact_type == "source_file"
+        )
+        generated_artifacts = tuple(
+            artifact for artifact in artifacts if artifact.artifact_type != "source_file"
+        )
+        if source_artifacts and not include_sources:
+            raise ProblemException(
+                status_code=422,
+                code="raw_package_source_policy_required",
+                title="Raw source-file package policy is required",
+                detail="Set include_original_sources to true before selecting source files.",
+            )
+        required = {"raw_metadata_json", "raw_data_dictionary_xlsx"}
+        observed = {artifact.artifact_type for artifact in generated_artifacts}
+        if missing := sorted(required - observed):
+            raise ProblemException(
+                status_code=422,
+                code="raw_package_incomplete",
+                title="Raw package selection is incomplete",
+                detail=f"Select required Raw artifacts: {', '.join(missing)}.",
+            )
+        aggregate_ids = {artifact.owner_id for artifact in generated_artifacts}
+        if len(aggregate_ids) != 1:
+            raise ProblemException(
+                status_code=422,
+                code="raw_package_aggregate_invalid",
+                title="Raw package aggregate is invalid",
+                detail="Select one exact Raw workbench and its required artifacts.",
+            )
+        raw_id = next(iter(aggregate_ids))
+        validated = list(
+            SqlDependencyCapability.package_contributions(
+                self, session, study_id, generated_artifacts, {}
+            )
+        )
+        current_source_ids = set(
+            session.scalars(
+                select(RawDataset.current_source_file_id).where(
+                    RawDataset.raw_id == raw_id,
+                    RawDataset.study_id == study_id,
+                    RawDataset.status == "active",
+                )
+            )
+        )
+        for artifact in source_artifacts:
+            source = session.get(SourceFile, artifact.owner_id)
+            if (
+                artifact.study_id != study_id
+                or artifact.module_key != "raw"
+                or artifact.status != "available"
+                or artifact.owner_type != "source_file"
+                or source is None
+                or source.study_id != study_id
+                or source.artifact_id != artifact.id
+                or source.id not in current_source_ids
+            ):
+                raise ProblemException(
+                    status_code=422,
+                    code="raw_package_source_invalid",
+                    title="Raw source file is invalid",
+                    detail=(
+                        "Every selected source file must be an available current binding of "
+                        "the selected Raw workbench."
+                    ),
+                )
+            suffix = PurePath(artifact.filename).suffix.lower()
+            validated.append(
+                PackageContribution(
+                    artifact_id=artifact.id,
+                    archive_path=f"raw/source/{artifact.id.hex}{suffix}",
+                )
+            )
+        return tuple(validated)
 
     def resolve_entity(self, session: Session, entity_type: str, entity_id: UUID) -> UUID | None:
         if entity_type == "raw_workbench":

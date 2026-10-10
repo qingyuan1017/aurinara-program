@@ -173,6 +173,10 @@ const sdtmApi: {
   createImpl: (vars: { studyId: string; data: unknown }) => Promise<unknown>
   aggregate: AggregateResponse | undefined
   planHeads: { items: Array<{ id: string; domain: string }> }
+  specification:
+    | { revision: number; payload: Record<string, unknown> }
+    | undefined
+  specificationError: AxiosError | null
 } = {
   listPages: {},
   listCalls: [],
@@ -181,6 +185,12 @@ const sdtmApi: {
   // One per-domain plan head so the Derivation plan tab's domain selector has a
   // default and mounts the (mocked) per-domain panel for routing assertions.
   planHeads: { items: [{ id: 'plan-dm', domain: 'DM' }] },
+  // The current Specification feeds the second half of the Derivation plan
+  // tab's domain union (declared domains that may have no plan yet). Default to
+  // a saved spec declaring DM so the union includes the existing plan head's
+  // domain without adding spurious extras.
+  specification: { revision: 1, payload: { domains: [{ code: 'DM' }] } },
+  specificationError: null,
 }
 
 vi.mock('@/api/generated/sdtm/sdtm', () => {
@@ -245,6 +255,17 @@ vi.mock('@/api/generated/sdtm/sdtm', () => {
     error: null,
   })
 
+  // The Derivation plan tab reads the current Specification to union its
+  // declared domains with the saved plan heads. A spec error (e.g. a 404
+  // "not saved yet") is reported via isError/error and must NOT block the tab.
+  const useGetSpecification = () => ({
+    data: sdtmApi.specificationError ? undefined : sdtmApi.specification,
+    isLoading: false,
+    isFetching: false,
+    isError: sdtmApi.specificationError !== null,
+    error: sdtmApi.specificationError,
+  })
+
   return {
     useListSdtmAggregates,
     getListSdtmAggregatesQueryKey: (studyId?: string) => [
@@ -256,6 +277,7 @@ vi.mock('@/api/generated/sdtm/sdtm', () => {
     useGetSdtmAggregate,
     getGetSdtmAggregateQueryKey: (sdtmId: string) => [`/api/v1/sdtms/${sdtmId}`],
     useListSdtmPlans,
+    useGetSpecification,
   }
 })
 
@@ -366,10 +388,14 @@ beforeEach(() => {
   sdtmApi.listCalls = []
   sdtmApi.createImpl = async () => ({})
   sdtmApi.aggregate = makeAggregate()
+  sdtmApi.planHeads = { items: [{ id: 'plan-dm', domain: 'DM' }] }
+  sdtmApi.specification = { revision: 1, payload: { domains: [{ code: 'DM' }] } }
+  sdtmApi.specificationError = null
   currentStudyState.currentStudyId = 'study-1'
   currentStudyState.isLoading = false
   routeParams.sdtmId = 'sdtm-1'
   routeSearch.tab = 'input-selection'
+  routeSearch.domain = undefined
   navigateSpy.mockReset()
 })
 
@@ -596,5 +622,66 @@ describe('SDTM detail shell tab routing (Req 9.3)', () => {
         replace: true,
       }),
     )
+  })
+})
+
+// ===========================================================================
+// Derivation plan tab: first-plan chicken-and-egg fix
+//
+// The Derivation plan tab offers the UNION of saved plan heads and the current
+// Specification's declared domains, so a domain declared by the Specification
+// but without a saved plan can still be selected to author the first plan
+// (DerivationPlanPanel's new-plan mode). The guidance empty state appears only
+// when there are no plan heads AND no current Specification with domains.
+// ===========================================================================
+describe('SDTM derivation plan tab (first-plan path)', () => {
+  it('offers Specification-declared domains with no plan yet and mounts the editor', () => {
+    routeSearch.tab = 'derivation-plan'
+    routeSearch.domain = undefined
+    // No saved plan heads, but the Specification declares DM and AE: both must
+    // be selectable so the user can author the very first plan for either.
+    sdtmApi.planHeads = { items: [] }
+    sdtmApi.specification = {
+      revision: 1,
+      payload: { domains: [{ code: 'DM' }, { code: 'AE' }] },
+    }
+
+    renderWithClient(<SdtmDetailPage />)
+
+    // The guidance empty state is NOT shown — the editor is reachable even
+    // though no plan has been saved for any domain yet.
+    expect(screen.queryByText(/no derivation plan yet/i)).toBeNull()
+    // The domain picker is rendered (its options come from the spec-declared
+    // domains; a collapsed Radix Select only renders the selected value in the
+    // DOM under jsdom, so presence of the labelled trigger is what we assert).
+    const picker = screen.getByLabelText('Derivation plan domain')
+    expect(picker).toBeTruthy()
+    // With no saved plan heads, the candidates are purely the spec-declared
+    // domains in alphabetical order (AE before DM), so the default active
+    // domain is AE — and it is flagged as having no plan yet (the Select's
+    // displayed value). This asserts the spec-domain union drives the picker.
+    expect(picker.textContent).toContain('AE (no plan yet)')
+    // The per-domain editor is mounted (mocked marker) for that domain, i.e.
+    // DerivationPlanPanel's new-plan path is reachable with no saved plan.
+    expect(screen.getByTestId('derivation-plan-panel')).toBeTruthy()
+  })
+
+  it('shows the guidance empty state when there are no plan heads and no Specification', () => {
+    routeSearch.tab = 'derivation-plan'
+    routeSearch.domain = undefined
+    // No plan heads and the Specification is not saved yet (GET 404 ->
+    // isError/error with no data). There are no candidate domains at all.
+    sdtmApi.planHeads = { items: [] }
+    sdtmApi.specification = undefined
+    sdtmApi.specificationError = problemError(404, {
+      title: 'SDTM Specification is not saved.',
+      code: 'sdtm_specification_required',
+    })
+
+    renderWithClient(<SdtmDetailPage />)
+
+    // The guidance empty state is shown, and the editor is NOT mounted.
+    expect(screen.getByText(/no derivation plan yet/i)).toBeTruthy()
+    expect(screen.queryByTestId('derivation-plan-panel')).toBeNull()
   })
 })

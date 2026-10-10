@@ -17,8 +17,8 @@
 //   * new-plan mode: a `404 sdtm_derivation_plan_required` with a current
 //     Specification + Input Selection renders the full interactive editor (first-
 //     plan bootstrap); missing/not-current prerequisites keep the guidance empty
-//     state; the first save pins the CURRENT spec/input revisions and the
-//     aggregate If-Match; a backend rejection (e.g. zero nodes -> 422) surfaces a
+//     state; the first save pins the CURRENT spec/input revisions and sends NO
+//     If-Match; a backend rejection (e.g. zero nodes -> 422) surfaces a
 //     toast.
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import {
@@ -36,7 +36,7 @@ import type { AxiosError, AxiosRequestConfig } from 'axios'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { installJsdomHarness } from '@/test/jsdom-harness'
-import { ifMatchRequest } from '@/lib/requests'
+import { ifMatchRequest, jsonRequest } from '@/lib/requests'
 import type {
   AggregateResponse,
   AppSdtmRoutesPlanResponse as PlanResponse,
@@ -680,7 +680,7 @@ describe('DerivationPlanPanel new-plan mode', () => {
     expect(screen.queryByLabelText(/operator palette/i)).toBeNull()
   })
 
-  it('first save issues PUT pinned to the CURRENT spec/input revisions with the aggregate If-Match', async () => {
+  it('first save issues PUT pinned to the CURRENT spec/input revisions with NO If-Match', async () => {
     sdtmApi.plan = undefined
     sdtmApi.planError = planRequired()
     sdtmApi.spec = { revision: 5 }
@@ -730,10 +730,14 @@ describe('DerivationPlanPanel new-plan mode', () => {
     // At least one node was authored before the save.
     expect(data.nodes.length).toBeGreaterThanOrEqual(1)
 
-    // The mutation carried the aggregate ETag as If-Match.
+    // The first save of a brand-new plan carries NO If-Match: the backend's
+    // put_plan rejects any concrete If-Match for a not-yet-existing plan with a
+    // 412 and only accepts an absent/`*` precondition for the first save. (An
+    // earlier version sent the aggregate ETag here and every first-plan save
+    // 412'd.)
     const request = call.request as AxiosRequestConfig
-    expect(request).toEqual(ifMatchRequest(AGGREGATE_REVISION))
-    expect(request.headers?.['If-Match']).toBe(`"revision-${AGGREGATE_REVISION}"`)
+    expect(request).toEqual(jsonRequest())
+    expect(request.headers?.['If-Match']).toBeUndefined()
   })
 
   it('surfaces a toast when the backend rejects a save (e.g. zero nodes -> 422)', async () => {

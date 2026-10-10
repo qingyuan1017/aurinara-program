@@ -29,6 +29,7 @@ from app.integration.models import (
     IntegrationSecretVersion,
     IntegrationSubscription,
 )
+from app.packaging.models import SubmissionPackage
 from app.raw.models import (
     RawDataset,
     RawDatasetFileBinding,
@@ -67,7 +68,7 @@ from app.terminology.models import (
     TerminologyReleaseCompatibility,
     TerminologyTerm,
 )
-from app.tlf.models import TlfDependencySelection, TlfWorkbench
+from app.tlf.models import TlfAuthoringRevision, TlfDependencySelection, TlfWorkbench
 from app.validation.models import ValidationRule, ValidationRulePack, ValidationRun
 
 __all__ = [
@@ -113,6 +114,7 @@ __all__ = [
     "SdtmInputSelection",
     "SdtmSpecificationRevision",
     "SdtmWorkbench",
+    "SubmissionPackage",
     "StandardProduct",
     "StandardAsset",
     "StandardVersion",
@@ -131,6 +133,7 @@ __all__ = [
     "TerminologyCodelist",
     "TerminologyTerm",
     "TlfDependencySelection",
+    "TlfAuthoringRevision",
     "TlfWorkbench",
     "TraceLink",
     "ValidationRun",

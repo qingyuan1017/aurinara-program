@@ -114,3 +114,22 @@ PHASE4_ADAM_FOUNDATION_OPERATIONS: Final[dict[str, frozenset[str]]] = {
     "/api/v1/adams/{adam_id}/adrg/validate": frozenset({"post"}),
     "/api/v1/adams/{adam_id}/adrg/artifacts": frozenset({"post"}),
 }
+
+PHASE5_TLF_PACKAGING_OPERATIONS: Final[dict[str, frozenset[str]]] = {
+    "/api/v1/studies/{study_id}/tlfs": frozenset({"get", "post"}),
+    "/api/v1/tlfs/{tlf_id}/shell": frozenset({"get", "put"}),
+    "/api/v1/tlfs/{tlf_id}/bindings": frozenset({"get", "put"}),
+    "/api/v1/tlfs/{tlf_id}/assumptions": frozenset({"get", "put"}),
+    "/api/v1/tlfs/{tlf_id}/ars": frozenset({"get", "put"}),
+    "/api/v1/tlfs/{tlf_id}/program-plan": frozenset({"get", "put"}),
+    "/api/v1/tlfs/{tlf_id}/program-plan/validate": frozenset({"post"}),
+    "/api/v1/tlfs/{tlf_id}/program-plan/preview": frozenset({"post"}),
+    "/api/v1/tlfs/{tlf_id}/validate": frozenset({"post"}),
+    "/api/v1/tlfs/{tlf_id}/compile": frozenset({"post"}),
+    "/api/v1/tlfs/{tlf_id}/execute": frozenset({"post"}),
+    "/api/v1/tlfs/{tlf_id}/render": frozenset({"post"}),
+    "/api/v1/tlfs/{tlf_id}/artifacts": frozenset({"post"}),
+    "/api/v1/studies/{study_id}/submission-packages": frozenset({"get", "post"}),
+    "/api/v1/submission-packages/{package_id}": frozenset({"get"}),
+    "/api/v1/submission-packages/{package_id}/download": frozenset({"get"}),
+}
