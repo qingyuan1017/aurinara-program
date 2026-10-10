@@ -125,18 +125,53 @@ export function rowsAreValid(validation: RowValidation): boolean {
   )
 }
 
+/** Strip the final extension (if any) from a filename's base name. */
+function baseName(filename: string): string {
+  const base = filename.replace(/^.*[\\/]/, '')
+  const dot = base.lastIndexOf('.')
+  return dot > 0 ? base.slice(0, dot) : base
+}
+
+/**
+ * Derive a best-effort dataset code from a filename for pre-population. Strips
+ * the extension, replaces every character outside `[A-Za-z0-9_]` with `_`,
+ * drops leading characters until one is a letter (the pattern requires a
+ * leading letter), uppercases (dataset codes are conventionally upper-case like
+ * `DM`/`VS`), and truncates to 64. Returns `''` when nothing usable remains, so
+ * the user is prompted to author it. The result is always re-validated against
+ * `CODE_PATTERN`; this is a convenience default, not a guarantee.
+ */
+export function codeFromFilename(filename: string): string {
+  const sanitized = baseName(filename)
+    .replace(/[^A-Za-z0-9_]/g, '_')
+    .replace(/^[^A-Za-z]+/, '')
+    .toUpperCase()
+    .slice(0, 64)
+  return CODE_PATTERN.test(sanitized) ? sanitized : ''
+}
+
+/**
+ * Derive a label from a filename for pre-population: the extension-stripped
+ * base name, trimmed and truncated to the 255-character maximum.
+ */
+export function labelFromFilename(filename: string): string {
+  return baseName(filename).trim().slice(0, MAX_LABEL_LENGTH)
+}
+
 /**
  * Seed one authoring row per uploaded file, in upload order, defaulting each
  * row's bound source file to its own upload and `initialize_variables` to
- * `false`. The `code`/`label` are left blank for the user to author.
+ * `false`. The `code` and `label` are pre-populated from the file name as
+ * editable convenience defaults (see `codeFromFilename`/`labelFromFilename`);
+ * the user can override either, and the backend remains authoritative.
  */
 export function seedRowsFromUpload(
   items: SourceFileResponse[],
 ): BulkImportRow[] {
   return items.map((item) => ({
     id: item.id,
-    code: '',
-    label: '',
+    code: codeFromFilename(item.filename),
+    label: labelFromFilename(item.filename),
     description: '',
     source_file_id: item.id,
     initialize_variables: false,

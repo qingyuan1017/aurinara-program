@@ -285,7 +285,7 @@ export function RawBulkImportDialog({
         if (!isBusy) onOpenChange(next)
       }}
     >
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Bulk upload datasets</DialogTitle>
           <DialogDescription>
@@ -294,61 +294,63 @@ export function RawBulkImportDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {formError && (
-          <div
-            role="alert"
-            className="border-destructive/50 bg-destructive/10 text-destructive rounded-md border px-3 py-2 text-sm"
-          >
-            {formError}
-          </div>
-        )}
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+          {formError && (
+            <div
+              role="alert"
+              className="border-destructive/50 bg-destructive/10 text-destructive rounded-md border px-3 py-2 text-sm"
+            >
+              {formError}
+            </div>
+          )}
 
-        {/* Phase 1: multi-file picker. */}
-        {(phase === 'select' || phase === 'uploading') && (
-          <div className="flex flex-col gap-3">
-            <FileDropzone
-              multiple
-              onFiles={(next) => setPicked(next)}
-              disabled={phase === 'uploading'}
-              ariaLabel="Bulk source file upload drop target"
-              label={
-                phase === 'uploading'
-                  ? 'Uploading…'
-                  : 'Drag source files here, or browse'
-              }
-              description="Each file becomes an immutable source file, then a dataset you author below."
+          {/* Phase 1: multi-file picker. */}
+          {(phase === 'select' || phase === 'uploading') && (
+            <div className="flex flex-col gap-3">
+              <FileDropzone
+                multiple
+                onFiles={(next) => setPicked(next)}
+                disabled={phase === 'uploading'}
+                ariaLabel="Bulk source file upload drop target"
+                label={
+                  phase === 'uploading'
+                    ? 'Uploading…'
+                    : 'Drag source files here, or browse'
+                }
+                description="Each file becomes an immutable source file, then a dataset you author below."
+              />
+              {picked.length > 0 && (
+                <ul className="text-muted-foreground flex flex-col gap-1 text-xs">
+                  {picked.map((file, index) => (
+                    <li key={`${file.name}-${index}`}>
+                      {file.name} ({file.size} bytes)
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {/* Phase 2: editable entry table. */}
+          {(phase === 'author' || phase === 'submitting') && (
+            <RawBulkImportTable
+              rows={rows}
+              files={files}
+              rowErrors={mergedRowErrors}
+              onChange={handleRowChange}
+              disabled={phase === 'submitting'}
             />
-            {picked.length > 0 && (
-              <ul className="text-muted-foreground flex flex-col gap-1 text-xs">
-                {picked.map((file, index) => (
-                  <li key={`${file.name}-${index}`}>
-                    {file.name} ({file.size} bytes)
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
+          )}
 
-        {/* Phase 2: editable entry table. */}
-        {(phase === 'author' || phase === 'submitting') && (
-          <RawBulkImportTable
-            rows={rows}
-            files={files}
-            rowErrors={mergedRowErrors}
-            onChange={handleRowChange}
-            disabled={phase === 'submitting'}
-          />
-        )}
-
-        {/* Phase 3: inline status/polling + terminal outcome. */}
-        {(phase === 'polling' || phase === 'terminal') && importId && (
-          <RawBulkImportStatus
-            importId={importId}
-            onStatus={setLiveStatus}
-            onTerminal={handleTerminal}
-          />
-        )}
+          {/* Phase 3: inline status/polling + terminal outcome. */}
+          {(phase === 'polling' || phase === 'terminal') && importId && (
+            <RawBulkImportStatus
+              importId={importId}
+              onStatus={setLiveStatus}
+              onTerminal={handleTerminal}
+            />
+          )}
+        </div>
 
         <DialogFooter>
           {showCancel && (

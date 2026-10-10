@@ -4,6 +4,8 @@ import type { SourceFileResponse } from '@/api/generated/model'
 import {
   CODE_PATTERN,
   buildImportRequest,
+  codeFromFilename,
+  labelFromFilename,
   seedRowsFromUpload,
   validateRows,
   type BulkImportRow,
@@ -176,11 +178,55 @@ describe('seedRowsFromUpload', () => {
     expect(rows).toHaveLength(2)
     expect(rows[0]).toMatchObject({
       source_file_id: 'file-1',
-      code: '',
-      label: '',
       initialize_variables: false,
     })
     expect(rows[1].source_file_id).toBe('file-2')
+  })
+
+  it('pre-populates code and label from the file name', () => {
+    const [row] = seedRowsFromUpload([makeFile('dm', 'dm_raw.csv')])
+    // code: extension stripped, uppercased, invalid chars -> underscore.
+    expect(row.code).toBe('DM_RAW')
+    expect(CODE_PATTERN.test(row.code)).toBe(true)
+    // label: extension-stripped base name.
+    expect(row.label).toBe('dm_raw')
+  })
+})
+
+describe('codeFromFilename', () => {
+  it('strips the extension, uppercases, and replaces invalid characters', () => {
+    expect(codeFromFilename('vital signs.xlsx')).toBe('VITAL_SIGNS')
+    expect(codeFromFilename('ae.json')).toBe('AE')
+  })
+
+  it('drops leading non-letters so the result starts with a letter', () => {
+    expect(codeFromFilename('01-vitals.csv')).toBe('VITALS')
+  })
+
+  it('strips directory segments from a path-like name', () => {
+    expect(codeFromFilename('data/raw/dm.csv')).toBe('DM')
+  })
+
+  it('returns empty when no usable leading letter remains', () => {
+    expect(codeFromFilename('123.csv')).toBe('')
+    expect(codeFromFilename('_.csv')).toBe('')
+  })
+
+  it('truncates to 64 characters', () => {
+    const long = `${'a'.repeat(100)}.csv`
+    expect(codeFromFilename(long)).toHaveLength(64)
+  })
+})
+
+describe('labelFromFilename', () => {
+  it('uses the extension-stripped base name', () => {
+    expect(labelFromFilename('Demographics.xpt')).toBe('Demographics')
+    expect(labelFromFilename('data/raw/vs.csv')).toBe('vs')
+  })
+
+  it('truncates to the 255-character maximum', () => {
+    const long = `${'a'.repeat(300)}.csv`
+    expect(labelFromFilename(long)).toHaveLength(255)
   })
 })
 

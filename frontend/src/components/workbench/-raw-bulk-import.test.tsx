@@ -313,11 +313,14 @@ describe('bulk upload (phase 1 → 2)', () => {
     expect(codeInputs).toHaveLength(2)
     const sourceSelects = screen.getAllByLabelText('Source file')
     expect(sourceSelects).toHaveLength(2)
-    // Submit is disabled until the rows are authored.
+    // Code and label are pre-populated from the file names (dm.xpt, ae.xpt).
+    expect((codeInputs[0] as HTMLInputElement).value).toBe('DM')
+    expect((codeInputs[1] as HTMLInputElement).value).toBe('AE')
+    // With valid, distinct derived codes the batch is ready to submit.
     expect(
       (screen.getByRole('button', { name: /submit import/i }) as HTMLButtonElement)
         .disabled,
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('shows a top-level alert and retains the author entry on a 413 upload failure', async () => {
