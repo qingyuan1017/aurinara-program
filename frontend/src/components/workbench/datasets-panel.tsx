@@ -1,7 +1,7 @@
 import * as React from 'react'
 import type { AxiosError } from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
-import { Loader2, Plus } from 'lucide-react'
+import { FileUp, Loader2, Plus } from 'lucide-react'
 import { PageHeader } from '@/components/layout/page-header'
 import { ResourceTable } from '@/components/data/resource-table'
 import type { ResourceColumn } from '@/components/data/resource-table'
@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FileDropzone } from '@/components/workbench/file-dropzone'
+import { RawBulkImportDialog } from '@/components/workbench/raw-bulk-import-dialog'
 import { PreviewPanel } from '@/components/workbench/preview-panel'
 import { VariablesPanel } from '@/components/workbench/variables-panel'
 import { ConfirmDialog } from '@/components/forms/confirm-dialog'
@@ -94,6 +95,7 @@ export function DatasetsPanel({ rawId, studyId }: DatasetsPanelProps) {
   }, [listQuery.data])
 
   const [createOpen, setCreateOpen] = React.useState(false)
+  const [bulkOpen, setBulkOpen] = React.useState(false)
   const [rebindTarget, setRebindTarget] =
     React.useState<RawDatasetResponse | null>(null)
   const [retireTarget, setRetireTarget] =
@@ -149,9 +151,18 @@ export function DatasetsPanel({ rawId, studyId }: DatasetsPanelProps) {
           </>
         }
         actions={
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus /> New dataset
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setBulkOpen(true)}
+            >
+              <FileUp /> Bulk upload
+            </Button>
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus /> New dataset
+            </Button>
+          </div>
         }
       />
 
@@ -201,6 +212,13 @@ export function DatasetsPanel({ rawId, studyId }: DatasetsPanelProps) {
         onOpenChange={setCreateOpen}
         rawId={rawId}
         studyId={studyId}
+      />
+
+      <RawBulkImportDialog
+        rawId={rawId}
+        studyId={studyId}
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
       />
 
       <DatasetRebindDialog

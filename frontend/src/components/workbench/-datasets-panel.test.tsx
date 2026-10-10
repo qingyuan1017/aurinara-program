@@ -196,7 +196,12 @@ vi.mock('@/api/generated/artifacts/artifacts', () => {
 
 // Stub out the child drill-in panels so this file tests only the Datasets
 // panel's own flows (the Variables/Preview panels have their own tests and pull
-// in dnd-kit / preview queries we don't exercise here).
+// in dnd-kit / preview queries we don't exercise here). The bulk-import dialog
+// is likewise stubbed — it has its own `-raw-bulk-import.test.tsx` and consumes
+// the bulk source-file/import hooks that this file's mocks intentionally omit.
+vi.mock('@/components/workbench/raw-bulk-import-dialog', () => ({
+  RawBulkImportDialog: () => <div data-testid="raw-bulk-import-dialog" />,
+}))
 vi.mock('@/components/workbench/variables-panel', () => ({
   VariablesPanel: () => <div data-testid="variables-panel" />,
 }))

@@ -45,6 +45,8 @@ export { ArtifactsPanel, RAW_ARTIFACT_TYPES } from './artifacts-panel'
 export type { ArtifactsPanelProps, RawArtifactType } from './artifacts-panel'
 export { ExecutionPanel } from './execution-panel'
 export type { ExecutionPanelProps } from './execution-panel'
+export { RawBulkImportDialog } from './raw-bulk-import-dialog'
+export type { RawBulkImportDialogProps } from './raw-bulk-import-dialog'
 export { DownloadButton } from './download-button'
 export type { DownloadButtonProps } from './download-button'
 export {
