@@ -454,6 +454,13 @@ GET  /api/v1/source-files/{source_file_id}/download
 
 Source-file creation streams the upload, calculates SHA-256, applies size and media checks, and returns an immutable source-file record containing the ID of its corresponding `source_file` artifact. Neither response exposes an object-store key. A corrected file is a new resource and artifact.
 
+When the shared platform integration is enabled, creation also uploads the verified bytes
+through a short-lived presigned gateway session and registers the product reference. The
+response continues to expose only product metadata. A source file or artifact carrying a
+`platform_object_id` is downloaded by redirecting to a short-lived gateway-authorized URL.
+Shadow mode may fall back to the legacy object during reconciliation; enforced mode fails
+closed if the gateway cannot authorize the download.
+
 The `:bulk` upload accepts a multipart request with many file parts (1..`raw_bulk_upload_max_files`) and returns `201 Created` with one source-file record per part in request order. It is all-or-nothing: a single rejected part (size, media type, or filename) fails the whole request with `problem+json` and commits no `source_files` rows.
 
 ## 7. Raw routes

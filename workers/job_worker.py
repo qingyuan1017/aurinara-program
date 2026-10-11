@@ -416,9 +416,16 @@ def _handle_submission_package(
                 title="Package inputs are stale",
                 detail="The exact package selection changed before assembly.",
             )
+        package_id = package.id
+        study_id = package.study_id
 
     built = build_package(resolved, storage)
-    stored = store_built_package(storage, built)
+    stored = store_built_package(
+        storage,
+        built,
+        study_id=study_id,
+        package_id=package_id,
+    )
 
     with factory.begin() as session:
         job = session.get(Job, job_id)

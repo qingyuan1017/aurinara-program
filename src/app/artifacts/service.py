@@ -15,7 +15,8 @@ from app.api.auth import Principal
 from app.artifacts.models import Artifact, SourceFile
 from app.artifacts.storage import ObjectStorage, checksum_object_key
 from app.common.problems import ProblemException
-from app.config import Settings
+from app.config import Settings, get_settings
+from app.platform.objects import PlatformObjectRegistration, get_platform_objects
 from app.studies.service import StudyService
 
 
@@ -26,6 +27,8 @@ class StoredJsonObject:
     object_key: str
     sha256: str
     size: int
+    platform_object_id: UUID | None = None
+    platform_reference_id: UUID | None = None
 
 
 StoredObject = StoredJsonObject
@@ -48,16 +51,32 @@ class ArtifactService:
     ) -> SourceFile:
         """Stream, validate, checksum, upload, and commit one immutable source file."""
 
-        self._studies.require_access(session, study_id, principal)
+        self._studies.require_access(
+            session,
+            study_id,
+            principal,
+            action="artifact.object.upload",
+        )
         allowed = frozenset(settings.source_file_allowed_media_types.split(","))
         filename, media_type = _validate_upload_metadata(upload, allowed)
-        stored = await _stream_upload(upload, storage, settings, media_type)
+        source_file_id = uuid4()
+        artifact_id = uuid4()
+        stored = await _stream_upload(
+            upload,
+            storage,
+            settings,
+            media_type,
+            study_id=study_id,
+            external_reference=f"source_file:{source_file_id}",
+        )
         artifact, source_file = _build_source_file_rows(
             study_id=study_id,
             filename=filename,
             media_type=media_type,
             stored=stored,
             created_by=principal.subject,
+            artifact_id=artifact_id,
+            source_file_id=source_file_id,
         )
         session.add_all((artifact, source_file))
         session.commit()
@@ -80,7 +99,12 @@ class ArtifactService:
         metadata rows are committed exactly once.
         """
 
-        self._studies.require_access(session, study_id, principal)
+        self._studies.require_access(
+            session,
+            study_id,
+            principal,
+            action="artifact.object.upload",
+        )
         if not uploads:
             raise ProblemException(
                 status_code=422,
@@ -107,13 +131,24 @@ class ArtifactService:
         staged: list[tuple[Artifact, SourceFile]] = []
         source_files: list[SourceFile] = []
         for upload, (filename, media_type) in zip(uploads, validated, strict=True):
-            stored = await _stream_upload(upload, storage, settings, media_type)
+            source_file_id = uuid4()
+            artifact_id = uuid4()
+            stored = await _stream_upload(
+                upload,
+                storage,
+                settings,
+                media_type,
+                study_id=study_id,
+                external_reference=f"source_file:{source_file_id}",
+            )
             artifact, source_file = _build_source_file_rows(
                 study_id=study_id,
                 filename=filename,
                 media_type=media_type,
                 stored=stored,
                 created_by=principal.subject,
+                artifact_id=artifact_id,
+                source_file_id=source_file_id,
             )
             staged.append((artifact, source_file))
             source_files.append(source_file)
@@ -137,25 +172,35 @@ class ArtifactService:
         return tuple(session.scalars(statement))
 
     def require_source_file(
-        self, session: Session, source_file_id: UUID, principal: Principal
+        self,
+        session: Session,
+        source_file_id: UUID,
+        principal: Principal,
+        *,
+        action: str = "artifact.study.read",
     ) -> SourceFile:
         """Resolve an upload after enforcing its study boundary."""
 
         source_file = session.get(SourceFile, source_file_id)
         if source_file is None:
             raise _not_found("source_file_not_found", "Source file not found")
-        self._studies.require_access(session, source_file.study_id, principal)
+        self._studies.require_access(session, source_file.study_id, principal, action=action)
         return source_file
 
     def require_artifact(
-        self, session: Session, artifact_id: UUID, principal: Principal
+        self,
+        session: Session,
+        artifact_id: UUID,
+        principal: Principal,
+        *,
+        action: str = "artifact.study.read",
     ) -> Artifact:
         """Resolve an artifact after enforcing its study boundary."""
 
         artifact = session.get(Artifact, artifact_id)
         if artifact is None:
             raise _not_found("artifact_not_found", "Artifact not found")
-        self._studies.require_access(session, artifact.study_id, principal)
+        self._studies.require_access(session, artifact.study_id, principal, action=action)
         return artifact
 
     def list_artifacts(
@@ -214,7 +259,12 @@ class ArtifactService:
     ) -> Artifact:
         """Canonicalize, checksum, upload, and register one immutable JSON artifact."""
 
-        stored = store_json_object(storage, payload)
+        stored = store_json_object(
+            storage,
+            payload,
+            study_id=study_id,
+            external_reference=f"artifact:{uuid4()}",
+        )
         return self.record_json_artifact(
             session,
             stored=stored,
@@ -314,6 +364,8 @@ class ArtifactService:
             filename=filename,
             media_type=media_type,
             object_key=stored.object_key,
+            platform_object_id=stored.platform_object_id,
+            platform_reference_id=stored.platform_reference_id,
             sha256=stored.sha256,
             size=stored.size,
             input_fingerprint=input_fingerprint,
@@ -338,30 +390,78 @@ class ArtifactService:
         return artifact
 
 
-def store_json_object(storage: ObjectStorage, payload: dict[str, object]) -> StoredJsonObject:
+def store_json_object(
+    storage: ObjectStorage,
+    payload: dict[str, object],
+    *,
+    study_id: UUID | None = None,
+    external_reference: str | None = None,
+) -> StoredJsonObject:
     """Canonicalize and upload JSON without holding a database transaction."""
 
     data = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
         "utf-8"
     )
-    return store_bytes_object(storage, data, "application/json")
+    return store_bytes_object(
+        storage,
+        data,
+        "application/json",
+        study_id=study_id,
+        external_reference=external_reference,
+    )
 
 
-def store_bytes_object(storage: ObjectStorage, data: bytes, media_type: str) -> StoredObject:
+def store_bytes_object(
+    storage: ObjectStorage,
+    data: bytes,
+    media_type: str,
+    *,
+    study_id: UUID | None = None,
+    external_reference: str | None = None,
+    classification: str = "generated-artifact",
+) -> StoredObject:
     """Upload verified immutable bytes without holding a database transaction."""
 
     sha256 = hashlib.sha256(data).hexdigest()
     object_key = checksum_object_key(sha256)
     temporary_path: Path | None = None
+    platform_registration: PlatformObjectRegistration | None = None
     try:
         with tempfile.NamedTemporaryFile(delete=False) as temporary:
             temporary_path = Path(temporary.name)
             temporary.write(data)
         storage.put_file(object_key, temporary_path, media_type)
+        settings = get_settings()
+        if study_id is not None and external_reference is not None:
+            platform_registration = _register_platform_file(
+                settings=settings,
+                study_id=study_id,
+                path=temporary_path,
+                sha256=sha256,
+                size=len(data),
+                media_type=media_type,
+                external_reference=external_reference,
+                classification=classification,
+            )
+        elif get_platform_objects().mode == "enforced":
+            raise ProblemException(
+                status_code=503,
+                code="object_registration_context_required",
+                title="Object registration context required",
+                detail="Generated objects require a study and product reference.",
+            )
     finally:
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)
-    return StoredJsonObject(object_key=object_key, sha256=sha256, size=len(data))
+    return StoredJsonObject(
+        object_key=object_key,
+        sha256=sha256,
+        size=len(data),
+        platform_object_id=(platform_registration.object_id if platform_registration else None),
+        platform_reference_id=(
+            platform_registration.reference_id if platform_registration else None
+        ),
+    )
 
 
 def _validate_upload_metadata(
@@ -386,6 +486,9 @@ async def _stream_upload(
     storage: ObjectStorage,
     settings: Settings,
     media_type: str,
+    *,
+    study_id: UUID,
+    external_reference: str,
 ) -> StoredObject:
     """Stream one upload to a temp file, checksum, and publish its immutable bytes."""
 
@@ -409,11 +512,58 @@ async def _stream_upload(
         sha256 = digest.hexdigest()
         object_key = checksum_object_key(sha256)
         storage.put_file(object_key, temporary_path, media_type)
+        platform_registration = _register_platform_file(
+            settings=settings,
+            study_id=study_id,
+            path=temporary_path,
+            sha256=sha256,
+            size=size,
+            media_type=media_type,
+            external_reference=external_reference,
+        )
     finally:
         await upload.close()
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)
-    return StoredJsonObject(object_key=object_key, sha256=sha256, size=size)
+    return StoredJsonObject(
+        object_key=object_key,
+        sha256=sha256,
+        size=size,
+        platform_object_id=(platform_registration.object_id if platform_registration else None),
+        platform_reference_id=(
+            platform_registration.reference_id if platform_registration else None
+        ),
+    )
+
+
+def _register_platform_file(
+    *,
+    settings: Settings,
+    study_id: UUID,
+    path: Path,
+    sha256: str,
+    size: int,
+    media_type: str,
+    external_reference: str,
+    classification: str = "source-file",
+) -> PlatformObjectRegistration | None:
+    gateway = get_platform_objects()
+    if gateway.mode == "disabled":
+        return None
+    try:
+        return gateway.register_file(
+            study_id=study_id,
+            path=path,
+            sha256=sha256,
+            size=size,
+            media_type=media_type,
+            classification=classification,
+            external_reference=external_reference,
+        )
+    except ProblemException:
+        if gateway.mode == "enforced":
+            raise
+        return None
 
 
 def _build_source_file_rows(
@@ -423,11 +573,13 @@ def _build_source_file_rows(
     media_type: str,
     stored: StoredObject,
     created_by: str,
+    artifact_id: UUID | None = None,
+    source_file_id: UUID | None = None,
 ) -> tuple[Artifact, SourceFile]:
     """Build the immutable Artifact + SourceFile metadata rows for a stored upload."""
 
-    artifact_id = uuid4()
-    source_file_id = uuid4()
+    artifact_id = artifact_id or uuid4()
+    source_file_id = source_file_id or uuid4()
     artifact = Artifact(
         id=artifact_id,
         study_id=study_id,
@@ -438,6 +590,8 @@ def _build_source_file_rows(
         filename=filename,
         media_type=media_type,
         object_key=stored.object_key,
+        platform_object_id=stored.platform_object_id,
+        platform_reference_id=stored.platform_reference_id,
         sha256=stored.sha256,
         size=stored.size,
         input_fingerprint=stored.sha256,
@@ -453,6 +607,8 @@ def _build_source_file_rows(
         filename=filename,
         media_type=media_type,
         object_key=stored.object_key,
+        platform_object_id=stored.platform_object_id,
+        platform_reference_id=stored.platform_reference_id,
         sha256=stored.sha256,
         size=stored.size,
         created_by=created_by,

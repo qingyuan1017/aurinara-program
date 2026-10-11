@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AuthLayout } from '@/components/layout/auth-layout'
 import { useAuth } from '@/components/auth-provider'
+import { beginOidcLogin, isOidcConfigured } from '@/lib/oidc'
 
 export const Route = createFileRoute('/login')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -30,6 +31,7 @@ function LoginPage() {
   const navigate = useNavigate()
   const { redirect } = useSearch({ from: '/login' })
   const { signIn } = useAuth()
+  const oidcConfigured = isOidcConfigured()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -50,6 +52,17 @@ function LoginPage() {
     }
   }
 
+  async function onSso() {
+    setError(null)
+    setSubmitting(true)
+    try {
+      await beginOidcLogin(redirect ?? '/')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Single sign-on failed.')
+      setSubmitting(false)
+    }
+  }
+
   return (
     <AuthLayout>
       <Card>
@@ -60,6 +73,13 @@ function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {oidcConfigured && (
+            <Button type="button" className="mb-5 w-full" disabled={submitting} onClick={onSso}>
+              {submitting && <Loader2 className="size-4 animate-spin" />}
+              Continue with single sign-on
+            </Button>
+          )}
+          {!oidcConfigured && (
           <form onSubmit={onSubmit} className="flex flex-col gap-5">
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
@@ -98,8 +118,9 @@ function LoginPage() {
               Sign in
             </Button>
           </form>
+          )}
 
-          <div className="text-muted-foreground mt-4 text-center text-sm">
+          {!oidcConfigured && <div className="text-muted-foreground mt-4 text-center text-sm">
             Don&apos;t have an account?{' '}
             <Link
               to="/signup"
@@ -107,7 +128,7 @@ function LoginPage() {
             >
               Sign up
             </Link>
-          </div>
+          </div>}
         </CardContent>
       </Card>
     </AuthLayout>

@@ -275,7 +275,12 @@ def create_execution_run(
     principal: Annotated[Principal, Depends(get_principal)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> ExecutionRunResponse:
-    studies.require_access(session, command.study_id, principal)
+    studies.require_access(
+        session,
+        command.study_id,
+        principal,
+        action="artifact.execution.run",
+    )
     if not idempotency_key:
         raise _problem(
             400,

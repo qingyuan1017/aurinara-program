@@ -58,6 +58,17 @@ Start the API and workers either in Compose or as local Python processes. For a 
 docker compose up -d api build-worker integration-receiver integration-dispatcher
 ```
 
+When the shared control plane is running, also start the canonical-study projection
+consumer. It continuously reads Aurinara's SQS subscription; running the API alone does
+not consume platform events.
+
+```powershell
+docker compose up -d platform-projection-worker
+```
+
+For a host-run worker, use
+`.venv\Scripts\python.exe scripts\platform_projection_worker.py --watch` instead.
+
 For faster API iteration:
 
 ```powershell

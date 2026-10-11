@@ -81,12 +81,12 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link to="/">
-                <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg shadow-sm">
                   <FlaskConical className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Aurinara</span>
-                  <span className="truncate text-xs">Clinical Artifacts</span>
+                  <span className="font-display truncate text-base font-medium">Aurinara</span>
+                  <span className="text-sidebar-primary truncate text-[10px] font-semibold tracking-[0.14em] uppercase">Clinical Artifacts</span>
                 </div>
               </Link>
             </SidebarMenuButton>

@@ -97,7 +97,7 @@ def create_submission_package(
     principal: Annotated[Principal, Depends(get_principal)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> SubmissionPackageResponse:
-    studies.require_access(session, study_id, principal)
+    studies.require_access(session, study_id, principal, action="artifact.package.build")
     if not idempotency_key:
         raise ProblemException(
             status_code=400,

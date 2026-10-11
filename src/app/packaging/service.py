@@ -366,12 +366,32 @@ def publish_package(
     return package
 
 
-def store_built_package(storage: ObjectStorage, built: BuiltPackage) -> StoredPackage:
+def store_built_package(
+    storage: ObjectStorage,
+    built: BuiltPackage,
+    *,
+    study_id: UUID,
+    package_id: UUID,
+) -> StoredPackage:
     """Upload verified terminal bytes without holding a database transaction."""
 
-    report = store_bytes_object(storage, built.report_bytes, "application/json")
+    report = store_bytes_object(
+        storage,
+        built.report_bytes,
+        "application/json",
+        study_id=study_id,
+        external_reference=f"submission-package:{package_id}:report",
+    )
     archive = (
-        None if built.issues else store_bytes_object(storage, built.zip_bytes, "application/zip")
+        None
+        if built.issues
+        else store_bytes_object(
+            storage,
+            built.zip_bytes,
+            "application/zip",
+            study_id=study_id,
+            external_reference=f"submission-package:{package_id}:archive",
+        )
     )
     return StoredPackage(report=report, archive=archive)
 

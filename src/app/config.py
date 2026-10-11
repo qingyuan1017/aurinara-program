@@ -42,6 +42,20 @@ class Settings(BaseSettings):
     jwt_jwks_url: str = "http://localhost:8081/.well-known/jwks.json"
     jwt_algorithms: str = "RS256"
 
+    platform_control_plane_url: str | None = None
+    platform_authorization_mode: Literal["disabled", "shadow", "enforced"] = "disabled"
+    platform_service_token_url: str | None = None
+    platform_service_client_id: str | None = None
+    platform_service_client_secret: SecretStr | None = None
+    platform_service_audience: str = "aurinara-platform"
+    platform_service_scope: str = "https://aurinara-platform.local/service"
+    platform_service_resource: str | None = "https://aurinara-platform.local"
+    platform_authorization_timeout_seconds: float = 2.0
+    platform_authorization_cache_seconds: int = 30
+    platform_event_queue_url: str | None = None
+    platform_event_region: str = "us-east-1"
+    platform_event_endpoint_url: str | None = None
+
     source_file_max_bytes: int = 1_073_741_824
     source_file_allowed_media_types: str = (
         "application/pdf,application/json,application/vnd.ms-excel,"
@@ -87,6 +101,14 @@ class Settings(BaseSettings):
         return [
             origin.strip() for origin in self.app_cors_allow_origins.split(",") if origin.strip()
         ]
+
+    @model_validator(mode="after")
+    def validate_platform_authorization(self) -> Self:
+        if not 0 <= self.platform_authorization_cache_seconds <= 60:
+            raise ValueError("platform authorization cache must be between 0 and 60 seconds")
+        if self.platform_authorization_mode != "disabled" and not self.platform_control_plane_url:
+            raise ValueError("platform control-plane URL is required when authorization is enabled")
+        return self
 
     @model_validator(mode="after")
     def reject_unsafe_production_configuration(self) -> Self:

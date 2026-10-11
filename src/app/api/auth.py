@@ -19,6 +19,7 @@ class Principal:
 
     subject: str
     scopes: frozenset[str]
+    issuer: str = ""
 
 
 class TokenVerifier(Protocol):
@@ -56,7 +57,11 @@ class JwksTokenVerifier:
         raw_scope = claims.get("scope", "")
         if not isinstance(raw_scope, str):
             raise _unauthorized("The bearer token scope claim is invalid.")
-        return Principal(subject=subject, scopes=frozenset(raw_scope.split()))
+        return Principal(
+            subject=subject,
+            scopes=frozenset(raw_scope.split()),
+            issuer=str(claims["iss"]),
+        )
 
 
 def _unauthorized(detail: str) -> ProblemException:

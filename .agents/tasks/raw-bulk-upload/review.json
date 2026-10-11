@@ -1,0 +1,11 @@
+{
+  "verdict": "APPROVED",
+  "summary": "The raw-bulk-upload branch implements both halves (synchronous atomic :bulk source-file upload and the asynchronous JSON-array dataset import) exactly as the approved design requires, and all reviewed invariants are correct and verified. ruff/ruff-format/mypy are clean, 239 unit+contract tests pass, the relevant integration tests pass, and alembic reports a single head.",
+  "findings": [
+    {
+      "severity": "NIT",
+      "detail": "src/app/raw/service.py resolve_bulk_sources builds the 'raw_source_file_invalid' issue with entity_type='raw_workbench' but entity_id=study_id (the function is called with raw_id=study_id), so the issue carries the study UUID in a workbench-typed entity_id. The worker's own issues (via _import_issue) correctly use the raw_id. This is a cosmetic provenance imperfection in the per-entry issue payload only; code/severity/dataset/message are all correct and the design does not pin entity_id for this code. Non-blocking.",
+      "suggestion": "Optionally thread the actual raw.id into resolve_bulk_sources (or into _bulk_issue for this code) so the 'raw_source_file_invalid' issue's entity_id is the workbench id rather than the study id, matching the entity_type."
+    }
+  ]
+}

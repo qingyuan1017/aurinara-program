@@ -88,6 +88,7 @@ def process_execution_job(
         language = run.language
         module_key = run.module_key
         run_id = run.id
+        study_id = run.study_id
 
     started = time.monotonic()
     stored_outputs: list[tuple[ExecutionProduct, StoredObject]] = []
@@ -140,7 +141,18 @@ def process_execution_job(
                     program_snapshot.manifest, files, limits.output_bytes
                 )
                 stored_outputs = [
-                    (product, store_bytes_object(storage, product.data, product.media_type))
+                    (
+                        product,
+                        store_bytes_object(
+                            storage,
+                            product.data,
+                            product.media_type,
+                            study_id=study_id,
+                            external_reference=(
+                                f"execution:{run_id}:{product.artifact_type}:{product.filename}"
+                            ),
+                        ),
+                    )
                     for product in products
                 ]
             else:
@@ -166,7 +178,12 @@ def process_execution_job(
         "metrics": metrics,
         "failure": failure,
     }
-    stored_log = store_json_object(storage, log_payload)
+    stored_log = store_json_object(
+        storage,
+        log_payload,
+        study_id=study_id,
+        external_reference=f"execution:{run_id}:log",
+    )
     with factory.begin() as session:
         job = session.get(Job, job_id)
         run = session.get(ExecutionRun, run_id)

@@ -97,6 +97,12 @@ services:
       JWT_AUDIENCE: clinical-artifact-platform
       JWT_JWKS_URL: http://test-issuer:8081/.well-known/jwks.json
       JWT_ALGORITHMS: RS256
+      PLATFORM_EVENT_QUEUE_URL: http://host.docker.internal:4567/000000000000/aurinara-platform-events
+      PLATFORM_EVENT_REGION: us-east-1
+      PLATFORM_EVENT_ENDPOINT_URL: http://host.docker.internal:4567
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
       INTEGRATION_ALLOW_LOOPBACK_CALLBACKS: "true"
     depends_on:
       postgres:
@@ -127,6 +133,22 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  platform-projection-worker:
+    build: .
+    command: ["python", "scripts/platform_projection_worker.py", "--watch"]
+    environment: *application-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
     read_only: true
     tmpfs:
       - /tmp

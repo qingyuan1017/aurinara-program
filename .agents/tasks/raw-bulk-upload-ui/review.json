@@ -1,0 +1,12 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "label": "ValidationIssue.id key",
+      "severity": "non-blocking",
+      "confidence": "possible",
+      "detail": "The failure issue list keys on `issue.id` in raw-bulk-import-status.tsx. Confirm `id` is a declared field on the generated `ValidationIssue` model. Test fixtures supply `id` and the reported typecheck passed (0 errors), so this is very likely a non-issue; noted for completeness only."
+    }
+  ],
+  "reviewDoc": "e:\\Work\\EDETEK\\Python\\aurinara\\.agents\\tasks\\raw-bulk-upload-ui\\review.md"
+}

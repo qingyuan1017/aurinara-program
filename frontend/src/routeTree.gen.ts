@@ -27,6 +27,7 @@ import { Route as AppStudiesRouteImport } from './routes/_app/studies'
 import { Route as AppTerminologyRouteImport } from './routes/_app/terminology'
 import { Route as AppTlfRouteImport } from './routes/_app/tlf'
 import { Route as AppValidationRouteImport } from './routes/_app/validation'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AppRawIndexRouteImport } from './routes/_app/raw/index'
 import { Route as AppRawRawIdRouteImport } from './routes/_app/raw/$rawId'
 import { Route as AppSdtmIndexRouteImport } from './routes/_app/sdtm/index'
@@ -127,6 +128,11 @@ const AppValidationRoute = AppValidationRouteImport.update({
   path: '/validation',
   getParentRoute: () => AppRoute,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRawIndexRoute = AppRawIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -201,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/terminology': typeof AppTerminologyRoute
   '/tlf': typeof AppTlfRoute
   '/validation': typeof AppValidationRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/raw/$rawId': typeof AppRawRawIdRoute
   '/sdtm/$sdtmId': typeof AppSdtmSdtmIdRoute
   '/raw/': typeof AppRawIndexRoute
@@ -227,6 +234,7 @@ export interface FileRoutesByTo {
   '/terminology': typeof AppTerminologyRoute
   '/tlf': typeof AppTlfRoute
   '/validation': typeof AppValidationRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/': typeof AppIndexRoute
   '/raw/$rawId': typeof AppRawRawIdRoute
   '/sdtm/$sdtmId': typeof AppSdtmSdtmIdRoute
@@ -258,6 +266,7 @@ export interface FileRoutesById {
   '/_app/terminology': typeof AppTerminologyRoute
   '/_app/tlf': typeof AppTlfRoute
   '/_app/validation': typeof AppValidationRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/_app/': typeof AppIndexRoute
   '/_app/raw/$rawId': typeof AppRawRawIdRoute
   '/_app/sdtm/$sdtmId': typeof AppSdtmSdtmIdRoute
@@ -290,6 +299,7 @@ export interface FileRouteTypes {
     | '/terminology'
     | '/tlf'
     | '/validation'
+    | '/auth/callback'
     | '/raw/$rawId'
     | '/sdtm/$sdtmId'
     | '/raw/'
@@ -316,6 +326,7 @@ export interface FileRouteTypes {
     | '/terminology'
     | '/tlf'
     | '/validation'
+    | '/auth/callback'
     | '/'
     | '/raw/$rawId'
     | '/sdtm/$sdtmId'
@@ -346,6 +357,7 @@ export interface FileRouteTypes {
     | '/_app/terminology'
     | '/_app/tlf'
     | '/_app/validation'
+    | '/auth/callback'
     | '/_app/'
     | '/_app/raw/$rawId'
     | '/_app/sdtm/$sdtmId'
@@ -364,6 +376,7 @@ export interface RootRouteChildren {
   ConfirmRoute: typeof ConfirmRoute
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -493,6 +506,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/validation'
       preLoaderRoute: typeof AppValidationRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/raw/': {
       id: '/_app/raw/'
@@ -647,6 +667,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConfirmRoute: ConfirmRoute,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

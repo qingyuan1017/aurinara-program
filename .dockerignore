@@ -1,4 +1,9 @@
 .git
+.agents
+.github
+.hypothesis
+.kiro
+.worktrees
 .venv
 .mypy_cache
 .pytest_cache
@@ -9,3 +14,8 @@ __pycache__
 htmlcov
 dist
 build
+docs
+examples
+frontend
+runners
+tests

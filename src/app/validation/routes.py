@@ -271,7 +271,12 @@ def validate_artifact(
             title="Artifact not found",
             detail="The artifact does not exist.",
         )
-    studies.require_access(session, artifact.study_id, principal)
+    studies.require_access(
+        session,
+        artifact.study_id,
+        principal,
+        action="artifact.validation.run",
+    )
     input_manifest = {
         "schema_version": "1.0.0",
         "artifact_id": str(artifact.id),

@@ -11,6 +11,7 @@ RUN groupadd --system aurinara && useradd --system --gid aurinara --create-home 
 WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
+COPY scripts ./scripts
 COPY workers ./workers
 COPY support ./support
 COPY migrations ./migrations
@@ -20,7 +21,8 @@ COPY templates ./templates
 COPY alembic.ini ./
 RUN uv sync --frozen --no-dev --no-editable
 
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/app/src"
 USER aurinara
 
 EXPOSE 8000

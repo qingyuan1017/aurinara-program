@@ -47,7 +47,11 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
   // needing a page refresh.
   const { isAuthenticated } = useAuth()
   const { data, isLoading, isError } = useListStudies(undefined, {
-    query: { enabled: isAuthenticated },
+    query: {
+      enabled: isAuthenticated,
+      refetchInterval: isAuthenticated ? 30_000 : false,
+      refetchIntervalInBackground: false,
+    },
   })
   const studies = useMemo(() => data?.items ?? [], [data])
 

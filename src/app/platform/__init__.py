@@ -1,0 +1,1 @@
+"""Shared Aurinara platform integration."""

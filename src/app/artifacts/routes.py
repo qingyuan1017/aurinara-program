@@ -1,11 +1,12 @@
 """Authorized source-file and artifact HTTP routes."""
 
+import logging
 from collections.abc import Iterator
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response, UploadFile, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.auth import Principal, get_principal
@@ -20,10 +21,13 @@ from app.artifacts.schemas import (
 from app.artifacts.service import ArtifactService
 from app.artifacts.storage import ObjectStorage
 from app.common.pagination import paginate
+from app.common.problems import ProblemException
 from app.config import Settings
+from app.platform.objects import get_platform_objects
 
 router = APIRouter(tags=["artifacts"])
 service = ArtifactService()
+logger = logging.getLogger(__name__)
 
 
 def _stream_object(storage: ObjectStorage, object_key: str) -> Iterator[bytes]:
@@ -121,10 +125,29 @@ def download_source_file(
     session: Annotated[Session, Depends(get_session)],
     storage: Annotated[ObjectStorage, Depends(get_object_storage)],
     principal: Annotated[Principal, Depends(get_principal)],
-) -> StreamingResponse:
+) -> Response:
     """Stream authorized immutable source bytes."""
 
-    source_file = service.require_source_file(session, source_file_id, principal)
+    source_file = service.require_source_file(
+        session,
+        source_file_id,
+        principal,
+        action="artifact.object.download",
+    )
+    if source_file.platform_object_id is not None:
+        gateway = get_platform_objects()
+        if gateway.mode != "disabled":
+            try:
+                return RedirectResponse(
+                    gateway.authorize_download(source_file.platform_object_id),
+                    status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+                )
+            except ProblemException:
+                if gateway.mode == "enforced":
+                    raise
+                logger.warning(
+                    "Shared object download unavailable in shadow mode; using legacy bytes"
+                )
     return StreamingResponse(
         _stream_object(storage, source_file.object_key),
         media_type=source_file.media_type,
@@ -171,10 +194,29 @@ def download_artifact(
     session: Annotated[Session, Depends(get_session)],
     storage: Annotated[ObjectStorage, Depends(get_object_storage)],
     principal: Annotated[Principal, Depends(get_principal)],
-) -> StreamingResponse:
+) -> Response:
     """Stream authorized artifact bytes, including retained stale evidence."""
 
-    artifact = service.require_artifact(session, artifact_id, principal)
+    artifact = service.require_artifact(
+        session,
+        artifact_id,
+        principal,
+        action="artifact.object.download",
+    )
+    if artifact.platform_object_id is not None:
+        gateway = get_platform_objects()
+        if gateway.mode != "disabled":
+            try:
+                return RedirectResponse(
+                    gateway.authorize_download(artifact.platform_object_id),
+                    status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+                )
+            except ProblemException:
+                if gateway.mode == "enforced":
+                    raise
+                logger.warning(
+                    "Shared object download unavailable in shadow mode; using legacy bytes"
+                )
     return StreamingResponse(
         _stream_object(storage, artifact.object_key),
         media_type=artifact.media_type,

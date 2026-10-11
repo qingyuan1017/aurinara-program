@@ -72,7 +72,9 @@ const editFields: FieldDescriptor<StudyPatch>[] = [
 
 function StudiesPage() {
   const qc = useQueryClient()
-  const { data, isLoading, isError, error } = useListStudies()
+  const { data, isLoading, isError, error } = useListStudies(undefined, {
+    query: { refetchInterval: 30_000, refetchIntervalInBackground: false },
+  })
   const [createOpen, setCreateOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<StudyResponse | null>(null)
 

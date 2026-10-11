@@ -30,6 +30,7 @@ from app.integration.models import (
     IntegrationSubscription,
 )
 from app.packaging.models import SubmissionPackage
+from app.platform.models import PlatformProjectionEvent
 from app.raw.models import (
     RawDataset,
     RawDatasetFileBinding,
@@ -95,6 +96,7 @@ __all__ = [
     "Job",
     "ExecutionRun",
     "OutboxEvent",
+    "PlatformProjectionEvent",
     "ReconciliationRun",
     "ReferenceRecord",
     "ReferenceImportBatch",

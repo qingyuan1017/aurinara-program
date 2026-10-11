@@ -67,8 +67,15 @@ def _settings() -> Settings:
 def _service(monkeypatch: pytest.MonkeyPatch, study_id: UUID) -> ArtifactService:
     service = ArtifactService()
 
-    def _allow(session: object, requested: UUID, principal: Principal) -> object:
+    def _allow(
+        session: object,
+        requested: UUID,
+        principal: Principal,
+        *,
+        action: str = "artifact.study.read",
+    ) -> object:
         assert requested == study_id
+        assert action == "artifact.object.upload"
         return object()
 
     monkeypatch.setattr(service._studies, "require_access", _allow)

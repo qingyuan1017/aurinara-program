@@ -1,0 +1,7 @@
+{
+  "task_id": "task-raw-bulk-upload",
+  "task_description": "Implement bulk upload for raw datasets per the approved design (revision 3): a synchronous atomic multipart :bulk endpoint that creates many immutable SourceFiles, and an asynchronous JSON-array dataset-import operation (202 + Idempotency-Key + status resource) backed by a durable Postgres worker job that validates completely before an all-or-nothing commit, bumps the workbench revision once, stales consumers, and reports typed per-entry issues.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}

@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 request_id_context: ContextVar[str | None] = ContextVar("request_id", default=None)
+request_method_context: ContextVar[str | None] = ContextVar("request_method", default=None)
 
 
 class JsonFormatter(logging.Formatter):

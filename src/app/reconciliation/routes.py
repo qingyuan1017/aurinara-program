@@ -80,7 +80,12 @@ def create_reconciliation(
     principal: Annotated[Principal, Depends(get_principal)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> ReconciliationResponse:
-    studies.require_access(session, command.study_id, principal)
+    studies.require_access(
+        session,
+        command.study_id,
+        principal,
+        action="artifact.reconciliation.run",
+    )
     for item in command.inputs:
         if item.artifact_id is not None:
             artifact = session.get(Artifact, item.artifact_id)

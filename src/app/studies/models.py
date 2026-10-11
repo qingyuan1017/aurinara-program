@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint, Uuid
+from sqlalchemy import BigInteger, Boolean, ForeignKey, String, UniqueConstraint, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,6 +19,9 @@ class Study(UuidPrimaryKey, Revisioned, Timestamped, Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    platform_managed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    platform_revision: Mapped[int | None] = mapped_column(BigInteger)
+    platform_registry_status: Mapped[str | None] = mapped_column(String(16))
 
 
 class StudyMembership(UuidPrimaryKey, Timestamped, Base):
