@@ -11,16 +11,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  CastOperationInvalid,
-  CastOperationTargetType,
   JoinNodeJoinType,
   SdtmAggregationOperation,
-  TerminologyMapNodeUnmapped,
 } from '@/api/generated/model'
 import type {
   AggregateNode,
   AssertNode,
-  CastNode,
   DeriveNode,
   DomainWriteNode,
   FilterNode,
@@ -32,13 +28,14 @@ import type {
   SelectNode,
   SequenceNode,
   SortNode,
-  TerminologyMapNode,
+  CustomFunctionDefinition,
 } from '@/api/generated/model'
 
 import { descriptorFor } from './operator-catalog'
 import {
   AssignmentList,
   ExpressionBuilder,
+  type NestedPlanExpression,
   type PlanExpression,
 } from './expression-builder'
 
@@ -53,12 +50,14 @@ export interface NodeInspectorProps {
   onChange: (next: SdtmDerivationPlanNodesItem) => void
   /** Read-only mode (e.g. when the plan is misaligned) disables every field. */
   readOnly?: boolean
+  customFunctions?: readonly CustomFunctionDefinition[]
 }
 
 export function NodeInspector({
   node,
   onChange,
   readOnly = false,
+  customFunctions = [],
 }: NodeInspectorProps) {
   if (!node) {
     return (
@@ -82,7 +81,12 @@ export function NodeInspector({
           id: <code>{node.id}</code>
         </p>
       </div>
-      <NodeFields node={node} onChange={onChange} readOnly={readOnly} />
+      <NodeFields
+        node={node}
+        onChange={onChange}
+        readOnly={readOnly}
+        customFunctions={customFunctions}
+      />
     </div>
   )
 }
@@ -91,10 +95,12 @@ function NodeFields({
   node,
   onChange,
   readOnly,
+  customFunctions,
 }: {
   node: SdtmDerivationPlanNodesItem
   onChange: (next: SdtmDerivationPlanNodesItem) => void
   readOnly: boolean
+  customFunctions: readonly CustomFunctionDefinition[]
 }) {
   switch (node.node_type) {
     case 'raw_read':
@@ -104,7 +110,7 @@ function NodeFields({
     case 'select':
       return <SelectFields node={node} onChange={onChange} readOnly={readOnly} />
     case 'filter':
-      return <FilterFields node={node} onChange={onChange} readOnly={readOnly} />
+      return <FilterFields node={node} onChange={onChange} readOnly={readOnly} customFunctions={customFunctions} />
     case 'join':
       return <JoinFields node={node} onChange={onChange} readOnly={readOnly} />
     case 'union':
@@ -113,14 +119,17 @@ function NodeFields({
           Union has no parameters; connect two or more inputs on the canvas.
         </p>
       )
-    case 'cast':
-      return <CastFields node={node} onChange={onChange} readOnly={readOnly} />
     case 'pivot_longer':
       return <PivotFields node={node} onChange={onChange} readOnly={readOnly} />
     case 'derive':
-      return <DeriveFields node={node} onChange={onChange} readOnly={readOnly} />
-    case 'terminology_map':
-      return <TerminologyFields node={node} onChange={onChange} readOnly={readOnly} />
+      return (
+        <DeriveFields
+          node={node}
+          onChange={onChange}
+          readOnly={readOnly}
+          customFunctions={customFunctions}
+        />
+      )
     case 'aggregate':
       return <AggregateFields node={node} onChange={onChange} readOnly={readOnly} />
     case 'sequence':
@@ -128,7 +137,7 @@ function NodeFields({
     case 'sort':
       return <SortFields node={node} onChange={onChange} readOnly={readOnly} />
     case 'assert':
-      return <AssertFields node={node} onChange={onChange} readOnly={readOnly} />
+      return <AssertFields node={node} onChange={onChange} readOnly={readOnly} customFunctions={customFunctions} />
     case 'domain_write':
       return <DomainWriteFields node={node} onChange={onChange} readOnly={readOnly} />
   }
@@ -298,18 +307,23 @@ function FilterFields({
   node,
   onChange,
   readOnly,
+  customFunctions,
 }: {
   node: FilterNode
   onChange: (next: SdtmDerivationPlanNodesItem) => void
   readOnly: boolean
+  customFunctions: readonly CustomFunctionDefinition[]
 }) {
   return (
     <div className="flex flex-col gap-2">
       <Label className="text-xs text-muted-foreground">Predicate</Label>
       <ExpressionBuilder
         value={node.predicate as PlanExpression}
-        onChange={(next) => onChange({ ...node, predicate: next })}
+        onChange={(next) =>
+          onChange({ ...node, predicate: next as NestedPlanExpression })
+        }
         disabled={readOnly}
+        customFunctions={customFunctions}
       />
     </div>
   )
@@ -418,126 +432,6 @@ function JoinFields({
   )
 }
 
-function CastFields({
-  node,
-  onChange,
-  readOnly,
-}: {
-  node: CastNode
-  onChange: (next: SdtmDerivationPlanNodesItem) => void
-  readOnly: boolean
-}) {
-  const entries = Object.entries(node.casts)
-
-  function rename(oldKey: string, newKey: string) {
-    const next: CastNode['casts'] = {}
-    for (const [key, op] of Object.entries(node.casts)) {
-      next[key === oldKey ? newKey : key] = op
-    }
-    onChange({ ...node, casts: next })
-  }
-  function setTargetType(key: string, targetType: CastOperationTargetType) {
-    onChange({
-      ...node,
-      casts: { ...node.casts, [key]: { ...node.casts[key], target_type: targetType } },
-    })
-  }
-  function setSourceColumn(key: string, sourceColumn: string) {
-    onChange({
-      ...node,
-      casts: {
-        ...node.casts,
-        [key]: { ...node.casts[key], source_column: sourceColumn },
-      },
-    })
-  }
-  function setInvalid(key: string, invalid: CastOperationInvalid) {
-    onChange({
-      ...node,
-      casts: { ...node.casts, [key]: { ...node.casts[key], invalid } },
-    })
-  }
-  function remove(key: string) {
-    const next = { ...node.casts }
-    delete next[key]
-    onChange({ ...node, casts: next })
-  }
-  function add() {
-    let name = 'col'
-    let suffix = 1
-    while (name in node.casts) {
-      name = `col${suffix}`
-      suffix += 1
-    }
-    onChange({
-      ...node,
-      casts: {
-        ...node.casts,
-        [name]: { source_column: '', target_type: 'text', invalid: 'error' },
-      },
-    })
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      <Label className="text-xs text-muted-foreground">Casts (target column)</Label>
-      {entries.map(([key, op]) => (
-        <div key={key} className="flex flex-col gap-2 rounded-md border p-2">
-          <TextField
-            label="Target column"
-            value={key}
-            onChange={(next) => rename(key, next)}
-            readOnly={readOnly}
-          />
-          <TextField
-            label="Source column"
-            value={op.source_column}
-            onChange={(next) => setSourceColumn(key, next)}
-            readOnly={readOnly}
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <EnumSelect
-              label="Target type"
-              value={op.target_type}
-              options={Object.values(CastOperationTargetType)}
-              onChange={(next) => setTargetType(key, next as CastOperationTargetType)}
-              readOnly={readOnly}
-            />
-            <EnumSelect
-              label="On invalid"
-              value={op.invalid ?? 'error'}
-              options={Object.values(CastOperationInvalid)}
-              onChange={(next) => setInvalid(key, next as CastOperationInvalid)}
-              readOnly={readOnly}
-            />
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => remove(key)}
-            disabled={readOnly}
-            aria-label={`Remove cast ${key}`}
-          >
-            <Trash2 className="size-4" aria-hidden /> Remove
-          </Button>
-        </div>
-      ))}
-      <div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={add}
-          disabled={readOnly}
-        >
-          <Plus className="size-4" aria-hidden /> Add cast
-        </Button>
-      </div>
-    </div>
-  )
-}
-
 function PivotFields({
   node,
   onChange,
@@ -583,10 +477,12 @@ function DeriveFields({
   node,
   onChange,
   readOnly,
+  customFunctions,
 }: {
   node: DeriveNode
   onChange: (next: SdtmDerivationPlanNodesItem) => void
   readOnly: boolean
+  customFunctions: readonly CustomFunctionDefinition[]
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -603,105 +499,17 @@ function DeriveFields({
         </Label>
         <AssignmentList
           assignments={node.assignments as Record<string, PlanExpression>}
-          onChange={(next) => onChange({ ...node, assignments: next })}
+          onChange={(next) =>
+            onChange({
+              ...node,
+              assignments: next,
+              assignment_order: Object.keys(next),
+            })
+          }
           disabled={readOnly}
+          targetDomain={node.target_domain}
+          customFunctions={customFunctions}
         />
-      </div>
-    </div>
-  )
-}
-
-function TerminologyFields({
-  node,
-  onChange,
-  readOnly,
-}: {
-  node: TerminologyMapNode
-  onChange: (next: SdtmDerivationPlanNodesItem) => void
-  readOnly: boolean
-}) {
-  const entries = Object.entries(node.mappings)
-
-  function setMapping(from: string, to: string) {
-    onChange({ ...node, mappings: { ...node.mappings, [from]: to } })
-  }
-  function renameFrom(oldFrom: string, newFrom: string) {
-    const next: TerminologyMapNode['mappings'] = {}
-    for (const [from, to] of Object.entries(node.mappings)) {
-      next[from === oldFrom ? newFrom : from] = to
-    }
-    onChange({ ...node, mappings: next })
-  }
-  function remove(from: string) {
-    const next = { ...node.mappings }
-    delete next[from]
-    onChange({ ...node, mappings: next })
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      <TextField
-        label="Source column"
-        value={node.source_column}
-        onChange={(next) => onChange({ ...node, source_column: next })}
-        readOnly={readOnly}
-      />
-      <TextField
-        label="Target column"
-        value={node.target_column}
-        onChange={(next) => onChange({ ...node, target_column: next })}
-        readOnly={readOnly}
-      />
-      <EnumSelect
-        label="Unmapped handling"
-        value={node.unmapped ?? 'preserve'}
-        options={Object.values(TerminologyMapNodeUnmapped)}
-        onChange={(next) =>
-          onChange({ ...node, unmapped: next as TerminologyMapNode['unmapped'] })
-        }
-        readOnly={readOnly}
-      />
-      <div className="flex flex-col gap-2">
-        <Label className="text-xs text-muted-foreground">
-          Mappings (source value -&gt; target value)
-        </Label>
-        {entries.map(([from, to], index) => (
-          <div key={index} className="flex items-center gap-2">
-            <Input
-              value={from}
-              onChange={(event) => renameFrom(from, event.target.value)}
-              disabled={readOnly}
-              aria-label={`Mapping source ${index + 1}`}
-            />
-            <Input
-              value={to}
-              onChange={(event) => setMapping(from, event.target.value)}
-              disabled={readOnly}
-              aria-label={`Mapping target ${index + 1}`}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => remove(from)}
-              disabled={readOnly}
-              aria-label={`Remove mapping ${index + 1}`}
-            >
-              <Trash2 className="size-4" aria-hidden />
-            </Button>
-          </div>
-        ))}
-        <div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setMapping('', '')}
-            disabled={readOnly}
-          >
-            <Plus className="size-4" aria-hidden /> Add mapping
-          </Button>
-        </div>
       </div>
     </div>
   )
@@ -884,10 +692,12 @@ function AssertFields({
   node,
   onChange,
   readOnly,
+  customFunctions,
 }: {
   node: AssertNode
   onChange: (next: SdtmDerivationPlanNodesItem) => void
   readOnly: boolean
+  customFunctions: readonly CustomFunctionDefinition[]
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -902,8 +712,11 @@ function AssertFields({
         <Label className="text-xs text-muted-foreground">Predicate</Label>
         <ExpressionBuilder
           value={node.predicate as PlanExpression}
-          onChange={(next) => onChange({ ...node, predicate: next })}
+          onChange={(next) =>
+            onChange({ ...node, predicate: next as NestedPlanExpression })
+          }
           disabled={readOnly}
+          customFunctions={customFunctions}
         />
       </div>
     </div>

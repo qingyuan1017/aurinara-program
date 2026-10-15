@@ -1,0 +1,91 @@
+{
+  "_links": {
+    "self": {
+      "href": "/mdr/sdtmig/9-9-1",
+      "title": "Synthetic SDTMIG 9.9.1",
+      "type": "Implementation Guide"
+    }
+  },
+  "classes": [
+    {
+      "datasets": [
+        {
+          "_links": {
+            "parentClass": {
+              "title": "Special-Purpose Datasets"
+            }
+          },
+          "datasetStructure": "One record per subject",
+          "datasetVariables": [
+            {
+              "core": "Req",
+              "label": "Study Identifier",
+              "name": "STUDYID",
+              "role": "Identifier",
+              "simpleDatatype": "Char"
+            },
+            {
+              "core": "Req",
+              "label": "Unique Subject Identifier",
+              "name": "USUBJID",
+              "role": "Identifier",
+              "simpleDatatype": "Char"
+            },
+            {
+              "core": "Exp",
+              "label": "Age",
+              "name": "AGE",
+              "role": "Record Qualifier",
+              "simpleDatatype": "Num"
+            },
+            {
+              "core": "Perm",
+              "label": "Race",
+              "name": "RACE",
+              "role": "Record Qualifier",
+              "simpleDatatype": "Char"
+            }
+          ],
+          "label": "Demographics",
+          "name": "DM"
+        },
+        {
+          "_links": {
+            "parentClass": {
+              "title": "Events"
+            }
+          },
+          "datasetStructure": "One record per adverse event",
+          "datasetVariables": [
+            {
+              "core": "Req",
+              "label": "Study Identifier",
+              "name": "STUDYID",
+              "role": "Identifier",
+              "simpleDatatype": "Char"
+            },
+            {
+              "core": "Exp",
+              "label": "Reported Term for the Adverse Event",
+              "name": "AETERM",
+              "role": "Topic",
+              "simpleDatatype": "Char"
+            },
+            {
+              "core": "Perm",
+              "label": "Body System or Organ Class",
+              "name": "AEBODSYS",
+              "role": "Record Qualifier",
+              "simpleDatatype": "Char"
+            }
+          ],
+          "label": "Adverse Events",
+          "name": "AE"
+        }
+      ]
+    }
+  ],
+  "label": "Synthetic SDTM Implementation Guide",
+  "name": "SDTMIG",
+  "version": "9.9.1"
+}

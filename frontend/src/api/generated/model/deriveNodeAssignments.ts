@@ -10,6 +10,9 @@ import type { UnaryExpression } from './unaryExpression';
 import type { BinaryExpression } from './binaryExpression';
 import type { ConditionalExpression } from './conditionalExpression';
 import type { FunctionCallExpression } from './functionCallExpression';
+import type { CustomFunctionCallExpression } from './customFunctionCallExpression';
+import type { CastExpression } from './castExpression';
+import type { TerminologyMapExpression } from './terminologyMapExpression';
 import type { ListLiteralExpression } from './listLiteralExpression';
 
-export type DeriveNodeAssignments = {[key: string]: LiteralExpression | ColumnExpression | UnaryExpression | BinaryExpression | ConditionalExpression | FunctionCallExpression | ListLiteralExpression};
+export type DeriveNodeAssignments = {[key: string]: LiteralExpression | ColumnExpression | UnaryExpression | BinaryExpression | ConditionalExpression | FunctionCallExpression | CustomFunctionCallExpression | CastExpression | TerminologyMapExpression | ListLiteralExpression};

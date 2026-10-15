@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Annotated, Literal, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, Request, Response, status
+from fastapi import APIRouter, Body, Depends, Header, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pypdf import PdfReader
@@ -441,7 +441,7 @@ def get_content(
 @router.put("/documents/{document_id}/content", response_model=ContentResponse)
 async def put_content(
     document_id: UUID,
-    request: Request,
+    payload: Annotated[dict[str, object], Body()],
     response: Response,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
@@ -451,9 +451,8 @@ async def put_content(
     document = _require(session, registry, document_id, principal)
     require_matching_etag(if_match, document.revision)
     try:
-        payload = await request.json()
         content = validate_content(document.document_type, payload)
-    except (ValueError, ValidationError, json.JSONDecodeError) as error:
+    except (ValueError, ValidationError) as error:
         raise _unprocessable("document_content_invalid", str(error)) from error
     return _save_content(session, document, content.model_dump(mode="json"), principal, response)
 
@@ -621,7 +620,7 @@ def get_usdm(
 @router.put("/documents/{document_id}/usdm", response_model=UsdmResponse)
 async def put_usdm(
     document_id: UUID,
-    request: Request,
+    usdm: UsdmDocument,
     response: Response,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
@@ -631,10 +630,6 @@ async def put_usdm(
     document = _require(session, registry, document_id, principal)
     _require_protocol(document)
     require_matching_etag(if_match, document.revision)
-    try:
-        usdm = UsdmDocument.model_validate(await request.json())
-    except (ValueError, ValidationError, json.JSONDecodeError) as error:
-        raise _unprocessable("protocol_usdm_invalid", str(error)) from error
     return _save_usdm(session, document, usdm, principal, response)
 
 

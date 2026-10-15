@@ -5,7 +5,12 @@ from typing import cast
 
 from app.common.problems import ProblemException
 from app.transformation import expression_functions as fns
-from app.transformation.contracts import Aggregation, DataflowIR, Expression, WindowOperation
+from app.transformation.contracts import (
+    Aggregation,
+    DataflowIR,
+    DerivationExpression,
+    WindowOperation,
+)
 
 type Scalar = object | None
 type Row = dict[str, Scalar]
@@ -20,7 +25,7 @@ def _problem(code: str, detail: str) -> ProblemException:
     )
 
 
-def _value(expression: Expression, row: Mapping[str, Scalar]) -> Scalar:
+def _value(expression: DerivationExpression, row: Mapping[str, Scalar]) -> Scalar:
     if expression.kind == "literal":
         return expression.value
     if expression.kind == "column":
@@ -59,6 +64,27 @@ def _value(expression: Expression, row: Mapping[str, Scalar]) -> Scalar:
             return implementation(arguments)
         except fns.ExpressionFunctionError as error:
             raise _problem(error.code, error.detail) from error
+    if expression.kind == "custom_function":
+        raise _problem(
+            "preview_custom_function_unsupported",
+            "Custom functions run only in an isolated execution environment; "
+            "preview is unavailable.",
+        )
+    if expression.kind == "cast":
+        return _cast(
+            _value(expression.value, row),
+            expression.target_type,
+            expression.invalid,
+        )
+    if expression.kind == "terminology_map":
+        source_value = _value(expression.value, row)
+        mapped = expression.mappings.get(str(source_value)) if source_value is not None else None
+        if mapped is None and expression.unmapped == "error":
+            raise _problem(
+                "preview_terminology_unmapped",
+                f"Value '{source_value}' has no declared terminology mapping.",
+            )
+        return source_value if mapped is None and expression.unmapped == "preserve" else mapped
     if expression.kind == "unary":
         operand = _value(expression.operand, row)
         if expression.operator == "not":
@@ -329,7 +355,7 @@ def evaluate_dataflow(
             result = []
             for source_row in _single_input(node.id, inputs):
                 row = dict(source_row)
-                for name, expression in node.assignments.items():
+                for name, expression in node.ordered_assignments():
                     row[name] = _value(expression, row)
                 result.append(row)
         elif node.node_type == "cast":

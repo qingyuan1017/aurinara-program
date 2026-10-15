@@ -18,7 +18,15 @@ def session() -> Session:
     return Session(engine)
 
 
-def _event(study_id, sequence, *, name="Canonical", status="active", event_id=None):
+def _event(
+    study_id,
+    sequence,
+    *,
+    name="Canonical",
+    sponsor="Platform Sponsor",
+    status="active",
+    event_id=None,
+):
     return PlatformEvent(
         id=event_id or uuid4(),
         type=("platform.study.created.v1" if sequence == 1 else "platform.study.updated.v1"),
@@ -28,6 +36,7 @@ def _event(study_id, sequence, *, name="Canonical", status="active", event_id=No
             "study_id": str(study_id),
             "code": "CANONICAL-1",
             "display_name": name,
+            "sponsor": sponsor,
             "status": status,
         },
     )
@@ -40,7 +49,9 @@ def test_projection_is_idempotent_and_rejects_out_of_order_updates(session: Sess
     session.commit()
     assert apply_platform_event(session, created) is False
 
-    current = _event(study_id, 3, name="Current", status="archived")
+    current = _event(
+        study_id, 3, name="Current", sponsor="Current Sponsor", status="archived"
+    )
     stale = _event(study_id, 2, name="Stale")
     assert apply_platform_event(session, current) is True
     assert apply_platform_event(session, stale) is True
@@ -49,6 +60,7 @@ def test_projection_is_idempotent_and_rejects_out_of_order_updates(session: Sess
     study = session.get(Study, study_id)
     assert study is not None
     assert study.name == "Current"
+    assert study.sponsor == "Current Sponsor"
     assert study.status == "active"
     assert study.platform_registry_status == "archived"
     assert study.platform_revision == 3

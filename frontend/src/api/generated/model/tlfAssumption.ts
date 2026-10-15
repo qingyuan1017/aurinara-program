@@ -4,10 +4,13 @@
  * Aurinara Clinical Artifact Platform
  * OpenAPI spec version: 0.1.0
  */
-import type { CastNodeCasts } from './castNodeCasts';
 
-export interface CastNode {
-  node_type: 'cast';
+export interface TlfAssumption {
+  /** @pattern ^[A-Za-z][A-Za-z0-9_.-]{0,63}$ */
   id: string;
-  casts: CastNodeCasts;
+  /**
+   * @minLength 1
+   * @maxLength 4000
+   */
+  text: string;
 }

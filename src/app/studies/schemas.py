@@ -17,11 +17,10 @@ class StudyCreate(BaseModel):
 
 
 class StudyPatch(BaseModel):
-    """Editable study metadata."""
+    """Product-owned study lifecycle metadata."""
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str | None = Field(default=None, min_length=1, max_length=255)
     status: Literal["active", "closed"] | None = None
 
 
@@ -33,6 +32,7 @@ class StudyResponse(BaseModel):
     id: UUID
     code: str
     name: str
+    sponsor: str | None
     status: str
     revision: int
     created_by: str

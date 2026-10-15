@@ -5,4 +5,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type StudyPatchName = string | null;
+export type UsdmEntityDescription = string | null;

@@ -38,6 +38,8 @@ import type {
   ExportContentParams,
   HTTPValidationError,
   ProtocolContextResponse,
+  PutContentBody,
+  UsdmDocument,
   UsdmResponse,
   ValidationRunResponse
 } from '.././model';
@@ -616,11 +618,14 @@ export function useGetContent<TData = Awaited<ReturnType<typeof getContent>>, TE
  */
 export const putContent = (
     documentId: string,
+    putContentBody: BodyType<PutContentBody>,
  options?: SecondParameter<typeof customInstance>,) => {
       
       
       return customInstance<ContentResponse>(
-      {url: `/api/v1/documents/${documentId}/content`, method: 'PUT'
+      {url: `/api/v1/documents/${documentId}/content`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: putContentBody
     },
       options);
     }
@@ -628,8 +633,8 @@ export const putContent = (
 
 
 export const getPutContentMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putContent>>, TError,{documentId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof putContent>>, TError,{documentId: string}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putContent>>, TError,{documentId: string;data: BodyType<PutContentBody>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof putContent>>, TError,{documentId: string;data: BodyType<PutContentBody>}, TContext> => {
 
 const mutationKey = ['putContent'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -641,10 +646,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putContent>>, {documentId: string}> = (props) => {
-          const {documentId} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putContent>>, {documentId: string;data: BodyType<PutContentBody>}> = (props) => {
+          const {documentId,data} = props ?? {};
 
-          return  putContent(documentId,requestOptions)
+          return  putContent(documentId,data,requestOptions)
         }
 
         
@@ -653,18 +658,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type PutContentMutationResult = NonNullable<Awaited<ReturnType<typeof putContent>>>
-    
+    export type PutContentMutationBody = BodyType<PutContentBody>
     export type PutContentMutationError = ErrorType<HTTPValidationError>
 
     /**
  * @summary Put Content
  */
 export const usePutContent = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putContent>>, TError,{documentId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putContent>>, TError,{documentId: string;data: BodyType<PutContentBody>}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof putContent>>,
         TError,
-        {documentId: string},
+        {documentId: string;data: BodyType<PutContentBody>},
         TContext
       > => {
 
@@ -931,11 +936,14 @@ export function useGetUsdm<TData = Awaited<ReturnType<typeof getUsdm>>, TError =
  */
 export const putUsdm = (
     documentId: string,
+    usdmDocument: BodyType<UsdmDocument>,
  options?: SecondParameter<typeof customInstance>,) => {
       
       
       return customInstance<UsdmResponse>(
-      {url: `/api/v1/documents/${documentId}/usdm`, method: 'PUT'
+      {url: `/api/v1/documents/${documentId}/usdm`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: usdmDocument
     },
       options);
     }
@@ -943,8 +951,8 @@ export const putUsdm = (
 
 
 export const getPutUsdmMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putUsdm>>, TError,{documentId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof putUsdm>>, TError,{documentId: string}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putUsdm>>, TError,{documentId: string;data: BodyType<UsdmDocument>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof putUsdm>>, TError,{documentId: string;data: BodyType<UsdmDocument>}, TContext> => {
 
 const mutationKey = ['putUsdm'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -956,10 +964,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putUsdm>>, {documentId: string}> = (props) => {
-          const {documentId} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putUsdm>>, {documentId: string;data: BodyType<UsdmDocument>}> = (props) => {
+          const {documentId,data} = props ?? {};
 
-          return  putUsdm(documentId,requestOptions)
+          return  putUsdm(documentId,data,requestOptions)
         }
 
         
@@ -968,18 +976,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type PutUsdmMutationResult = NonNullable<Awaited<ReturnType<typeof putUsdm>>>
-    
+    export type PutUsdmMutationBody = BodyType<UsdmDocument>
     export type PutUsdmMutationError = ErrorType<HTTPValidationError>
 
     /**
  * @summary Put Usdm
  */
 export const usePutUsdm = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putUsdm>>, TError,{documentId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putUsdm>>, TError,{documentId: string;data: BodyType<UsdmDocument>}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof putUsdm>>,
         TError,
-        {documentId: string},
+        {documentId: string;data: BodyType<UsdmDocument>},
         TContext
       > => {
 

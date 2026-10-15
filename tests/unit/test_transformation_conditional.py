@@ -212,15 +212,15 @@ def _conditional_flow(result_types: dict[str, str] | None) -> DataflowIR:
 def test_sas_compiles_with_result_types_and_fails_without() -> None:
     program = compile_dataflow(_conditional_flow({"ITTFL": "character"}), "sas")
     assert "IFC(" in program.source
-    assert program.compiler_version == "1.5.0"
+    assert program.compiler_version == "1.7.0"
     with pytest.raises(BackendCapabilityMissing):
         compile_dataflow(_conditional_flow(None), "sas")
 
 
 def test_compiler_banner_is_bumped() -> None:
     flow = _conditional_flow({"ITTFL": "character"})
-    assert "compiler=1.5.0" in compile_dataflow(flow, "python").source
-    assert "compiler=1.5.0" in compile_dataflow(flow, "r").source
+    assert "compiler=1.7.0" in compile_dataflow(flow, "python").source
+    assert "compiler=1.7.0" in compile_dataflow(flow, "r").source
 
 
 # --- contract round-trip and backward compatibility --------------------------
@@ -234,7 +234,7 @@ def test_conditional_contract_round_trips() -> None:
 
 def test_old_ir_without_result_types_validates_and_lowers() -> None:
     flow = _conditional_flow(None)
-    assert flow.operator_version == "1.2.0"
+    assert flow.operator_version == "1.3.0"
     assert flow.schema_version == "1.0.0"
     derive = next(node for node in flow.nodes if node.node_type == "derive")
     assert derive.result_types == {}

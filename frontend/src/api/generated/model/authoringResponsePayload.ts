@@ -4,6 +4,5 @@
  * Aurinara Clinical Artifact Platform
  * OpenAPI spec version: 0.1.0
  */
-import type { CastOperation } from './castOperation';
 
-export type CastNodeCasts = {[key: string]: CastOperation};
+export type AuthoringResponsePayload = { [key: string]: unknown };

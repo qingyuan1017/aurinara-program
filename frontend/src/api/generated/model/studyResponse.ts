@@ -4,6 +4,7 @@
  * Aurinara Clinical Artifact Platform
  * OpenAPI spec version: 0.1.0
  */
+import type { StudyResponseSponsor } from './studyResponseSponsor';
 
 /**
  * Public study representation.
@@ -12,6 +13,7 @@ export interface StudyResponse {
   id: string;
   code: string;
   name: string;
+  sponsor: StudyResponseSponsor;
   status: string;
   revision: number;
   created_by: string;

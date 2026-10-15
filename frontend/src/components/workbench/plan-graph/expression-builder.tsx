@@ -1,31 +1,57 @@
 import * as React from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Plus,
+  Search,
+  Trash2,
+} from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
 import {
   BinaryExpressionOperator,
+  CastExpressionInvalid,
+  CastExpressionTargetType,
   FunctionCallExpressionFunction,
+  TerminologyMapExpressionUnmapped,
   UnaryExpressionOperator,
 } from '@/api/generated/model'
 import type {
   BinaryExpression,
+  CastExpression,
   ColumnExpression,
   ConditionalBranch,
   ConditionalExpression,
+  CustomFunctionDefinition,
+  CustomFunctionCallExpression,
   FunctionCallExpression,
   ListLiteralExpression,
   ListLiteralExpressionValuesItem,
   LiteralExpression,
+  TerminologyMapExpression,
   UnaryExpression,
 } from '@/api/generated/model'
+import {
+  FUNCTION_CATALOG,
+  FUNCTION_CATEGORIES,
+  functionParameter,
+  type FunctionName,
+} from './function-catalog'
 
 /**
  * A structured, strictly typed expression editor used by the `derive`, `filter`
@@ -47,6 +73,14 @@ export type PlanExpression =
   | BinaryExpression
   | ConditionalExpression
   | FunctionCallExpression
+  | CustomFunctionCallExpression
+  | CastExpression
+  | TerminologyMapExpression
+
+export type NestedPlanExpression = Exclude<
+  PlanExpression,
+  CastExpression | TerminologyMapExpression
+>
 
 /**
  * The selectable kinds. `list_literal` is deliberately NOT offered here: it is
@@ -63,66 +97,16 @@ const KIND_OPTIONS: { value: ExpressionKind; label: string }[] = [
   { value: 'binary', label: 'Binary operation' },
   { value: 'conditional', label: 'Conditional (case/when)' },
   { value: 'function', label: 'Function' },
+  { value: 'custom_function', label: 'Custom function' },
+  { value: 'cast', label: 'Cast function' },
+  { value: 'terminology_map', label: 'Terminology mapping function' },
 ]
 
 const BINARY_OPERATORS = Object.values(BinaryExpressionOperator)
 const UNARY_OPERATORS = Object.values(UnaryExpressionOperator)
 const FUNCTION_NAMES = Object.values(FunctionCallExpressionFunction)
 
-type FunctionName = FunctionCallExpression['function']
-
-/**
- * Per-function positional arity, mirroring the backend `FunctionCallExpression`
- * `model_validator`. Variadic functions declare their MINIMUM count; the editor
- * lets the author add further arguments beyond it. Fixed-arity functions pin an
- * exact count. Changing the function resets the argument list to this arity so
- * the author never submits a structurally invalid call.
- */
-const FUNCTION_ARITY: Record<FunctionName, { min: number; variadic: boolean }> =
-  {
-    // variadic (minimum count)
-    concat: { min: 1, variadic: true },
-    coalesce: { min: 1, variadic: true },
-    min_of: { min: 1, variadic: true },
-    max_of: { min: 1, variadic: true },
-    n_missing: { min: 1, variadic: true },
-    n_present: { min: 1, variadic: true },
-    // fixed arity
-    substring: { min: 3, variadic: false },
-    upper: { min: 1, variadic: false },
-    lower: { min: 1, variadic: false },
-    trim: { min: 1, variadic: false },
-    length: { min: 1, variadic: false },
-    contains: { min: 2, variadic: false },
-    startswith: { min: 2, variadic: false },
-    endswith: { min: 2, variadic: false },
-    replace: { min: 3, variadic: false },
-    index_of: { min: 2, variadic: false },
-    scan_token: { min: 3, variadic: false },
-    pad_left: { min: 3, variadic: false },
-    pad_right: { min: 3, variadic: false },
-    nullif: { min: 2, variadic: false },
-    is_in: { min: 2, variadic: false },
-    round: { min: 2, variadic: false },
-    floor: { min: 1, variadic: false },
-    ceil: { min: 1, variadic: false },
-    abs: { min: 1, variadic: false },
-    modulo: { min: 2, variadic: false },
-    truncate: { min: 1, variadic: false },
-    safe_divide: { min: 2, variadic: false },
-    parse_date: { min: 1, variadic: false },
-    year: { min: 1, variadic: false },
-    month: { min: 1, variadic: false },
-    day: { min: 1, variadic: false },
-    date_diff_days: { min: 2, variadic: false },
-    parse_datetime: { min: 1, variadic: false },
-    hour: { min: 1, variadic: false },
-    minute: { min: 1, variadic: false },
-    second: { min: 1, variadic: false },
-    study_day: { min: 2, variadic: false },
-    date_add_days: { min: 2, variadic: false },
-    date_diff_months: { min: 2, variadic: false },
-  }
+const CustomFunctionsContext = React.createContext<readonly CustomFunctionDefinition[]>([])
 
 /** A fresh default expression for a newly selected kind. */
 // eslint-disable-next-line react-refresh/only-export-components
@@ -159,6 +143,26 @@ export function defaultExpression(kind: ExpressionKind): PlanExpression {
     case 'function':
       // A safe default: `upper` applied to a single column argument.
       return defaultFunction('upper')
+    case 'custom_function':
+      return {
+        kind: 'custom_function',
+        function_id: '',
+        arguments: [{ kind: 'column', dataset: '', column: '' }],
+      }
+    case 'cast':
+      return {
+        kind: 'cast',
+        value: { kind: 'column', dataset: '', column: '' },
+        target_type: 'text',
+        invalid: 'error',
+      }
+    case 'terminology_map':
+      return {
+        kind: 'terminology_map',
+        value: { kind: 'column', dataset: '', column: '' },
+        mappings: { source: 'target' },
+        unmapped: 'error',
+      }
   }
 }
 
@@ -184,7 +188,7 @@ function defaultArgument(
 
 /** A fresh default `function` call for the given name at its minimum arity. */
 function defaultFunction(fn: FunctionName): FunctionCallExpression {
-  const { min } = FUNCTION_ARITY[fn]
+  const min = FUNCTION_CATALOG[fn].parameters.length
   const args: FunctionCallExpression['arguments'] = []
   for (let i = 0; i < min; i += 1) {
     args.push(defaultArgument(fn, i))
@@ -200,6 +204,10 @@ export interface ExpressionBuilderProps {
   depth?: number
   /** Accessible label for the kind selector at this level. */
   label?: string
+  /** Offer SDTM cast and terminology functions for derivation assignments. */
+  allowDerivationFunctions?: boolean
+  /** Named custom functions declared by the containing plan. */
+  customFunctions?: readonly CustomFunctionDefinition[]
 }
 
 /**
@@ -213,8 +221,12 @@ export function ExpressionBuilder({
   disabled = false,
   depth = 0,
   label = 'Expression',
+  allowDerivationFunctions = false,
+  customFunctions,
 }: ExpressionBuilderProps) {
   const kindId = React.useId()
+  const inheritedCustomFunctions = React.useContext(CustomFunctionsContext)
+  const availableCustomFunctions = customFunctions ?? inheritedCustomFunctions
 
   function changeKind(kind: ExpressionKind) {
     if (kind === value.kind) return
@@ -222,6 +234,7 @@ export function ExpressionBuilder({
   }
 
   return (
+    <CustomFunctionsContext.Provider value={availableCustomFunctions}>
     <div
       className="flex flex-col gap-2 rounded-md border border-dashed p-2"
       data-depth={depth}
@@ -239,7 +252,11 @@ export function ExpressionBuilder({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {KIND_OPTIONS.map((option) => (
+            {KIND_OPTIONS.filter(
+              (option) =>
+                allowDerivationFunctions ||
+                (option.value !== 'cast' && option.value !== 'terminology_map'),
+            ).map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
               </SelectItem>
@@ -285,6 +302,346 @@ export function ExpressionBuilder({
           disabled={disabled}
           depth={depth}
         />
+      )}
+      {value.kind === 'custom_function' && (
+        <CustomFunctionFields
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          depth={depth}
+        />
+      )}
+      {value.kind === 'cast' && (
+        <CastFunctionFields
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          depth={depth}
+        />
+      )}
+      {value.kind === 'terminology_map' && (
+        <TerminologyFunctionFields
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          depth={depth}
+        />
+      )}
+    </div>
+    </CustomFunctionsContext.Provider>
+  )
+}
+
+function CastFunctionFields({
+  value,
+  onChange,
+  disabled,
+  depth,
+}: {
+  value: CastExpression
+  onChange: (next: PlanExpression) => void
+  disabled: boolean
+  depth: number
+}) {
+  return (
+    <div className="flex flex-col gap-2" data-slot="cast-function-fields">
+      <ExpressionBuilder
+        value={value.value as PlanExpression}
+        onChange={(next) =>
+          onChange({ ...value, value: next as NestedPlanExpression })
+        }
+        disabled={disabled}
+        depth={depth + 1}
+        label="Value to cast"
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <EnumField
+          label="Target type"
+          value={value.target_type}
+          options={Object.values(CastExpressionTargetType)}
+          onChange={(next) =>
+            onChange({
+              ...value,
+              target_type: next as CastExpression['target_type'],
+            })
+          }
+          disabled={disabled}
+        />
+        <EnumField
+          label="On invalid"
+          value={value.invalid ?? 'error'}
+          options={Object.values(CastExpressionInvalid)}
+          onChange={(next) =>
+            onChange({ ...value, invalid: next as CastExpression['invalid'] })
+          }
+          disabled={disabled}
+        />
+      </div>
+    </div>
+  )
+}
+
+function TerminologyFunctionFields({
+  value,
+  onChange,
+  disabled,
+  depth,
+}: {
+  value: TerminologyMapExpression
+  onChange: (next: PlanExpression) => void
+  disabled: boolean
+  depth: number
+}) {
+  const entries = Object.entries(value.mappings)
+
+  function renameSource(previous: string, next: string) {
+    const mappings: Record<string, string> = {}
+    for (const [source, target] of entries) {
+      mappings[source === previous ? next : source] = target
+    }
+    onChange({ ...value, mappings })
+  }
+
+  function setTarget(source: string, target: string) {
+    onChange({ ...value, mappings: { ...value.mappings, [source]: target } })
+  }
+
+  function remove(source: string) {
+    const mappings = { ...value.mappings }
+    delete mappings[source]
+    onChange({ ...value, mappings })
+  }
+
+  function add() {
+    let source = 'source'
+    let suffix = 1
+    while (source in value.mappings) {
+      source = `source${suffix}`
+      suffix += 1
+    }
+    onChange({ ...value, mappings: { ...value.mappings, [source]: 'target' } })
+  }
+
+  return (
+    <div className="flex flex-col gap-2" data-slot="terminology-function-fields">
+      <ExpressionBuilder
+        value={value.value as PlanExpression}
+        onChange={(next) =>
+          onChange({ ...value, value: next as NestedPlanExpression })
+        }
+        disabled={disabled}
+        depth={depth + 1}
+        label="Value to map"
+      />
+      <EnumField
+        label="Unmapped handling"
+        value={value.unmapped ?? 'error'}
+        options={Object.values(TerminologyMapExpressionUnmapped)}
+        onChange={(next) =>
+          onChange({
+            ...value,
+            unmapped: next as TerminologyMapExpression['unmapped'],
+          })
+        }
+        disabled={disabled}
+      />
+      <Label className="text-xs text-muted-foreground">
+        Mappings (source value → controlled value)
+      </Label>
+      {entries.map(([source, target], index) => (
+        <div key={`${source}-${index}`} className="flex items-center gap-2">
+          <Input
+            value={source}
+            onChange={(event) => renameSource(source, event.target.value)}
+            disabled={disabled}
+            aria-label={`Terminology source ${index + 1}`}
+          />
+          <Input
+            value={target}
+            onChange={(event) => setTarget(source, event.target.value)}
+            disabled={disabled}
+            aria-label={`Terminology target ${index + 1}`}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => remove(source)}
+            disabled={disabled || entries.length === 1}
+            aria-label={`Remove terminology mapping ${index + 1}`}
+          >
+            <Trash2 />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="w-fit"
+        onClick={add}
+        disabled={disabled}
+      >
+        <Plus /> Add mapping
+      </Button>
+    </div>
+  )
+}
+
+function EnumField({
+  label,
+  value,
+  options,
+  onChange,
+  disabled,
+}: {
+  label: string
+  value: string
+  options: readonly string[]
+  onChange: (next: string) => void
+  disabled: boolean
+}) {
+  const id = React.useId()
+  return (
+    <div className="flex flex-col gap-1">
+      <Label htmlFor={id} className="text-xs text-muted-foreground">
+        {label}
+      </Label>
+      <Select value={value} onValueChange={onChange} disabled={disabled}>
+        <SelectTrigger id={id} size="sm" aria-label={label}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option} value={option}>
+              {option}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
+
+function CustomFunctionFields({
+  value,
+  onChange,
+  disabled,
+  depth,
+}: {
+  value: CustomFunctionCallExpression
+  onChange: (next: PlanExpression) => void
+  disabled: boolean
+  depth: number
+}) {
+  const functionId = React.useId()
+  const customFunctions = React.useContext(CustomFunctionsContext)
+  const definition = customFunctions.find((item) => item.id === value.function_id)
+
+  function changeFunction(nextId: string) {
+    const nextDefinition = customFunctions.find((item) => item.id === nextId)
+    onChange({
+      ...value,
+      function_id: nextId,
+      arguments: nextDefinition
+        ? nextDefinition.parameters.map(() => ({
+            kind: 'column' as const,
+            dataset: '',
+            column: '',
+          }))
+        : value.arguments,
+    })
+  }
+
+  function setArgument(
+    index: number,
+    next: CustomFunctionCallExpression['arguments'][number],
+  ) {
+    const arguments_ = [...value.arguments]
+    arguments_[index] = next
+    onChange({ ...value, arguments: arguments_ })
+  }
+
+  return (
+    <div className="flex flex-col gap-2" data-slot="custom-function-fields">
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={functionId} className="text-xs text-muted-foreground">
+          Custom function
+        </Label>
+        {customFunctions.length > 0 ? (
+          <Select
+            value={value.function_id}
+            onValueChange={changeFunction}
+            disabled={disabled}
+          >
+            <SelectTrigger id={functionId} size="sm" aria-label="Custom function">
+              <SelectValue placeholder="Select a declared function" />
+            </SelectTrigger>
+            <SelectContent>
+              {customFunctions.map((item) => (
+                <SelectItem key={item.id} value={item.id}>
+                  {item.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+            Declare a custom function above the graph before using it in a recipe.
+          </p>
+        )}
+      </div>
+      {definition && definition.parameters.length !== value.arguments.length && (
+        <div className="flex items-center justify-between rounded-md border border-destructive/50 p-2 text-xs text-destructive">
+          <span>
+            Signature requires {definition.parameters.length} parameter{definition.parameters.length === 1 ? '' : 's'}.
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => changeFunction(definition.id)}
+            disabled={disabled}
+          >
+            Sync parameters
+          </Button>
+        </div>
+      )}
+      {value.arguments.map((argument, index) => (
+        <div key={index} className="flex flex-col gap-1">
+          <div className="min-w-0 flex-1">
+            <ExpressionBuilder
+              value={argument as PlanExpression}
+              onChange={(next) => setArgument(index, next as NestedPlanExpression)}
+              disabled={disabled}
+              depth={depth + 1}
+              label={definition?.parameters[index] ?? `argument ${index + 1}`}
+            />
+          </div>
+          {!definition && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-fit"
+              onClick={() =>
+                onChange({
+                  ...value,
+                  arguments: value.arguments.filter((_, item) => item !== index),
+                })
+              }
+              disabled={disabled}
+              aria-label={`Remove custom function argument ${index + 1}`}
+            >
+              <Trash2 /> Remove argument
+            </Button>
+          )}
+        </div>
+      ))}
+      {!definition && customFunctions.length === 0 && (
+        <p className="text-xs text-muted-foreground">
+          Argument controls will follow the declared parameter names and arity.
+        </p>
       )}
     </div>
   )
@@ -458,7 +815,9 @@ function UnaryFields({
       <ExpressionBuilder
         label="Operand"
         value={value.operand as PlanExpression}
-        onChange={(next) => onChange({ ...value, operand: next })}
+        onChange={(next) =>
+          onChange({ ...value, operand: next as NestedPlanExpression })
+        }
         disabled={disabled}
         depth={depth + 1}
       />
@@ -506,14 +865,18 @@ function BinaryFields({
       <ExpressionBuilder
         label="Left"
         value={value.left as PlanExpression}
-        onChange={(next) => onChange({ ...value, left: next })}
+        onChange={(next) =>
+          onChange({ ...value, left: next as NestedPlanExpression })
+        }
         disabled={disabled}
         depth={depth + 1}
       />
       <ExpressionBuilder
         label="Right"
         value={value.right as PlanExpression}
-        onChange={(next) => onChange({ ...value, right: next })}
+        onChange={(next) =>
+          onChange({ ...value, right: next as NestedPlanExpression })
+        }
         disabled={disabled}
         depth={depth + 1}
       />
@@ -595,14 +958,18 @@ function ConditionalFields({
           <ExpressionBuilder
             label="When"
             value={branch.when as PlanExpression}
-            onChange={(next) => setBranch(index, { ...branch, when: next })}
+            onChange={(next) =>
+              setBranch(index, { ...branch, when: next as NestedPlanExpression })
+            }
             disabled={disabled}
             depth={depth + 1}
           />
           <ExpressionBuilder
             label="Then"
             value={branch.then as PlanExpression}
-            onChange={(next) => setBranch(index, { ...branch, then: next })}
+            onChange={(next) =>
+              setBranch(index, { ...branch, then: next as NestedPlanExpression })
+            }
             disabled={disabled}
             depth={depth + 1}
           />
@@ -622,7 +989,9 @@ function ConditionalFields({
       <ExpressionBuilder
         label="Otherwise"
         value={value.otherwise as PlanExpression}
-        onChange={(next) => onChange({ ...value, otherwise: next })}
+        onChange={(next) =>
+          onChange({ ...value, otherwise: next as NestedPlanExpression })
+        }
         disabled={disabled}
         depth={depth + 1}
       />
@@ -652,7 +1021,8 @@ function FunctionFields({
 }) {
   const functionId = React.useId()
   const args = value.arguments as FunctionCallExpression['arguments']
-  const arity = FUNCTION_ARITY[value.function]
+  const descriptor = FUNCTION_CATALOG[value.function]
+  const minimum = descriptor.parameters.length
 
   function changeFunction(fn: FunctionName) {
     if (fn === value.function) return
@@ -678,7 +1048,7 @@ function FunctionFields({
   }
 
   function removeArgument(index: number) {
-    if (args.length <= arity.min) return
+    if (args.length <= minimum) return
     onChange({
       ...value,
       arguments: args.filter((_, i) => i !== index),
@@ -700,17 +1070,29 @@ function FunctionFields({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {FUNCTION_NAMES.map((name) => (
-              <SelectItem key={name} value={name}>
-                {name}
-              </SelectItem>
+            {FUNCTION_CATEGORIES.map((category, categoryIndex) => (
+              <React.Fragment key={category}>
+                {categoryIndex > 0 && <SelectSeparator />}
+                <SelectGroup>
+                  <SelectLabel>{category}</SelectLabel>
+                  {FUNCTION_NAMES.filter(
+                    (name) => FUNCTION_CATALOG[name].category === category,
+                  ).map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </React.Fragment>
             ))}
           </SelectContent>
         </Select>
+        <p className="text-xs text-muted-foreground">{descriptor.description}</p>
       </div>
 
       {args.map((arg, index) => {
         const isListSlot = value.function === 'is_in' && index === 1
+        const parameter = functionParameter(value.function, index)
         return (
           <div
             key={index}
@@ -719,9 +1101,9 @@ function FunctionFields({
           >
             <div className="flex items-center justify-between">
               <Label className="text-xs text-muted-foreground">
-                Argument {index + 1}
+                {parameter.name}
               </Label>
-              {arity.variadic && args.length > arity.min && (
+              {descriptor.variadic && args.length > minimum && (
                 <Button
                   type="button"
                   variant="ghost"
@@ -742,18 +1124,21 @@ function FunctionFields({
               />
             ) : (
               <ExpressionBuilder
-                label={`Argument ${index + 1}`}
+                label={parameter.name}
                 value={arg as PlanExpression}
-                onChange={(next) => setArgument(index, next)}
+                onChange={(next) => setArgument(index, next as NestedPlanExpression)}
                 disabled={disabled}
                 depth={depth + 1}
               />
             )}
+            <p className="text-xs text-muted-foreground">
+              {parameter.description}
+            </p>
           </div>
         )
       })}
 
-      {arity.variadic && (
+      {descriptor.variadic && (
         <div>
           <Button
             type="button"
@@ -761,8 +1146,9 @@ function FunctionFields({
             size="sm"
             onClick={addArgument}
             disabled={disabled}
+            aria-label="Add argument"
           >
-            <Plus className="size-4" aria-hidden /> Add argument
+            <Plus className="size-4" aria-hidden /> Add value
           </Button>
         </div>
       )}
@@ -904,16 +1290,28 @@ export interface AssignmentListProps {
   assignments: Record<string, PlanExpression>
   onChange: (next: Record<string, PlanExpression>) => void
   disabled?: boolean
+  targetDomain?: string
+  customFunctions?: readonly CustomFunctionDefinition[]
 }
 
 export function AssignmentList({
   assignments,
   onChange,
   disabled = false,
+  targetDomain = '',
+  customFunctions = [],
 }: AssignmentListProps) {
   const entries = Object.entries(assignments)
+  const [search, setSearch] = React.useState('')
+  const normalizedSearch = search.trim().toUpperCase()
+  const visibleEntries = entries.filter(([target, expression]) =>
+    `${target} ${expressionSummary(expression)}`.toUpperCase().includes(normalizedSearch),
+  )
+  const dependencyMap = assignmentDependencies(assignments, targetDomain)
+  const cyclicTargets = cyclicAssignments(dependencyMap)
 
   function rename(oldKey: string, newKey: string) {
+    if (newKey !== oldKey && newKey in assignments) return
     const next: Record<string, PlanExpression> = {}
     for (const [key, expr] of Object.entries(assignments)) {
       next[key === oldKey ? newKey : key] = expr
@@ -931,6 +1329,36 @@ export function AssignmentList({
     onChange(next)
   }
 
+  function duplicate(key: string) {
+    const base = `${key}_COPY`
+    let name = base
+    let suffix = 2
+    while (name in assignments) {
+      name = `${base}${suffix}`
+      suffix += 1
+    }
+    const next: Record<string, PlanExpression> = {}
+    for (const [target, expression] of entries) {
+      next[target] = expression
+      if (target === key) {
+        next[name] = JSON.parse(JSON.stringify(expression)) as PlanExpression
+      }
+    }
+    onChange(next)
+  }
+
+  function move(key: string, offset: -1 | 1) {
+    const index = entries.findIndex(([target]) => target === key)
+    const destination = index + offset
+    if (index < 0 || destination < 0 || destination >= entries.length) return
+    const reordered = [...entries]
+    ;[reordered[index], reordered[destination]] = [
+      reordered[destination],
+      reordered[index],
+    ]
+    onChange(Object.fromEntries(reordered))
+  }
+
   function add() {
     const base = 'NEWVAR'
     let name = base
@@ -944,43 +1372,62 @@ export function AssignmentList({
 
   return (
     <div className="flex flex-col gap-3">
+      {entries.length > 3 && (
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="pl-8"
+            placeholder="Find a target variable or function"
+            aria-label="Search derived variables"
+          />
+        </div>
+      )}
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>{entries.length} variable recipe{entries.length === 1 ? '' : 's'}</span>
+        <span>Evaluated top to bottom</span>
+      </div>
       {entries.length === 0 && (
         <p className="text-sm text-muted-foreground">
           No assignments yet. Add a target column and build its typed expression.
         </p>
       )}
-      {entries.map(([key, expr]) => (
-        <div key={key} className="flex flex-col gap-2 rounded-md border p-2">
-          <div className="flex items-end gap-2">
-            <div className="flex flex-1 flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">
-                Target column
-              </Label>
-              <Input
-                value={key}
-                onChange={(event) => rename(key, event.target.value)}
-                disabled={disabled}
-                aria-label="Assignment target column"
-              />
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => remove(key)}
-              disabled={disabled}
-              aria-label={`Remove assignment ${key}`}
-            >
-              <Trash2 className="size-4" aria-hidden />
-            </Button>
-          </div>
-          <ExpressionBuilder
-            value={expr}
-            onChange={(next) => setExpression(key, next)}
+      {normalizedSearch && visibleEntries.length === 0 && (
+        <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+          No variable recipes match “{search}”.
+        </p>
+      )}
+      {visibleEntries.map(([key, expr]) => {
+        const index = entries.findIndex(([target]) => target === key)
+        const dependencies = dependencyMap.get(key) ?? []
+        const laterDependencies = dependencies.filter(
+          (dependency) => entries.findIndex(([target]) => target === dependency) > index,
+        )
+        return (
+          <VariableRecipeCard
+            key={index}
+            target={key}
+            expression={expr}
+            index={index}
+            count={entries.length}
+            dependencies={dependencies}
+            laterDependencies={laterDependencies}
+            cyclic={cyclicTargets.has(key)}
+            configured={expressionConfigured(expr, customFunctions)}
             disabled={disabled}
+            customFunctions={customFunctions}
+            onRename={(next) => rename(key, next)}
+            onExpressionChange={(next) => setExpression(key, next)}
+            onDuplicate={() => duplicate(key)}
+            onRemove={() => remove(key)}
+            onMove={move}
           />
-        </div>
-      ))}
+        )
+      })}
       <div>
         <Button
           type="button"
@@ -994,6 +1441,222 @@ export function AssignmentList({
       </div>
     </div>
   )
+}
+
+function VariableRecipeCard({
+  target,
+  expression,
+  index,
+  count,
+  dependencies,
+  laterDependencies,
+  cyclic,
+  configured,
+  disabled,
+  customFunctions,
+  onRename,
+  onExpressionChange,
+  onDuplicate,
+  onRemove,
+  onMove,
+}: {
+  target: string
+  expression: PlanExpression
+  index: number
+  count: number
+  dependencies: string[]
+  laterDependencies: string[]
+  cyclic: boolean
+  configured: boolean
+  disabled: boolean
+  customFunctions: readonly CustomFunctionDefinition[]
+  onRename: (next: string) => void
+  onExpressionChange: (next: PlanExpression) => void
+  onDuplicate: () => void
+  onRemove: () => void
+  onMove: (key: string, offset: -1 | 1) => void
+}) {
+  const [expanded, setExpanded] = React.useState(true)
+  const hasDependencyIssue = cyclic || laterDependencies.length > 0
+
+  return (
+    <section className="rounded-md border" data-slot="variable-recipe">
+      <div className="flex items-center gap-1 border-b p-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => setExpanded((current) => !current)}
+          aria-label={`${expanded ? 'Collapse' : 'Expand'} ${target}`}
+        >
+          {expanded ? <ChevronDown /> : <ChevronRight />}
+        </Button>
+        <div className="min-w-0 flex-1">
+          <Input
+            value={target}
+            onChange={(event) => onRename(event.target.value)}
+            disabled={disabled}
+            aria-label="Assignment target column"
+            className="font-mono font-medium"
+          />
+          <p className="mt-1 truncate text-xs text-muted-foreground">
+            {expressionSummary(expression)}
+          </p>
+        </div>
+        <div className="flex items-center gap-0.5">
+          <Button type="button" variant="ghost" size="icon" onClick={() => onMove(target, -1)} disabled={disabled || index === 0} aria-label={`Move ${target} up`}>
+            <ArrowUp />
+          </Button>
+          <Button type="button" variant="ghost" size="icon" onClick={() => onMove(target, 1)} disabled={disabled || index === count - 1} aria-label={`Move ${target} down`}>
+            <ArrowDown />
+          </Button>
+          <Button type="button" variant="ghost" size="icon" onClick={onDuplicate} disabled={disabled} aria-label={`Duplicate assignment ${target}`}>
+            <Copy />
+          </Button>
+          <Button type="button" variant="ghost" size="icon" onClick={onRemove} disabled={disabled || count === 1} aria-label={`Remove assignment ${target}`}>
+            <Trash2 />
+          </Button>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-1 px-2 pt-2">
+        <Badge variant={configured ? 'secondary' : 'destructive'}>
+          {configured ? 'Configured' : 'Needs attention'}
+        </Badge>
+        {dependencies.map((dependency) => (
+          <Badge key={dependency} variant="outline">uses {dependency}</Badge>
+        ))}
+        {hasDependencyIssue && (
+          <Badge variant="destructive">
+            {cyclic ? 'Circular dependency' : `Move ${laterDependencies.join(', ')} earlier`}
+          </Badge>
+        )}
+      </div>
+      {expanded && (
+        <div className="p-2">
+          <ExpressionBuilder
+            value={expression}
+            onChange={onExpressionChange}
+            disabled={disabled}
+            allowDerivationFunctions
+            customFunctions={customFunctions}
+          />
+        </div>
+      )}
+    </section>
+  )
+}
+
+function expressionSummary(expression: PlanExpression): string {
+  switch (expression.kind) {
+    case 'literal':
+      return expression.value === null ? 'missing value' : `constant ${String(expression.value)}`
+    case 'column':
+      return `${expression.dataset || '?'}.${expression.column || '?'}`
+    case 'unary':
+      return `${expression.operator}(${expressionSummary(expression.operand as PlanExpression)})`
+    case 'binary':
+      return `${expression.operator}(${expressionSummary(expression.left as PlanExpression)}, ${expressionSummary(expression.right as PlanExpression)})`
+    case 'conditional':
+      return `conditional with ${expression.branches.length} branch${expression.branches.length === 1 ? '' : 'es'}`
+    case 'function':
+      return `${expression.function}(${expression.arguments.length} parameter${expression.arguments.length === 1 ? '' : 's'})`
+    case 'custom_function':
+      return `${expression.function_id || 'custom function'}(${expression.arguments.length} parameter${expression.arguments.length === 1 ? '' : 's'})`
+    case 'cast':
+      return `cast to ${expression.target_type}`
+    case 'terminology_map':
+      return `terminology map (${Object.keys(expression.mappings).length} entries)`
+  }
+}
+
+function nestedExpressions(expression: PlanExpression): PlanExpression[] {
+  switch (expression.kind) {
+    case 'unary':
+      return [expression.operand as PlanExpression]
+    case 'binary':
+      return [expression.left as PlanExpression, expression.right as PlanExpression]
+    case 'conditional':
+      return [
+        ...expression.branches.flatMap((branch) => [
+          branch.when as PlanExpression,
+          branch.then as PlanExpression,
+        ]),
+        expression.otherwise as PlanExpression,
+      ]
+    case 'function':
+    case 'custom_function':
+      return expression.arguments.filter(
+        (argument) => argument.kind !== 'list_literal',
+      ) as PlanExpression[]
+    case 'cast':
+    case 'terminology_map':
+      return [expression.value as PlanExpression]
+    default:
+      return []
+  }
+}
+
+function expressionConfigured(
+  expression: PlanExpression,
+  customFunctions: readonly CustomFunctionDefinition[],
+): boolean {
+  if (expression.kind === 'column') {
+    return expression.dataset.trim().length > 0 && expression.column.trim().length > 0
+  }
+  if (expression.kind === 'custom_function') {
+    const definition = customFunctions.find((item) => item.id === expression.function_id)
+    if (!definition || definition.parameters.length !== expression.arguments.length) return false
+  }
+  if (expression.kind === 'terminology_map' && Object.keys(expression.mappings).some((key) => !key.trim())) {
+    return false
+  }
+  return nestedExpressions(expression).every((child) =>
+    expressionConfigured(child, customFunctions),
+  )
+}
+
+function assignmentDependencies(
+  assignments: Record<string, PlanExpression>,
+  targetDomain: string,
+): Map<string, string[]> {
+  const targets = new Set(Object.keys(assignments))
+  const result = new Map<string, string[]>()
+  for (const [target, expression] of Object.entries(assignments)) {
+    const dependencies = new Set<string>()
+    const visit = (candidate: PlanExpression) => {
+      if (
+        candidate.kind === 'column' &&
+        candidate.dataset === targetDomain &&
+        targets.has(candidate.column)
+      ) {
+        dependencies.add(candidate.column)
+      }
+      nestedExpressions(candidate).forEach(visit)
+    }
+    visit(expression)
+    result.set(target, [...dependencies])
+  }
+  return result
+}
+
+function cyclicAssignments(dependencies: Map<string, string[]>): Set<string> {
+  const cyclic = new Set<string>()
+  const visited = new Set<string>()
+  const active: string[] = []
+  const visit = (target: string) => {
+    const activeIndex = active.indexOf(target)
+    if (activeIndex >= 0) {
+      active.slice(activeIndex).forEach((item) => cyclic.add(item))
+      return
+    }
+    if (visited.has(target)) return
+    active.push(target)
+    for (const dependency of dependencies.get(target) ?? []) visit(dependency)
+    active.pop()
+    visited.add(target)
+  }
+  dependencies.forEach((_, target) => visit(target))
+  return cyclic
 }
 
 // ---------------------------------------------------------------------------

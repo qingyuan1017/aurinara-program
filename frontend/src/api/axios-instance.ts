@@ -3,7 +3,7 @@ import Axios, {
   type AxiosRequestConfig,
   type AxiosResponse,
 } from 'axios'
-import { getAuthToken, clearAuthToken } from '@/lib/auth'
+import { getAuthToken, replaceAuthTokenIfCurrent } from '@/lib/auth'
 
 // Base URL for API requests. The Orval-generated client already includes the
 // full path prefix ("/api/v1/...") in every request URL, so the base URL must
@@ -32,20 +32,26 @@ function loginRedirectUrl(): string {
   return `/login?redirect=${encodeURIComponent(next)}`
 }
 
-// Clear the stored token and bounce to /login only when a request that ACTUALLY
-// carried a bearer token is rejected with 401 — i.e. the token itself was
-// refused (expired or invalid). This is the single central place that reacts to
-// an expired/invalid token for every generated API call, so screens never
-// scatter their own 401 handling. A 401 on a request that had no Authorization
-// header must not wipe the session (that would log the user out on an
-// unauthenticated race), and a request error with no response (network/CORS) is
-// left alone. The redirect is skipped when already on /login to avoid a loop.
+// Clear the stored token and bounce to /login only when the token rejected by a
+// 401 is still the current token. A response from an older request may arrive
+// after Cognito has completed a newer sign-in; that stale response must not
+// erase the new session. Requests without a bearer token and network/CORS
+// failures are left alone. The redirect is skipped when already on /login.
 AXIOS_INSTANCE.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    const hadBearer = Boolean(error.config?.headers?.Authorization)
-    if (error.response?.status === 401 && hadBearer) {
-      clearAuthToken()
+    const authorization =
+      error.config?.headers?.get?.('Authorization') ??
+      error.config?.headers?.Authorization
+    const rejectedToken =
+      typeof authorization === 'string' && authorization.startsWith('Bearer ')
+        ? authorization.slice('Bearer '.length)
+        : null
+    if (
+      error.response?.status === 401 &&
+      rejectedToken &&
+      replaceAuthTokenIfCurrent(rejectedToken, null)
+    ) {
       if (
         typeof window !== 'undefined' &&
         window.location.pathname !== '/login'

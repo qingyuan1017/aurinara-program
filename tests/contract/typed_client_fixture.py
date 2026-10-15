@@ -65,6 +65,10 @@ PHASE3_RAW_SDTM_OPERATIONS: Final[dict[str, frozenset[str]]] = {
     "/api/v1/raw/{raw_id}/reconcile": frozenset({"post"}),
     "/api/v1/sdtms/{sdtm_id}/input-selection": frozenset({"get", "put"}),
     "/api/v1/sdtms/{sdtm_id}/specification": frozenset({"get", "put"}),
+    "/api/v1/sdtms/{sdtm_id}/specification/initialization-options": frozenset(
+        {"get"}
+    ),
+    "/api/v1/sdtms/{sdtm_id}/specification/initialize": frozenset({"post"}),
     "/api/v1/sdtms/{sdtm_id}/derivation-plans": frozenset({"get"}),
     "/api/v1/sdtms/{sdtm_id}/domains/{domain_code}/derivation-plan": frozenset({"get", "put"}),
     "/api/v1/sdtms/{sdtm_id}/domains/{domain_code}/derivation-plan/validate": frozenset({"post"}),

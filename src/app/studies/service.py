@@ -214,8 +214,6 @@ class StudyService:
                 detail="Update canonical study fields through the platform control plane.",
             )
         require_matching_etag(if_match, study.revision)
-        if command.name is not None:
-            study.name = command.name
         if command.status is not None:
             study.status = command.status
         study.revision += 1

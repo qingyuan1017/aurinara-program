@@ -5,11 +5,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type TerminologyMapNodeUnmapped = typeof TerminologyMapNodeUnmapped[keyof typeof TerminologyMapNodeUnmapped];
+export type TerminologyMapExpressionUnmapped = typeof TerminologyMapExpressionUnmapped[keyof typeof TerminologyMapExpressionUnmapped];
 
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
-export const TerminologyMapNodeUnmapped = {
+export const TerminologyMapExpressionUnmapped = {
   preserve: 'preserve',
   null: 'null',
   error: 'error',

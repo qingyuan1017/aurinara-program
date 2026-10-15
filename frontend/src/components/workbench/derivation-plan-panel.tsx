@@ -1,7 +1,7 @@
 import * as React from 'react'
 import type { AxiosError } from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
-import { Download, Save, Upload } from 'lucide-react'
+import { Download, RefreshCw, Save, Undo2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
@@ -24,6 +24,11 @@ import { DerivationPlanGraph } from '@/components/workbench/plan-graph/derivatio
 import { DerivationPreviewLineagePanel } from '@/components/workbench/derivation-preview-lineage-panel'
 import { PlanJsonImportDialog } from '@/components/workbench/plan-json-import-dialog'
 import {
+  CustomFunctionEditor,
+} from '@/components/workbench/custom-function-editor'
+import { validateCustomFunctions } from '@/components/workbench/custom-function-validation'
+import { synchronizeCustomFunctionCalls } from '@/components/workbench/custom-function-references'
+import {
   graphToPlan,
   planToGraph,
   type PlanGraphEdge,
@@ -42,6 +47,7 @@ import {
 } from '@/api/generated/sdtm/sdtm'
 import type {
   AppSdtmRoutesPlanResponse as PlanResponse,
+  CustomFunctionDefinition,
   SdtmDerivationPlan,
 } from '@/api/generated/model'
 
@@ -73,10 +79,10 @@ import type {
  *   (Specification vs Input Selection) by comparing the plan's pinned revisions
  *   against the freshly fetched current ones, and keeps the user's unsaved
  *   on-canvas graph edits (12.3).
- * - A `misaligned` Alignment_State renders the graph read-only (no palette,
- *   edge creation, reposition-to-save, or inspector writes), shows the
- *   {@link AlignmentBanner}, and disables validate/preview/compile/execute
- *   (12.2, 12.4).
+ * - A `misaligned` Alignment_State initially renders the saved graph read-only
+ *   and disables validate/preview/compile/execute. The user may explicitly
+ *   start an editable alignment draft cloned from that immutable revision and
+ *   pinned to current prerequisites, then save it as the next plan revision.
  * - A `412` surfaces a concurrency notice with a reload action that re-fetches
  *   the current plan revision before a retry.
  *
@@ -138,6 +144,9 @@ export function DerivationPlanPanel({
   // edits. A 409 deliberately does NOT re-seed, preserving unsaved edits.
   const [nodes, setNodes] = React.useState<PlanGraphNode[]>([])
   const [edges, setEdges] = React.useState<PlanGraphEdge[]>([])
+  const [customFunctions, setCustomFunctions] = React.useState<CustomFunctionDefinition[]>([])
+  const [customFunctionsError, setCustomFunctionsError] = React.useState<string | null>(null)
+  const [alignmentDraft, setAlignmentDraft] = React.useState(false)
   const seededRevision = React.useRef<number | null>(null)
 
   React.useEffect(() => {
@@ -147,6 +156,9 @@ export function DerivationPlanPanel({
     const graph = planToGraph(planBodyFromResponse(plan))
     setNodes(graph.nodes)
     setEdges(graph.edges)
+    setCustomFunctions([...(planBodyFromResponse(plan).custom_functions ?? [])])
+    setCustomFunctionsError(null)
+    setAlignmentDraft(false)
   }, [plan])
 
   const [importOpen, setImportOpen] = React.useState(false)
@@ -200,18 +212,25 @@ export function DerivationPlanPanel({
   // prerequisites are current; otherwise the guidance empty state is kept.
   const newPlanMode = planRequired && prerequisitesReady
 
-  // Alignment is server-authoritative. `state` is the plan Alignment_State; a
-  // misaligned plan locks the editor and disables the downstream operations. A
-  // brand-new plan being authored is editable (treated as aligned).
+  // Alignment is server-authoritative. A misaligned saved plan gates downstream
+  // operations. Authoring remains locked until the user explicitly starts an
+  // alignment draft cloned from the immutable saved revision.
   const alignmentState = plan?.state as AlignmentState | undefined
   const misaligned = isMisaligned(alignmentState)
+  const alignmentReasons = plan?.alignment_reasons ?? []
+  const alignmentPrerequisitesReady =
+    currentSpecRevision !== undefined && currentInputRevision !== undefined
+  const editorReadOnly = misaligned && !alignmentDraft
 
   // The specification / input-selection revisions the plan is (or will be)
   // pinned against: a loaded plan carries its own pinned revisions, while a
   // new plan pins against the current ones.
-  const pinnedSpecRevision = plan?.specification_revision ?? currentSpecRevision
-  const pinnedInputRevision =
-    plan?.input_selection_revision ?? currentInputRevision
+  const pinnedSpecRevision = alignmentDraft
+    ? currentSpecRevision
+    : plan?.specification_revision ?? currentSpecRevision
+  const pinnedInputRevision = alignmentDraft
+    ? currentInputRevision
+    : plan?.input_selection_revision ?? currentInputRevision
 
   // ---- save ---------------------------------------------------------------
 
@@ -225,6 +244,12 @@ export function DerivationPlanPanel({
     setStaleInput(null)
     setUpstreamMisaligned(null)
     setCoverageIncomplete(null)
+    const customFunctionsIssue = validateCustomFunctions(customFunctions)
+    if (customFunctionsIssue) {
+      setCustomFunctionsError(customFunctionsIssue)
+      return
+    }
+    setCustomFunctionsError(null)
     // Serialize the on-canvas graph to the typed plan body, naming the domain
     // this per-domain plan produces and pinning the exact specification /
     // input-selection revisions the plan is authored against.
@@ -232,10 +257,12 @@ export function DerivationPlanPanel({
       domain: domainCode,
       specificationRevision: pinnedSpecRevision,
       inputSelectionRevision: pinnedInputRevision,
-      schemaVersion: '1.1.0',
+      schemaVersion: '1.2.0',
+      customFunctions,
     })
     try {
       await put.mutateAsync({ sdtmId, domainCode, data: body })
+      setAlignmentDraft(false)
       toast.success('Derivation plan saved.')
     } catch (error) {
       const err = error as AxiosError
@@ -293,9 +320,30 @@ export function DerivationPlanPanel({
     setStaleInput(null)
     setUpstreamMisaligned(null)
     setCoverageIncomplete(null)
+    setAlignmentDraft(false)
     // Force the editor to re-seed from the freshly fetched plan revision.
     seededRevision.current = null
     await qc.invalidateQueries({ queryKey: planKey })
+  }
+
+  function startAlignmentRevision() {
+    if (!misaligned || !alignmentPrerequisitesReady) return
+    setConcurrency(null)
+    setStaleInput(null)
+    setUpstreamMisaligned(null)
+    setCoverageIncomplete(null)
+    setCustomFunctionsError(null)
+    setAlignmentDraft(true)
+  }
+
+  function cancelAlignmentRevision() {
+    if (!plan) return
+    const graph = planToGraph(planBodyFromResponse(plan))
+    setNodes(graph.nodes)
+    setEdges(graph.edges)
+    setCustomFunctions([...(planBodyFromResponse(plan).custom_functions ?? [])])
+    setCustomFunctionsError(null)
+    setAlignmentDraft(false)
   }
 
   // Load an imported plan's nodes/edges onto the canvas. This only populates the
@@ -306,15 +354,18 @@ export function DerivationPlanPanel({
   // plan exported from a different revision still saves against current inputs.
   function handleImport(graph: ImportedPlanGraph) {
     const view = planToGraph({
-      schema_version: '1.1.0',
+      schema_version: '1.2.0',
       domain: domainCode,
       specification_revision: pinnedSpecRevision ?? 0,
       input_selection_revision: pinnedInputRevision ?? 0,
       nodes: graph.nodes,
       edges: graph.edges,
+      custom_functions: graph.customFunctions,
     })
     setNodes(view.nodes)
     setEdges(view.edges)
+    setCustomFunctions([...(graph.customFunctions ?? [])])
+    setCustomFunctionsError(null)
     toast.success('Plan JSON loaded onto the canvas. Review, then Save plan.')
   }
 
@@ -327,11 +378,18 @@ export function DerivationPlanPanel({
     if (pinnedSpecRevision === undefined || pinnedInputRevision === undefined) {
       return
     }
+    const customFunctionsIssue = validateCustomFunctions(customFunctions)
+    if (customFunctionsIssue) {
+      setCustomFunctionsError(customFunctionsIssue)
+      return
+    }
+    setCustomFunctionsError(null)
     const body = graphToPlan(nodes, edges, {
       domain: domainCode,
       specificationRevision: pinnedSpecRevision,
       inputSelectionRevision: pinnedInputRevision,
-      schemaVersion: '1.1.0',
+      schemaVersion: '1.2.0',
+      customFunctions,
     })
     const revision = plan?.revision ?? 'draft'
     downloadJson(
@@ -392,7 +450,15 @@ export function DerivationPlanPanel({
             <AlignmentPill state={alignmentState} />
           </CardTitle>
           <CardDescription>
-            {plan ? (
+            {plan && alignmentDraft ? (
+              <>
+                Alignment draft from revision {plan.revision} · will pin current
+                Specification revision {pinnedSpecRevision} (was{' '}
+                {plan.specification_revision}) · current Input Selection revision{' '}
+                {pinnedInputRevision} (was {plan.input_selection_revision}) · schema
+                version {plan.schema_version}
+              </>
+            ) : plan ? (
               <>
                 Revision {plan.revision} · pinned Specification revision{' '}
                 {plan.specification_revision} · pinned Input Selection revision{' '}
@@ -403,25 +469,45 @@ export function DerivationPlanPanel({
               <>
                 New {domainCode} plan (unsaved) · pins Specification revision{' '}
                 {pinnedSpecRevision} · Input Selection revision{' '}
-                {pinnedInputRevision} · schema version 1.1.0. Add at least one
+                {pinnedInputRevision} · schema version 1.2.0. Add at least one
                 node, then save to create revision 1.
               </>
             )}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            onClick={handleSave}
-            disabled={put.isPending || misaligned}
-          >
-            <Save /> Save plan
-          </Button>
+          {misaligned && !alignmentDraft ? (
+            <Button
+              type="button"
+              onClick={startAlignmentRevision}
+              disabled={put.isPending || !alignmentPrerequisitesReady}
+            >
+              <RefreshCw /> Start alignment revision
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={put.isPending}
+            >
+              <Save /> {alignmentDraft ? 'Save alignment revision' : 'Save plan'}
+            </Button>
+          )}
+          {alignmentDraft && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={cancelAlignmentRevision}
+              disabled={put.isPending}
+            >
+              <Undo2 /> Cancel alignment draft
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"
             onClick={() => setImportOpen(true)}
-            disabled={misaligned}
+            disabled={editorReadOnly}
           >
             <Upload /> Import JSON
           </Button>
@@ -433,9 +519,15 @@ export function DerivationPlanPanel({
           >
             <Download /> Export JSON
           </Button>
-          {misaligned && (
+          {misaligned && !alignmentDraft && (
             <span className="text-muted-foreground text-sm">
-              The plan is read-only while misaligned.
+              Start an alignment revision to review an editable copy.
+            </span>
+          )}
+          {misaligned && !alignmentPrerequisitesReady && (
+            <span className="text-destructive text-sm">
+              A current Specification and current Input Selection are required
+              before alignment can start.
             </span>
           )}
         </CardContent>
@@ -444,7 +536,11 @@ export function DerivationPlanPanel({
       {/* Persistent misalignment notice; disables validate/preview/compile/execute
           (those controls live in the preview/validation/compile/execution tabs and
           gate on the same Alignment_State). */}
-      <AlignmentBanner state={alignmentState} />
+      <AlignmentBanner
+        state={alignmentState}
+        reasons={alignmentReasons}
+        draftActive={alignmentDraft}
+      />
 
       <StaleInputNotice message={staleInput} onReload={reloadCurrentRevision} />
       <UpstreamMisalignedNotice
@@ -454,12 +550,50 @@ export function DerivationPlanPanel({
       <CoverageIncompleteNotice message={coverageIncomplete} />
       <ConcurrencyNotice message={concurrency} onReload={reloadCurrentRevision} />
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Custom functions</CardTitle>
+          <CardDescription>
+            Declare typed function signatures and the Python, R, and/or SAS bodies you provide.
+            Missing languages compile as non-executable TODO programs.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          <CustomFunctionEditor
+            functions={customFunctions}
+            onChange={(next) => {
+              setCustomFunctions(next)
+              if (customFunctionsError) setCustomFunctionsError(null)
+            }}
+            onSignatureChange={(previous, next) => {
+              setNodes((current) =>
+                current.map((node) => ({
+                  ...node,
+                  data: synchronizeCustomFunctionCalls(
+                    node.data,
+                    previous,
+                    next,
+                  ) as typeof node.data,
+                })),
+              )
+            }}
+            disabled={editorReadOnly || put.isPending}
+          />
+          {customFunctionsError && (
+            <p role="alert" className="text-destructive text-sm">
+              {customFunctionsError}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       <DerivationPlanGraph
         nodes={nodes}
         edges={edges}
         onNodesChange={setNodes}
         onEdgesChange={setEdges}
-        readOnly={misaligned}
+        readOnly={editorReadOnly}
+        customFunctions={customFunctions}
       />
 
       {/* Derivation preview, inline validation, and read-only lineage operate on
@@ -649,11 +783,15 @@ function planBodyFromResponse(plan: PlanResponse): SdtmDerivationPlan {
   const edges = Array.isArray(payload.edges)
     ? (payload.edges as SdtmDerivationPlan['edges'])
     : []
+  const customFunctions = Array.isArray(payload.custom_functions)
+    ? (payload.custom_functions as SdtmDerivationPlan['custom_functions'])
+    : []
   return {
-    schema_version: '1.1.0',
+    schema_version: '1.2.0',
     domain: plan.domain,
     specification_revision: plan.specification_revision,
     input_selection_revision: plan.input_selection_revision,
+    custom_functions: customFunctions,
     nodes,
     edges,
   }

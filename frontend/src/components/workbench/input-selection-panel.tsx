@@ -2,10 +2,8 @@ import * as React from 'react'
 import type { AxiosError } from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Copy, Plus, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Card,
@@ -48,10 +46,9 @@ import type {
 } from '@/api/generated/model'
 
 /**
- * A single first page of options is loaded per dropdown (the schema max page
- * size). These lists are cursor-paginated, but a workbench realistically pins
- * from a small set, so in-dropdown pagination is intentionally out of scope —
- * mirroring how the study switcher consumes one `useListStudies` page.
+ * Load the schema's maximum page for Raw-version choices and source-file
+ * resolution. Raw workbenches conventionally contain a bounded dataset set;
+ * cursor navigation inside the single version selector is out of scope.
  */
 const OPTIONS_PAGE_SIZE = 200
 
@@ -65,7 +62,7 @@ const INPUT_SELECTION_INVALID_CODES = new Set([
   'sdtm_raw_validation_invalid',
 ])
 
-/** A single editable source-file artifact row in the form. */
+/** One automatically resolved source-file pin in the submitted selection. */
 interface ArtifactRow {
   dataset_code: string
   artifact_id: string
@@ -97,8 +94,8 @@ function emptyForm(): FormState {
 }
 
 /**
- * Seed the editable form from the current selection payload when one exists so
- * the user re-saves against the pinned values rather than a blank form. The
+ * Seed the internal selection state from the current payload when one exists so
+ * the user re-saves against the selected Raw version rather than a blank form. The
  * payload is an opaque dictionary (the generator cannot model it), so each
  * field is read defensively.
  */
@@ -143,81 +140,6 @@ function toWriteBody(form: FormState): SdtmInputSelectionWrite {
     raw_dependency_fingerprint: form.raw_dependency_fingerprint.trim(),
     source_artifacts: sourceArtifacts,
   }
-}
-
-/** Copy a resolved value to the clipboard with a small inline affordance. */
-function CopyButton({ value, label }: { value: string; label: string }) {
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(value)
-      toast.success('Copied to clipboard.')
-    } catch {
-      toast.error('Could not copy to clipboard.')
-    }
-  }
-  return (
-    <Button
-      type="button"
-      size="icon"
-      variant="ghost"
-      aria-label={label}
-      onClick={handleCopy}
-    >
-      <Copy />
-    </Button>
-  )
-}
-
-/**
- * A resolved, read-only value field (the user no longer types these). It shows
- * the auto-resolved value with a copy affordance and the "resolved from <raw>"
- * provenance line, or a clear instruction when nothing resolved yet. It never
- * renders a free-text input: an unresolved value is a prompt, not an edit box.
- */
-function ResolvedField({
-  id,
-  labelText,
-  value,
-  resolvedFrom,
-  isLoading,
-  emptyMessage,
-  copyLabel,
-}: {
-  id: string
-  labelText: string
-  value: string
-  resolvedFrom: string | null
-  isLoading: boolean
-  emptyMessage: string
-  copyLabel: string
-}) {
-  const hasValue = value.trim().length > 0
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id}>{labelText}</Label>
-      {isLoading && !hasValue ? (
-        <Skeleton className="h-9 w-full" />
-      ) : hasValue ? (
-        <div className="flex items-center gap-1">
-          <Input id={id} value={value} readOnly />
-          <CopyButton value={value} label={copyLabel} />
-        </div>
-      ) : (
-        <p
-          id={id}
-          role="status"
-          className="text-muted-foreground border-input rounded-md border border-dashed px-3 py-2 text-sm"
-        >
-          {emptyMessage}
-        </p>
-      )}
-      {hasValue && resolvedFrom && (
-        <p className="text-muted-foreground text-xs">
-          Resolved from {resolvedFrom}
-        </p>
-      )}
-    </div>
-  )
 }
 
 /** Render the opaque resolved raw-context dictionary as a labeled field grid. */
@@ -283,10 +205,8 @@ export function InputSelectionPanel() {
 
   const [form, setForm] = React.useState<FormState>(() => emptyForm())
 
-  // Dropdown option sources. Each is backed by a real LIST endpoint and gated
-  // so it only runs once the identifiers it needs are known. The raw-aggregate
-  // and source-file lists are study-scoped; datasets require a chosen Raw
-  // workbench (`form.raw_id`).
+  // One Raw workbench/revision is the only user choice. Dataset and source-file
+  // lists are resolver inputs: they are never exposed as independent choices.
   const rawAggregatesQuery = useListRawAggregates(
     studyId,
     { limit: OPTIONS_PAGE_SIZE },
@@ -301,11 +221,9 @@ export function InputSelectionPanel() {
     query: { enabled: !!form.raw_id },
   })
 
-  // Resolver queries for the two values the user no longer types. Both are
-  // gated on study scope and a chosen Raw workbench. The dependency selection
-  // yields the raw_dependency_fingerprint (same value compile reads); the Raw
-  // latest-validation-run sub-resource yields the validation_run_id (404 when
-  // the workbench has no successful run yet — surfaced as an inline prompt).
+  // The remaining exact pins are resolved from that version. The dependency
+  // selection yields the fingerprint and the latest-validation-run resource
+  // yields validation evidence for the same Raw revision.
   const dependenciesQuery = useGetRawDependencies(form.raw_id, {
     query: { enabled: !!studyId && !!form.raw_id },
   })
@@ -317,24 +235,58 @@ export function InputSelectionPanel() {
   const sourceFiles = sourceFilesQuery.data?.items ?? []
   const datasets = datasetsQuery.data ?? []
 
+  const selectedRawAggregate = rawAggregates.find(
+    (item) => item.id === form.raw_id,
+  )
+  const selectedRawRevision =
+    selectedRawAggregate?.revision ?? Number(form.raw_revision)
+  const validationRunMatchesVersion =
+    !!latestValidationRunQuery.data &&
+    latestValidationRunQuery.data.raw_revision === selectedRawRevision
   const resolvedFingerprint = dependenciesQuery.data?.fingerprint ?? ''
-  const resolvedValidationRunId =
-    latestValidationRunQuery.data?.validation_run_id ?? ''
+  const resolvedValidationRunId = validationRunMatchesVersion
+    ? latestValidationRunQuery.data?.validation_run_id ?? ''
+    : ''
   // A 404 means "no successful validation run yet": a non-blocking prompt, not
   // an error (mirrors how the selection 404 is treated above).
   const latestValidationRunNotFound =
     (latestValidationRunQuery.error as AxiosError | null)?.response?.status ===
     404
 
-  // Human-friendly provenance label for the resolved fields.
-  const selectedRawAggregate = rawAggregates.find(
-    (item) => item.id === form.raw_id,
+  const activeDatasets = datasets.filter(
+    (dataset) => !dataset.status || dataset.status === 'active',
   )
-  const resolvedFrom = form.raw_id
-    ? selectedRawAggregate
-      ? `${selectedRawAggregate.code} — ${selectedRawAggregate.name}`
-      : form.raw_id
-    : null
+  const resolvedArtifacts: ArtifactRow[] = activeDatasets.flatMap((dataset) => {
+    const sourceFile = sourceFiles.find(
+      (file) => file.id === dataset.current_source_file_id,
+    )
+    return sourceFile
+      ? [
+          {
+            dataset_code: dataset.code,
+            artifact_id: sourceFile.artifact_id,
+            checksum: sourceFile.sha256,
+          },
+        ]
+      : []
+  })
+  const missingSourceFileCount =
+    activeDatasets.length - resolvedArtifacts.length
+  const resolutionIsLoading =
+    !!form.raw_id &&
+    (datasetsQuery.isLoading ||
+      sourceFilesQuery.isLoading ||
+      dependenciesQuery.isLoading ||
+      latestValidationRunQuery.isLoading)
+  const selectionIsReady =
+    !!form.raw_id &&
+    Number.isInteger(selectedRawRevision) &&
+    selectedRawRevision > 0 &&
+    activeDatasets.length > 0 &&
+    missingSourceFileCount === 0 &&
+    !!resolvedFingerprint &&
+    !!resolvedValidationRunId &&
+    !resolutionIsLoading
 
   const selection = selectionQuery.data
   // A 404 means "no selection yet" — not an error worth blocking the panel on.
@@ -351,28 +303,6 @@ export function InputSelectionPanel() {
       setForm(formFromSelection(selection))
     }
   }, [selection])
-
-  // Flow resolved values into the form so `toWriteBody` submits them unchanged.
-  // Only overwrite when a resolver returned a non-empty value for the currently
-  // selected raw_id: a still-loading or errored resolver must never blank a
-  // seeded value (mirrors the dropdown "ignore empty, don't blank" guards).
-  React.useEffect(() => {
-    if (!resolvedValidationRunId) return
-    setForm((prev) =>
-      prev.validation_run_id === resolvedValidationRunId
-        ? prev
-        : { ...prev, validation_run_id: resolvedValidationRunId },
-    )
-  }, [resolvedValidationRunId])
-
-  React.useEffect(() => {
-    if (!resolvedFingerprint) return
-    setForm((prev) =>
-      prev.raw_dependency_fingerprint === resolvedFingerprint
-        ? prev
-        : { ...prev, raw_dependency_fingerprint: resolvedFingerprint },
-    )
-  }, [resolvedFingerprint])
 
   const putSelection = usePutInputSelection({
     mutation: {
@@ -393,23 +323,9 @@ export function InputSelectionPanel() {
     !!saveProblem?.code &&
     INPUT_SELECTION_INVALID_CODES.has(saveProblem.code)
 
-  function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }))
-  }
-
-  function updateArtifact(index: number, key: keyof ArtifactRow, value: string) {
-    setForm((prev) => ({
-      ...prev,
-      source_artifacts: prev.source_artifacts.map((row, i) =>
-        i === index ? { ...row, [key]: value } : row,
-      ),
-    }))
-  }
-
   /**
-   * Pick a Raw workbench from the dropdown. The chosen aggregate's current
-   * `revision` auto-fills `raw_revision` (still editable below so a seeded or
-   * older pinned revision round-trips).
+   * Pick one coherent Raw data version. All other exact values are discarded
+   * immediately and re-resolved so pins from two versions cannot be mixed.
    */
   function selectRawAggregate(rawId: string) {
     // Radix can emit an empty value while reconciling a controlled value that
@@ -422,51 +338,26 @@ export function InputSelectionPanel() {
       raw_revision: aggregateMatch
         ? String(aggregateMatch.revision)
         : prev.raw_revision,
-    }))
-  }
-
-  /**
-   * Pick a source-file artifact for a row. The chosen file's `sha256`
-   * auto-fills that row's `checksum` so it is pinned from a real value rather
-   * than typed by hand.
-   */
-  function selectArtifact(index: number, artifactId: string) {
-    // See `selectRawAggregate`: ignore an empty reconciliation value so a
-    // seeded artifact id is never blanked.
-    if (!artifactId) return
-    const fileMatch = sourceFiles.find((file) => file.artifact_id === artifactId)
-    setForm((prev) => ({
-      ...prev,
-      source_artifacts: prev.source_artifacts.map((row, i) =>
-        i === index
-          ? {
-              ...row,
-              artifact_id: artifactId,
-              checksum: fileMatch ? fileMatch.sha256 : row.checksum,
-            }
-          : row,
-      ),
-    }))
-  }
-
-  function addArtifact() {
-    setForm((prev) => ({
-      ...prev,
-      source_artifacts: [...prev.source_artifacts, { ...EMPTY_ARTIFACT }],
-    }))
-  }
-
-  function removeArtifact(index: number) {
-    setForm((prev) => ({
-      ...prev,
-      source_artifacts: prev.source_artifacts.filter((_, i) => i !== index),
+      validation_run_id: '',
+      raw_dependency_fingerprint: '',
+      source_artifacts: [],
     }))
   }
 
   async function handleSave(event: React.FormEvent) {
     event.preventDefault()
+    if (!selectionIsReady) return
     try {
-      await putSelection.mutateAsync({ sdtmId, data: toWriteBody(form) })
+      await putSelection.mutateAsync({
+        sdtmId,
+        data: toWriteBody({
+          raw_id: form.raw_id,
+          raw_revision: String(selectedRawRevision),
+          validation_run_id: resolvedValidationRunId,
+          raw_dependency_fingerprint: resolvedFingerprint,
+          source_artifacts: resolvedArtifacts,
+        }),
+      })
       toast.success('Input selection saved.')
     } catch {
       // Error state is rendered inline from `putSelection.error`; a 412 reload
@@ -530,213 +421,61 @@ export function InputSelectionPanel() {
       <Card>
         <form onSubmit={handleSave} className="flex flex-col gap-6">
           <CardHeader>
-            <CardTitle className="text-base">Pin Raw inputs</CardTitle>
+            <CardTitle className="text-base">Select Raw data version</CardTitle>
             <CardDescription>
-              Save the exact validated Raw revision and source-file artifacts
-              this SDTM workbench consumes.
+              Choose one validated Raw version. Its active datasets, source
+              artifacts, checksums, validation run, and dependencies are pinned
+              automatically.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="is-raw-id">Raw workbench</Label>
-                <Select
-                  value={form.raw_id}
-                  onValueChange={selectRawAggregate}
-                >
-                  <SelectTrigger id="is-raw-id">
-                    <SelectValue placeholder="Select a Raw workbench" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {/* Keep a seeded value visible even if its workbench is no
+            <div className="flex max-w-2xl flex-col gap-1.5">
+              <Label htmlFor="is-raw-id">Raw data version</Label>
+              <Select
+                value={form.raw_id}
+                onValueChange={selectRawAggregate}
+              >
+                <SelectTrigger id="is-raw-id">
+                  <SelectValue placeholder="Select a Raw version" />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* Keep a seeded value visible even if its workbench is no
                         longer in the current list (e.g. retired). */}
-                    {form.raw_id &&
-                      !rawAggregates.some((item) => item.id === form.raw_id) && (
-                        <SelectItem value={form.raw_id}>
-                          {form.raw_id} (not in current list)
-                        </SelectItem>
-                      )}
-                    {rawAggregates.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.code} — {item.name}
+                  {form.raw_id &&
+                    !rawAggregates.some((item) => item.id === form.raw_id) && (
+                      <SelectItem value={form.raw_id}>
+                        Saved Raw version {form.raw_revision} (not in current
+                        list)
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="is-raw-revision">Raw revision</Label>
-                {/* Auto-filled from the selected Raw workbench's current
-                    revision, but editable so an older revision can be pinned
-                    and a seeded value round-trips. */}
-                <Input
-                  id="is-raw-revision"
-                  type="number"
-                  min={1}
-                  value={form.raw_revision}
-                  onChange={(e) => updateField('raw_revision', e.target.value)}
-                  required
-                />
-              </div>
-              {/* Auto-resolved from the selected Raw workbench's latest
-                  successful validation run — never typed. A seeded value from a
-                  saved selection stays visible until (and unless) a resolver
-                  replaces it; a 404/no-run shows an inline prompt. */}
-              <ResolvedField
-                id="is-validation-run"
-                labelText="Validation run ID"
-                value={form.validation_run_id}
-                resolvedFrom={resolvedFrom}
-                isLoading={!!form.raw_id && latestValidationRunQuery.isLoading}
-                copyLabel="Copy validation run ID"
-                emptyMessage={
-                  !form.raw_id
-                    ? 'Select a Raw workbench first.'
-                    : latestValidationRunNotFound
-                      ? 'Run and pass validation on this Raw workbench first.'
-                      : 'No successful validation run resolved yet.'
-                }
-              />
-              {/* Auto-resolved from the selected Raw workbench's dependency
-                  selection (the same fingerprint compile reads) — never typed. */}
-              <ResolvedField
-                id="is-fingerprint"
-                labelText="Raw dependency fingerprint"
-                value={form.raw_dependency_fingerprint}
-                resolvedFrom={resolvedFrom}
-                isLoading={!!form.raw_id && dependenciesQuery.isLoading}
-                copyLabel="Copy raw dependency fingerprint"
-                emptyMessage={
-                  !form.raw_id
-                    ? 'Select a Raw workbench first.'
-                    : 'No dependency fingerprint resolved yet.'
-                }
-              />
+                    )}
+                  {rawAggregates.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.code} — {item.name} · revision {item.revision}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <Label>Source-file artifacts</Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={addArtifact}
-                >
-                  <Plus /> Add artifact
-                </Button>
+            {form.raw_id && (
+              <div
+                role="status"
+                className="text-muted-foreground border-input rounded-md border border-dashed px-3 py-2 text-sm"
+              >
+                {resolutionIsLoading
+                  ? 'Resolving the datasets and evidence for this version…'
+                  : latestValidationRunNotFound
+                    ? 'Run and pass validation on this Raw version first.'
+                    : latestValidationRunQuery.data && !validationRunMatchesVersion
+                      ? 'The latest successful validation is for an older Raw revision. Revalidate this version first.'
+                      : activeDatasets.length === 0
+                        ? 'This Raw version has no active datasets to select.'
+                        : missingSourceFileCount > 0
+                          ? `${missingSourceFileCount} active dataset source file${missingSourceFileCount === 1 ? '' : 's'} could not be resolved.`
+                          : !resolvedFingerprint
+                            ? 'The dependency selection for this Raw version could not be resolved.'
+                            : `${activeDatasets.length} active dataset${activeDatasets.length === 1 ? '' : 's'} and source artifact${activeDatasets.length === 1 ? '' : 's'} will be pinned automatically.`}
               </div>
-              {form.source_artifacts.map((row, index) => (
-                <div
-                  key={index}
-                  className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]"
-                >
-                  <div className="flex flex-col gap-1.5">
-                    <Label
-                      htmlFor={`is-artifact-dataset-${index}`}
-                      className="text-xs"
-                    >
-                      Dataset code
-                    </Label>
-                    <Select
-                      value={row.dataset_code}
-                      onValueChange={(value) => {
-                        // Ignore an empty reconciliation value so a seeded
-                        // dataset code is never blanked (see selectRawAggregate).
-                        if (!value) return
-                        updateArtifact(index, 'dataset_code', value)
-                      }}
-                      disabled={!form.raw_id}
-                    >
-                      <SelectTrigger id={`is-artifact-dataset-${index}`}>
-                        <SelectValue
-                          placeholder={
-                            form.raw_id
-                              ? 'Select a dataset'
-                              : 'Select a Raw workbench first'
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {row.dataset_code &&
-                          !datasets.some(
-                            (dataset) => dataset.code === row.dataset_code,
-                          ) && (
-                            <SelectItem value={row.dataset_code}>
-                              {row.dataset_code} (not in current list)
-                            </SelectItem>
-                          )}
-                        {datasets.map((dataset) => (
-                          <SelectItem key={dataset.id} value={dataset.code}>
-                            {dataset.code} — {dataset.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label
-                      htmlFor={`is-artifact-id-${index}`}
-                      className="text-xs"
-                    >
-                      Artifact ID
-                    </Label>
-                    <Select
-                      value={row.artifact_id}
-                      onValueChange={(value) => selectArtifact(index, value)}
-                    >
-                      <SelectTrigger id={`is-artifact-id-${index}`}>
-                        <SelectValue placeholder="Select a source file" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {row.artifact_id &&
-                          !sourceFiles.some(
-                            (file) => file.artifact_id === row.artifact_id,
-                          ) && (
-                            <SelectItem value={row.artifact_id}>
-                              {row.artifact_id} (not in current list)
-                            </SelectItem>
-                          )}
-                        {sourceFiles.map((file) => (
-                          <SelectItem
-                            key={file.id}
-                            value={file.artifact_id}
-                          >
-                            {file.filename}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label
-                      htmlFor={`is-artifact-checksum-${index}`}
-                      className="text-xs"
-                    >
-                      Checksum (SHA-256)
-                    </Label>
-                    {/* Derived from the chosen source file's `sha256`; shown
-                        read-only. It still submits through `toWriteBody`. */}
-                    <Input
-                      id={`is-artifact-checksum-${index}`}
-                      value={row.checksum}
-                      readOnly
-                      required
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    aria-label={`Remove source artifact ${index + 1}`}
-                    disabled={form.source_artifacts.length <= 1}
-                    onClick={() => removeArtifact(index)}
-                  >
-                    <Trash2 />
-                  </Button>
-                </div>
-              ))}
-            </div>
+            )}
 
             {/* 10.6: concurrency conflict message + reload action. */}
             {isConcurrencyConflict && (
@@ -786,7 +525,10 @@ export function InputSelectionPanel() {
             )}
           </CardContent>
           <CardContent>
-            <Button type="submit" disabled={putSelection.isPending}>
+            <Button
+              type="submit"
+              disabled={putSelection.isPending || !selectionIsReady}
+            >
               {putSelection.isPending ? 'Saving…' : 'Save input selection'}
             </Button>
           </CardContent>

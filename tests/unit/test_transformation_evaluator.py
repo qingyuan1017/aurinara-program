@@ -52,6 +52,35 @@ def test_evaluator_uses_typed_operators_and_declared_write() -> None:
     assert outputs["DM"] == ({"SUBJID": "02", "AGE": 42, "STUDYID": "SYN-001", "USUBJID": "02"},)
 
 
+def test_evaluator_uses_explicit_assignment_order_after_mapping_reorder() -> None:
+    ir = DataflowIR.model_validate(
+        {
+            "nodes": [
+                {"node_type": "read", "id": "read", "dataset": "RAW"},
+                {
+                    "node_type": "derive",
+                    "id": "derive",
+                    # Simulate JSONB returning the dependent target first.
+                    "assignments": {
+                        "SUBJID": {"kind": "column", "dataset": "DM", "column": "SITEID"},
+                        "SITEID": {"kind": "literal", "value": "101"},
+                    },
+                    "assignment_order": ["SITEID", "SUBJID"],
+                },
+                {"node_type": "write", "id": "write", "dataset": "DM"},
+            ],
+            "edges": [
+                {"source_node": "read", "target_node": "derive"},
+                {"source_node": "derive", "target_node": "write"},
+            ],
+        }
+    )
+
+    assert evaluate_dataflow(ir, {"RAW": ({},)})["DM"] == (
+        {"SITEID": "101", "SUBJID": "101"},
+    )
+
+
 def test_evaluator_rejects_missing_selected_dataset() -> None:
     ir = DataflowIR.model_validate(
         {"nodes": [{"node_type": "read", "id": "read", "dataset": "MISSING"}]}

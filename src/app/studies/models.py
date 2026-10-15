@@ -17,6 +17,7 @@ class Study(UuidPrimaryKey, Revisioned, Timestamped, Base):
 
     code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    sponsor: Mapped[str | None] = mapped_column(String(255))
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     created_by: Mapped[str] = mapped_column(String(255), nullable=False)
     platform_managed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

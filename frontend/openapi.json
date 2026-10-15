@@ -4631,6 +4631,18 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -4922,6 +4934,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsdmDocument"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -5635,6 +5657,292 @@
                 "schema": {
                   "$ref": "#/components/schemas/ArtifactBuildResponse"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/studies/{study_id}/submission-packages": {
+      "post": {
+        "tags": [
+          "packaging"
+        ],
+        "summary": "Create Submission Package",
+        "operationId": "create_submission_package_api_v1_studies__study_id__submission_packages_post",
+        "parameters": [
+          {
+            "name": "study_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Study Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionPackageCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionPackageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "packaging"
+        ],
+        "summary": "List Submission Packages",
+        "operationId": "list_submission_packages_api_v1_studies__study_id__submission_packages_get",
+        "parameters": [
+          {
+            "name": "study_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Study Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionPackageCollection"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/submission-packages/{package_id}": {
+      "get": {
+        "tags": [
+          "packaging"
+        ],
+        "summary": "Get Submission Package",
+        "operationId": "get_submission_package_api_v1_submission_packages__package_id__get",
+        "parameters": [
+          {
+            "name": "package_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Package Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionPackageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/submission-packages/{package_id}/download": {
+      "get": {
+        "tags": [
+          "packaging"
+        ],
+        "summary": "Download Submission Package",
+        "operationId": "download_submission_package_api_v1_submission_packages__package_id__download_get",
+        "parameters": [
+          {
+            "name": "package_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Package Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -8135,6 +8443,152 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SdtmSpecification"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpecificationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sdtms/{sdtm_id}/specification/initialization-options": {
+      "get": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Get Specification Initialization Options",
+        "description": "List the concrete domains available from the exact selected SDTMIG.",
+        "operationId": "get_specification_initialization_options_api_v1_sdtms__sdtm_id__specification_initialization_options_get",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdtmSpecificationInitializationOptions"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sdtms/{sdtm_id}/specification/initialize": {
+      "post": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Initialize Specification",
+        "description": "Populate missing Specification structures from the exact selected SDTMIG.",
+        "operationId": "initialize_specification_api_v1_sdtms__sdtm_id__specification_initialize_post",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SdtmSpecificationInitialize"
               }
             }
           }
@@ -10986,6 +11440,1233 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DependencySelectionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tlfs/{tlf_id}/shell": {
+      "get": {
+        "tags": [
+          "tlf"
+        ],
+        "summary": "Get Shell",
+        "operationId": "get_shell_api_v1_tlfs__tlf_id__shell_get",
+        "parameters": [
+          {
+            "name": "tlf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tlf Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthoringResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "tlf"
+        ],
+        "summary": "Put Shell",
+        "operationId": "put_shell_api_v1_tlfs__tlf_id__shell_put",
+        "parameters": [
+          {
+            "name": "tlf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tlf Id"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TlfShell"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthoringResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tlfs/{tlf_id}/bindings": {
+      "get": {
+        "tags": [
+          "tlf"
+        ],
+        "summary": "Get Bindings",
+        "operationId": "get_bindings_api_v1_tlfs__tlf_id__bindings_get",
+        "parameters": [
+          {
+            "name": "tlf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tlf Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthoringResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "tlf"
+        ],
+        "summary": "Put Bindings",
+        "operationId": "put_bindings_api_v1_tlfs__tlf_id__bindings_put",
+        "parameters": [
+          {
+            "name": "tlf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tlf Id"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TlfBindings"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthoringResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tlfs/{tlf_id}/assumptions": {
+      "get": {
+        "tags": [
+          "tlf"
+        ],
+        "summary": "Get Assumptions",
+        "operationId": "get_assumptions_api_v1_tlfs__tlf_id__assumptions_get",
+        "parameters": [
+          {
+            "name": "tlf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tlf Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthoringResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "tlf"
+        ],
+        "summary": "Put Assumptions",
+        "operationId": "put_assumptions_api_v1_tlfs__tlf_id__assumptions_put",
+        "parameters": [
+          {
+            "name": "tlf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tlf Id"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TlfAssumptions"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthoringResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tlfs/{tlf_id}/ars": {
+      "get": {
+        "tags": [
+          "tlf"
+        ],
+        "summary": "Get Ars",
+        "operationId": "get_ars_api_v1_tlfs__tlf_id__ars_get",
+        "parameters": [
+          {
+            "name": "tlf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tlf Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthoringResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "tlf"
+        ],
+        "summary": "Put Ars",
+        "operationId": "put_ars_api_v1_tlfs__tlf_id__ars_put",
+        "parameters": [
+          {
+            "name": "tlf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tlf Id"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TlfArs"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthoringResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tlfs/{tlf_id}/program-plan": {
+      "get": {
+        "tags": [
+          "tlf"
+        ],
+        "summary": "Get Program Plan",
+        "operationId": "get_program_plan_api_v1_tlfs__tlf_id__program_plan_get",
+        "parameters": [
+          {
+            "name": "tlf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tlf Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthoringResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "tlf"
+        ],
+        "summary": "Put Program Plan",
+        "operationId": "put_program_plan_api_v1_tlfs__tlf_id__program_plan_put",
+        "parameters": [
+          {
+            "name": "tlf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tlf Id"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TlfProgramPlan"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthoringResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tlfs/{tlf_id}/program-plan/validate": {
+      "post": {
+        "tags": [
+          "tlf"
+        ],
+        "summary": "Validate Program Plan",
+        "operationId": "validate_program_plan_api_v1_tlfs__tlf_id__program_plan_validate_post",
+        "parameters": [
+          {
+            "name": "tlf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tlf Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationRunResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tlfs/{tlf_id}/validate": {
+      "post": {
+        "tags": [
+          "tlf"
+        ],
+        "summary": "Validate Tlf",
+        "operationId": "validate_tlf_api_v1_tlfs__tlf_id__validate_post",
+        "parameters": [
+          {
+            "name": "tlf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tlf Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationRunResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tlfs/{tlf_id}/program-plan/preview": {
+      "post": {
+        "tags": [
+          "tlf"
+        ],
+        "summary": "Preview Program Plan",
+        "operationId": "preview_program_plan_api_v1_tlfs__tlf_id__program_plan_preview_post",
+        "parameters": [
+          {
+            "name": "tlf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tlf Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tlfs/{tlf_id}/artifacts": {
+      "post": {
+        "tags": [
+          "tlf"
+        ],
+        "summary": "Create Tlf Artifacts",
+        "operationId": "create_tlf_artifacts_api_v1_tlfs__tlf_id__artifacts_post",
+        "parameters": [
+          {
+            "name": "tlf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tlf Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArtifactRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactBuildResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tlfs/{tlf_id}/compile": {
+      "post": {
+        "tags": [
+          "tlf"
+        ],
+        "summary": "Compile Tlf",
+        "operationId": "compile_tlf_api_v1_tlfs__tlf_id__compile_post",
+        "parameters": [
+          {
+            "name": "tlf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tlf Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__tlf__routes__CompileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactBuildResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tlfs/{tlf_id}/render": {
+      "post": {
+        "tags": [
+          "tlf"
+        ],
+        "summary": "Render Tlf",
+        "operationId": "render_tlf_api_v1_tlfs__tlf_id__render_post",
+        "parameters": [
+          {
+            "name": "tlf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tlf Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactBuildResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tlfs/{tlf_id}/execute": {
+      "post": {
+        "tags": [
+          "tlf"
+        ],
+        "summary": "Execute Tlf",
+        "operationId": "execute_tlf_api_v1_tlfs__tlf_id__execute_post",
+        "parameters": [
+          {
+            "name": "tlf_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tlf Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TlfExecutionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionRunResponse"
                 }
               }
             }
@@ -17399,6 +19080,9 @@
                 "$ref": "#/components/schemas/FunctionCallExpression"
               },
               {
+                "$ref": "#/components/schemas/CustomFunctionCallExpression"
+              },
+              {
                 "$ref": "#/components/schemas/ListLiteralExpression"
               }
             ],
@@ -17409,6 +19093,7 @@
                 "binary": "#/components/schemas/BinaryExpression",
                 "column": "#/components/schemas/ColumnExpression",
                 "conditional": "#/components/schemas/ConditionalExpression",
+                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
                 "function": "#/components/schemas/FunctionCallExpression",
                 "list_literal": "#/components/schemas/ListLiteralExpression",
                 "literal": "#/components/schemas/LiteralExpression",
@@ -17806,6 +19491,14 @@
             "minimum": 1,
             "title": "Input Selection Revision"
           },
+          "custom_functions": {
+            "items": {
+              "$ref": "#/components/schemas/CustomFunctionDefinition"
+            },
+            "type": "array",
+            "title": "Custom Functions",
+            "default": []
+          },
           "nodes": {
             "items": {
               "oneOf": [
@@ -17907,6 +19600,9 @@
                   "$ref": "#/components/schemas/FunctionCallExpression"
                 },
                 {
+                  "$ref": "#/components/schemas/CustomFunctionCallExpression"
+                },
+                {
                   "$ref": "#/components/schemas/ListLiteralExpression"
                 }
               ],
@@ -17916,6 +19612,7 @@
                   "binary": "#/components/schemas/BinaryExpression",
                   "column": "#/components/schemas/ColumnExpression",
                   "conditional": "#/components/schemas/ConditionalExpression",
+                  "custom_function": "#/components/schemas/CustomFunctionCallExpression",
                   "function": "#/components/schemas/FunctionCallExpression",
                   "list_literal": "#/components/schemas/ListLiteralExpression",
                   "literal": "#/components/schemas/LiteralExpression",
@@ -18065,6 +19762,9 @@
                 "$ref": "#/components/schemas/FunctionCallExpression"
               },
               {
+                "$ref": "#/components/schemas/CustomFunctionCallExpression"
+              },
+              {
                 "$ref": "#/components/schemas/ListLiteralExpression"
               }
             ],
@@ -18075,6 +19775,7 @@
                 "binary": "#/components/schemas/BinaryExpression",
                 "column": "#/components/schemas/ColumnExpression",
                 "conditional": "#/components/schemas/ConditionalExpression",
+                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
                 "function": "#/components/schemas/FunctionCallExpression",
                 "list_literal": "#/components/schemas/ListLiteralExpression",
                 "literal": "#/components/schemas/LiteralExpression",
@@ -18602,6 +20303,9 @@
                 "$ref": "#/components/schemas/FunctionCallExpression"
               },
               {
+                "$ref": "#/components/schemas/CustomFunctionCallExpression"
+              },
+              {
                 "$ref": "#/components/schemas/ListLiteralExpression"
               }
             ],
@@ -18612,6 +20316,7 @@
                 "binary": "#/components/schemas/BinaryExpression",
                 "column": "#/components/schemas/ColumnExpression",
                 "conditional": "#/components/schemas/ConditionalExpression",
+                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
                 "function": "#/components/schemas/FunctionCallExpression",
                 "list_literal": "#/components/schemas/ListLiteralExpression",
                 "literal": "#/components/schemas/LiteralExpression",
@@ -19152,6 +20857,58 @@
         "title": "AggregateResponse",
         "description": "Common clinical aggregate identity envelope."
       },
+      "ArsAnalysis": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$",
+            "title": "Id"
+          },
+          "leaf_row_id": {
+            "type": "string",
+            "title": "Leaf Row Id"
+          },
+          "dataset_binding_id": {
+            "type": "string",
+            "title": "Dataset Binding Id"
+          },
+          "population_binding_id": {
+            "type": "string",
+            "title": "Population Binding Id"
+          },
+          "parameter_binding_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parameter Binding Id"
+          },
+          "statistic_binding_id": {
+            "type": "string",
+            "title": "Statistic Binding Id"
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 1,
+            "title": "Order"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "leaf_row_id",
+          "dataset_binding_id",
+          "population_binding_id",
+          "statistic_binding_id",
+          "order"
+        ],
+        "title": "ArsAnalysis"
+      },
       "ArtifactBuildCreate": {
         "properties": {
           "study_id": {
@@ -19647,6 +21404,9 @@
                 "$ref": "#/components/schemas/FunctionCallExpression"
               },
               {
+                "$ref": "#/components/schemas/CustomFunctionCallExpression"
+              },
+              {
                 "$ref": "#/components/schemas/ListLiteralExpression"
               }
             ],
@@ -19657,6 +21417,7 @@
                 "binary": "#/components/schemas/BinaryExpression",
                 "column": "#/components/schemas/ColumnExpression",
                 "conditional": "#/components/schemas/ConditionalExpression",
+                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
                 "function": "#/components/schemas/FunctionCallExpression",
                 "list_literal": "#/components/schemas/ListLiteralExpression",
                 "literal": "#/components/schemas/LiteralExpression",
@@ -19678,6 +21439,68 @@
           "issue_code"
         ],
         "title": "AssertNode"
+      },
+      "AuthoringResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "aggregate_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Aggregate Id"
+          },
+          "content_type": {
+            "type": "string",
+            "title": "Content Type"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "schema_version": {
+            "type": "string",
+            "title": "Schema Version"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "aggregate_id",
+          "content_type",
+          "revision",
+          "schema_version",
+          "state",
+          "payload",
+          "fingerprint",
+          "created_by",
+          "created_at"
+        ],
+        "title": "AuthoringResponse"
       },
       "BinaryExpression": {
         "properties": {
@@ -19725,6 +21548,9 @@
                 "$ref": "#/components/schemas/FunctionCallExpression"
               },
               {
+                "$ref": "#/components/schemas/CustomFunctionCallExpression"
+              },
+              {
                 "$ref": "#/components/schemas/ListLiteralExpression"
               }
             ],
@@ -19735,6 +21561,7 @@
                 "binary": "#/components/schemas/BinaryExpression",
                 "column": "#/components/schemas/ColumnExpression",
                 "conditional": "#/components/schemas/ConditionalExpression",
+                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
                 "function": "#/components/schemas/FunctionCallExpression",
                 "list_literal": "#/components/schemas/ListLiteralExpression",
                 "literal": "#/components/schemas/LiteralExpression",
@@ -19763,6 +21590,9 @@
                 "$ref": "#/components/schemas/FunctionCallExpression"
               },
               {
+                "$ref": "#/components/schemas/CustomFunctionCallExpression"
+              },
+              {
                 "$ref": "#/components/schemas/ListLiteralExpression"
               }
             ],
@@ -19773,6 +21603,7 @@
                 "binary": "#/components/schemas/BinaryExpression",
                 "column": "#/components/schemas/ColumnExpression",
                 "conditional": "#/components/schemas/ConditionalExpression",
+                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
                 "function": "#/components/schemas/FunctionCallExpression",
                 "list_literal": "#/components/schemas/ListLiteralExpression",
                 "literal": "#/components/schemas/LiteralExpression",
@@ -19822,40 +21653,54 @@
         ],
         "title": "Body_create_source_files_bulk_api_v1_studies__study_id__source_files_bulk_post"
       },
-      "CastNode": {
+      "CastExpression": {
         "properties": {
-          "node_type": {
+          "kind": {
             "type": "string",
             "const": "cast",
-            "title": "Node Type"
+            "title": "Kind"
           },
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "casts": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/CastOperation"
-            },
-            "type": "object",
-            "minProperties": 1,
-            "title": "Casts"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "node_type",
-          "id",
-          "casts"
-        ],
-        "title": "CastNode"
-      },
-      "CastOperation": {
-        "properties": {
-          "source_column": {
-            "type": "string",
-            "title": "Source Column"
+          "value": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LiteralExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ColumnExpression"
+              },
+              {
+                "$ref": "#/components/schemas/UnaryExpression"
+              },
+              {
+                "$ref": "#/components/schemas/BinaryExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ConditionalExpression"
+              },
+              {
+                "$ref": "#/components/schemas/FunctionCallExpression"
+              },
+              {
+                "$ref": "#/components/schemas/CustomFunctionCallExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ListLiteralExpression"
+              }
+            ],
+            "title": "Value",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "binary": "#/components/schemas/BinaryExpression",
+                "column": "#/components/schemas/ColumnExpression",
+                "conditional": "#/components/schemas/ConditionalExpression",
+                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
+                "function": "#/components/schemas/FunctionCallExpression",
+                "list_literal": "#/components/schemas/ListLiteralExpression",
+                "literal": "#/components/schemas/LiteralExpression",
+                "unary": "#/components/schemas/UnaryExpression"
+              }
+            }
           },
           "target_type": {
             "type": "string",
@@ -19880,10 +21725,12 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "source_column",
+          "kind",
+          "value",
           "target_type"
         ],
-        "title": "CastOperation"
+        "title": "CastExpression",
+        "description": "Convert one derived value to a declared scalar type."
       },
       "CatalogIdentity": {
         "properties": {
@@ -20100,6 +21947,9 @@
                 "$ref": "#/components/schemas/FunctionCallExpression"
               },
               {
+                "$ref": "#/components/schemas/CustomFunctionCallExpression"
+              },
+              {
                 "$ref": "#/components/schemas/ListLiteralExpression"
               }
             ],
@@ -20110,6 +21960,7 @@
                 "binary": "#/components/schemas/BinaryExpression",
                 "column": "#/components/schemas/ColumnExpression",
                 "conditional": "#/components/schemas/ConditionalExpression",
+                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
                 "function": "#/components/schemas/FunctionCallExpression",
                 "list_literal": "#/components/schemas/ListLiteralExpression",
                 "literal": "#/components/schemas/LiteralExpression",
@@ -20138,6 +21989,9 @@
                 "$ref": "#/components/schemas/FunctionCallExpression"
               },
               {
+                "$ref": "#/components/schemas/CustomFunctionCallExpression"
+              },
+              {
                 "$ref": "#/components/schemas/ListLiteralExpression"
               }
             ],
@@ -20148,6 +22002,7 @@
                 "binary": "#/components/schemas/BinaryExpression",
                 "column": "#/components/schemas/ColumnExpression",
                 "conditional": "#/components/schemas/ConditionalExpression",
+                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
                 "function": "#/components/schemas/FunctionCallExpression",
                 "list_literal": "#/components/schemas/ListLiteralExpression",
                 "literal": "#/components/schemas/LiteralExpression",
@@ -20200,6 +22055,9 @@
                 "$ref": "#/components/schemas/FunctionCallExpression"
               },
               {
+                "$ref": "#/components/schemas/CustomFunctionCallExpression"
+              },
+              {
                 "$ref": "#/components/schemas/ListLiteralExpression"
               }
             ],
@@ -20210,6 +22068,7 @@
                 "binary": "#/components/schemas/BinaryExpression",
                 "column": "#/components/schemas/ColumnExpression",
                 "conditional": "#/components/schemas/ConditionalExpression",
+                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
                 "function": "#/components/schemas/FunctionCallExpression",
                 "list_literal": "#/components/schemas/ListLiteralExpression",
                 "literal": "#/components/schemas/LiteralExpression",
@@ -20471,6 +22330,149 @@
           "created_at"
         ],
         "title": "CsdrgResponse"
+      },
+      "CustomFunctionCallExpression": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "custom_function",
+            "title": "Kind"
+          },
+          "function_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,62}$",
+            "title": "Function Id"
+          },
+          "arguments": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/LiteralExpression"
+                },
+                {
+                  "$ref": "#/components/schemas/ColumnExpression"
+                },
+                {
+                  "$ref": "#/components/schemas/UnaryExpression"
+                },
+                {
+                  "$ref": "#/components/schemas/BinaryExpression"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionalExpression"
+                },
+                {
+                  "$ref": "#/components/schemas/FunctionCallExpression"
+                },
+                {
+                  "$ref": "#/components/schemas/CustomFunctionCallExpression"
+                },
+                {
+                  "$ref": "#/components/schemas/ListLiteralExpression"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "kind",
+                "mapping": {
+                  "binary": "#/components/schemas/BinaryExpression",
+                  "column": "#/components/schemas/ColumnExpression",
+                  "conditional": "#/components/schemas/ConditionalExpression",
+                  "custom_function": "#/components/schemas/CustomFunctionCallExpression",
+                  "function": "#/components/schemas/FunctionCallExpression",
+                  "list_literal": "#/components/schemas/ListLiteralExpression",
+                  "literal": "#/components/schemas/LiteralExpression",
+                  "unary": "#/components/schemas/UnaryExpression"
+                }
+              }
+            },
+            "type": "array",
+            "title": "Arguments"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "function_id",
+          "arguments"
+        ],
+        "title": "CustomFunctionCallExpression"
+      },
+      "CustomFunctionDefinition": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,62}$",
+            "title": "Id"
+          },
+          "parameters": {
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+            },
+            "type": "array",
+            "maxItems": 32,
+            "title": "Parameters"
+          },
+          "return_type": {
+            "type": "string",
+            "enum": [
+              "character",
+              "numeric",
+              "logical",
+              "date",
+              "datetime",
+              "result_rows"
+            ],
+            "title": "Return Type"
+          },
+          "implementations": {
+            "items": {
+              "$ref": "#/components/schemas/CustomFunctionImplementation"
+            },
+            "type": "array",
+            "maxItems": 3,
+            "minItems": 1,
+            "title": "Implementations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "parameters",
+          "return_type",
+          "implementations"
+        ],
+        "title": "CustomFunctionDefinition",
+        "description": "Typed custom-function signature plus one or more language bodies."
+      },
+      "CustomFunctionImplementation": {
+        "properties": {
+          "language": {
+            "type": "string",
+            "enum": [
+              "python",
+              "r",
+              "sas"
+            ],
+            "title": "Language"
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 32768,
+            "minLength": 1,
+            "title": "Source"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "language",
+          "source"
+        ],
+        "title": "CustomFunctionImplementation",
+        "description": "One manually authored language body for a custom function.\n\nThe compiler supplies the function declaration and parameter list. ``source``\ntherefore contains only the language-specific body (including its return).\nIt is never evaluated by API or preview processes."
       },
       "DefineCodeList": {
         "properties": {
@@ -21195,6 +23197,15 @@
                   "$ref": "#/components/schemas/FunctionCallExpression"
                 },
                 {
+                  "$ref": "#/components/schemas/CustomFunctionCallExpression"
+                },
+                {
+                  "$ref": "#/components/schemas/CastExpression"
+                },
+                {
+                  "$ref": "#/components/schemas/TerminologyMapExpression"
+                },
+                {
                   "$ref": "#/components/schemas/ListLiteralExpression"
                 }
               ],
@@ -21202,11 +23213,14 @@
                 "propertyName": "kind",
                 "mapping": {
                   "binary": "#/components/schemas/BinaryExpression",
+                  "cast": "#/components/schemas/CastExpression",
                   "column": "#/components/schemas/ColumnExpression",
                   "conditional": "#/components/schemas/ConditionalExpression",
+                  "custom_function": "#/components/schemas/CustomFunctionCallExpression",
                   "function": "#/components/schemas/FunctionCallExpression",
                   "list_literal": "#/components/schemas/ListLiteralExpression",
                   "literal": "#/components/schemas/LiteralExpression",
+                  "terminology_map": "#/components/schemas/TerminologyMapExpression",
                   "unary": "#/components/schemas/UnaryExpression"
                 }
               }
@@ -21214,6 +23228,14 @@
             "type": "object",
             "minProperties": 1,
             "title": "Assignments"
+          },
+          "assignment_order": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Assignment Order",
+            "default": []
           }
         },
         "additionalProperties": false,
@@ -22701,6 +24723,9 @@
                 "$ref": "#/components/schemas/FunctionCallExpression"
               },
               {
+                "$ref": "#/components/schemas/CustomFunctionCallExpression"
+              },
+              {
                 "$ref": "#/components/schemas/ListLiteralExpression"
               }
             ],
@@ -22711,6 +24736,7 @@
                 "binary": "#/components/schemas/BinaryExpression",
                 "column": "#/components/schemas/ColumnExpression",
                 "conditional": "#/components/schemas/ConditionalExpression",
+                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
                 "function": "#/components/schemas/FunctionCallExpression",
                 "list_literal": "#/components/schemas/ListLiteralExpression",
                 "literal": "#/components/schemas/LiteralExpression",
@@ -22803,6 +24829,9 @@
                   "$ref": "#/components/schemas/FunctionCallExpression"
                 },
                 {
+                  "$ref": "#/components/schemas/CustomFunctionCallExpression"
+                },
+                {
                   "$ref": "#/components/schemas/ListLiteralExpression"
                 }
               ],
@@ -22812,6 +24841,7 @@
                   "binary": "#/components/schemas/BinaryExpression",
                   "column": "#/components/schemas/ColumnExpression",
                   "conditional": "#/components/schemas/ConditionalExpression",
+                  "custom_function": "#/components/schemas/CustomFunctionCallExpression",
                   "function": "#/components/schemas/FunctionCallExpression",
                   "list_literal": "#/components/schemas/ListLiteralExpression",
                   "literal": "#/components/schemas/LiteralExpression",
@@ -23419,6 +25449,36 @@
         "title": "ModuleEventTypes",
         "description": "Public event types exposed by one module."
       },
+      "ModuleSelection": {
+        "properties": {
+          "module": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]{1,31}$",
+            "title": "Module"
+          },
+          "artifact_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Artifact Ids"
+          },
+          "options": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Options"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "module",
+          "artifact_ids"
+        ],
+        "title": "ModuleSelection"
+      },
       "PivotLongerNode": {
         "properties": {
           "node_type": {
@@ -23484,6 +25544,39 @@
           "target_node"
         ],
         "title": "PlanEdge"
+      },
+      "PreviewResponse": {
+        "properties": {
+          "normalized_result_schema": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Normalized Result Schema"
+          },
+          "procedure_count": {
+            "type": "integer",
+            "title": "Procedure Count"
+          },
+          "analysis_ir_fingerprint": {
+            "type": "string",
+            "title": "Analysis Ir Fingerprint"
+          },
+          "normalized_analysis_ir": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Normalized Analysis Ir"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "normalized_result_schema",
+          "procedure_count",
+          "analysis_ir_fingerprint",
+          "normalized_analysis_ir"
+        ],
+        "title": "PreviewResponse"
       },
       "ProtocolContextEntity": {
         "properties": {
@@ -25252,6 +27345,27 @@
         "title": "ReferenceValue",
         "description": "Versioned manual Reference value without arbitrary nested JSON."
       },
+      "RenderRequest": {
+        "properties": {
+          "format": {
+            "type": "string",
+            "pattern": "^(rtf|pdf|png|svg)$",
+            "title": "Format"
+          },
+          "expected_input_fingerprint": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expected Input Fingerprint"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "format",
+          "expected_input_fingerprint"
+        ],
+        "title": "RenderRequest"
+      },
       "ReviewItemCreate": {
         "properties": {
           "target_module": {
@@ -26083,9 +28197,9 @@
         "properties": {
           "schema_version": {
             "type": "string",
-            "const": "1.1.0",
+            "const": "1.2.0",
             "title": "Schema Version",
-            "default": "1.1.0"
+            "default": "1.2.0"
           },
           "domain": {
             "type": "string",
@@ -26101,6 +28215,14 @@
             "type": "integer",
             "minimum": 1,
             "title": "Input Selection Revision"
+          },
+          "custom_functions": {
+            "items": {
+              "$ref": "#/components/schemas/CustomFunctionDefinition"
+            },
+            "type": "array",
+            "title": "Custom Functions",
+            "default": []
           },
           "nodes": {
             "items": {
@@ -26118,9 +28240,6 @@
                   "$ref": "#/components/schemas/DeriveNode"
                 },
                 {
-                  "$ref": "#/components/schemas/CastNode"
-                },
-                {
                   "$ref": "#/components/schemas/SelectNode"
                 },
                 {
@@ -26134,9 +28253,6 @@
                 },
                 {
                   "$ref": "#/components/schemas/PivotLongerNode"
-                },
-                {
-                  "$ref": "#/components/schemas/TerminologyMapNode"
                 },
                 {
                   "$ref": "#/components/schemas/SequenceNode"
@@ -26156,7 +28272,6 @@
                 "mapping": {
                   "aggregate": "#/components/schemas/AggregateNode",
                   "assert": "#/components/schemas/AssertNode",
-                  "cast": "#/components/schemas/CastNode",
                   "derive": "#/components/schemas/DeriveNode",
                   "domain_write": "#/components/schemas/DomainWriteNode",
                   "filter": "#/components/schemas/FilterNode",
@@ -26167,7 +28282,6 @@
                   "select": "#/components/schemas/SelectNode",
                   "sequence": "#/components/schemas/SequenceNode",
                   "sort": "#/components/schemas/SortNode",
-                  "terminology_map": "#/components/schemas/TerminologyMapNode",
                   "union": "#/components/schemas/UnionNode"
                 }
               }
@@ -26433,6 +28547,97 @@
         ],
         "title": "SdtmSpecification"
       },
+      "SdtmSpecificationInitializationOptions": {
+        "properties": {
+          "standard_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Standard Version Id"
+          },
+          "domains": {
+            "items": {
+              "$ref": "#/components/schemas/SdtmStandardDomainOption"
+            },
+            "type": "array",
+            "title": "Domains"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "standard_version_id",
+          "domains"
+        ],
+        "title": "SdtmSpecificationInitializationOptions"
+      },
+      "SdtmSpecificationInitialize": {
+        "properties": {
+          "domain_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Domain Codes",
+            "description": "Concrete standard domains to add or refresh."
+          },
+          "required_expected_only": {
+            "type": "boolean",
+            "title": "Required Expected Only",
+            "description": "When true, add only Required and Expected standard variables.",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "domain_codes"
+        ],
+        "title": "SdtmSpecificationInitialize",
+        "description": "User-selected scope for factual initialization from the pinned SDTMIG."
+      },
+      "SdtmStandardDomainOption": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "domain_class": {
+            "type": "string",
+            "title": "Domain Class"
+          },
+          "required_variable_count": {
+            "type": "integer",
+            "minimum": 0,
+            "title": "Required Variable Count"
+          },
+          "expected_variable_count": {
+            "type": "integer",
+            "minimum": 0,
+            "title": "Expected Variable Count"
+          },
+          "permissible_variable_count": {
+            "type": "integer",
+            "minimum": 0,
+            "title": "Permissible Variable Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "label",
+          "domain_class",
+          "required_variable_count",
+          "expected_variable_count",
+          "permissible_variable_count"
+        ],
+        "title": "SdtmStandardDomainOption"
+      },
       "SdtmTerminologyBinding": {
         "properties": {
           "terminology_release_id": {
@@ -26507,6 +28712,9 @@
                 "$ref": "#/components/schemas/FunctionCallExpression"
               },
               {
+                "$ref": "#/components/schemas/CustomFunctionCallExpression"
+              },
+              {
                 "$ref": "#/components/schemas/ListLiteralExpression"
               }
             ],
@@ -26517,6 +28725,7 @@
                 "binary": "#/components/schemas/BinaryExpression",
                 "column": "#/components/schemas/ColumnExpression",
                 "conditional": "#/components/schemas/ConditionalExpression",
+                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
                 "function": "#/components/schemas/FunctionCallExpression",
                 "list_literal": "#/components/schemas/ListLiteralExpression",
                 "literal": "#/components/schemas/LiteralExpression",
@@ -27333,19 +29542,6 @@
       },
       "StudyPatch": {
         "properties": {
-          "name": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255,
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
           "status": {
             "anyOf": [
               {
@@ -27365,7 +29561,7 @@
         "additionalProperties": false,
         "type": "object",
         "title": "StudyPatch",
-        "description": "Editable study metadata."
+        "description": "Product-owned study lifecycle metadata."
       },
       "StudyResponse": {
         "properties": {
@@ -27381,6 +29577,17 @@
           "name": {
             "type": "string",
             "title": "Name"
+          },
+          "sponsor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sponsor"
           },
           "status": {
             "type": "string",
@@ -27411,6 +29618,7 @@
           "id",
           "code",
           "name",
+          "sponsor",
           "status",
           "revision",
           "created_by",
@@ -27419,6 +29627,209 @@
         ],
         "title": "StudyResponse",
         "description": "Public study representation."
+      },
+      "SubmissionPackageCollection": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SubmissionPackageResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "SubmissionPackageCollection"
+      },
+      "SubmissionPackageCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "module_selections": {
+            "items": {
+              "$ref": "#/components/schemas/ModuleSelection"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Module Selections"
+          },
+          "artifact_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Artifact Ids",
+            "default": []
+          },
+          "reconciliation_run_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Reconciliation Run Ids",
+            "default": []
+          },
+          "expected_study_fingerprint": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expected Study Fingerprint"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "module_selections",
+          "expected_study_fingerprint"
+        ],
+        "title": "SubmissionPackageCreate"
+      },
+      "SubmissionPackageResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "study_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Study Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "module_selections": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Module Selections"
+          },
+          "artifact_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Artifact Ids"
+          },
+          "reconciliation_run_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reconciliation Run Ids"
+          },
+          "input_fingerprint": {
+            "type": "string",
+            "title": "Input Fingerprint"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "issues": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Issues"
+          },
+          "manifest": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Manifest"
+          },
+          "zip_artifact_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zip Artifact Id"
+          },
+          "report_artifact_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Artifact Id"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "study_id",
+          "name",
+          "module_selections",
+          "artifact_ids",
+          "reconciliation_run_ids",
+          "input_fingerprint",
+          "status",
+          "issues",
+          "manifest",
+          "zip_artifact_id",
+          "report_artifact_id",
+          "created_by",
+          "created_at",
+          "completed_at"
+        ],
+        "title": "SubmissionPackageResponse"
       },
       "SubscriptionPatch": {
         "properties": {
@@ -27957,24 +30368,54 @@
         ],
         "title": "TerminologyCompatibilityResponse"
       },
-      "TerminologyMapNode": {
+      "TerminologyMapExpression": {
         "properties": {
-          "node_type": {
+          "kind": {
             "type": "string",
             "const": "terminology_map",
-            "title": "Node Type"
+            "title": "Kind"
           },
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "source_column": {
-            "type": "string",
-            "title": "Source Column"
-          },
-          "target_column": {
-            "type": "string",
-            "title": "Target Column"
+          "value": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LiteralExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ColumnExpression"
+              },
+              {
+                "$ref": "#/components/schemas/UnaryExpression"
+              },
+              {
+                "$ref": "#/components/schemas/BinaryExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ConditionalExpression"
+              },
+              {
+                "$ref": "#/components/schemas/FunctionCallExpression"
+              },
+              {
+                "$ref": "#/components/schemas/CustomFunctionCallExpression"
+              },
+              {
+                "$ref": "#/components/schemas/ListLiteralExpression"
+              }
+            ],
+            "title": "Value",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "binary": "#/components/schemas/BinaryExpression",
+                "column": "#/components/schemas/ColumnExpression",
+                "conditional": "#/components/schemas/ConditionalExpression",
+                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
+                "function": "#/components/schemas/FunctionCallExpression",
+                "list_literal": "#/components/schemas/ListLiteralExpression",
+                "literal": "#/components/schemas/LiteralExpression",
+                "unary": "#/components/schemas/UnaryExpression"
+              }
+            }
           },
           "mappings": {
             "additionalProperties": {
@@ -27998,13 +30439,12 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "node_type",
-          "id",
-          "source_column",
-          "target_column",
+          "kind",
+          "value",
           "mappings"
         ],
-        "title": "TerminologyMapNode"
+        "title": "TerminologyMapExpression",
+        "description": "Apply a manually authored controlled-terminology value mapping."
       },
       "TerminologyReleaseResponse": {
         "properties": {
@@ -28128,6 +30568,572 @@
           "terminology_release_id"
         ],
         "title": "TerminologySelection"
+      },
+      "TlfAdamDatasetBinding": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$",
+            "title": "Id"
+          },
+          "adam_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Adam Id"
+          },
+          "adam_revision": {
+            "type": "integer",
+            "minimum": 1,
+            "title": "Adam Revision"
+          },
+          "dataset_code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]{1,7}$",
+            "title": "Dataset Code"
+          },
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Artifact Id"
+          },
+          "checksum": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Checksum"
+          },
+          "validation_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Validation Run Id"
+          },
+          "dependency_fingerprint": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Dependency Fingerprint"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "adam_id",
+          "adam_revision",
+          "dataset_code",
+          "artifact_id",
+          "checksum",
+          "validation_run_id",
+          "dependency_fingerprint"
+        ],
+        "title": "TlfAdamDatasetBinding"
+      },
+      "TlfAnalysisStep": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$",
+            "title": "Id"
+          },
+          "analysis_id": {
+            "type": "string",
+            "title": "Analysis Id"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "frequency",
+              "descriptive_statistics",
+              "custom"
+            ],
+            "title": "Method"
+          },
+          "variable": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{0,31}$",
+            "title": "Variable"
+          },
+          "group_by": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Group By",
+            "default": []
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 1,
+            "title": "Order"
+          },
+          "tolerance": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tolerance"
+          },
+          "custom_function_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,62}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Custom Function Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "analysis_id",
+          "method",
+          "variable",
+          "order"
+        ],
+        "title": "TlfAnalysisStep"
+      },
+      "TlfArs": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "1.0.0",
+            "title": "Schema Version",
+            "default": "1.0.0"
+          },
+          "analyses": {
+            "items": {
+              "$ref": "#/components/schemas/ArsAnalysis"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Analyses"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "analyses"
+        ],
+        "title": "TlfArs"
+      },
+      "TlfAssumption": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "TlfAssumption"
+      },
+      "TlfAssumptions": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "1.0.0",
+            "title": "Schema Version",
+            "default": "1.0.0"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TlfAssumption"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "TlfAssumptions"
+      },
+      "TlfBindings": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "1.0.0",
+            "title": "Schema Version",
+            "default": "1.0.0"
+          },
+          "datasets": {
+            "items": {
+              "$ref": "#/components/schemas/TlfAdamDatasetBinding"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Datasets"
+          },
+          "named": {
+            "items": {
+              "$ref": "#/components/schemas/TlfNamedBinding"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Named"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "datasets",
+          "named"
+        ],
+        "title": "TlfBindings"
+      },
+      "TlfColumn": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 1,
+            "title": "Order"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "order"
+        ],
+        "title": "TlfColumn"
+      },
+      "TlfExecutionRequest": {
+        "properties": {
+          "language": {
+            "type": "string",
+            "pattern": "^(python|r|sas)$",
+            "title": "Language"
+          },
+          "program_artifact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Program Artifact Id"
+          },
+          "input_artifact_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Input Artifact Ids"
+          },
+          "validation_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Validation Run Id"
+          },
+          "bindings_revision": {
+            "type": "integer",
+            "minimum": 1,
+            "title": "Bindings Revision"
+          },
+          "shell_revision": {
+            "type": "integer",
+            "minimum": 1,
+            "title": "Shell Revision"
+          },
+          "program_plan_revision": {
+            "type": "integer",
+            "minimum": 1,
+            "title": "Program Plan Revision"
+          },
+          "compiler_fingerprint": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Compiler Fingerprint"
+          },
+          "expected_input_fingerprint": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expected Input Fingerprint"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/ExecutionLimits"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "language",
+          "program_artifact_id",
+          "input_artifact_ids",
+          "validation_run_id",
+          "bindings_revision",
+          "shell_revision",
+          "program_plan_revision",
+          "compiler_fingerprint",
+          "expected_input_fingerprint",
+          "limits"
+        ],
+        "title": "TlfExecutionRequest"
+      },
+      "TlfNamedBinding": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "population",
+              "parameter",
+              "statistic"
+            ],
+            "title": "Kind"
+          },
+          "dataset_binding_id": {
+            "type": "string",
+            "title": "Dataset Binding Id"
+          },
+          "variable": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{0,31}$",
+            "title": "Variable"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "dataset_binding_id",
+          "variable",
+          "value"
+        ],
+        "title": "TlfNamedBinding"
+      },
+      "TlfProgramPlan": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "1.0.0",
+            "title": "Schema Version",
+            "default": "1.0.0"
+          },
+          "shell_revision": {
+            "type": "integer",
+            "minimum": 1,
+            "title": "Shell Revision"
+          },
+          "bindings_revision": {
+            "type": "integer",
+            "minimum": 1,
+            "title": "Bindings Revision"
+          },
+          "assumptions_revision": {
+            "type": "integer",
+            "minimum": 1,
+            "title": "Assumptions Revision"
+          },
+          "ars_revision": {
+            "type": "integer",
+            "minimum": 1,
+            "title": "Ars Revision"
+          },
+          "output_filename": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,62}\\.csv$",
+            "title": "Output Filename"
+          },
+          "custom_functions": {
+            "items": {
+              "$ref": "#/components/schemas/CustomFunctionDefinition"
+            },
+            "type": "array",
+            "title": "Custom Functions",
+            "default": []
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/TlfAnalysisStep"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Steps"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "shell_revision",
+          "bindings_revision",
+          "assumptions_revision",
+          "ars_revision",
+          "output_filename",
+          "steps"
+        ],
+        "title": "TlfProgramPlan"
+      },
+      "TlfRow": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$",
+            "title": "Id"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 1,
+            "title": "Order"
+          },
+          "leaf": {
+            "type": "boolean",
+            "title": "Leaf"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "order",
+          "leaf"
+        ],
+        "title": "TlfRow"
+      },
+      "TlfShell": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "1.0.0",
+            "title": "Schema Version",
+            "default": "1.0.0"
+          },
+          "output_code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9-]{1,31}$",
+            "title": "Output Code"
+          },
+          "output_type": {
+            "type": "string",
+            "enum": [
+              "table",
+              "listing",
+              "figure"
+            ],
+            "title": "Output Type"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "subtitle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitle"
+          },
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/TlfColumn"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Columns"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/TlfRow"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Rows"
+          },
+          "footnotes": {
+            "items": {
+              "type": "string",
+              "maxLength": 1000,
+              "minLength": 1
+            },
+            "type": "array",
+            "title": "Footnotes",
+            "default": []
+          },
+          "orientation": {
+            "type": "string",
+            "enum": [
+              "portrait",
+              "landscape"
+            ],
+            "title": "Orientation",
+            "default": "portrait"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "output_code",
+          "output_type",
+          "title",
+          "columns",
+          "rows"
+        ],
+        "title": "TlfShell"
       },
       "TraceLinkCreate": {
         "properties": {
@@ -28257,6 +31263,9 @@
                 "$ref": "#/components/schemas/FunctionCallExpression"
               },
               {
+                "$ref": "#/components/schemas/CustomFunctionCallExpression"
+              },
+              {
                 "$ref": "#/components/schemas/ListLiteralExpression"
               }
             ],
@@ -28267,6 +31276,7 @@
                 "binary": "#/components/schemas/BinaryExpression",
                 "column": "#/components/schemas/ColumnExpression",
                 "conditional": "#/components/schemas/ConditionalExpression",
+                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
                 "function": "#/components/schemas/FunctionCallExpression",
                 "list_literal": "#/components/schemas/ListLiteralExpression",
                 "literal": "#/components/schemas/LiteralExpression",
@@ -28303,6 +31313,136 @@
           "id"
         ],
         "title": "UnionNode"
+      },
+      "UsdmDocument": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "1.0.0",
+            "title": "Schema Version",
+            "default": "1.0.0"
+          },
+          "usdm_version": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Usdm Version"
+          },
+          "study_version": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Study Version"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/UsdmEntity"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Entities"
+          },
+          "relationships": {
+            "items": {
+              "$ref": "#/components/schemas/UsdmRelationship"
+            },
+            "type": "array",
+            "title": "Relationships",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "usdm_version",
+          "study_version",
+          "entities"
+        ],
+        "title": "UsdmDocument",
+        "description": "Pinned platform subset for USDM JSON authored by a user."
+      },
+      "UsdmEntity": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,127}$",
+            "title": "Id"
+          },
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "study",
+              "objective",
+              "endpoint",
+              "arm",
+              "epoch",
+              "intervention",
+              "eligibility",
+              "schedule",
+              "amendment"
+            ],
+            "title": "Entity Type"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "entity_type",
+          "name"
+        ],
+        "title": "UsdmEntity"
+      },
+      "UsdmRelationship": {
+        "properties": {
+          "relationship_type": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Relationship Type"
+          },
+          "source_entity_id": {
+            "type": "string",
+            "title": "Source Entity Id"
+          },
+          "target_entity_id": {
+            "type": "string",
+            "title": "Target Entity Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "relationship_type",
+          "source_entity_id",
+          "target_entity_id"
+        ],
+        "title": "UsdmRelationship"
       },
       "UsdmResponse": {
         "properties": {
@@ -29322,6 +32462,27 @@
         "additionalProperties": false,
         "type": "object",
         "title": "PreviewRequest"
+      },
+      "app__tlf__routes__CompileRequest": {
+        "properties": {
+          "backend": {
+            "type": "string",
+            "pattern": "^(python|r|sas)$",
+            "title": "Backend"
+          },
+          "expected_input_fingerprint": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expected Input Fingerprint"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "backend",
+          "expected_input_fingerprint"
+        ],
+        "title": "CompileRequest"
       }
     }
   }

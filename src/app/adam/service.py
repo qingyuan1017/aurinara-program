@@ -1112,6 +1112,8 @@ class AdamCapability(SqlDependencyCapability):
                 "backend": backend,
                 "version": program.compiler_version,
                 "fingerprint": program.ir_fingerprint,
+                "executable": program.executable,
+                "todo_functions": list(program.todo_functions),
             },
         }
         return RenderedArtifact(
@@ -1588,6 +1590,7 @@ def lower_plan(specification: AdamSpecification, plan: AdamDerivationPlan) -> Da
         )
     return DataflowIR.model_validate(
         {
+            "custom_functions": [item.model_dump(mode="json") for item in plan.custom_functions],
             "nodes": internal_nodes,
             "edges": [
                 Edge(source_node=edge.source_node, target_node=edge.target_node).model_dump()

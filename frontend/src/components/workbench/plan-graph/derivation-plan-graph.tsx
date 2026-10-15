@@ -16,7 +16,10 @@ import {
   type ReactFlowInstance,
 } from '@xyflow/react'
 
-import type { SdtmDerivationPlanNodesItem } from '@/api/generated/model'
+import type {
+  CustomFunctionDefinition,
+  SdtmDerivationPlanNodesItem,
+} from '@/api/generated/model'
 
 import type {
   PlanGraphEdge,
@@ -83,6 +86,8 @@ export interface DerivationPlanGraphProps {
   readOnly?: boolean
   /** Mint a unique id for a newly created node. Defaults to a counter+random id. */
   generateNodeId?: (nodeType: PlanNodeType) => string
+  /** Plan-owned typed custom functions available to derivation recipes. */
+  customFunctions?: readonly CustomFunctionDefinition[]
 }
 
 /** Default node-id generator: operator-prefixed, collision-resistant. */
@@ -106,6 +111,7 @@ function DerivationPlanGraphInner({
   onEdgesChange,
   readOnly = false,
   generateNodeId = defaultNodeId,
+  customFunctions = [],
 }: DerivationPlanGraphProps) {
   const flow = useReactFlow<PlanGraphNode, PlanGraphEdge>()
   const [instance, setInstance] =
@@ -342,11 +348,12 @@ function DerivationPlanGraphInner({
         </ReactFlow>
       </div>
 
-      <aside className="w-80 shrink-0 border-l">
+      <aside className="w-[32rem] shrink-0 border-l">
         <NodeInspector
           node={selectedNode}
           onChange={handleInspectorChange}
           readOnly={readOnly}
+          customFunctions={customFunctions}
         />
       </aside>
     </div>

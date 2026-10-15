@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import {
@@ -28,10 +29,12 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const authOperation = useRef(0)
 
   // Restore any existing Cognito session on first load.
   useEffect(() => {
     let active = true
+    const operation = ++authOperation.current
     const oidcUser = restoreOidcSession()
     if (oidcUser) {
       setUser(oidcUser)
@@ -40,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     restoreSession()
       .then((restored) => {
-        if (active) setUser(restored)
+        if (active && authOperation.current === operation) setUser(restored)
       })
       .finally(() => {
         if (active) setIsLoading(false)
@@ -53,16 +56,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Keep context in sync if the token is cleared elsewhere (e.g. a 401).
   useEffect(() => {
     return onAuthChange((token) => {
-      if (!token) setUser(null)
+      if (!token) {
+        authOperation.current += 1
+        setUser(null)
+        setIsLoading(false)
+      }
     })
   }, [])
 
   const signIn = useCallback(async (username: string, password: string) => {
+    const operation = ++authOperation.current
     const signedIn = await cognitoSignIn(username, password)
-    setUser(signedIn)
+    if (authOperation.current === operation) {
+      setUser(signedIn)
+      setIsLoading(false)
+    }
   }, [])
 
   const signOut = useCallback(() => {
+    authOperation.current += 1
     if (restoreOidcSession()) clearOidcSession()
     else cognitoSignOut()
     setUser(null)

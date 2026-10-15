@@ -184,6 +184,16 @@ def _resolve_manifest(
             "Execution program is invalid",
             "Select an available program artifact owned by the exact module aggregate.",
         )
+    compiler = program.manifest.get("compiler")
+    if isinstance(compiler, dict) and compiler.get("executable") is False:
+        todo = compiler.get("todo_functions")
+        names = ", ".join(str(item) for item in todo) if isinstance(todo, list) else "unknown"
+        raise _problem(
+            409,
+            "execution_custom_function_incomplete",
+            "Custom function implementation is incomplete",
+            f"Provide the {command.language} implementation for: {names}.",
+        )
     provenance_matches = (
         program.validation_run_id == command.validation_run_id
         and program.input_selection_revision == command.input_selection_revision

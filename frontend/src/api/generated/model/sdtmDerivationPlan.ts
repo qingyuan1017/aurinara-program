@@ -4,17 +4,19 @@
  * Aurinara Clinical Artifact Platform
  * OpenAPI spec version: 0.1.0
  */
+import type { CustomFunctionDefinition } from './customFunctionDefinition';
 import type { SdtmDerivationPlanNodesItem } from './sdtmDerivationPlanNodesItem';
 import type { PlanEdge } from './planEdge';
 
 export interface SdtmDerivationPlan {
-  schema_version?: '1.1.0';
+  schema_version?: '1.2.0';
   /** @pattern ^[A-Z][A-Z0-9]{1,7}$ */
   domain: string;
   /** @minimum 1 */
   specification_revision: number;
   /** @minimum 1 */
   input_selection_revision: number;
+  custom_functions?: CustomFunctionDefinition[];
   /** @minItems 1 */
   nodes: SdtmDerivationPlanNodesItem[];
   edges?: PlanEdge[];

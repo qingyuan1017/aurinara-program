@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 from collections.abc import AsyncIterator
+from pathlib import Path
 from uuid import UUID, uuid4
 
 import pyreadstat
@@ -15,16 +16,18 @@ from openpyxl import load_workbook
 from pypdf import PdfReader
 from reportlab.pdfgen.canvas import Canvas
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app.artifacts.builds import resolve_build_input
 from app.catalog_seed import seed
-from app.common.canonical import fingerprint
+from app.common.canonical import fingerprint, sha256_hex
 from app.database import create_database_engine, create_session_factory
 from app.execution.adapters import ExecutionRequest, ExecutionResult
 from app.execution.jobs import JobService
 from app.execution.worker import process_execution_job
 from app.main import create_app
 from app.sdtm.define_xml import validate_define_xml
+from app.standards.models import StandardAsset, StandardProduct, StandardVersion
 from tests.conftest import make_test_settings
 from tests.integration.test_phase1_core import MemoryStorage, TestTokenVerifier
 from workers.job_worker import _process_job
@@ -55,6 +58,66 @@ class HostPythonExecutor:
         )
 
 
+SYNTHETIC_SDTMIG_PRODUCT_ID = UUID("10000000-0000-0000-0000-000000000101")
+SYNTHETIC_SDTMIG_VERSION_ID = UUID("10000000-0000-0000-0000-000000000112")
+SYNTHETIC_SDTMIG_ASSET_ID = UUID("10000000-0000-0000-0000-000000000113")
+
+
+def _register_synthetic_sdtmig(session: Session) -> None:
+    """Register one repository-pinned synthetic SDTMIG for endpoint tests."""
+
+    if session.get(StandardVersion, SYNTHETIC_SDTMIG_VERSION_ID) is not None:
+        return
+    path = "schemas/test/synthetic-sdtmig-9-9.json"
+    checksum = sha256_hex((Path(__file__).resolve().parents[2] / path).read_bytes())
+    if session.get(StandardProduct, SYNTHETIC_SDTMIG_PRODUCT_ID) is None:
+        session.add(
+            StandardProduct(
+                id=SYNTHETIC_SDTMIG_PRODUCT_ID,
+                code="SDTMIG",
+                name="Synthetic SDTM Implementation Guide",
+                provider="TEST",
+                family="SDTMIG",
+                product_type="implementation_guide",
+                scope="clinical",
+            )
+        )
+        session.flush()
+    session.add(
+        StandardVersion(
+            id=SYNTHETIC_SDTMIG_VERSION_ID,
+            product_id=SYNTHETIC_SDTMIG_PRODUCT_ID,
+            version="9.9.1",
+            library_href="/mdr/sdtmig/9-9-1",
+            content_schema_version="1.0.0",
+            lifecycle="active",
+            checksum=checksum,
+            asset_path=path,
+            provenance={"source": "synthetic test fixture"},
+            applicable_modules=["sdtm"],
+            purposes=["sdtm_ig"],
+            compatibility={},
+        )
+    )
+    session.flush()
+    session.add(
+        StandardAsset(
+            id=SYNTHETIC_SDTMIG_ASSET_ID,
+            version_id=SYNTHETIC_SDTMIG_VERSION_ID,
+            role="implementation_guide",
+            media_type="application/json",
+            asset_path=path,
+            checksum=checksum,
+            required=True,
+            canonical_href="/mdr/sdtmig/9-9-1",
+            title="Synthetic SDTMIG 9.9.1",
+            resource_type="Implementation Guide",
+            content_schema_version="1.0.0",
+        )
+    )
+    session.commit()
+
+
 @pytest.fixture
 async def phase3_client() -> AsyncIterator[AsyncClient]:
     settings = make_test_settings()
@@ -78,6 +141,7 @@ async def phase3_client() -> AsyncIterator[AsyncClient]:
     storage = MemoryStorage()
     with factory() as session:
         seed(session, storage)
+        _register_synthetic_sdtmig(session)
     app = create_app(
         settings=settings,
         session_factory=factory,
@@ -167,6 +231,80 @@ async def test_sdtm_specification_xlsx_export_and_idempotent_import(
     )
     assert replay.status_code == 200, replay.text
     assert replay.json()["id"] == imported.json()["id"]
+
+
+@pytest.mark.anyio
+async def test_sdtm_specification_initializes_from_selected_industry_standard(
+    phase3_client: AsyncClient,
+) -> None:
+    client = phase3_client
+    headers = {"Authorization": "Bearer test-token"}
+    study = await client.post(
+        "/api/v1/studies",
+        headers=headers,
+        json={"code": "P3-STANDARD", "name": "Industry standard initialization"},
+    )
+    sdtm = await client.post(
+        f"/api/v1/studies/{study.json()['id']}/sdtms",
+        headers=headers,
+        json={"code": "SDTM", "name": "SDTM"},
+    )
+    dependencies = await client.put(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/dependencies",
+        headers={**headers, "If-Match": sdtm.headers["etag"]},
+        json={
+            "standards": [
+                {
+                    "purpose": "sdtm_ig",
+                    "standard_version_id": str(SYNTHETIC_SDTMIG_VERSION_ID),
+                }
+            ]
+        },
+    )
+    assert dependencies.status_code == 200, dependencies.text
+
+    options = await client.get(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/specification/initialization-options",
+        headers=headers,
+    )
+    assert options.status_code == 200, options.text
+    assert [item["code"] for item in options.json()["domains"]] == ["DM", "AE"]
+
+    initialized = await client.post(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/specification/initialize",
+        headers={**headers, "If-Match": dependencies.headers["etag"]},
+        json={"domain_codes": ["DM"], "required_expected_only": True},
+    )
+    assert initialized.status_code == 200, initialized.text
+    assert initialized.json()["payload"]["domains"][0]["code"] == "DM"
+    assert [
+        item["name"] for item in initialized.json()["payload"]["domains"][0]["variables"]
+    ] == ["STUDYID", "USUBJID", "AGE"]
+
+    manually_edited = initialized.json()["payload"]
+    manually_edited["domains"][0]["label"] = "Manual demographics label"
+    manually_edited["domains"][0]["variables"] = manually_edited["domains"][0]["variables"][:2]
+    saved = await client.put(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/specification",
+        headers={**headers, "If-Match": initialized.headers["etag"]},
+        json=manually_edited,
+    )
+    assert saved.status_code == 200, saved.text
+
+    refreshed = await client.post(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/specification/initialize",
+        headers={**headers, "If-Match": saved.headers["etag"]},
+        json={"domain_codes": ["DM"], "required_expected_only": False},
+    )
+    assert refreshed.status_code == 200, refreshed.text
+    domain = refreshed.json()["payload"]["domains"][0]
+    assert domain["label"] == "Manual demographics label"
+    assert [item["name"] for item in domain["variables"]] == [
+        "STUDYID",
+        "USUBJID",
+        "AGE",
+        "RACE",
+    ]
 
 
 @pytest.mark.anyio

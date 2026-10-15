@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from app.cdisc_library_registry import _register_terminology_group
+from app.cdisc_library_registry import _purposes, _register_terminology_group
 from app.integration.cdisc_library import CdiscLibraryResource
 from app.standards.library_snapshot import (
     CdiscLibrarySnapshotManifest,
@@ -102,6 +102,11 @@ def test_snapshot_crawls_and_checksums_complete_graph(tmp_path: Path) -> None:
     assert {item.category for item in manifest.resources} == {"standard", "terminology"}
     for resource in manifest.resources:
         assert (tmp_path / resource.asset_path).is_file()
+
+
+def test_sdtmig_snapshots_are_selectable_for_the_sdtm_ig_purpose() -> None:
+    assert _purposes("SDTMIG") == ["reference_metadata", "sdtm_ig"]
+    assert _purposes("SDTM") == ["reference_metadata"]
 
 
 def test_registration_normalizes_embedded_package_codelists(tmp_path: Path) -> None:

@@ -5,11 +5,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type CastOperationTargetType = typeof CastOperationTargetType[keyof typeof CastOperationTargetType];
+export type CastExpressionTargetType = typeof CastExpressionTargetType[keyof typeof CastExpressionTargetType];
 
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
-export const CastOperationTargetType = {
+export const CastExpressionTargetType = {
   text: 'text',
   integer: 'integer',
   float: 'float',

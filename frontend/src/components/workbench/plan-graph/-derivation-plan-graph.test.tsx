@@ -310,7 +310,7 @@ function makePlan(overrides: Partial<PlanResponse> = {}): PlanResponse {
     aggregate_id: 'sdtm-1',
     domain: 'DM',
     revision: 4,
-    schema_version: '1.1.0',
+    schema_version: '1.2.0',
     specification_revision: 3,
     input_selection_revision: 2,
     state: 'aligned',
@@ -480,7 +480,7 @@ describe('DerivationPlanPanel', () => {
     expect(data.domain).toBe('DM')
     expect(data.specification_revision).toBe(3)
     expect(data.input_selection_revision).toBe(2)
-    expect(data.schema_version).toBe('1.1.0')
+    expect(data.schema_version).toBe('1.2.0')
     expect(data.nodes.map((n) => n.id)).toEqual(['read1', 'write1'])
     expect(data.edges).toEqual([{ source_node: 'read1', target_node: 'write1' }])
 
@@ -531,8 +531,11 @@ describe('DerivationPlanPanel', () => {
     expect(screen.getByText('write1')).toBeTruthy()
   })
 
-  it('renders the editor read-only with the AlignmentBanner when misaligned (Req 12.4)', () => {
-    sdtmApi.plan = makePlan({ state: 'misaligned' })
+  it('renders the saved plan read-only with an explicit alignment action when misaligned (Req 12.4)', () => {
+    sdtmApi.plan = makePlan({
+      state: 'misaligned',
+      alignment_reasons: ['specification_changed'],
+    })
 
     renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" domainCode="DM" />)
 
@@ -541,14 +544,79 @@ describe('DerivationPlanPanel', () => {
     expect(banners.length).toBeGreaterThan(0)
     expect(screen.getByText(/derivation plan is misaligned/i)).toBeTruthy()
 
-    // Save is disabled while misaligned (read-only).
+    expect(screen.queryByRole('button', { name: /save plan/i })).toBeNull()
     expect(
-      (screen.getByRole('button', { name: /save plan/i }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true)
+      (screen.getByRole('button', {
+        name: /start alignment revision/i,
+      }) as HTMLButtonElement).disabled,
+    ).toBe(false)
+    expect(screen.getByText(/reason: specification changed/i)).toBeTruthy()
 
     // The palette is hidden in read-only mode (no operator palette landmark).
     expect(screen.queryByLabelText(/operator palette/i)).toBeNull()
+  })
+
+  it('creates an editable alignment draft and saves it against current revisions', async () => {
+    sdtmApi.plan = makePlan({
+      state: 'misaligned',
+      alignment_state: 'alignment_required',
+      alignment_reasons: ['specification_changed', 'input_changed'],
+    })
+    sdtmApi.spec = { revision: 5 }
+    sdtmApi.input = { revision: 3, state: 'current' }
+    sdtmApi.putPlanImpl = vi.fn(async () =>
+      makePlan({
+        revision: 5,
+        specification_revision: 5,
+        input_selection_revision: 3,
+      }),
+    )
+
+    renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" domainCode="DM" />)
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /start alignment revision/i }),
+    )
+
+    expect(screen.getByLabelText(/operator palette/i)).toBeTruthy()
+    expect(screen.getByText(/alignment draft from revision 4/i)).toBeTruthy()
+    expect(screen.getByText(/editable alignment draft is open/i)).toBeTruthy()
+    expect(
+      (screen.getByRole('button', { name: /validate plan/i }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true)
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /save alignment revision/i }),
+    )
+
+    await waitFor(() => expect(sdtmApi.putPlanCalls).toHaveLength(1))
+    const call = sdtmApi.putPlanCalls[0]
+    const data = (call.vars as { data: SdtmDerivationPlan }).data
+    expect(data.specification_revision).toBe(5)
+    expect(data.input_selection_revision).toBe(3)
+    expect(data.nodes.map((node) => node.id)).toEqual(['read1', 'write1'])
+    expect(call.request).toEqual(ifMatchRequest(4))
+  })
+
+  it('does not allow alignment until the current input selection is available', () => {
+    sdtmApi.plan = makePlan({
+      state: 'misaligned',
+      alignment_reasons: ['input_changed'],
+    })
+    sdtmApi.spec = { revision: 4 }
+    sdtmApi.input = { revision: 3, state: 'input_refresh_required' }
+
+    renderInWorkbench(<DerivationPlanPanel sdtmId="sdtm-1" domainCode="DM" />)
+
+    expect(
+      (screen.getByRole('button', {
+        name: /start alignment revision/i,
+      }) as HTMLButtonElement).disabled,
+    ).toBe(true)
+    expect(
+      screen.getByText(/current specification and current input selection are required/i),
+    ).toBeTruthy()
   })
 
   it('a 409 sdtm_plan_upstream_misaligned (upstream_state "absent") names the upstream domain and keeps on-canvas edits', async () => {
@@ -725,7 +793,7 @@ describe('DerivationPlanPanel new-plan mode', () => {
     // (there is no loaded plan to read pinned revisions from).
     expect(data.specification_revision).toBe(5)
     expect(data.input_selection_revision).toBe(9)
-    expect(data.schema_version).toBe('1.1.0')
+    expect(data.schema_version).toBe('1.2.0')
     expect(data.domain).toBe('DM')
     // At least one node was authored before the save.
     expect(data.nodes.length).toBeGreaterThanOrEqual(1)

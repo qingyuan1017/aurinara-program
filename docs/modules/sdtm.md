@@ -14,6 +14,12 @@ dependency fingerprint, and every selected source-file artifact ID/checksum. The
 resolves these through Raw's registered context-export capability; it never queries Raw
 repositories directly or substitutes a newer file.
 
+In the interactive workbench, the user selects only the Raw data version. The UI resolves
+that version's active datasets, bound source-file artifacts and checksums, matching successful
+validation run, and dependency fingerprint, then submits the complete exact-pin request. These
+provenance values remain explicit in the persisted selection without becoming separate user
+choices.
+
 `GET /sdtms/{id}/raw-context` returns the verified immutable context DTO. Any Raw dataset,
 variable, or file-binding change marks the selection `input_refresh_required`, marks the
 current plan `misaligned`, and stales SDTM artifacts without rewriting authored content.
@@ -24,6 +30,23 @@ current plan `misaligned`, and stales SDTM artifacts without rewriting authored 
 contract atomically. Domains own their variables, value-level metadata, keys, sort order,
 expected output name, roles, origins, and exact terminology bindings. Natural keys and all
 internal references are validated before the immutable revision is committed.
+
+The interactive Specification page stages domain and variable create, edit, delete, and
+ordering changes in one draft before issuing that atomic `PUT`. Variable renames preserve
+domain key, sort-order, and value-level references. Deleting a variable removes only references
+to that deleted variable; the page blocks save and identifies any required metadata that must be
+completed before the full contract is valid.
+
+`GET /sdtms/{id}/specification/initialization-options` resolves the exact selected SDTM
+implementation guide and lists its concrete domain names and variable counts by core status.
+`POST /sdtms/{id}/specification/initialize` requires the current `If-Match` value, an explicit
+non-empty domain selection, and whether to add only Required and Expected variables. It resolves
+and checksum-verifies the selected industry-standard asset, adds only the selected missing
+structures, and creates a new immutable Specification revision. Existing domain and variable
+values and ordering are preserved; the variable filter never deletes an already-authored
+Permissible variable. The parameterized `SUPPQUAL` pattern is left for explicit study authoring,
+and initialization never supplies study mappings, derivations, terminology usage decisions, or
+other clinical judgments.
 
 JSON or XLSX import uses `POST /sdtms/{id}/specification/import`; it requires the current
 `If-Match` value and an `Idempotency-Key`. XLSX uses the versioned `Metadata`, `Domains`,
@@ -39,12 +62,39 @@ A Specification revision makes the prior Derivation Plan misaligned.
 
 `PUT /sdtms/{id}/derivation-plan` accepts an atomic typed DAG pinned to the current
 `specification_revision` and `input_selection_revision`. Supported SDTM authoring nodes are
-Raw reads, filters, selections, typed-expression derivations, explicit casts, joins, unions,
-long reshaping, controlled-terminology mappings, grouping/aggregation, deterministic sequencing,
+Raw reads, filters, selections, typed-expression derivations, joins, unions,
+long reshaping, grouping/aggregation, deterministic sequencing,
 sorts, assertions, and domain writes.
+Cast and controlled-terminology mapping are typed functions within a derivation assignment,
+not standalone graph operators. Each function wraps a typed input expression and records its
+invalid or unmapped-value policy alongside the assignment that produces the target column.
 Join nodes explicitly identify their left and right inputs, which must also be represented by
-incoming graph edges. Raw Python, R, SAS, SQL, and arbitrary expression strings are rejected by
-the strict contract.
+incoming graph edges. Raw code in ordinary nodes and arbitrary expression strings are rejected.
+The plan may declare typed `custom_functions` with stable IDs, fixed parameters and return types,
+and one or more manually authored language bodies. Derivations call them through the typed
+`custom_function` expression. Calls must resolve and match the declared arity.
+
+The interactive editor keeps the outer graph at dataset-flow level and configures each `derive`
+node as an ordered collection of variable recipes. Recipes are searchable and collapsible, show
+a compact expression summary and same-domain dependencies, and can be duplicated or reordered;
+the displayed top-to-bottom order is persisted in `assignment_order` and is the evaluation order;
+the explicit list keeps recipe order stable when the assignment object is stored in JSONB. Built-in function calls retain their
+typed positional wire contract but present stable parameter names, descriptions, and functional
+categories to authors. Custom-function signatures use typed controls for IDs, ordered parameter
+names, return types, and language bodies instead of a raw JSON editor. When a custom-function ID
+or parameter list changes, calls in the open plan are updated by parameter name; new parameters
+remain visibly incomplete until the user supplies their expressions. These affordances do not
+generate mappings or derivations and do not alter the persisted `1.2.0` plan contract.
+
+When a saved per-domain plan becomes misaligned, the workbench shows the recorded reason
+(`specification_changed`, `input_changed`, or `upstream_plan_changed`) and keeps that immutable
+revision read-only. **Start alignment revision** explicitly clones its authored graph and custom
+functions into an editable draft pinned to the current Specification and current Input Selection.
+The draft identifies both old and proposed revision pins and may be cancelled without changing
+the saved plan. Saving uses the misaligned plan revision as `If-Match`, creates the next aligned
+revision, and re-resolves server-owned upstream pins. A domain that uses `sdtm_read` must be saved
+after its upstream domains have been aligned. Validation, preview, compilation, and execution
+remain disabled while the saved head is misaligned, including while an alignment draft is open.
 
 Saving validates graph acyclicity, declared domain targets, and output coverage for derived
 domains, then lowers through the internal Dataflow IR. Use:
@@ -58,12 +108,18 @@ domains, then lowers through the internal Dataflow IR. Use:
 normalized IR used by compilation. Supply optional `domains` and a `limit` from 1 to 200.
 The route re-verifies the exact selected artifact IDs and checksums through Raw's typed
 capability, limits each source dataset to 10,000 rows, and neither persists nor logs rows.
-The preview evaluator supports the same reads, selections, filters, typed derivations, casts,
-joins, unions, long reshaping, controlled-terminology mappings, grouping/aggregation,
+For `sdtm_read`, preview recursively evaluates the exact server-pinned sibling plan revision
+and its pinned dependency closure over that same Raw selection; produced sibling rows are not
+treated as another external input selection. Every plan remains bounded by the requested limit.
+An unevaluable pinned sibling returns `422 sdtm_preview_upstream_invalid` naming that domain.
+The preview evaluator supports the same reads, selections, filters, catalog-function derivations,
+joins, unions, long reshaping, grouping/aggregation,
 sequencing, sorts, assertions, and writes used by compilation. Terminology mappings are
 explicitly authored and declare whether an unmapped value is rejected, preserved, or set to
-null. Cast nodes declare whether invalid source values are rejected or normalized to null;
+null. Cast functions declare whether invalid source values are rejected or normalized to null;
 sequence nodes declare grouping, ordering, output column, and starting value.
+Custom functions are deliberately excluded from preview because user code never runs in the API
+process; preview returns `preview_custom_function_unsupported` for a plan that calls one.
 
 ## Author aCRF annotations
 
@@ -72,6 +128,12 @@ annotation with `POST /sdtms/{id}/acrf/annotations`. Creation requires the workb
 `If-Match` value. Each annotation identifies the exact source PDF artifact and page, and uses a
 normalized top-left rectangle (`x`, `y`, `width`, and `height`, each within 0 through 1). The
 service verifies that the artifact is an available PDF in the same study and that the page exists.
+
+The interactive aCRF workbench can load an authorized immutable source PDF in an in-app viewer.
+It renders saved `normalized_top_left` regions as overlays on the matching source artifact and
+page, provides page and zoom controls, and shows each region's annotation text, links, and
+revision. The viewer reads the existing immutable artifact download resource and does not create
+or modify annotation content.
 
 Annotations may link to any combination of:
 
@@ -181,9 +243,14 @@ After successful current validation, `POST /sdtms/{id}/artifacts` can request:
 `POST /sdtms/{id}/compile` is a convenience route selecting one of `python`, `r`, or `sas`.
 Both routes require `Idempotency-Key` and the expected canonical build fingerprint. Artifact
 records freeze input-selection, Specification, source-plan, IR, validation, dependency, and
-compiler provenance. Compiler version `1.4.0` implements these operators for Python and R;
+compiler provenance. Compiler version `1.7.0` implements these operators and derivation functions for Python and R;
 SAS compilation returns `backend_capability_missing` before artifact publication for an operator
 whose equivalent SAS semantics are not yet implemented.
+
+Custom-function bodies are selected independently per backend. A supplied body produces an
+executable program for that language. A missing body produces a deterministic TODO stub with
+`compiler.executable=false` and the function ID in `compiler.todo_functions`; it does not block
+programs for languages that are implemented. Execution rejects only that incomplete artifact.
 
 The shared execution API persists exact immutable run requests, verifies that the
 program, validation, input artifacts, revisions, and compiler fingerprint agree, enforces

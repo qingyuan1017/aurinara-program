@@ -3,6 +3,7 @@
 import hashlib
 import io
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import PurePath
 from typing import Literal, cast
@@ -54,6 +55,7 @@ from app.sdtm.specification_workbook import render_specification_xlsx
 from app.sdtm.xpt import build_xpt_v5, read_xpt_rows
 from app.templates.models import TemplateVersion
 from app.transformation.contracts import DataflowIR, Edge
+from app.transformation.evaluator import evaluate_dataflow
 from app.transformation.service import compile_dataflow, ir_fingerprint, lineage
 from app.validation.models import ValidationRun
 
@@ -1377,6 +1379,8 @@ class SdtmCapability(SqlDependencyCapability):
                 "backend": backend,
                 "version": program.compiler_version,
                 "fingerprint": program.ir_fingerprint,
+                "executable": program.executable,
+                "todo_functions": list(program.todo_functions),
             },
         }
         return RenderedArtifact(
@@ -1530,9 +1534,10 @@ def lower_plan(specification: SdtmSpecification, plan: SdtmDerivationPlan) -> Da
                     "node_type": "derive",
                     "id": node.id,
                     "assignments": {
-                        name: expression.model_dump(mode="json")
-                        for name, expression in node.assignments.items()
+                        name: node.assignments[name].model_dump(mode="json")
+                        for name in node.assignment_order
                     },
+                    "assignment_order": list(node.assignment_order),
                     "result_types": result_types,
                 }
             )
@@ -1556,6 +1561,7 @@ def lower_plan(specification: SdtmSpecification, plan: SdtmDerivationPlan) -> Da
         )
     return DataflowIR.model_validate(
         {
+            "custom_functions": [item.model_dump(mode="json") for item in plan.custom_functions],
             "nodes": nodes,
             "edges": [
                 Edge(source_node=edge.source_node, target_node=edge.target_node).model_dump()
@@ -1563,6 +1569,90 @@ def lower_plan(specification: SdtmSpecification, plan: SdtmDerivationPlan) -> Da
             ],
         }
     )
+
+
+def evaluate_plan_preview(
+    specification: SdtmSpecification,
+    root_plan: SdtmDerivationPlan,
+    plans: Mapping[str, SdtmDerivationPlan],
+    raw_datasets: Mapping[str, Sequence[Mapping[str, object | None]]],
+    *,
+    row_limit: int,
+) -> tuple[
+    dict[str, tuple[dict[str, object | None], ...]],
+    dict[str, str],
+]:
+    """Evaluate one plan plus its exact pinned sibling-plan dependency closure."""
+
+    cache: dict[str, dict[str, tuple[dict[str, object | None], ...]]] = {}
+    fingerprints: dict[str, str] = {}
+    visiting: set[str] = set()
+
+    def evaluate(domain: str) -> dict[str, tuple[dict[str, object | None], ...]]:
+        cached = cache.get(domain)
+        if cached is not None:
+            return cached
+        if domain in visiting:
+            raise ProblemException(
+                status_code=422,
+                code="sdtm_preview_plan_cycle",
+                title="SDTM preview dependency cycle detected",
+                detail="Pinned sibling Derivation Plans must form an acyclic dependency graph.",
+            )
+        plan = plans.get(domain)
+        if plan is None:
+            raise ProblemException(
+                status_code=409,
+                code="sdtm_preview_upstream_plan_missing",
+                title="SDTM preview upstream plan is missing",
+                detail=f"The exact pinned plan for domain '{domain}' is unavailable.",
+            )
+
+        visiting.add(domain)
+        try:
+            upstream_datasets: dict[str, tuple[dict[str, object | None], ...]] = {}
+            for upstream_code in sorted(
+                {node.dataset for node in plan.nodes if node.node_type == "sdtm_read"}
+            ):
+                upstream_outputs = evaluate(upstream_code)
+                rows = upstream_outputs.get(upstream_code)
+                if rows is None:
+                    raise ProblemException(
+                        status_code=422,
+                        code="sdtm_preview_upstream_output_missing",
+                        title="SDTM preview upstream output is missing",
+                        detail=(
+                            f"The pinned '{upstream_code}' plan did not declare its domain output."
+                        ),
+                    )
+                upstream_datasets[upstream_code] = rows
+
+            internal = lower_plan(specification, plan)
+            # A fresh context per plan prevents an already-produced sibling from
+            # shadowing a same-named Raw dataset used by another plan's raw_read.
+            datasets = {name: tuple(rows) for name, rows in raw_datasets.items()}
+            datasets.update(upstream_datasets)
+            try:
+                outputs = evaluate_dataflow(internal, datasets, row_limit=row_limit)
+            except ProblemException as error:
+                if domain == root_plan.domain:
+                    raise
+                raise ProblemException(
+                    status_code=error.status_code,
+                    code="sdtm_preview_upstream_invalid",
+                    title="SDTM preview upstream plan is invalid",
+                    detail=(
+                        f"Pinned upstream domain '{domain}' cannot be previewed: {error.detail}"
+                    ),
+                    issues=error.issues,
+                ) from error
+            cache[domain] = outputs
+            fingerprints[domain] = ir_fingerprint(internal)
+            return outputs
+        finally:
+            visiting.discard(domain)
+
+    return evaluate(root_plan.domain), fingerprints
 
 
 def context_from_record(record: SdtmSpecificationRevision) -> SdtmSpecification:

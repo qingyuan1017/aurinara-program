@@ -1,6 +1,11 @@
 """TLF manual-authoring, lowering, and deterministic compiler tests."""
 
+import csv
 import json
+import os
+import subprocess
+import sys
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -113,6 +118,78 @@ def test_lowering_excludes_presentation_and_compilers_are_deterministic() -> Non
     assert compile_analysis(internal, "sas", plan.output_filename).ir_fingerprint == (
         python_one.ir_fingerprint
     )
+
+
+def test_custom_tlf_function_uses_typed_signature_and_language_todos(tmp_path: Path) -> None:
+    shell, bindings, ars, original = _contracts()
+    payload = original.model_dump(mode="json")
+    payload["custom_functions"] = [
+        {
+            "id": "custom_count",
+            "parameters": ["rows", "parameters"],
+            "return_type": "result_rows",
+            "implementations": [
+                {
+                    "language": "python",
+                    "source": (
+                        "return [{'statistic': 'N', 'value': len(rows), 'text': str(len(rows))}]"
+                    ),
+                }
+            ],
+        }
+    ]
+    payload["steps"][0]["method"] = "custom"
+    payload["steps"][0]["custom_function_id"] = "custom_count"
+    plan = TlfProgramPlan.model_validate(payload)
+    internal = lower_analysis_ir(shell, bindings, ars, plan)
+
+    python = compile_analysis(internal, "python", plan.output_filename)
+    r = compile_analysis(internal, "r", plan.output_filename)
+    assert python.executable is True
+    assert "def aur_user_custom_count(rows, parameters):" in python.source
+    assert r.executable is False
+    assert r.todo_functions == ("custom_count",)
+    assert "TODO: provide R implementation" in r.source
+
+    inputs = tmp_path / "inputs"
+    outputs = tmp_path / "outputs"
+    inputs.mkdir()
+    outputs.mkdir()
+    with (inputs / "ADSL.csv").open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=["SAFFL", "EOSSTT"])
+        writer.writeheader()
+        writer.writerow({"SAFFL": "Y", "EOSSTT": "COMPLETED"})
+    source = tmp_path / "tlf.py"
+    source.write_text(python.source, encoding="utf-8")
+    completed = subprocess.run(
+        [sys.executable, "-I", str(source)],
+        check=False,
+        capture_output=True,
+        env={**os.environ, "AURINARA_WORKSPACE": str(tmp_path)},
+        timeout=10,
+    )
+    assert completed.returncode == 0, completed.stderr.decode()
+    with (outputs / plan.output_filename).open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert rows[0]["statistic"] == "N"
+    assert rows[0]["value"] == "1"
+
+
+def test_custom_tlf_function_requires_analysis_signature() -> None:
+    _, _, _, original = _contracts()
+    payload = original.model_dump(mode="json")
+    payload["custom_functions"] = [
+        {
+            "id": "bad_signature",
+            "parameters": ["value"],
+            "return_type": "result_rows",
+            "implementations": [{"language": "python", "source": "return value"}],
+        }
+    ]
+    payload["steps"][0]["method"] = "custom"
+    payload["steps"][0]["custom_function_id"] = "bad_signature"
+    with pytest.raises(ValidationError, match="rows.*parameters"):
+        TlfProgramPlan.model_validate(payload)
 
 
 def test_shell_rejects_incorrect_leaf_declaration() -> None:

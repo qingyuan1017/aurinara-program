@@ -21,6 +21,7 @@ import { AXIOS_INSTANCE } from '@/api/axios-instance'
  */
 
 export type SpecificationExportFormat = 'json' | 'xlsx'
+export type DocumentContentExportFormat = 'json' | 'xlsx'
 export type DefineRenderVersion = '2.0' | '2.1'
 
 /** Shape of the async state surfaced to callers. */
@@ -51,6 +52,16 @@ export interface UseDownloadResult extends DownloadState {
    * @param fallbackFilename - Name used when the response carries no filename.
    */
   downloadArtifact: (artifactId: string, fallbackFilename?: string) => Promise<void>
+  /** Download a successfully completed immutable submission package ZIP. */
+  downloadSubmissionPackage: (packageId: string, fallbackFilename?: string) => Promise<void>
+  /** Export the exact authored document content revision. */
+  downloadDocumentContent: (
+    documentId: string,
+    format: DocumentContentExportFormat,
+    fallbackFilename?: string,
+  ) => Promise<void>
+  /** Export the exact authored Protocol USDM revision. */
+  downloadDocumentUsdm: (documentId: string, fallbackFilename?: string) => Promise<void>
   /**
    * Render Define-XML and return it as text for a non-persisting preview
    * (Requirement 18.5). Nothing is written to disk.
@@ -152,6 +163,51 @@ export function useDownload(): UseDownloadResult {
     [requestBlob],
   )
 
+  const downloadSubmissionPackage = useCallback(
+    async (packageId: string, fallbackFilename?: string): Promise<void> => {
+      const response = await requestBlob(
+        `/api/v1/submission-packages/${packageId}/download`,
+      )
+      const filename =
+        filenameFromResponse(response) ??
+        fallbackFilename ??
+        `submission-package-${packageId}.zip`
+      saveBlob(response.data, filename)
+    },
+    [requestBlob],
+  )
+
+  const downloadDocumentContent = useCallback(
+    async (
+      documentId: string,
+      format: DocumentContentExportFormat,
+      fallbackFilename?: string,
+    ): Promise<void> => {
+      const response = await requestBlob(
+        `/api/v1/documents/${documentId}/content/export`,
+        { format },
+      )
+      const filename =
+        filenameFromResponse(response) ??
+        fallbackFilename ??
+        `document-content-${documentId}.${format}`
+      saveBlob(response.data, filename)
+    },
+    [requestBlob],
+  )
+
+  const downloadDocumentUsdm = useCallback(
+    async (documentId: string, fallbackFilename?: string): Promise<void> => {
+      const response = await requestBlob(`/api/v1/documents/${documentId}/usdm/export`)
+      const filename =
+        filenameFromResponse(response) ??
+        fallbackFilename ??
+        `document-usdm-${documentId}.json`
+      saveBlob(response.data, filename)
+    },
+    [requestBlob],
+  )
+
   const renderDefineXml = useCallback(
     async (sdtmId: string, version: DefineRenderVersion): Promise<string> => {
       const response = await requestBlob(`/api/v1/sdtms/${sdtmId}/define/render`, {
@@ -167,6 +223,9 @@ export function useDownload(): UseDownloadResult {
     error,
     downloadSpecificationExport,
     downloadArtifact,
+    downloadSubmissionPackage,
+    downloadDocumentContent,
+    downloadDocumentUsdm,
     renderDefineXml,
   }
 }

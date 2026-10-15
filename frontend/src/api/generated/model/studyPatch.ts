@@ -4,13 +4,11 @@
  * Aurinara Clinical Artifact Platform
  * OpenAPI spec version: 0.1.0
  */
-import type { StudyPatchName } from './studyPatchName';
 import type { StudyPatchStatus } from './studyPatchStatus';
 
 /**
- * Editable study metadata.
+ * Product-owned study lifecycle metadata.
  */
 export interface StudyPatch {
-  name?: StudyPatchName;
   status?: StudyPatchStatus;
 }

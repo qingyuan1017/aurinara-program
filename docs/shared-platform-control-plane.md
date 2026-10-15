@@ -16,7 +16,7 @@ memberships, authorization decisions, and the opaque object catalog.
   when neither the platform nor an unexpired positive cache entry is available.
 - Positive decisions are cached for at most 60 seconds. Membership and user events
   invalidate matching cache entries immediately.
-- Canonical study events update only `code`, `name`, and platform projection fields.
+- Canonical study events update only `code`, `name`, `sponsor`, and platform projection fields.
   They never change Aurinara's own study/workbench lifecycle state.
 - Artifact and source-file rows with `platform_object_id` download through a short-lived
   gateway URL. Shadow mode can dual-read legacy bytes; enforced mode cannot fall back.

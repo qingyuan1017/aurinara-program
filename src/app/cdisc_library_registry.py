@@ -69,6 +69,13 @@ def _modules(product: str) -> list[str]:
     }.get(product, ["raw", "documents", "sdtm", "adam", "tlf"])
 
 
+def _purposes(product: str) -> list[str]:
+    purposes = ["reference_metadata"]
+    if product == "SDTMIG":
+        purposes.append("sdtm_ig")
+    return purposes
+
+
 def _standard_group(
     resource: CdiscLibrarySnapshotResource, overall: str
 ) -> tuple[str, str, str, str, str, str]:
@@ -218,7 +225,7 @@ def _register_standard_group(
         asset_path=manifest_path.relative_to(repository_root.resolve()).as_posix(),
         provenance={"source": "CDISC Library", "snapshot": str(manifest_path)},
         applicable_modules=_modules(code),
-        purposes=["reference_metadata"],
+        purposes=_purposes(code),
         compatibility={"resource_count": len(resources)},
     )
     session.add(release)

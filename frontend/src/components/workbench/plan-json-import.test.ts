@@ -4,7 +4,7 @@ import { parsePlanJsonImport } from './plan-json-import'
 
 const validPlan = JSON.stringify({
   domain: 'DM',
-  schema_version: '1.1.0',
+  schema_version: '1.2.0',
   specification_revision: 3,
   input_selection_revision: 2,
   nodes: [{ id: 'n1', node_type: 'raw_read' }],

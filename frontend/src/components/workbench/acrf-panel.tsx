@@ -1,7 +1,7 @@
 import * as React from 'react'
 import type { AxiosError } from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
-import { Loader2, Plus, Trash2 } from 'lucide-react'
+import { FileSearch, Loader2, Plus, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/page-header'
 import { EmptyState } from '@/components/data/states'
 import { StatusBadge } from '@/components/data/status-badge'
@@ -34,6 +34,7 @@ import { ConfirmDialog } from '@/components/forms/confirm-dialog'
 import { OperationRunner } from '@/components/workbench/operation-runner'
 import { ArtifactList } from '@/components/workbench/artifact-list'
 import type { ArtifactListItem } from '@/components/workbench/artifact-list'
+import { AcrfPdfViewer } from '@/components/workbench/acrf-pdf-viewer'
 import {
   TransferContext,
   DraggableItem,
@@ -193,6 +194,7 @@ export function AcrfPanel({ sdtmId }: AcrfPanelProps) {
     React.useState<AcrfAnnotationResponse | null>(null)
   const [deleteTarget, setDeleteTarget] =
     React.useState<AcrfAnnotationResponse | null>(null)
+  const [viewerOpen, setViewerOpen] = React.useState(false)
 
   return (
     <div className="flex flex-col gap-6">
@@ -206,10 +208,26 @@ export function AcrfPanel({ sdtmId }: AcrfPanelProps) {
           </>
         }
         actions={
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus /> New annotation
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={annotations.length === 0}
+              onClick={() => setViewerOpen(true)}
+            >
+              <FileSearch /> View PDF annotations
+            </Button>
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus /> New annotation
+            </Button>
+          </div>
         }
+      />
+
+      <AcrfPdfViewer
+        annotations={annotations}
+        open={viewerOpen}
+        onOpenChange={setViewerOpen}
       />
 
       <AnnotationLinkBuilder

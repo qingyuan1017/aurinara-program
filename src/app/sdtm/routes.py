@@ -3,6 +3,7 @@
 import hashlib
 import json
 from datetime import datetime
+from pathlib import Path
 from typing import Annotated, Protocol, cast
 from uuid import UUID
 from zipfile import BadZipFile
@@ -44,6 +45,8 @@ from app.sdtm.contracts import (
     SdtmDerivationPlan,
     SdtmInputSelectionWrite,
     SdtmSpecification,
+    SdtmSpecificationInitializationOptions,
+    SdtmSpecificationInitialize,
 )
 from app.sdtm.models import (
     SdtmAcrfAnnotation,
@@ -56,6 +59,7 @@ from app.sdtm.service import (
     SDTM_BUILD_ARTIFACT_TYPES,
     SdtmCapability,
     context_from_record,
+    evaluate_plan_preview,
     lower_plan,
     plan_from_record,
 )
@@ -63,9 +67,13 @@ from app.sdtm.specification_workbook import (
     parse_specification_xlsx,
     render_specification_xlsx,
 )
+from app.sdtm.standard_specification import (
+    initialize_specification_from_standard,
+    standard_domain_options,
+)
+from app.standards.metadata_resolution import ResolvedStandardMetadata, resolve_standard_metadata
 from app.studies.service import StudyService
-from app.transformation.contracts import Expression
-from app.transformation.evaluator import evaluate_dataflow
+from app.transformation.contracts import DerivationExpression
 from app.transformation.expression_validation import validate_expressions
 from app.transformation.service import canonical_ir, ir_fingerprint, lineage
 from app.validation.models import ValidationRun
@@ -214,6 +222,44 @@ class SdtmExecutionRequest(BaseModel):
 
 def _handler(registry: ModuleRegistry) -> SdtmCapability:
     return cast(SdtmCapability, registry.require_handler("sdtm", ModuleCapability.DEPENDENCIES))
+
+
+def _selected_sdtmig_metadata(
+    session: Session,
+    handler: SdtmCapability,
+    workbench: SdtmWorkbench,
+) -> ResolvedStandardMetadata:
+    dependency_selection = handler.get_selection(session, workbench.id, workbench.study_id)
+    selected = [item for item in dependency_selection.standards if item.purpose == "sdtm_ig"]
+    if not selected:
+        # Complete CDISC Library snapshots registered before the module-specific
+        # purpose existed use the version's generic reference-metadata purpose.
+        selected = [
+            item for item in dependency_selection.standards if item.purpose == "reference_metadata"
+        ]
+    if len(selected) != 1:
+        raise ProblemException(
+            status_code=409,
+            code="sdtm_industry_standard_required",
+            title="An SDTM industry standard selection is required",
+            detail=(
+                "Select exactly one SDTM implementation-guide version for purpose "
+                "sdtm_ig before initializing the Specification."
+            ),
+        )
+    try:
+        return resolve_standard_metadata(
+            session,
+            selected[0].standard_version_id,
+            repository_root=Path(__file__).resolve().parents[3],
+        )
+    except ValueError as error:
+        raise ProblemException(
+            status_code=422,
+            code="sdtm_industry_standard_unsupported",
+            title="The selected SDTM industry standard cannot initialize a Specification",
+            detail=str(error),
+        ) from error
 
 
 def _sdtm(session: Session, sdtm_id: UUID, principal: Principal) -> SdtmWorkbench:
@@ -433,6 +479,76 @@ def put_specification(
     workbench = _sdtm(session, sdtm_id, principal)
     require_matching_etag(if_match, workbench.revision)
     record = _save_specification(session, registry, workbench, command, principal)
+    session.commit()
+    response.headers["ETag"] = etag_for_revision(workbench.revision)
+    return SpecificationResponse.model_validate(record)
+
+
+@router.get(
+    "/sdtms/{sdtm_id}/specification/initialization-options",
+    response_model=SdtmSpecificationInitializationOptions,
+)
+def get_specification_initialization_options(
+    sdtm_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> SdtmSpecificationInitializationOptions:
+    """List the concrete domains available from the exact selected SDTMIG."""
+
+    workbench = _sdtm(session, sdtm_id, principal)
+    metadata = _selected_sdtmig_metadata(session, _handler(registry), workbench)
+    try:
+        domains = standard_domain_options(metadata)
+    except ValueError as error:
+        raise ProblemException(
+            status_code=422,
+            code="sdtm_industry_standard_unsupported",
+            title="The selected SDTM industry standard cannot initialize a Specification",
+            detail=str(error),
+        ) from error
+    return SdtmSpecificationInitializationOptions(
+        standard_version_id=metadata.version_id,
+        domains=domains,
+    )
+
+
+@router.post(
+    "/sdtms/{sdtm_id}/specification/initialize",
+    response_model=SpecificationResponse,
+)
+def initialize_specification(
+    sdtm_id: UUID,
+    command: SdtmSpecificationInitialize,
+    response: Response,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+) -> SpecificationResponse:
+    """Populate missing Specification structures from the exact selected SDTMIG."""
+
+    workbench = _sdtm(session, sdtm_id, principal)
+    require_matching_etag(if_match, workbench.revision)
+    handler = _handler(registry)
+    current_record = handler.latest_specification(session, workbench.id)
+    current = context_from_record(current_record) if current_record is not None else None
+    try:
+        metadata = _selected_sdtmig_metadata(session, handler, workbench)
+        specification = initialize_specification_from_standard(
+            metadata,
+            current,
+            domain_codes=command.domain_codes,
+            core_variables_only=command.required_expected_only,
+        )
+    except ValueError as error:
+        raise ProblemException(
+            status_code=422,
+            code="sdtm_industry_standard_unsupported",
+            title="The selected SDTM industry standard cannot initialize a Specification",
+            detail=str(error),
+        ) from error
+    record = _save_specification(session, registry, workbench, specification, principal)
     session.commit()
     response.headers["ETag"] = etag_for_revision(workbench.revision)
     return SpecificationResponse.model_validate(record)
@@ -678,10 +794,10 @@ def put_plan(
     return PlanResponse.from_record(record)
 
 
-def _plan_expressions(plan: SdtmDerivationPlan) -> list[tuple[str, Expression]]:
+def _plan_expressions(plan: SdtmDerivationPlan) -> list[tuple[str, DerivationExpression]]:
     """Collect every authored expression in a plan with a stable field path."""
 
-    pairs: list[tuple[str, Expression]] = []
+    pairs: list[tuple[str, DerivationExpression]] = []
     for index, node in enumerate(plan.nodes):
         base = f"nodes[{index}]"
         if node.node_type == "filter":  # noqa: SIM114
@@ -758,8 +874,45 @@ def preview_plan(
         )
         for source in selected.source_artifacts
     }
-    internal = lower_plan(context_from_record(specification), plan_from_record(plan))
-    outputs = evaluate_dataflow(internal, datasets, row_limit=command.limit)
+    plan_contracts = {domain_code: plan_from_record(plan)}
+    plan_revisions = {domain_code: plan.revision}
+    pending = [plan]
+    while pending:
+        current = pending.pop()
+        for pin in current.upstream_plan_pins:
+            upstream_code = str(pin["domain_code"])
+            pinned_revision = int(str(pin["plan_revision"]))
+            if upstream_code in plan_contracts:
+                if plan_revisions[upstream_code] != pinned_revision:
+                    raise ProblemException(
+                        status_code=409,
+                        code="sdtm_plan_upstream_misaligned",
+                        title="SDTM upstream plan is misaligned",
+                        detail=(f"Domain '{upstream_code}' is pinned at conflicting revisions."),
+                    )
+                continue
+            _, _, upstream = handler.require_domain_aligned(session, workbench.id, upstream_code)
+            if upstream.revision != pinned_revision:
+                raise ProblemException(
+                    status_code=409,
+                    code="sdtm_plan_upstream_misaligned",
+                    title="SDTM upstream plan is misaligned",
+                    detail=(
+                        f"Domain '{domain_code}' requires '{upstream_code}' revision "
+                        f"{pinned_revision}, but revision {upstream.revision} is current."
+                    ),
+                )
+            plan_contracts[upstream_code] = plan_from_record(upstream)
+            plan_revisions[upstream_code] = upstream.revision
+            pending.append(upstream)
+
+    outputs, ir_fingerprints = evaluate_plan_preview(
+        context_from_record(specification),
+        plan_contracts[domain_code],
+        plan_contracts,
+        datasets,
+        row_limit=command.limit,
+    )
     unknown = sorted(set(command.domains) - set(outputs))
     if unknown:
         raise ProblemException(
@@ -771,10 +924,15 @@ def preview_plan(
     requested = command.domains or tuple(outputs)
     return {
         "schema_version": "1.0.0",
-        "ir_fingerprint": ir_fingerprint(internal),
+        "ir_fingerprint": ir_fingerprints[domain_code],
         "input_selection_revision": selection.revision,
         "specification_revision": specification.revision,
         "plan_revision": plan.revision,
+        "upstream_plan_revisions": {
+            code: revision
+            for code, revision in sorted(plan_revisions.items())
+            if code != domain_code
+        },
         "limit": command.limit,
         "outputs": {name: outputs[name] for name in requested},
     }

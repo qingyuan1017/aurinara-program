@@ -26,3 +26,22 @@ async def test_documents_module_advertises_phase2_capabilities(client: AsyncClie
     assert "actions_report_xlsx" in documents["artifact_types"]
     assert "validation" in documents["capabilities"]
     assert "context_export" in documents["capabilities"]
+
+
+@pytest.mark.anyio
+async def test_document_authoring_puts_publish_typed_json_bodies(client: AsyncClient) -> None:
+    """The generated frontend must receive a body contract for both authoring writes."""
+    response = await client.get("/api/v1/openapi.json")
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+
+    content_schema = paths["/api/v1/documents/{document_id}/content"]["put"]["requestBody"][
+        "content"
+    ]["application/json"]["schema"]
+    assert content_schema["type"] == "object"
+    assert content_schema["additionalProperties"] is True
+
+    usdm_schema = paths["/api/v1/documents/{document_id}/usdm"]["put"]["requestBody"][
+        "content"
+    ]["application/json"]["schema"]
+    assert usdm_schema == {"$ref": "#/components/schemas/UsdmDocument"}

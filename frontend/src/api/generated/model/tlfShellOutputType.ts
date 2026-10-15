@@ -5,11 +5,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type CastOperationInvalid = typeof CastOperationInvalid[keyof typeof CastOperationInvalid];
+export type TlfShellOutputType = typeof TlfShellOutputType[keyof typeof TlfShellOutputType];
 
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
-export const CastOperationInvalid = {
-  error: 'error',
-  null: 'null',
+export const TlfShellOutputType = {
+  table: 'table',
+  listing: 'listing',
+  figure: 'figure',
 } as const;

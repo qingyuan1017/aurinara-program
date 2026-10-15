@@ -19,8 +19,13 @@ export function getAuthToken(): string | null {
 export function setAuthToken(token: string): void {
   try {
     localStorage.setItem(TOKEN_KEY, token)
-  } catch {
-    // ignore storage failures (private mode, etc.)
+  } catch (error) {
+    // A sign-in is not complete unless the route guard can read the token back.
+    // Surface storage failures to the login screen instead of reporting success
+    // and immediately redirecting the user back to /login.
+    throw new Error('The browser could not save the sign-in session.', {
+      cause: error,
+    })
   }
   listeners.forEach((listener) => listener(token))
 }
@@ -32,6 +37,24 @@ export function clearAuthToken(): void {
     // ignore
   }
   listeners.forEach((listener) => listener(null))
+}
+
+/**
+ * Replace the token only if no newer authentication operation changed it.
+ *
+ * Cognito restoration and API requests are asynchronous. Their callbacks can
+ * arrive after a new sign-in has stored a different token; those stale
+ * callbacks must never overwrite or clear the newer session.
+ */
+export function replaceAuthTokenIfCurrent(
+  expectedToken: string | null,
+  replacementToken: string | null,
+): boolean {
+  if (getAuthToken() !== expectedToken) return false
+
+  if (replacementToken === null) clearAuthToken()
+  else setAuthToken(replacementToken)
+  return true
 }
 
 export function isAuthenticated(): boolean {

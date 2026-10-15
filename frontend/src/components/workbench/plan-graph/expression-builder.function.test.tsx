@@ -12,6 +12,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { FunctionCallExpressionFunction } from '@/api/generated/model'
+import type { CustomFunctionDefinition } from '@/api/generated/model'
 
 import {
   ExpressionBuilder,
@@ -26,9 +27,11 @@ afterEach(() => {
 function Host({
   initial,
   onChange,
+  customFunctions,
 }: {
   initial: PlanExpression
   onChange?: (next: PlanExpression) => void
+  customFunctions?: CustomFunctionDefinition[]
 }) {
   const [value, setValue] = React.useState<PlanExpression>(initial)
   return (
@@ -38,6 +41,7 @@ function Host({
         setValue(next)
         onChange?.(next)
       }}
+      customFunctions={customFunctions}
     />
   )
 }
@@ -61,6 +65,73 @@ function functionExpression(fn: PlanExpression & { kind: 'function' }) {
 }
 
 describe('ExpressionBuilder function editor', () => {
+  it('authors cast as a typed function inside an assignment expression', () => {
+    const { container } = render(<Host initial={defaultExpression('cast')} />)
+
+    expect(container.querySelector('[data-slot="cast-function-fields"]')).toBeTruthy()
+    expect(screen.getByLabelText('Value to cast kind')).toBeTruthy()
+    expect(screen.getByLabelText('Target type')).toBeTruthy()
+    expect(screen.getByLabelText('On invalid')).toBeTruthy()
+    assertNoFreeTextCodeField(container)
+  })
+
+  it('authors terminology mapping as a typed function inside an assignment expression', () => {
+    const onChange = vi.fn()
+    const { container } = render(
+      <Host initial={defaultExpression('terminology_map')} onChange={onChange} />,
+    )
+
+    expect(
+      container.querySelector('[data-slot="terminology-function-fields"]'),
+    ).toBeTruthy()
+    expect(screen.getByLabelText('Value to map kind')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Terminology source 1'), {
+      target: { value: 'M' },
+    })
+    fireEvent.change(screen.getByLabelText('Terminology target 1'), {
+      target: { value: 'MALE' },
+    })
+
+    expect(onChange.mock.calls.at(-1)?.[0]).toMatchObject({
+      kind: 'terminology_map',
+      mappings: { M: 'MALE' },
+    })
+    assertNoFreeTextCodeField(container)
+  })
+
+  it('authors a typed custom-function call with declared named parameters', () => {
+    const onChange = vi.fn()
+    const customFunctions: CustomFunctionDefinition[] = [
+      {
+        id: 'subject_id',
+        parameters: ['site', 'subject'],
+        return_type: 'character',
+        implementations: [{ language: 'python', source: 'return site + subject' }],
+      },
+    ]
+    const { container } = render(
+      <Host
+        initial={defaultExpression('custom_function')}
+        onChange={onChange}
+        customFunctions={customFunctions}
+      />,
+    )
+
+    fireEvent.click(screen.getByLabelText('Custom function'))
+    fireEvent.click(screen.getByRole('option', { name: 'subject_id' }))
+
+    const next = onChange.mock.calls.at(-1)?.[0] as PlanExpression
+    expect(next).toMatchObject({
+      kind: 'custom_function',
+      function_id: 'subject_id',
+    })
+    expect(next.kind === 'custom_function' && next.arguments).toHaveLength(2)
+    expect(screen.getByLabelText('site kind')).toBeTruthy()
+    expect(screen.getByLabelText('subject kind')).toBeTruthy()
+    expect(container.querySelector('[data-slot="custom-function-fields"]')).toBeTruthy()
+    expect(container.querySelector('textarea')).toBeNull()
+  })
+
   it('defaults a function to a safe single-argument upper() call', () => {
     const value = defaultExpression('function')
     expect(value.kind).toBe('function')

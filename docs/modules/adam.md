@@ -153,8 +153,10 @@ revision; reusing the key for different bytes returns a conflict.
 ```
 
 The initial node vocabulary is `sdtm_read`, `adam_read`, `filter`, `derive`, `select`,
-`assert`, and `dataset_write`. Expressions are typed expression objects; raw Python, R, SAS,
-SQL, or arbitrary expression strings are rejected. `POST /adams/{id}/derivation-plan/validate`
+`assert`, and `dataset_write`. Expressions are typed expression objects; raw code in ordinary
+nodes and arbitrary expression strings are rejected. A plan may declare typed named
+`custom_functions` with fixed signatures and explicit Python, R, and/or SAS bodies, then invoke
+them through `custom_function` expressions. `POST /adams/{id}/derivation-plan/validate`
 checks current alignment and returns the deterministic internal IR fingerprint.
 
 `POST /adams/{id}/derivation-plan/preview` accepts optional target `datasets` and a row
@@ -189,6 +191,11 @@ current successful snapshot; a later authoring or input change makes it unusable
 `Idempotency-Key` and the expected canonical build-input fingerprint. The resulting immutable
 artifact records freeze dependency, input-selection, Specification, plan, validation, IR, and
 compiler provenance.
+
+Custom implementations are backend-specific. If the selected language has a body, its generated
+program is executable. If it does not, the compiler still creates a reviewable TODO program with
+`compiler.executable=false` and `compiler.todo_functions`; only execution of that artifact is
+rejected with `execution_custom_function_incomplete`.
 
 Use `POST /adams/{id}/execute` with the exact generated program, selected SDTM XPT artifact IDs,
 validation run, authoring revisions, compiler fingerprint, program input fingerprint, limits,

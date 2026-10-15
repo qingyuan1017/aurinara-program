@@ -4,6 +4,7 @@
  * Aurinara Clinical Artifact Platform
  * OpenAPI spec version: 0.1.0
  */
+import type { CustomFunctionDefinition } from './customFunctionDefinition';
 import type { AdamDerivationPlanNodesItem } from './adamDerivationPlanNodesItem';
 import type { AdamPlanEdge } from './adamPlanEdge';
 
@@ -15,6 +16,7 @@ export interface AdamDerivationPlan {
   specification_revision: number;
   /** @minimum 1 */
   input_selection_revision: number;
+  custom_functions?: CustomFunctionDefinition[];
   /** @minItems 1 */
   nodes: AdamDerivationPlanNodesItem[];
   edges?: AdamPlanEdge[];

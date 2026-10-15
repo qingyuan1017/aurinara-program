@@ -235,6 +235,25 @@ def test_plan_lowers_to_internal_dataflow_ir() -> None:
     assert internal.nodes[-1].dataset == "ADSL"
 
 
+def test_plan_lowers_custom_function_definitions() -> None:
+    payload = _plan().model_dump(mode="json")
+    payload["custom_functions"] = [
+        {
+            "id": "planned_treatment",
+            "parameters": ["value"],
+            "return_type": "character",
+            "implementations": [{"language": "sas", "source": "return(value);"}],
+        }
+    ]
+    payload["nodes"][1]["assignments"]["TRT01P"] = {
+        "kind": "custom_function",
+        "function_id": "planned_treatment",
+        "arguments": [{"kind": "column", "dataset": "DM", "column": "ARM"}],
+    }
+    internal = lower_plan(_specification(), AdamDerivationPlan.model_validate(payload))
+    assert internal.custom_functions[0].implementation("sas") == "return(value);"
+
+
 def test_plan_rejects_cycles_and_raw_backend_code() -> None:
     payload = _plan().model_dump(mode="json")
     payload["edges"].append({"source_node": "write_adsl", "target_node": "read_dm"})

@@ -62,6 +62,7 @@ def apply_platform_event(session: Session, event: PlatformEvent) -> bool:
             id=event.aggregate_id,
             code=code,
             name=str(event.data["display_name"]),
+            sponsor=(str(event.data["sponsor"]) if event.data.get("sponsor") else None),
             created_by="aurinara-platform",
             platform_managed=True,
             platform_revision=event.sequence,
@@ -77,6 +78,8 @@ def apply_platform_event(session: Session, event: PlatformEvent) -> bool:
                 detail="The local study code does not match the canonical identity.",
             )
         study.name = str(event.data["display_name"])
+        if "sponsor" in event.data:
+            study.sponsor = str(event.data["sponsor"]) if event.data["sponsor"] else None
         study.platform_managed = True
         study.platform_revision = event.sequence
         study.platform_registry_status = str(event.data["status"])
@@ -122,7 +125,9 @@ def consume_once(
                 extra={"message_id": message.get("MessageId")},
             )
             continue
-        if event.type == "platform.membership.changed.v1":
+        if event.type == "platform.assignment.changed.v1":
+            get_platform_authorization().invalidate()
+        elif event.type == "platform.membership.changed.v1":
             get_platform_authorization().invalidate(study_id=UUID(str(event.data["study_id"])))
         elif event.type.startswith("platform.user."):
             get_platform_authorization().invalidate()

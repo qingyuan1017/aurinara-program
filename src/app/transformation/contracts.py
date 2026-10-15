@@ -9,6 +9,59 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+CustomFunctionLanguage = Literal["python", "r", "sas"]
+CustomFunctionReturnType = Literal[
+    "character", "numeric", "logical", "date", "datetime", "result_rows"
+]
+
+
+class CustomFunctionImplementation(StrictModel):
+    """One manually authored language body for a custom function.
+
+    The compiler supplies the function declaration and parameter list. ``source``
+    therefore contains only the language-specific body (including its return).
+    It is never evaluated by API or preview processes.
+    """
+
+    language: CustomFunctionLanguage
+    source: str = Field(min_length=1, max_length=32768)
+
+    @model_validator(mode="after")
+    def valid_source(self) -> "CustomFunctionImplementation":
+        if not self.source.strip():
+            raise ValueError("custom function source must not be blank")
+        if "\x00" in self.source:
+            raise ValueError("custom function source must not contain NUL bytes")
+        return self
+
+
+class CustomFunctionDefinition(StrictModel):
+    """Typed custom-function signature plus one or more language bodies."""
+
+    id: str = Field(pattern=r"^[a-z][a-z0-9_]{0,62}$")
+    parameters: tuple[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,62}$")], ...] = Field(
+        max_length=32
+    )
+    return_type: CustomFunctionReturnType
+    implementations: tuple[CustomFunctionImplementation, ...] = Field(min_length=1, max_length=3)
+
+    @model_validator(mode="after")
+    def unique_signature(self) -> "CustomFunctionDefinition":
+        if len(self.parameters) != len(set(self.parameters)):
+            raise ValueError("custom function parameter names must be unique")
+        languages = [item.language for item in self.implementations]
+        if len(languages) != len(set(languages)):
+            raise ValueError("custom function implementations must be unique by language")
+        return self
+
+    def implementation(self, language: CustomFunctionLanguage) -> str | None:
+        """Return the exact body for ``language`` when the user supplied one."""
+
+        return next(
+            (item.source for item in self.implementations if item.language == language), None
+        )
+
+
 class LiteralExpression(StrictModel):
     kind: Literal["literal"]
     value: str | int | float | bool | None
@@ -177,6 +230,12 @@ class FunctionCallExpression(StrictModel):
         return self
 
 
+class CustomFunctionCallExpression(StrictModel):
+    kind: Literal["custom_function"]
+    function_id: str = Field(pattern=r"^[a-z][a-z0-9_]{0,62}$")
+    arguments: tuple["Expression", ...]
+
+
 Expression = Annotated[
     LiteralExpression
     | ColumnExpression
@@ -184,6 +243,40 @@ Expression = Annotated[
     | BinaryExpression
     | ConditionalExpression
     | FunctionCallExpression
+    | CustomFunctionCallExpression
+    | ListLiteralExpression,
+    Field(discriminator="kind"),
+]
+
+
+class CastExpression(StrictModel):
+    """Convert one derived value to a declared scalar type."""
+
+    kind: Literal["cast"]
+    value: "Expression"
+    target_type: Literal["text", "integer", "float", "boolean"]
+    invalid: Literal["error", "null"] = "error"
+
+
+class TerminologyMapExpression(StrictModel):
+    """Apply a manually authored controlled-terminology value mapping."""
+
+    kind: Literal["terminology_map"]
+    value: "Expression"
+    mappings: dict[str, str] = Field(min_length=1)
+    unmapped: Literal["preserve", "null", "error"] = "error"
+
+
+DerivationExpression = Annotated[
+    LiteralExpression
+    | ColumnExpression
+    | UnaryExpression
+    | BinaryExpression
+    | ConditionalExpression
+    | FunctionCallExpression
+    | CustomFunctionCallExpression
+    | CastExpression
+    | TerminologyMapExpression
     | ListLiteralExpression,
     Field(discriminator="kind"),
 ]
@@ -210,8 +303,29 @@ class FilterNode(StrictModel):
 class DeriveNode(StrictModel):
     node_type: Literal["derive"]
     id: str
-    assignments: dict[str, Expression] = Field(min_length=1)
+    assignments: dict[str, DerivationExpression] = Field(min_length=1)
+    assignment_order: tuple[str, ...] = ()
     result_types: dict[str, Literal["character", "numeric"]] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def valid_assignment_order(self) -> "DeriveNode":
+        """Keep derive evaluation order explicit across JSONB serialization."""
+
+        order = self.assignment_order or tuple(self.assignments)
+        if len(order) != len(set(order)) or set(order) != set(self.assignments):
+            raise ValueError("assignment_order must list every assignment exactly once")
+        object.__setattr__(self, "assignment_order", order)
+        object.__setattr__(
+            self,
+            "assignments",
+            {target: self.assignments[target] for target in order},
+        )
+        return self
+
+    def ordered_assignments(self) -> tuple[tuple[str, DerivationExpression], ...]:
+        """Return assignments in their persisted deterministic evaluation order."""
+
+        return tuple((target, self.assignments[target]) for target in self.assignment_order)
 
 
 class CastOperation(StrictModel):
@@ -356,12 +470,37 @@ class Edge(StrictModel):
 
 class DataflowIR(StrictModel):
     schema_version: Literal["1.0.0"] = "1.0.0"
-    operator_version: Literal["1.2.0"] = "1.2.0"
+    operator_version: Literal["1.3.0"] = "1.3.0"
+    custom_functions: tuple[CustomFunctionDefinition, ...] = ()
     nodes: tuple[DataflowNode, ...] = Field(min_length=1)
     edges: tuple[Edge, ...] = ()
 
     @model_validator(mode="after")
     def validate_dag(self) -> "DataflowIR":
+        function_ids = [item.id for item in self.custom_functions]
+        if len(function_ids) != len(set(function_ids)):
+            raise ValueError("custom function IDs must be unique")
+        functions = {item.id: item for item in self.custom_functions}
+        if any(item.return_type == "result_rows" for item in self.custom_functions):
+            raise ValueError("Dataflow custom functions must return a scalar type")
+        expressions: list[DerivationExpression] = []
+        for node in self.nodes:
+            if node.node_type == "derive":
+                expressions.extend(node.assignments.values())
+            elif node.node_type == "filter" or node.node_type == "assert":
+                expressions.append(node.predicate)
+        for expression in expressions:
+            for call in custom_function_calls(expression):
+                definition = functions.get(call.function_id)
+                if definition is None:
+                    raise ValueError(
+                        f"custom function call '{call.function_id}' must resolve to a definition"
+                    )
+                if len(call.arguments) != len(definition.parameters):
+                    raise ValueError(
+                        f"custom function '{call.function_id}' expects "
+                        f"{len(definition.parameters)} arguments, got {len(call.arguments)}"
+                    )
         identifiers = [node.id for node in self.nodes]
         if len(identifiers) != len(set(identifiers)):
             raise ValueError("node IDs must be unique")
@@ -399,17 +538,67 @@ class DataflowIR(StrictModel):
 
 class AnalysisProcedure(StrictModel):
     id: str
-    method: Literal["descriptive_statistics", "frequency", "linear_model", "survival"]
+    method: Literal["descriptive_statistics", "frequency", "linear_model", "survival", "custom"]
     input_dataset: str
     grouping: tuple[str, ...] = ()
     parameters: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
     result_schema: dict[str, str] = Field(min_length=1)
     tolerance: float | None = Field(default=None, ge=0)
+    custom_function_id: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{0,62}$")
+
+    @model_validator(mode="after")
+    def valid_custom_method(self) -> "AnalysisProcedure":
+        if (self.method == "custom") != (self.custom_function_id is not None):
+            raise ValueError("custom analysis methods require exactly one custom_function_id")
+        return self
 
 
 class AnalysisIR(StrictModel):
     schema_version: Literal["1.0.0"] = "1.0.0"
     procedure_version: Literal["1.0.0"] = "1.0.0"
+    custom_functions: tuple[CustomFunctionDefinition, ...] = ()
     preparation: DataflowIR | None = None
     procedures: tuple[AnalysisProcedure, ...] = Field(min_length=1)
     postprocessing: DataflowIR | None = None
+
+    @model_validator(mode="after")
+    def valid_custom_functions(self) -> "AnalysisIR":
+        identifiers = [item.id for item in self.custom_functions]
+        if len(identifiers) != len(set(identifiers)):
+            raise ValueError("custom function IDs must be unique")
+        known = set(identifiers)
+        for procedure in self.procedures:
+            if (
+                procedure.custom_function_id is not None
+                and procedure.custom_function_id not in known
+            ):
+                raise ValueError("custom analysis function references must resolve")
+        return self
+
+
+def custom_function_calls(
+    expression: Expression | DerivationExpression,
+) -> tuple[CustomFunctionCallExpression, ...]:
+    """Return custom calls recursively for signature validation."""
+
+    calls: list[CustomFunctionCallExpression] = []
+    if expression.kind == "custom_function":
+        calls.append(expression)
+        children = expression.arguments
+    elif expression.kind == "function":
+        children = expression.arguments
+    elif expression.kind == "conditional":
+        children = tuple(
+            child for branch in expression.branches for child in (branch.when, branch.then)
+        ) + (expression.otherwise,)
+    elif expression.kind == "unary":
+        children = (expression.operand,)
+    elif expression.kind == "binary":
+        children = (expression.left, expression.right)
+    elif expression.kind == "cast" or expression.kind == "terminology_map":
+        children = (expression.value,)
+    else:
+        children = ()
+    for child in children:
+        calls.extend(custom_function_calls(child))
+    return tuple(calls)

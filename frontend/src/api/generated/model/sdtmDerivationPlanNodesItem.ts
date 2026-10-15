@@ -8,16 +8,14 @@ import type { RawReadNode } from './rawReadNode';
 import type { SdtmReadNode } from './sdtmReadNode';
 import type { FilterNode } from './filterNode';
 import type { DeriveNode } from './deriveNode';
-import type { CastNode } from './castNode';
 import type { SelectNode } from './selectNode';
 import type { JoinNode } from './joinNode';
 import type { UnionNode } from './unionNode';
 import type { AggregateNode } from './aggregateNode';
 import type { PivotLongerNode } from './pivotLongerNode';
-import type { TerminologyMapNode } from './terminologyMapNode';
 import type { SequenceNode } from './sequenceNode';
 import type { SortNode } from './sortNode';
 import type { AssertNode } from './assertNode';
 import type { DomainWriteNode } from './domainWriteNode';
 
-export type SdtmDerivationPlanNodesItem = RawReadNode | SdtmReadNode | FilterNode | DeriveNode | CastNode | SelectNode | JoinNode | UnionNode | AggregateNode | PivotLongerNode | TerminologyMapNode | SequenceNode | SortNode | AssertNode | DomainWriteNode;
+export type SdtmDerivationPlanNodesItem = RawReadNode | SdtmReadNode | FilterNode | DeriveNode | SelectNode | JoinNode | UnionNode | AggregateNode | PivotLongerNode | SequenceNode | SortNode | AssertNode | DomainWriteNode;

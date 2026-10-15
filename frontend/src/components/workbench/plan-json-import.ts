@@ -14,6 +14,7 @@ import type { SdtmDerivationPlan } from '@/api/generated/model'
 
 /** The node/edge arrays extracted from an imported plan, ready for the canvas. */
 export interface ImportedPlanGraph {
+  customFunctions: SdtmDerivationPlan['custom_functions']
   nodes: SdtmDerivationPlan['nodes']
   edges: SdtmDerivationPlan['edges']
 }
@@ -90,10 +91,20 @@ export function parsePlanJsonImport(
       error: 'The plan JSON "edges" field must be an array when present.',
     }
   }
+  if (
+    parsed.custom_functions !== undefined &&
+    !Array.isArray(parsed.custom_functions)
+  ) {
+    return {
+      ok: false,
+      error: 'The plan JSON "custom_functions" field must be an array when present.',
+    }
+  }
 
   return {
     ok: true,
     value: {
+      customFunctions: (parsed.custom_functions ?? []) as SdtmDerivationPlan['custom_functions'],
       nodes: parsed.nodes as SdtmDerivationPlan['nodes'],
       edges: (parsed.edges ?? []) as SdtmDerivationPlan['edges'],
     },

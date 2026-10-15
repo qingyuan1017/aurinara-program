@@ -49,6 +49,8 @@ export { RawBulkImportDialog } from './raw-bulk-import-dialog'
 export type { RawBulkImportDialogProps } from './raw-bulk-import-dialog'
 export { DownloadButton } from './download-button'
 export type { DownloadButtonProps } from './download-button'
+export { JsonAuthoringPanel } from './json-authoring-panel'
+export type { JsonAuthoringPanelProps } from './json-authoring-panel'
 export {
   planToGraph,
   graphToPlan,

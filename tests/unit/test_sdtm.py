@@ -12,7 +12,7 @@ from app.sdtm.contracts import (
     SdtmDerivationPlan,
     SdtmSpecification,
 )
-from app.sdtm.service import _csdrg_document, lower_plan
+from app.sdtm.service import _csdrg_document, evaluate_plan_preview, lower_plan
 
 
 def _multi_domain_specification() -> SdtmSpecification:
@@ -157,9 +157,156 @@ def test_plan_lowers_to_internal_ir_with_output_coverage() -> None:
             ],
         }
     )
-    assert plan.schema_version == "1.1.0"
+    assert plan.schema_version == "1.2.0"
     internal = lower_plan(_specification(), plan)
     assert [node.node_type for node in internal.nodes] == ["read", "derive", "write"]
+
+
+def test_plan_lowers_custom_function_definitions_and_calls() -> None:
+    payload = {
+        "domain": "DM",
+        "specification_revision": 1,
+        "input_selection_revision": 1,
+        "custom_functions": [
+            {
+                "id": "subject_id",
+                "parameters": ["value"],
+                "return_type": "character",
+                "implementations": [{"language": "r", "source": "return(paste0('S-', value))"}],
+            }
+        ],
+        "nodes": [
+            {"node_type": "raw_read", "id": "read", "raw_dataset_code": "DEMOG"},
+            {
+                "node_type": "derive",
+                "id": "derive",
+                "target_domain": "DM",
+                "assignments": {
+                    "USUBJID": {
+                        "kind": "custom_function",
+                        "function_id": "subject_id",
+                        "arguments": [{"kind": "column", "dataset": "DEMOG", "column": "SUBJID"}],
+                    }
+                },
+            },
+            {"node_type": "domain_write", "id": "write", "domain": "DM"},
+        ],
+        "edges": [
+            {"source_node": "read", "target_node": "derive"},
+            {"source_node": "derive", "target_node": "write"},
+        ],
+    }
+    internal = lower_plan(_specification(), SdtmDerivationPlan.model_validate(payload))
+    assert internal.custom_functions[0].id == "subject_id"
+
+
+def test_derive_assignments_allow_explicit_reference_to_earlier_recipe() -> None:
+    plan = SdtmDerivationPlan.model_validate(
+        {
+            "domain": "DM",
+            "specification_revision": 1,
+            "input_selection_revision": 1,
+            "nodes": [
+                {"node_type": "raw_read", "id": "read", "raw_dataset_code": "DEMOG"},
+                {
+                    "node_type": "derive",
+                    "id": "derive",
+                    "target_domain": "DM",
+                    "assignment_order": ["SITEID", "USUBJID"],
+                    "assignments": {
+                        "SITEID": {
+                            "kind": "column",
+                            "dataset": "DEMOG",
+                            "column": "SITE",
+                        },
+                        "USUBJID": {
+                            "kind": "function",
+                            "function": "concat",
+                            "arguments": [
+                                {"kind": "column", "dataset": "DM", "column": "SITEID"},
+                                {"kind": "literal", "value": "-"},
+                                {"kind": "column", "dataset": "DEMOG", "column": "SUBJID"},
+                            ],
+                        },
+                    },
+                },
+                {"node_type": "domain_write", "id": "write", "domain": "DM"},
+            ],
+            "edges": [
+                {"source_node": "read", "target_node": "derive"},
+                {"source_node": "derive", "target_node": "write"},
+            ],
+        }
+    )
+
+    assert list(plan.nodes[1].model_dump()["assignments"]) == ["SITEID", "USUBJID"]
+    assert plan.nodes[1].assignment_order == ("SITEID", "USUBJID")
+
+
+def test_derive_assignments_recover_dependency_order_after_jsonb_reorders_keys() -> None:
+    plan = SdtmDerivationPlan.model_validate(
+        {
+            "domain": "DM",
+            "specification_revision": 1,
+            "input_selection_revision": 1,
+            "nodes": [
+                {
+                    "node_type": "derive",
+                    "id": "derive",
+                    "target_domain": "DM",
+                    # PostgreSQL JSONB can return this shorter key before SITEID.
+                    "assignments": {
+                        "SUBJID": {
+                            "kind": "column",
+                            "dataset": "DM",
+                            "column": "SITEID",
+                        },
+                        "SITEID": {
+                            "kind": "column",
+                            "dataset": "DEMOG",
+                            "column": "SITE",
+                        },
+                    },
+                }
+            ],
+        }
+    )
+
+    derive = plan.nodes[0]
+    assert derive.node_type == "derive"
+    assert derive.assignment_order == ("SITEID", "SUBJID")
+    assert list(derive.assignments) == ["SITEID", "SUBJID"]
+
+
+def test_derive_assignments_reject_forward_or_circular_recipe_reference() -> None:
+    with pytest.raises(ValidationError, match="before they are derived"):
+        SdtmDerivationPlan.model_validate(
+            {
+                "domain": "DM",
+                "specification_revision": 1,
+                "input_selection_revision": 1,
+                "nodes": [
+                    {
+                        "node_type": "derive",
+                        "id": "derive",
+                        "target_domain": "DM",
+                        "assignment_order": ["USUBJID", "SITEID"],
+                        "assignments": {
+                            "USUBJID": {
+                                "kind": "column",
+                                "dataset": "DM",
+                                "column": "SITEID",
+                            },
+                            "SITEID": {
+                                "kind": "column",
+                                "dataset": "DM",
+                                "column": "USUBJID",
+                            },
+                        },
+                    }
+                ],
+            }
+        )
 
 
 def test_sdtm_read_lowers_to_ir_read() -> None:
@@ -178,6 +325,96 @@ def test_sdtm_read_lowers_to_ir_read() -> None:
     internal = lower_plan(_multi_domain_specification(), plan)
     read_node = next(node for node in internal.nodes if node.node_type == "read")
     assert read_node.dataset == "DM"
+
+
+def test_preview_recursively_evaluates_pinned_sibling_plan() -> None:
+    dm_plan = SdtmDerivationPlan.model_validate(
+        {
+            "domain": "DM",
+            "specification_revision": 1,
+            "input_selection_revision": 1,
+            "nodes": [
+                {"node_type": "raw_read", "id": "read", "raw_dataset_code": "DEMOG"},
+                {
+                    "node_type": "derive",
+                    "id": "derive",
+                    "target_domain": "DM",
+                    "assignments": {
+                        "STUDYID": {"kind": "literal", "value": "P3-001"},
+                        "USUBJID": {
+                            "kind": "column",
+                            "dataset": "DEMOG",
+                            "column": "SUBJID",
+                        },
+                    },
+                },
+                {"node_type": "domain_write", "id": "write", "domain": "DM"},
+            ],
+            "edges": [
+                {"source_node": "read", "target_node": "derive"},
+                {"source_node": "derive", "target_node": "write"},
+            ],
+        }
+    )
+    ae_plan = SdtmDerivationPlan.model_validate(
+        {
+            "domain": "AE",
+            "specification_revision": 1,
+            "input_selection_revision": 1,
+            "nodes": [
+                {"node_type": "sdtm_read", "id": "read_dm", "dataset": "DM"},
+                {"node_type": "domain_write", "id": "write", "domain": "AE"},
+            ],
+            "edges": [{"source_node": "read_dm", "target_node": "write"}],
+        }
+    )
+
+    outputs, fingerprints = evaluate_plan_preview(
+        _multi_domain_specification(),
+        ae_plan,
+        {"AE": ae_plan, "DM": dm_plan},
+        {"DEMOG": ({"SUBJID": "01", "AGE": 42},)},
+        row_limit=1,
+    )
+
+    assert outputs["AE"] == ({"SUBJID": "01", "AGE": 42, "STUDYID": "P3-001", "USUBJID": "01"},)
+    assert set(fingerprints) == {"AE", "DM"}
+
+
+def test_preview_reports_invalid_pinned_sibling_plan() -> None:
+    dm_plan = SdtmDerivationPlan.model_validate(
+        {
+            "domain": "DM",
+            "specification_revision": 1,
+            "input_selection_revision": 1,
+            "nodes": [{"node_type": "domain_write", "id": "write", "domain": "DM"}],
+        }
+    )
+    ae_plan = SdtmDerivationPlan.model_validate(
+        {
+            "domain": "AE",
+            "specification_revision": 1,
+            "input_selection_revision": 1,
+            "nodes": [
+                {"node_type": "sdtm_read", "id": "read_dm", "dataset": "DM"},
+                {"node_type": "domain_write", "id": "write", "domain": "AE"},
+            ],
+            "edges": [{"source_node": "read_dm", "target_node": "write"}],
+        }
+    )
+
+    with pytest.raises(ProblemException) as captured:
+        evaluate_plan_preview(
+            _multi_domain_specification(),
+            ae_plan,
+            {"AE": ae_plan, "DM": dm_plan},
+            {},
+            row_limit=1,
+        )
+
+    assert captured.value.code == "sdtm_preview_upstream_invalid"
+    assert "Pinned upstream domain 'DM'" in captured.value.detail
+    assert "requires exactly one input" in captured.value.detail
 
 
 def test_sdtm_read_rejects_self_and_unknown_targets() -> None:
@@ -318,7 +555,7 @@ def test_plan_rejects_raw_backend_code() -> None:
         )
 
 
-def test_plan_lowers_join_reshape_terminology_and_aggregate_operators() -> None:
+def test_plan_lowers_cast_and_terminology_functions_inside_derivation() -> None:
     plan = SdtmDerivationPlan.model_validate(
         {
             "domain": "DM",
@@ -336,18 +573,25 @@ def test_plan_lowers_join_reshape_terminology_and_aggregate_operators() -> None:
                     "keys": [["SITEID", "SITEID"]],
                 },
                 {
-                    "node_type": "terminology_map",
-                    "id": "map_sex",
-                    "source_column": "SEX",
-                    "target_column": "SEXDEC",
-                    "mappings": {"M": "Male", "F": "Female"},
-                },
-                {
-                    "node_type": "cast",
-                    "id": "cast_values",
-                    "casts": {
-                        "V1": {"source_column": "V1", "target_type": "float"},
-                        "V2": {"source_column": "V2", "target_type": "float"},
+                    "node_type": "derive",
+                    "id": "derive_values",
+                    "target_domain": "DM",
+                    "assignments": {
+                        "SEXDEC": {
+                            "kind": "terminology_map",
+                            "value": {"kind": "column", "dataset": "DEMOG", "column": "SEX"},
+                            "mappings": {"M": "Male", "F": "Female"},
+                        },
+                        "V1": {
+                            "kind": "cast",
+                            "value": {"kind": "column", "dataset": "DEMOG", "column": "V1"},
+                            "target_type": "float",
+                        },
+                        "V2": {
+                            "kind": "cast",
+                            "value": {"kind": "column", "dataset": "DEMOG", "column": "V2"},
+                            "target_type": "float",
+                        },
                     },
                 },
                 {
@@ -379,9 +623,8 @@ def test_plan_lowers_join_reshape_terminology_and_aggregate_operators() -> None:
             "edges": [
                 {"source_node": "read_demog", "target_node": "join_site"},
                 {"source_node": "read_sites", "target_node": "join_site"},
-                {"source_node": "join_site", "target_node": "cast_values"},
-                {"source_node": "cast_values", "target_node": "map_sex"},
-                {"source_node": "map_sex", "target_node": "visits"},
+                {"source_node": "join_site", "target_node": "derive_values"},
+                {"source_node": "derive_values", "target_node": "visits"},
                 {"source_node": "visits", "target_node": "sequenced"},
                 {"source_node": "sequenced", "target_node": "summary"},
                 {"source_node": "summary", "target_node": "write_dm"},
@@ -395,13 +638,64 @@ def test_plan_lowers_join_reshape_terminology_and_aggregate_operators() -> None:
         "read",
         "read",
         "join",
-        "terminology_map",
-        "cast",
+        "derive",
         "pivot_longer",
         "sequence",
         "aggregate",
         "write",
     ]
+
+
+def test_plan_rejects_cast_and_terminology_as_standalone_sdtm_nodes() -> None:
+    for node in (
+        {
+            "node_type": "cast",
+            "id": "cast_values",
+            "casts": {"AGE": {"source_column": "AGE", "target_type": "float"}},
+        },
+        {
+            "node_type": "terminology_map",
+            "id": "map_sex",
+            "source_column": "SEX",
+            "target_column": "SEX",
+            "mappings": {"M": "MALE"},
+        },
+    ):
+        with pytest.raises(ValidationError):
+            SdtmDerivationPlan.model_validate(
+                {
+                    "domain": "DM",
+                    "specification_revision": 1,
+                    "input_selection_revision": 1,
+                    "nodes": [node],
+                }
+            )
+
+
+def test_plan_limits_cast_and_terminology_functions_to_derivations() -> None:
+    with pytest.raises(ValidationError):
+        SdtmDerivationPlan.model_validate(
+            {
+                "domain": "DM",
+                "specification_revision": 1,
+                "input_selection_revision": 1,
+                "nodes": [
+                    {
+                        "node_type": "filter",
+                        "id": "invalid_filter",
+                        "predicate": {
+                            "kind": "cast",
+                            "value": {
+                                "kind": "column",
+                                "dataset": "DEMOG",
+                                "column": "AGE",
+                            },
+                            "target_type": "boolean",
+                        },
+                    }
+                ],
+            }
+        )
 
 
 def test_plan_join_requires_declared_left_and_right_edges() -> None:

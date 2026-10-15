@@ -11,4 +11,5 @@ export interface DeriveNode {
   id: string;
   target_domain: string;
   assignments: DeriveNodeAssignments;
+  assignment_order?: string[];
 }

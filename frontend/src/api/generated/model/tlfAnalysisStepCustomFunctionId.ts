@@ -5,4 +5,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type TerminologyMapNodeMappings = {[key: string]: string};
+export type TlfAnalysisStepCustomFunctionId = string | null;

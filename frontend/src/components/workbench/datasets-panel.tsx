@@ -1,7 +1,7 @@
 import * as React from 'react'
 import type { AxiosError } from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
-import { FileUp, Loader2, Plus } from 'lucide-react'
+import { DatabaseZap, FileUp, Loader2, Plus } from 'lucide-react'
 import { PageHeader } from '@/components/layout/page-header'
 import { ResourceTable } from '@/components/data/resource-table'
 import type { ResourceColumn } from '@/components/data/resource-table'
@@ -39,6 +39,7 @@ import { PreviewPanel } from '@/components/workbench/preview-panel'
 import { VariablesPanel } from '@/components/workbench/variables-panel'
 import { ConfirmDialog } from '@/components/forms/confirm-dialog'
 import {
+  initializeVariables,
   useCreateDataset,
   useListDatasets,
   usePatchDataset,
@@ -51,7 +52,7 @@ import type {
   RawDatasetResponse,
   SourceFileResponse,
 } from '@/api/generated/model'
-import { invalidateRawDataset } from '@/lib/invalidate'
+import { invalidateRawDataset, invalidateRawVariable } from '@/lib/invalidate'
 import { ifMatchRequest, jsonRequest } from '@/lib/requests'
 import { parseProblem, stalenessAlert } from '@/lib/problems'
 
@@ -82,6 +83,8 @@ export interface DatasetsPanelProps {
  *   the dataset: `DELETE /raw-datasets/{dataset_id}` with `If-Match`.
  * - A 412 on rebind/retire shows a concurrency message and reloads the current
  *   dataset revision before a retry (R3.8).
+ * - Initialize every dataset from its bound source in one user action while
+ *   preserving the per-dataset conditional-write revision.
  */
 export function DatasetsPanel({ rawId, studyId }: DatasetsPanelProps) {
   const qc = useQueryClient()
@@ -152,6 +155,7 @@ export function DatasetsPanel({ rawId, studyId }: DatasetsPanelProps) {
         }
         actions={
           <div className="flex gap-2">
+            <InitializeAllButton rawId={rawId} datasets={datasets} />
             <Button
               size="sm"
               variant="outline"
@@ -306,6 +310,94 @@ export function DatasetsPanel({ rawId, studyId }: DatasetsPanelProps) {
         </SheetContent>
       </Sheet>
     </div>
+  )
+}
+
+interface InitializeAllButtonProps {
+  rawId: string
+  datasets: RawDatasetResponse[]
+}
+
+/**
+ * Initialize missing factual variable metadata for every listed dataset.
+ *
+ * The API owns initialization at dataset scope, so this UI action deliberately
+ * coordinates the existing endpoint instead of inventing a second bulk-write
+ * contract. Requests run sequentially to avoid concurrent updates to the same
+ * Raw aggregate revision. A failure in one dataset does not prevent the
+ * remaining datasets from being inspected.
+ */
+function InitializeAllButton({
+  rawId,
+  datasets,
+}: InitializeAllButtonProps) {
+  const qc = useQueryClient()
+  const [isPending, setIsPending] = React.useState(false)
+
+  async function handleInitializeAll() {
+    if (isPending || datasets.length === 0) return
+
+    setIsPending(true)
+    let initialized = 0
+    let created = 0
+    let filled = 0
+    const failedCodes: string[] = []
+
+    try {
+      for (const dataset of datasets) {
+        try {
+          const result = await initializeVariables(
+            dataset.id,
+            ifMatchRequest(dataset.revision),
+          )
+          initialized += 1
+          created += result.created
+          filled += result.filled
+          invalidateRawVariable(qc, dataset.id)
+        } catch (error) {
+          failedCodes.push(dataset.code)
+          const status = (error as AxiosError).response?.status
+          if (status === 412 || status === 428) {
+            invalidateRawDataset(qc, rawId, dataset.id)
+          }
+        }
+      }
+
+      // Dataset revisions can change when initialization creates or fills
+      // metadata, so refresh the collection used by this screen as well.
+      invalidateRawDataset(qc, rawId)
+
+      const datasetNoun = initialized === 1 ? 'dataset' : 'datasets'
+      const variableNoun = created === 1 ? 'variable' : 'variables'
+      const fieldNoun = filled === 1 ? 'field' : 'fields'
+      if (failedCodes.length === 0) {
+        toast.success(
+          `Initialized ${initialized} ${datasetNoun}: ${created} ${variableNoun} created, ${filled} ${fieldNoun} filled.`,
+        )
+      } else {
+        toast.error(
+          `Initialized ${initialized} of ${datasets.length} datasets. Failed: ${failedCodes.join(', ')}. ${created} ${variableNoun} created, ${filled} ${fieldNoun} filled.`,
+        )
+      }
+    } finally {
+      setIsPending(false)
+    }
+  }
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={handleInitializeAll}
+      disabled={datasets.length === 0 || isPending}
+    >
+      {isPending ? (
+        <Loader2 className="animate-spin" />
+      ) : (
+        <DatabaseZap aria-hidden="true" />
+      )}
+      {isPending ? 'Initializing all…' : 'Initialize all from source'}
+    </Button>
   )
 }
 

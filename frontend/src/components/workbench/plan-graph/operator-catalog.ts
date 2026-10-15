@@ -15,7 +15,6 @@
 import type {
   AggregateNode,
   AssertNode,
-  CastNode,
   DeriveNode,
   DomainWriteNode,
   FilterNode,
@@ -27,7 +26,6 @@ import type {
   SelectNode,
   SequenceNode,
   SortNode,
-  TerminologyMapNode,
   UnionNode,
 } from '@/api/generated/model'
 
@@ -169,18 +167,6 @@ const union: OperatorDescriptor<UnionNode> = {
   summary: () => ['combines all inputs'],
 }
 
-const cast: OperatorDescriptor<CastNode> = {
-  nodeType: 'cast',
-  label: 'Cast',
-  description: 'Convert columns to typed target types.',
-  category: 'reshape',
-  inputs: [{ key: 'in', label: 'in' }],
-  inputArity: 'single',
-  hasOutput: true,
-  create: (id) => ({ node_type: 'cast', id, casts: {} }),
-  summary: (node) => [`casts: ${textList(Object.keys(node.casts))}`],
-}
-
 const pivotLonger: OperatorDescriptor<PivotLongerNode> = {
   nodeType: 'pivot_longer',
   label: 'Reshape (pivot longer)',
@@ -217,31 +203,11 @@ const derive: OperatorDescriptor<DeriveNode> = {
     id,
     target_domain: '',
     assignments: {},
+    assignment_order: [],
   }),
   summary: (node) => [
     `domain: ${node.target_domain || '—'}`,
     `assignments: ${textList(Object.keys(node.assignments))}`,
-  ],
-}
-
-const terminologyMap: OperatorDescriptor<TerminologyMapNode> = {
-  nodeType: 'terminology_map',
-  label: 'Terminology mapping',
-  description: 'Map a source column into controlled terminology.',
-  category: 'terminology',
-  inputs: [{ key: 'in', label: 'in' }],
-  inputArity: 'single',
-  hasOutput: true,
-  create: (id) => ({
-    node_type: 'terminology_map',
-    id,
-    source_column: '',
-    target_column: '',
-    mappings: {},
-  }),
-  summary: (node) => [
-    `${node.source_column || '?'} -> ${node.target_column || '?'}`,
-    `mappings: ${Object.keys(node.mappings).length}`,
   ],
 }
 
@@ -342,10 +308,8 @@ export const OPERATOR_CATALOG: {
   filter,
   join,
   union,
-  cast,
   pivot_longer: pivotLonger,
   derive,
-  terminology_map: terminologyMap,
   aggregate,
   sequence,
   sort,
@@ -361,10 +325,8 @@ export const PALETTE_ORDER: PlanNodeType[] = [
   'filter',
   'join',
   'union',
-  'cast',
   'pivot_longer',
   'aggregate',
-  'terminology_map',
   'derive',
   'sequence',
   'sort',

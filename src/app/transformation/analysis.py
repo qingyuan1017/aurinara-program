@@ -4,6 +4,12 @@ import json
 from dataclasses import dataclass
 
 from app.common.canonical import fingerprint
+from app.transformation.codegen import (
+    _python_custom_functions,
+    _r_custom_functions,
+    _sas_custom_functions,
+    missing_custom_functions,
+)
 from app.transformation.contracts import AnalysisIR
 
 
@@ -23,6 +29,8 @@ class CompiledAnalysisProgram:
     compiler_version: str
     source: str
     ir_fingerprint: str
+    executable: bool
+    todo_functions: tuple[str, ...]
 
 
 def compile_analysis(
@@ -35,19 +43,29 @@ def compile_analysis(
     digest = analysis_ir_fingerprint(value)
     payload = json.dumps(canonical_analysis_ir(value), sort_keys=True, separators=(",", ":"))
     if backend == "python":
-        source = _python_source(payload, output_filename, digest)
+        source = _python_source(value, payload, output_filename, digest)
     elif backend == "r":
-        source = _r_source(payload, output_filename, digest)
+        source = _r_source(value, payload, output_filename, digest)
     else:
         source = _sas_source(value, output_filename, digest)
-    return CompiledAnalysisProgram(backend, "1.0.0", source, digest)
+    todo_functions = missing_custom_functions(value.custom_functions, backend)  # type: ignore[arg-type]
+    return CompiledAnalysisProgram(
+        backend,
+        "1.1.0",
+        source,
+        digest,
+        executable=not todo_functions,
+        todo_functions=todo_functions,
+    )
 
 
-def _python_source(payload: str, output_filename: str, digest: str) -> str:
-    return f"""# Generated deterministically by Aurinara Analysis IR compiler 1.0.0
+def _python_source(value: AnalysisIR, payload: str, output_filename: str, digest: str) -> str:
+    custom_functions = _python_custom_functions(value.custom_functions)
+    return f"""# Generated deterministically by Aurinara Analysis IR compiler 1.1.0
 # IR fingerprint: {digest}
 import csv, json, os, statistics
 from pathlib import Path
+{custom_functions}
 IR = json.loads({payload!r})
 root = Path(os.environ.get("AURINARA_WORKSPACE", "."))
 rows_out = []
@@ -73,7 +91,22 @@ for procedure in IR["procedures"]:
         group_label = ";".join(
             f"{{column}}={{value}}" for column, value in zip(grouping, group_key)
         )
-        if procedure["method"] == "frequency":
+        if procedure["method"] == "custom":
+            function_name = "aur_user_" + str(procedure["custom_function_id"])
+            custom_rows = globals()[function_name](group_rows, parameters)
+            if not isinstance(custom_rows, list) or not all(
+                isinstance(item, dict) for item in custom_rows
+            ):
+                raise TypeError("custom TLF function must return a list of result dictionaries")
+            for item in custom_rows:
+                rows_out.append({{
+                    **base,
+                    "group": str(item.get("group", group_label)),
+                    "statistic": str(item["statistic"]),
+                    "value": str(item.get("value", "")),
+                    "text": str(item.get("text", item.get("value", ""))),
+                }})
+        elif procedure["method"] == "frequency":
             counts = {{}}
             for row in group_rows:
                 key = row.get(variable, "")
@@ -120,11 +153,13 @@ with target.open("w", encoding="utf-8", newline="") as handle:
 """
 
 
-def _r_source(payload: str, output_filename: str, digest: str) -> str:
+def _r_source(value: AnalysisIR, payload: str, output_filename: str, digest: str) -> str:
     escaped = payload.replace("\\", "\\\\").replace("'", "\\'")
-    return f"""# Generated deterministically by Aurinara Analysis IR compiler 1.0.0
+    custom_functions = _r_custom_functions(value.custom_functions)
+    return f"""# Generated deterministically by Aurinara Analysis IR compiler 1.1.0
 # IR fingerprint: {digest}
 library(jsonlite)
+{custom_functions}
 ir <- fromJSON('{escaped}', simplifyVector=FALSE)
 root <- Sys.getenv("AURINARA_WORKSPACE", unset=".")
 result <- data.frame(
@@ -154,7 +189,20 @@ for (procedure in ir$procedures) {{
   )
   for (group_label in sort(unique(group_keys))) {{
     group_rows <- rows[group_keys == group_label, , drop=FALSE]
-    if (procedure$method == "frequency") {{
+    if (procedure$method == "custom") {{
+      function_name <- paste0("aur_user_", procedure$custom_function_id)
+      custom_rows <- get(function_name, mode="function")(group_rows, p)
+      required <- c("statistic", "value", "text")
+      if (!is.data.frame(custom_rows) || !all(required %in% names(custom_rows))) {{
+        stop("custom TLF function must return a data.frame with statistic, value, and text")
+      }}
+      if (!("group" %in% names(custom_rows))) custom_rows$group <- group_label
+      custom_rows$analysis_id <- p$analysis_id
+      custom_rows$row_id <- p$row_id
+      result <- rbind(result, custom_rows[, c(
+        "analysis_id", "row_id", "group", "statistic", "value", "text"
+      )])
+    }} else if (procedure$method == "frequency") {{
       counts <- table(as.character(group_rows[[variable]]), useNA="no")
       total <- nrow(group_rows)
       for (key in sort(names(counts))) {{
@@ -204,9 +252,10 @@ write.table(
 
 def _sas_source(value: AnalysisIR, output_filename: str, digest: str) -> str:
     lines = [
-        "/* Generated deterministically by Aurinara Analysis IR compiler 1.0.0 */",
+        "/* Generated deterministically by Aurinara Analysis IR compiler 1.1.0 */",
         f"/* IR fingerprint: {digest} */",
         f"/* Declared normalized result: {output_filename} */",
+        _sas_custom_functions(value.custom_functions),
     ]
     for procedure in value.procedures:
         lines.append(

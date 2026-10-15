@@ -51,7 +51,7 @@ function makePlan(): SdtmDerivationPlan {
     { source_node: 'filter1', target_node: 'write1' },
   ]
   return {
-    schema_version: '1.1.0',
+    schema_version: '1.2.0',
     domain: 'DM',
     specification_revision: 3,
     input_selection_revision: 2,
@@ -274,7 +274,7 @@ describe('planToGraph / graphToPlan round-trip', () => {
       domain: plan.domain,
       specificationRevision: plan.specification_revision,
       inputSelectionRevision: plan.input_selection_revision,
-      schemaVersion: '1.1.0',
+      schemaVersion: '1.2.0',
     })
 
     expect(back.nodes).toEqual(plan.nodes)
@@ -282,7 +282,7 @@ describe('planToGraph / graphToPlan round-trip', () => {
     expect(back.domain).toBe(plan.domain)
     expect(back.specification_revision).toBe(plan.specification_revision)
     expect(back.input_selection_revision).toBe(plan.input_selection_revision)
-    expect(back.schema_version).toBe('1.1.0')
+    expect(back.schema_version).toBe('1.2.0')
   })
 
   it('never writes node positions into the typed body (layout is view-only)', () => {

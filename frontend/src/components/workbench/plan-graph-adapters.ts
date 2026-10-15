@@ -18,6 +18,7 @@
 import type { Edge, Node } from '@xyflow/react'
 
 import type {
+  CustomFunctionDefinition,
   PlanEdge,
   SdtmDerivationPlan,
   SdtmDerivationPlanNodesItem,
@@ -75,9 +76,11 @@ export interface GraphToPlanMeta {
   inputSelectionRevision: number
   /** Schema version to stamp on the body; defaults to the only supported value. */
   schemaVersion?: SdtmDerivationPlan['schema_version']
+  /** Manually authored custom functions retained outside the visual graph. */
+  customFunctions?: CustomFunctionDefinition[]
 }
 
-const DEFAULT_SCHEMA_VERSION: SdtmDerivationPlan['schema_version'] = '1.1.0'
+const DEFAULT_SCHEMA_VERSION: SdtmDerivationPlan['schema_version'] = '1.2.0'
 
 // Deterministic auto-layout spacing (px). Columns are dependency layers (left -> right),
 // rows are nodes within a layer, both in a stable order derived from node/edge order.
@@ -223,6 +226,7 @@ export function graphToPlan(
     domain: meta.domain,
     specification_revision: meta.specificationRevision,
     input_selection_revision: meta.inputSelectionRevision,
+    custom_functions: meta.customFunctions ?? [],
     nodes: planNodes,
     edges: planEdges,
   }

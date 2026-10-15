@@ -1,11 +1,17 @@
 """Strict SDTM-owned authoring contracts and Raw input selection."""
 
+import re
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.transformation.contracts import Expression
+from app.transformation.contracts import (
+    CustomFunctionDefinition,
+    DerivationExpression,
+    Expression,
+    custom_function_calls,
+)
 
 
 class StrictModel(BaseModel):
@@ -97,7 +103,50 @@ class SdtmSpecification(StrictModel):
         outputs = [item.expected_output_name for item in self.domains]
         if len(codes) != len(set(codes)) or len(outputs) != len(set(outputs)):
             raise ValueError("domain codes and output names must be unique")
+        if any(
+            custom_function_calls(item.condition)
+            for domain in self.domains
+            for item in domain.value_level_metadata
+        ):
+            raise ValueError("custom functions may only be called from a Derivation Plan")
         return self
+
+
+class SdtmSpecificationInitialize(StrictModel):
+    """User-selected scope for factual initialization from the pinned SDTMIG."""
+
+    domain_codes: tuple[str, ...] = Field(
+        min_length=1,
+        description="Concrete standard domains to add or refresh.",
+    )
+    required_expected_only: bool = Field(
+        default=False,
+        description="When true, add only Required and Expected standard variables.",
+    )
+
+    @field_validator("domain_codes")
+    @classmethod
+    def validate_domain_codes(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        normalized = tuple(item.strip().upper() for item in value)
+        if any(not re.fullmatch(r"[A-Z][A-Z0-9]{1,7}", item) for item in normalized):
+            raise ValueError("domain codes must use the SDTM domain-code format")
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("domain codes must be unique")
+        return normalized
+
+
+class SdtmStandardDomainOption(StrictModel):
+    code: str
+    label: str
+    domain_class: str
+    required_variable_count: int = Field(ge=0)
+    expected_variable_count: int = Field(ge=0)
+    permissible_variable_count: int = Field(ge=0)
+
+
+class SdtmSpecificationInitializationOptions(StrictModel):
+    standard_version_id: UUID
+    domains: tuple[SdtmStandardDomainOption, ...]
 
 
 class RawReadNode(StrictModel):
@@ -118,23 +167,107 @@ class FilterNode(StrictModel):
     predicate: Expression
 
 
+def _expression_column_references(
+    expression: DerivationExpression,
+) -> tuple[tuple[str, str], ...]:
+    """Collect typed column references without interpreting function semantics."""
+
+    if expression.kind == "column":
+        return ((expression.dataset, expression.column),)
+    if expression.kind == "unary":
+        return _expression_column_references(expression.operand)
+    if expression.kind == "binary":
+        return (
+            *_expression_column_references(expression.left),
+            *_expression_column_references(expression.right),
+        )
+    if expression.kind == "conditional":
+        references: list[tuple[str, str]] = []
+        for branch in expression.branches:
+            references.extend(_expression_column_references(branch.when))
+            references.extend(_expression_column_references(branch.then))
+        references.extend(_expression_column_references(expression.otherwise))
+        return tuple(references)
+    if expression.kind == "function":
+        references = []
+        for argument in expression.arguments:
+            if argument.kind != "list_literal":
+                references.extend(_expression_column_references(argument))
+        return tuple(references)
+    if expression.kind == "custom_function":
+        references = []
+        for argument in expression.arguments:
+            references.extend(_expression_column_references(argument))
+        return tuple(references)
+    if expression.kind == "cast":
+        return _expression_column_references(expression.value)
+    if expression.kind == "terminology_map":
+        return _expression_column_references(expression.value)
+    return ()
+
+
 class DeriveNode(StrictModel):
     node_type: Literal["derive"]
     id: str
     target_domain: str
-    assignments: dict[str, Expression] = Field(min_length=1)
+    assignments: dict[str, DerivationExpression] = Field(min_length=1)
+    assignment_order: tuple[str, ...] = ()
 
+    @model_validator(mode="after")
+    def ordered_assignment_dependencies(self) -> "DeriveNode":
+        """Preserve recipe order independently of JSON-object key ordering."""
 
-class CastOperation(StrictModel):
-    source_column: str
-    target_type: Literal["text", "integer", "float", "boolean"]
-    invalid: Literal["error", "null"] = "error"
+        targets = set(self.assignments)
+        order = self.assignment_order
+        if order:
+            if len(order) != len(set(order)) or set(order) != targets:
+                raise ValueError("assignment_order must list every assignment exactly once")
+        else:
+            # Revisions saved before assignment_order existed may have had their
+            # JSON-object keys reordered by PostgreSQL JSONB. Recover a stable,
+            # dependency-safe order instead of treating that storage order as
+            # authored intent.
+            dependencies_by_target = {
+                target: {
+                    column
+                    for dataset, column in _expression_column_references(expression)
+                    if dataset == self.target_domain and column in targets
+                }
+                for target, expression in self.assignments.items()
+            }
+            resolved: list[str] = []
+            resolved_targets: set[str] = set()
+            while len(resolved) < len(targets):
+                ready = sorted(
+                    target
+                    for target in targets - resolved_targets
+                    if dependencies_by_target[target] <= resolved_targets
+                )
+                if not ready:
+                    raise ValueError("assignment dependencies must not contain a cycle")
+                resolved.extend(ready)
+                resolved_targets.update(ready)
+            order = tuple(resolved)
+            self.assignment_order = order
 
-
-class CastNode(StrictModel):
-    node_type: Literal["cast"]
-    id: str
-    casts: dict[str, CastOperation] = Field(min_length=1)
+        available: set[str] = set()
+        for target in order:
+            expression = self.assignments[target]
+            dependencies = {
+                column
+                for dataset, column in _expression_column_references(expression)
+                if dataset == self.target_domain and column in targets
+            }
+            unavailable = sorted(dependencies - available)
+            if unavailable:
+                joined = ", ".join(unavailable)
+                raise ValueError(
+                    f"assignment '{target}' references target-domain variable(s) {joined} "
+                    "before they are derived; reorder the assignments and remove cycles"
+                )
+            available.add(target)
+        self.assignments = {target: self.assignments[target] for target in order}
+        return self
 
 
 class SelectNode(StrictModel):
@@ -185,15 +318,6 @@ class PivotLongerNode(StrictModel):
     value_column: str
 
 
-class TerminologyMapNode(StrictModel):
-    node_type: Literal["terminology_map"]
-    id: str
-    source_column: str
-    target_column: str
-    mappings: dict[str, str] = Field(min_length=1)
-    unmapped: Literal["preserve", "null", "error"] = "error"
-
-
 class SequenceNode(StrictModel):
     node_type: Literal["sequence"]
     id: str
@@ -227,13 +351,11 @@ SdtmPlanNode = Annotated[
     | SdtmReadNode
     | FilterNode
     | DeriveNode
-    | CastNode
     | SelectNode
     | JoinNode
     | UnionNode
     | AggregateNode
     | PivotLongerNode
-    | TerminologyMapNode
     | SequenceNode
     | SortNode
     | AssertNode
@@ -248,15 +370,19 @@ class PlanEdge(StrictModel):
 
 
 class SdtmDerivationPlan(StrictModel):
-    schema_version: Literal["1.1.0"] = "1.1.0"
+    schema_version: Literal["1.2.0"] = "1.2.0"
     domain: str = Field(pattern=r"^[A-Z][A-Z0-9]{1,7}$")
     specification_revision: int = Field(ge=1)
     input_selection_revision: int = Field(ge=1)
+    custom_functions: tuple[CustomFunctionDefinition, ...] = ()
     nodes: tuple[SdtmPlanNode, ...] = Field(min_length=1)
     edges: tuple[PlanEdge, ...] = ()
 
     @model_validator(mode="after")
     def valid_graph(self) -> "SdtmDerivationPlan":
+        function_ids = [item.id for item in self.custom_functions]
+        if len(function_ids) != len(set(function_ids)):
+            raise ValueError("custom function IDs must be unique")
         ids = [node.id for node in self.nodes]
         if len(ids) != len(set(ids)):
             raise ValueError("plan node IDs must be unique")

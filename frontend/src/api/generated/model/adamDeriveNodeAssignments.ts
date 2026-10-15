@@ -10,6 +10,7 @@ import type { UnaryExpression } from './unaryExpression';
 import type { BinaryExpression } from './binaryExpression';
 import type { ConditionalExpression } from './conditionalExpression';
 import type { FunctionCallExpression } from './functionCallExpression';
+import type { CustomFunctionCallExpression } from './customFunctionCallExpression';
 import type { ListLiteralExpression } from './listLiteralExpression';
 
-export type AdamDeriveNodeAssignments = {[key: string]: LiteralExpression | ColumnExpression | UnaryExpression | BinaryExpression | ConditionalExpression | FunctionCallExpression | ListLiteralExpression};
+export type AdamDeriveNodeAssignments = {[key: string]: LiteralExpression | ColumnExpression | UnaryExpression | BinaryExpression | ConditionalExpression | FunctionCallExpression | CustomFunctionCallExpression | ListLiteralExpression};

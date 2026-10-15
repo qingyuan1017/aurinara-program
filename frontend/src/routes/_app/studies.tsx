@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -20,45 +20,17 @@ import {
 import {
   getGetStudyQueryKey,
   getListStudiesQueryKey,
-  useCreateStudy,
   useListStudies,
   usePatchStudy,
 } from '@/api/generated/studies/studies'
-import type {
-  StudyCreate,
-  StudyPatch,
-  StudyResponse,
-} from '@/api/generated/model'
-import { ifMatchRequest, jsonRequest } from '@/lib/requests'
+import type { StudyPatch, StudyResponse } from '@/api/generated/model'
+import { ifMatchRequest } from '@/lib/requests'
 
 export const Route = createFileRoute('/_app/studies')({
   component: StudiesPage,
 })
 
-const createFields: FieldDescriptor<StudyCreate>[] = [
-  {
-    name: 'code',
-    label: 'Code',
-    control: 'text',
-    required: true,
-    placeholder: 'STUDY-001',
-    pattern: {
-      re: /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/,
-      message:
-        'Code must start with a letter or number and use only letters, numbers, ., _ or - (max 64).',
-    },
-  },
-  {
-    name: 'name',
-    label: 'Name',
-    control: 'text',
-    required: true,
-    maxLength: 255,
-  },
-]
-
 const editFields: FieldDescriptor<StudyPatch>[] = [
-  { name: 'name', label: 'Name', control: 'text', maxLength: 255 },
   {
     name: 'status',
     label: 'Status',
@@ -75,16 +47,7 @@ function StudiesPage() {
   const { data, isLoading, isError, error } = useListStudies(undefined, {
     query: { refetchInterval: 30_000, refetchIntervalInBackground: false },
   })
-  const [createOpen, setCreateOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<StudyResponse | null>(null)
-
-  const create = useCreateStudy({
-    mutation: {
-      onSuccess: () =>
-        qc.invalidateQueries({ queryKey: getListStudiesQueryKey() }),
-    },
-    request: jsonRequest(),
-  })
 
   const patch = usePatchStudy({
     mutation: {
@@ -103,13 +66,8 @@ function StudiesPage() {
         title="Studies"
         description={
           <>
-            Studies returned by <code>GET /api/v1/studies</code>.
+            Studies are created in Aurinara Platform. Name and sponsor are synchronized here as read-only canonical data.
           </>
-        }
-        actions={
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus /> New study
-          </Button>
         }
       />
 
@@ -141,7 +99,7 @@ function StudiesPage() {
           <CardHeader>
             <CardTitle>No studies yet</CardTitle>
             <CardDescription>
-              Create a study to get started.
+              No platform-managed studies are currently visible to your account.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -157,6 +115,7 @@ function StudiesPage() {
                   <StatusBadge status={study.status} />
                 </div>
                 <CardDescription>Code: {study.code}</CardDescription>
+                <CardDescription>Sponsor: {study.sponsor ?? 'Not supplied'}</CardDescription>
               </CardHeader>
               <CardContent className="text-muted-foreground flex items-end justify-between text-xs">
                 <div>
@@ -176,32 +135,17 @@ function StudiesPage() {
         </div>
       )}
 
-      <ResourceFormDialog<StudyCreate>
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        title="New study"
-        description="Create a study and become its owner."
-        fields={createFields}
-        initialValues={{}}
-        submitLabel="Create study"
-        successMessage="Study created."
-        isSubmitting={create.isPending}
-        submitError={create.error}
-        onSubmit={(data) => create.mutateAsync({ data })}
-      />
-
       <ResourceFormDialog<StudyPatch>
         open={!!editing}
         onOpenChange={(open) => {
           if (!open) setEditing(null)
         }}
         title="Edit study"
-        description="Update study metadata."
+        description="Update Aurinara-owned lifecycle state. Canonical name and sponsor are managed in Aurinara Platform."
         fields={editFields}
         initialValues={
           editing
             ? {
-                name: editing.name,
                 status: editing.status as StudyPatch['status'],
               }
             : {}

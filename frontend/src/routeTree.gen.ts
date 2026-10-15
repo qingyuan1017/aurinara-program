@@ -28,11 +28,17 @@ import { Route as AppTerminologyRouteImport } from './routes/_app/terminology'
 import { Route as AppTlfRouteImport } from './routes/_app/tlf'
 import { Route as AppValidationRouteImport } from './routes/_app/validation'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as AppAdamIndexRouteImport } from './routes/_app/adam/index'
+import { Route as AppAdamAdamIdRouteImport } from './routes/_app/adam/$adamId'
+import { Route as AppDocumentsIndexRouteImport } from './routes/_app/documents/index'
+import { Route as AppDocumentsDocumentIdRouteImport } from './routes/_app/documents/$documentId'
 import { Route as AppRawIndexRouteImport } from './routes/_app/raw/index'
 import { Route as AppRawRawIdRouteImport } from './routes/_app/raw/$rawId'
 import { Route as AppSdtmIndexRouteImport } from './routes/_app/sdtm/index'
 import { Route as AppSdtmSdtmIdRouteImport } from './routes/_app/sdtm/$sdtmId'
 import { Route as AppStandardsIndexRouteImport } from './routes/_app/standards/index'
+import { Route as AppTlfIndexRouteImport } from './routes/_app/tlf/index'
+import { Route as AppTlfTlfIdRouteImport } from './routes/_app/tlf/$tlfId'
 import { Route as AppStandardsCodelistsCodelistIdRouteImport } from './routes/_app/standards/codelists/$codelistId'
 import { Route as AppStandardsProductsStandardIdRouteImport } from './routes/_app/standards/products/$standardId'
 import { Route as AppStandardsReleasesReleaseIdRouteImport } from './routes/_app/standards/releases/$releaseId'
@@ -133,6 +139,26 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppAdamIndexRoute = AppAdamIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppAdamRoute,
+} as any)
+const AppAdamAdamIdRoute = AppAdamAdamIdRouteImport.update({
+  id: '/$adamId',
+  path: '/$adamId',
+  getParentRoute: () => AppAdamRoute,
+} as any)
+const AppDocumentsIndexRoute = AppDocumentsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppDocumentsRoute,
+} as any)
+const AppDocumentsDocumentIdRoute = AppDocumentsDocumentIdRouteImport.update({
+  id: '/$documentId',
+  path: '/$documentId',
+  getParentRoute: () => AppDocumentsRoute,
+} as any)
 const AppRawIndexRoute = AppRawIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -157,6 +183,16 @@ const AppStandardsIndexRoute = AppStandardsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppStandardsRoute,
+} as any)
+const AppTlfIndexRoute = AppTlfIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppTlfRoute,
+} as any)
+const AppTlfTlfIdRoute = AppTlfTlfIdRouteImport.update({
+  id: '/$tlfId',
+  path: '/$tlfId',
+  getParentRoute: () => AppTlfRoute,
 } as any)
 const AppStandardsCodelistsCodelistIdRoute =
   AppStandardsCodelistsCodelistIdRouteImport.update({
@@ -194,8 +230,8 @@ export interface FileRoutesByFullPath {
   '/confirm': typeof ConfirmRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/adam': typeof AppAdamRoute
-  '/documents': typeof AppDocumentsRoute
+  '/adam': typeof AppAdamRouteWithChildren
+  '/documents': typeof AppDocumentsRouteWithChildren
   '/integrations': typeof AppIntegrationsRoute
   '/packaging': typeof AppPackagingRoute
   '/raw': typeof AppRawRouteWithChildren
@@ -205,14 +241,20 @@ export interface FileRoutesByFullPath {
   '/standards': typeof AppStandardsRouteWithChildren
   '/studies': typeof AppStudiesRoute
   '/terminology': typeof AppTerminologyRoute
-  '/tlf': typeof AppTlfRoute
+  '/tlf': typeof AppTlfRouteWithChildren
   '/validation': typeof AppValidationRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/adam/$adamId': typeof AppAdamAdamIdRoute
+  '/documents/$documentId': typeof AppDocumentsDocumentIdRoute
   '/raw/$rawId': typeof AppRawRawIdRoute
   '/sdtm/$sdtmId': typeof AppSdtmSdtmIdRoute
+  '/tlf/$tlfId': typeof AppTlfTlfIdRoute
+  '/adam/': typeof AppAdamIndexRoute
+  '/documents/': typeof AppDocumentsIndexRoute
   '/raw/': typeof AppRawIndexRoute
   '/sdtm/': typeof AppSdtmIndexRoute
   '/standards/': typeof AppStandardsIndexRoute
+  '/tlf/': typeof AppTlfIndexRoute
   '/standards/codelists/$codelistId': typeof AppStandardsCodelistsCodelistIdRoute
   '/standards/products/$standardId': typeof AppStandardsProductsStandardIdRoute
   '/standards/releases/$releaseId': typeof AppStandardsReleasesReleaseIdRoute
@@ -223,8 +265,6 @@ export interface FileRoutesByTo {
   '/confirm': typeof ConfirmRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/adam': typeof AppAdamRoute
-  '/documents': typeof AppDocumentsRoute
   '/integrations': typeof AppIntegrationsRoute
   '/packaging': typeof AppPackagingRoute
   '/reconciliation': typeof AppReconciliationRoute
@@ -232,15 +272,20 @@ export interface FileRoutesByTo {
   '/review': typeof AppReviewRoute
   '/studies': typeof AppStudiesRoute
   '/terminology': typeof AppTerminologyRoute
-  '/tlf': typeof AppTlfRoute
   '/validation': typeof AppValidationRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/': typeof AppIndexRoute
+  '/adam/$adamId': typeof AppAdamAdamIdRoute
+  '/documents/$documentId': typeof AppDocumentsDocumentIdRoute
   '/raw/$rawId': typeof AppRawRawIdRoute
   '/sdtm/$sdtmId': typeof AppSdtmSdtmIdRoute
+  '/tlf/$tlfId': typeof AppTlfTlfIdRoute
+  '/adam': typeof AppAdamIndexRoute
+  '/documents': typeof AppDocumentsIndexRoute
   '/raw': typeof AppRawIndexRoute
   '/sdtm': typeof AppSdtmIndexRoute
   '/standards': typeof AppStandardsIndexRoute
+  '/tlf': typeof AppTlfIndexRoute
   '/standards/codelists/$codelistId': typeof AppStandardsCodelistsCodelistIdRoute
   '/standards/products/$standardId': typeof AppStandardsProductsStandardIdRoute
   '/standards/releases/$releaseId': typeof AppStandardsReleasesReleaseIdRoute
@@ -253,8 +298,8 @@ export interface FileRoutesById {
   '/confirm': typeof ConfirmRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/_app/adam': typeof AppAdamRoute
-  '/_app/documents': typeof AppDocumentsRoute
+  '/_app/adam': typeof AppAdamRouteWithChildren
+  '/_app/documents': typeof AppDocumentsRouteWithChildren
   '/_app/integrations': typeof AppIntegrationsRoute
   '/_app/packaging': typeof AppPackagingRoute
   '/_app/raw': typeof AppRawRouteWithChildren
@@ -264,15 +309,21 @@ export interface FileRoutesById {
   '/_app/standards': typeof AppStandardsRouteWithChildren
   '/_app/studies': typeof AppStudiesRoute
   '/_app/terminology': typeof AppTerminologyRoute
-  '/_app/tlf': typeof AppTlfRoute
+  '/_app/tlf': typeof AppTlfRouteWithChildren
   '/_app/validation': typeof AppValidationRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/adam/$adamId': typeof AppAdamAdamIdRoute
+  '/_app/documents/$documentId': typeof AppDocumentsDocumentIdRoute
   '/_app/raw/$rawId': typeof AppRawRawIdRoute
   '/_app/sdtm/$sdtmId': typeof AppSdtmSdtmIdRoute
+  '/_app/tlf/$tlfId': typeof AppTlfTlfIdRoute
+  '/_app/adam/': typeof AppAdamIndexRoute
+  '/_app/documents/': typeof AppDocumentsIndexRoute
   '/_app/raw/': typeof AppRawIndexRoute
   '/_app/sdtm/': typeof AppSdtmIndexRoute
   '/_app/standards/': typeof AppStandardsIndexRoute
+  '/_app/tlf/': typeof AppTlfIndexRoute
   '/_app/standards/codelists/$codelistId': typeof AppStandardsCodelistsCodelistIdRoute
   '/_app/standards/products/$standardId': typeof AppStandardsProductsStandardIdRoute
   '/_app/standards/releases/$releaseId': typeof AppStandardsReleasesReleaseIdRoute
@@ -300,11 +351,17 @@ export interface FileRouteTypes {
     | '/tlf'
     | '/validation'
     | '/auth/callback'
+    | '/adam/$adamId'
+    | '/documents/$documentId'
     | '/raw/$rawId'
     | '/sdtm/$sdtmId'
+    | '/tlf/$tlfId'
+    | '/adam/'
+    | '/documents/'
     | '/raw/'
     | '/sdtm/'
     | '/standards/'
+    | '/tlf/'
     | '/standards/codelists/$codelistId'
     | '/standards/products/$standardId'
     | '/standards/releases/$releaseId'
@@ -315,8 +372,6 @@ export interface FileRouteTypes {
     | '/confirm'
     | '/login'
     | '/signup'
-    | '/adam'
-    | '/documents'
     | '/integrations'
     | '/packaging'
     | '/reconciliation'
@@ -324,15 +379,20 @@ export interface FileRouteTypes {
     | '/review'
     | '/studies'
     | '/terminology'
-    | '/tlf'
     | '/validation'
     | '/auth/callback'
     | '/'
+    | '/adam/$adamId'
+    | '/documents/$documentId'
     | '/raw/$rawId'
     | '/sdtm/$sdtmId'
+    | '/tlf/$tlfId'
+    | '/adam'
+    | '/documents'
     | '/raw'
     | '/sdtm'
     | '/standards'
+    | '/tlf'
     | '/standards/codelists/$codelistId'
     | '/standards/products/$standardId'
     | '/standards/releases/$releaseId'
@@ -359,11 +419,17 @@ export interface FileRouteTypes {
     | '/_app/validation'
     | '/auth/callback'
     | '/_app/'
+    | '/_app/adam/$adamId'
+    | '/_app/documents/$documentId'
     | '/_app/raw/$rawId'
     | '/_app/sdtm/$sdtmId'
+    | '/_app/tlf/$tlfId'
+    | '/_app/adam/'
+    | '/_app/documents/'
     | '/_app/raw/'
     | '/_app/sdtm/'
     | '/_app/standards/'
+    | '/_app/tlf/'
     | '/_app/standards/codelists/$codelistId'
     | '/_app/standards/products/$standardId'
     | '/_app/standards/releases/$releaseId'
@@ -514,6 +580,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/adam/': {
+      id: '/_app/adam/'
+      path: '/'
+      fullPath: '/adam/'
+      preLoaderRoute: typeof AppAdamIndexRouteImport
+      parentRoute: typeof AppAdamRoute
+    }
+    '/_app/adam/$adamId': {
+      id: '/_app/adam/$adamId'
+      path: '/$adamId'
+      fullPath: '/adam/$adamId'
+      preLoaderRoute: typeof AppAdamAdamIdRouteImport
+      parentRoute: typeof AppAdamRoute
+    }
+    '/_app/documents/': {
+      id: '/_app/documents/'
+      path: '/'
+      fullPath: '/documents/'
+      preLoaderRoute: typeof AppDocumentsIndexRouteImport
+      parentRoute: typeof AppDocumentsRoute
+    }
+    '/_app/documents/$documentId': {
+      id: '/_app/documents/$documentId'
+      path: '/$documentId'
+      fullPath: '/documents/$documentId'
+      preLoaderRoute: typeof AppDocumentsDocumentIdRouteImport
+      parentRoute: typeof AppDocumentsRoute
+    }
     '/_app/raw/': {
       id: '/_app/raw/'
       path: '/'
@@ -548,6 +642,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/standards/'
       preLoaderRoute: typeof AppStandardsIndexRouteImport
       parentRoute: typeof AppStandardsRoute
+    }
+    '/_app/tlf/': {
+      id: '/_app/tlf/'
+      path: '/'
+      fullPath: '/tlf/'
+      preLoaderRoute: typeof AppTlfIndexRouteImport
+      parentRoute: typeof AppTlfRoute
+    }
+    '/_app/tlf/$tlfId': {
+      id: '/_app/tlf/$tlfId'
+      path: '/$tlfId'
+      fullPath: '/tlf/$tlfId'
+      preLoaderRoute: typeof AppTlfTlfIdRouteImport
+      parentRoute: typeof AppTlfRoute
     }
     '/_app/standards/codelists/$codelistId': {
       id: '/_app/standards/codelists/$codelistId'
@@ -587,6 +695,33 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppAdamRouteChildren {
+  AppAdamAdamIdRoute: typeof AppAdamAdamIdRoute
+  AppAdamIndexRoute: typeof AppAdamIndexRoute
+}
+
+const AppAdamRouteChildren: AppAdamRouteChildren = {
+  AppAdamAdamIdRoute: AppAdamAdamIdRoute,
+  AppAdamIndexRoute: AppAdamIndexRoute,
+}
+
+const AppAdamRouteWithChildren =
+  AppAdamRoute._addFileChildren(AppAdamRouteChildren)
+
+interface AppDocumentsRouteChildren {
+  AppDocumentsDocumentIdRoute: typeof AppDocumentsDocumentIdRoute
+  AppDocumentsIndexRoute: typeof AppDocumentsIndexRoute
+}
+
+const AppDocumentsRouteChildren: AppDocumentsRouteChildren = {
+  AppDocumentsDocumentIdRoute: AppDocumentsDocumentIdRoute,
+  AppDocumentsIndexRoute: AppDocumentsIndexRoute,
+}
+
+const AppDocumentsRouteWithChildren = AppDocumentsRoute._addFileChildren(
+  AppDocumentsRouteChildren,
+)
+
 interface AppRawRouteChildren {
   AppRawRawIdRoute: typeof AppRawRawIdRoute
   AppRawIndexRoute: typeof AppRawIndexRoute
@@ -622,9 +757,22 @@ const AppStandardsRouteWithChildren = AppStandardsRoute._addFileChildren(
   AppStandardsRouteChildren,
 )
 
+interface AppTlfRouteChildren {
+  AppTlfTlfIdRoute: typeof AppTlfTlfIdRoute
+  AppTlfIndexRoute: typeof AppTlfIndexRoute
+}
+
+const AppTlfRouteChildren: AppTlfRouteChildren = {
+  AppTlfTlfIdRoute: AppTlfTlfIdRoute,
+  AppTlfIndexRoute: AppTlfIndexRoute,
+}
+
+const AppTlfRouteWithChildren =
+  AppTlfRoute._addFileChildren(AppTlfRouteChildren)
+
 interface AppRouteChildren {
-  AppAdamRoute: typeof AppAdamRoute
-  AppDocumentsRoute: typeof AppDocumentsRoute
+  AppAdamRoute: typeof AppAdamRouteWithChildren
+  AppDocumentsRoute: typeof AppDocumentsRouteWithChildren
   AppIntegrationsRoute: typeof AppIntegrationsRoute
   AppPackagingRoute: typeof AppPackagingRoute
   AppRawRoute: typeof AppRawRouteWithChildren
@@ -634,7 +782,7 @@ interface AppRouteChildren {
   AppStandardsRoute: typeof AppStandardsRouteWithChildren
   AppStudiesRoute: typeof AppStudiesRoute
   AppTerminologyRoute: typeof AppTerminologyRoute
-  AppTlfRoute: typeof AppTlfRoute
+  AppTlfRoute: typeof AppTlfRouteWithChildren
   AppValidationRoute: typeof AppValidationRoute
   AppIndexRoute: typeof AppIndexRoute
   AppSdtmSdtmIdRoute: typeof AppSdtmSdtmIdRoute
@@ -642,8 +790,8 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppAdamRoute: AppAdamRoute,
-  AppDocumentsRoute: AppDocumentsRoute,
+  AppAdamRoute: AppAdamRouteWithChildren,
+  AppDocumentsRoute: AppDocumentsRouteWithChildren,
   AppIntegrationsRoute: AppIntegrationsRoute,
   AppPackagingRoute: AppPackagingRoute,
   AppRawRoute: AppRawRouteWithChildren,
@@ -653,7 +801,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppStandardsRoute: AppStandardsRouteWithChildren,
   AppStudiesRoute: AppStudiesRoute,
   AppTerminologyRoute: AppTerminologyRoute,
-  AppTlfRoute: AppTlfRoute,
+  AppTlfRoute: AppTlfRouteWithChildren,
   AppValidationRoute: AppValidationRoute,
   AppIndexRoute: AppIndexRoute,
   AppSdtmSdtmIdRoute: AppSdtmSdtmIdRoute,

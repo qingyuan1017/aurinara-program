@@ -507,6 +507,26 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
+describe('PDF annotation viewer', () => {
+  it('enables the viewer only when a saved annotation identifies a source PDF', () => {
+    const empty = renderInWorkbench(<AcrfPanel sdtmId="sdtm-1" />)
+    expect(
+      screen
+        .getByRole('button', { name: /view pdf annotations/i })
+        .hasAttribute('disabled'),
+    ).toBe(true)
+    empty.unmount()
+
+    acrfApi.annotations = [makeAnnotation()]
+    renderInWorkbench(<AcrfPanel sdtmId="sdtm-1" />)
+    expect(
+      screen
+        .getByRole('button', { name: /view pdf annotations/i })
+        .hasAttribute('disabled'),
+    ).toBe(false)
+  })
+})
+
 // ===========================================================================
 // Create: rect-bounds gate blocks submit with NO request (Req 17.3) and a
 // valid create sends the aggregate ETag (Req 17.2).

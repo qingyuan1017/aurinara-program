@@ -2,6 +2,7 @@
 
 import csv
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -161,6 +162,168 @@ def test_backend_capability_missing_precedes_publication() -> None:
     )
     with pytest.raises(BackendCapabilityMissing):
         compile_dataflow(flow, "sas")
+
+
+def test_custom_function_compiles_supplied_language_and_todo_placeholders(
+    tmp_path: Path,
+) -> None:
+    flow = DataflowIR.model_validate(
+        {
+            "custom_functions": [
+                {
+                    "id": "make_subject",
+                    "parameters": ["value"],
+                    "return_type": "character",
+                    "implementations": [
+                        {"language": "python", "source": "return 'SUBJ-' + str(value)"}
+                    ],
+                }
+            ],
+            "nodes": [
+                {"node_type": "read", "id": "read", "dataset": "DEMOG"},
+                {
+                    "node_type": "derive",
+                    "id": "derive",
+                    "assignments": {
+                        "USUBJID": {
+                            "kind": "custom_function",
+                            "function_id": "make_subject",
+                            "arguments": [
+                                {"kind": "column", "dataset": "DEMOG", "column": "SUBJID"}
+                            ],
+                        }
+                    },
+                },
+                {"node_type": "write", "id": "write", "dataset": "DM"},
+            ],
+            "edges": [
+                {"source_node": "read", "target_node": "derive"},
+                {"source_node": "derive", "target_node": "write"},
+            ],
+        }
+    )
+
+    python = compile_dataflow(flow, "python")
+    r = compile_dataflow(flow, "r")
+    sas = compile_dataflow(flow, "sas")
+
+    assert python.executable is True
+    assert python.todo_functions == ()
+    assert "def aur_user_make_subject(value):" in python.source
+    assert r.executable is False
+    assert r.todo_functions == ("make_subject",)
+    assert "TODO: provide R implementation" in r.source
+    assert sas.executable is False
+    assert "TODO: provide SAS implementation" in sas.source
+
+    inputs = tmp_path / "inputs"
+    inputs.mkdir()
+    with (inputs / "DEMOG.csv").open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=["SUBJID"])
+        writer.writeheader()
+        writer.writerow({"SUBJID": "01"})
+    program = tmp_path / "program.py"
+    program.write_text(python.source, encoding="utf-8")
+    completed = subprocess.run(
+        [sys.executable, "-I", str(program)],
+        check=False,
+        capture_output=True,
+        env={**os.environ, "AURINARA_WORKSPACE": str(tmp_path)},
+        timeout=10,
+    )
+    assert completed.returncode == 0, completed.stderr.decode()
+    assert (tmp_path / "outputs" / "DM.csv").read_text(encoding="utf-8") == (
+        "SUBJID,USUBJID\n01,SUBJ-01\n"
+    )
+
+
+def test_custom_function_calls_require_a_definition_and_exact_arity() -> None:
+    payload = {
+        "nodes": [
+            {
+                "node_type": "derive",
+                "id": "derive",
+                "assignments": {
+                    "VALUE": {
+                        "kind": "custom_function",
+                        "function_id": "missing",
+                        "arguments": [],
+                    }
+                },
+            }
+        ]
+    }
+    with pytest.raises(ValidationError, match="must resolve"):
+        DataflowIR.model_validate(payload)
+
+    payload["custom_functions"] = [
+        {
+            "id": "missing",
+            "parameters": ["value"],
+            "return_type": "numeric",
+            "implementations": [{"language": "python", "source": "return value"}],
+        }
+    ]
+    with pytest.raises(ValidationError, match="expects 1 arguments"):
+        DataflowIR.model_validate(payload)
+
+
+@pytest.mark.skipif(shutil.which("Rscript") is None, reason="Rscript is not installed")
+def test_custom_function_is_executable_for_supplied_r_body(tmp_path: Path) -> None:
+    flow = DataflowIR.model_validate(
+        {
+            "custom_functions": [
+                {
+                    "id": "make_subject",
+                    "parameters": ["value"],
+                    "return_type": "character",
+                    "implementations": [
+                        {"language": "r", "source": "return(paste0('SUBJ-', value))"}
+                    ],
+                }
+            ],
+            "nodes": [
+                {"node_type": "read", "id": "read", "dataset": "DEMOG"},
+                {
+                    "node_type": "derive",
+                    "id": "derive",
+                    "assignments": {
+                        "USUBJID": {
+                            "kind": "custom_function",
+                            "function_id": "make_subject",
+                            "arguments": [
+                                {"kind": "column", "dataset": "DEMOG", "column": "SUBJID"}
+                            ],
+                        }
+                    },
+                },
+                {"node_type": "write", "id": "write", "dataset": "DM"},
+            ],
+            "edges": [
+                {"source_node": "read", "target_node": "derive"},
+                {"source_node": "derive", "target_node": "write"},
+            ],
+        }
+    )
+    program = compile_dataflow(flow, "r")
+    assert program.executable is True
+    assert compile_dataflow(flow, "python").executable is False
+
+    inputs = tmp_path / "inputs"
+    inputs.mkdir()
+    (inputs / "DEMOG.csv").write_text("SUBJID\n01\n", encoding="utf-8")
+    source = tmp_path / "program.R"
+    source.write_text(program.source, encoding="utf-8")
+    completed = subprocess.run(
+        [str(shutil.which("Rscript")), str(source)],
+        check=False,
+        capture_output=True,
+        env={**os.environ, "AURINARA_WORKSPACE": str(tmp_path)},
+        timeout=20,
+    )
+    assert completed.returncode == 0, completed.stderr.decode()
+    with (tmp_path / "outputs" / "DM.csv").open(encoding="utf-8", newline="") as stream:
+        assert list(csv.DictReader(stream)) == [{"SUBJID": "01", "USUBJID": "SUBJ-01"}]
 
 
 def test_generated_python_program_runs_over_staged_csv(tmp_path: Path) -> None:

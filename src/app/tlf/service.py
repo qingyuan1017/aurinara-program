@@ -529,6 +529,8 @@ class TlfCapability(SqlDependencyCapability):
                         "backend": backend,
                         "version": program.compiler_version,
                         "fingerprint": program.ir_fingerprint,
+                        "executable": program.executable,
+                        "todo_functions": list(program.todo_functions),
                     },
                 },
                 validation_run_id=validation_id,
@@ -699,7 +701,7 @@ def lower_analysis_ir(
             if binding is not None
             and (binding.kind != kind or binding.dataset_binding_id != dataset.id)
         ]
-        if invalid or statistic.value != step.method:
+        if invalid or (step.method != "custom" and statistic.value != step.method):
             raise ProblemException(
                 status_code=422,
                 code="tlf_binding_kind_invalid",
@@ -732,9 +734,10 @@ def lower_analysis_ir(
                     "text": "string",
                 },
                 tolerance=step.tolerance,
+                custom_function_id=step.custom_function_id,
             )
         )
-    return AnalysisIR(procedures=tuple(procedures))
+    return AnalysisIR(custom_functions=plan.custom_functions, procedures=tuple(procedures))
 
 
 def _adam_columns(session: Session, bindings: TlfBindings) -> dict[str, set[str]]:

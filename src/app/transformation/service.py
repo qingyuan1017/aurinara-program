@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 from app.common.canonical import fingerprint
-from app.transformation.codegen import GENERATORS, UnsupportedOperator
+from app.transformation.codegen import GENERATORS, UnsupportedOperator, missing_custom_functions
 from app.transformation.contracts import DataflowIR
 
 
@@ -50,6 +50,8 @@ class CompiledProgram:
     compiler_version: str
     source: str
     ir_fingerprint: str
+    executable: bool
+    todo_functions: tuple[str, ...]
 
 
 def compile_dataflow(value: DataflowIR, backend: str) -> CompiledProgram:
@@ -60,4 +62,12 @@ def compile_dataflow(value: DataflowIR, backend: str) -> CompiledProgram:
         source = GENERATORS[backend](value, digest)
     except UnsupportedOperator as error:
         raise BackendCapabilityMissing(backend, str(error)) from error
-    return CompiledProgram(backend, "1.5.0", source, digest)
+    todo_functions = missing_custom_functions(value.custom_functions, backend)  # type: ignore[arg-type]
+    return CompiledProgram(
+        backend,
+        "1.7.0",
+        source,
+        digest,
+        executable=not todo_functions,
+        todo_functions=todo_functions,
+    )

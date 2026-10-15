@@ -13,7 +13,12 @@ import {
   type CognitoUserSession,
   type ISignUpResult,
 } from 'amazon-cognito-identity-js'
-import { clearAuthToken, setAuthToken } from '@/lib/auth'
+import {
+  clearAuthToken,
+  getAuthToken,
+  replaceAuthTokenIfCurrent,
+  setAuthToken,
+} from '@/lib/auth'
 
 const region = import.meta.env.VITE_COGNITO_REGION
 const userPoolId = import.meta.env.VITE_COGNITO_USER_POOL_ID
@@ -161,15 +166,19 @@ export function restoreSession(): Promise<AuthUser | null> {
   if (!current) {
     return Promise.resolve(null)
   }
+  const tokenAtStart = getAuthToken()
   return new Promise((resolve) => {
     current.getSession(
       (err: Error | null, session: CognitoUserSession | null) => {
         if (err || !session || !session.isValid()) {
-          clearAuthToken()
+          replaceAuthTokenIfCurrent(tokenAtStart, null)
           resolve(null)
           return
         }
-        setAuthToken(session.getIdToken().getJwtToken())
+        replaceAuthTokenIfCurrent(
+          tokenAtStart,
+          session.getIdToken().getJwtToken(),
+        )
         resolve(userFromSession(current.getUsername(), session))
       },
     )

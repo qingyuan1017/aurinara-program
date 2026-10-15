@@ -5,7 +5,11 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.transformation.contracts import Expression
+from app.transformation.contracts import (
+    CustomFunctionDefinition,
+    Expression,
+    custom_function_calls,
+)
 
 
 class StrictModel(BaseModel):
@@ -201,6 +205,8 @@ class AdamSpecification(StrictModel):
                     raise ValueError("derived ADaM metadata requires a reviewer-readable method")
             for value_level in dataset.value_level_metadata:
                 entity_ids["adam_value_level"].add(value_level.id)
+                if custom_function_calls(value_level.condition):
+                    raise ValueError("custom functions may only be called from a Derivation Plan")
                 if value_level.method_id is not None and value_level.method_id not in known_methods:
                     raise ValueError("ADaM method references must resolve")
                 if value_level.origin.origin_type == "Derived" and value_level.method_id is None:
@@ -309,11 +315,15 @@ class AdamDerivationPlan(StrictModel):
     dataset: str = Field(pattern=r"^[A-Z][A-Z0-9]{1,7}$")
     specification_revision: int = Field(ge=1)
     input_selection_revision: int = Field(ge=1)
+    custom_functions: tuple[CustomFunctionDefinition, ...] = ()
     nodes: tuple[AdamPlanNode, ...] = Field(min_length=1)
     edges: tuple[AdamPlanEdge, ...] = ()
 
     @model_validator(mode="after")
     def valid_graph(self) -> "AdamDerivationPlan":
+        function_ids = [item.id for item in self.custom_functions]
+        if len(function_ids) != len(set(function_ids)):
+            raise ValueError("custom function IDs must be unique")
         identifiers = [node.id for node in self.nodes]
         if len(identifiers) != len(set(identifiers)):
             raise ValueError("plan node IDs must be unique")

@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "api:export": "node scripts/export-openapi.mjs",
+    "api:check": "node scripts/check-openapi.mjs",
     "api:generate": "orval --config orval.config.ts",
     "api:sync": "npm run api:export && npm run api:generate"
   },
@@ -35,6 +36,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.451.0",
+    "pdfjs-dist": "6.4.299",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sonner": "^1.5.0",

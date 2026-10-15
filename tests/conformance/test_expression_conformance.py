@@ -389,4 +389,4 @@ def test_function_catalog_python_and_r_agree(tmp_path: Path) -> None:
 def test_function_catalog_generates_sas_program() -> None:
     program = compile_dataflow(_catalog_ir(), "sas")
     assert "data work." in program.source
-    assert program.compiler_version == "1.5.0"
+    assert program.compiler_version == "1.7.0"

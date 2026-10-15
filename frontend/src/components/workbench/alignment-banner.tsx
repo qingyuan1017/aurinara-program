@@ -8,10 +8,9 @@ import { cn } from '@/lib/utils'
 export type AlignmentState = 'aligned' | 'misaligned'
 
 /**
- * Returns true when the plan is misaligned and therefore read-only. Callers
- * derive the disabled state of validate/preview/compile/execute (and the plan
- * editor's write controls) from the same predicate they pass to
- * {@link AlignmentBanner}, so the notice and the disabled controls stay in sync.
+ * Returns true when the saved plan is misaligned. Downstream operations remain
+ * blocked until a new aligned revision is saved; the authoring panel may still
+ * open a separate editable alignment draft.
  */
 export function isMisaligned(
   state: AlignmentState | null | undefined,
@@ -26,15 +25,22 @@ export interface AlignmentBannerProps {
    * mount unconditionally.
    */
   state: AlignmentState | null | undefined
+  reasons?: readonly string[]
+  draftActive?: boolean
   className?: string
 }
 
 /**
- * Persistent misalignment notice for a Derivation Plan. While shown, the plan is
- * read-only and validate/preview/compile/execute are disabled; parent panels
- * gate those controls on {@link isMisaligned} using the same `state` value.
+ * Persistent misalignment notice for a Derivation Plan. Parent panels keep
+ * validate/preview/compile/execute gated on the saved plan state even while an
+ * editable alignment draft is open.
  */
-export function AlignmentBanner({ state, className }: AlignmentBannerProps) {
+export function AlignmentBanner({
+  state,
+  reasons = [],
+  draftActive = false,
+  className,
+}: AlignmentBannerProps) {
   if (!isMisaligned(state)) return null
   return (
     <div
@@ -50,12 +56,30 @@ export function AlignmentBanner({ state, className }: AlignmentBannerProps) {
       <div className="flex flex-col gap-1">
         <span className="font-medium">Derivation plan is misaligned</span>
         <span className="text-destructive/90">
-          The plan&apos;s pinned specification or input-selection revision no
-          longer matches current inputs. The plan is read-only, and validation,
-          preview, compilation, and execution are disabled until an updated plan
-          revision restores alignment.
+          {draftActive
+            ? 'An editable alignment draft is open. Validation, preview, compilation, and execution remain disabled until the reviewed draft is saved as a new aligned revision.'
+            : 'The saved plan no longer matches its current dependencies. Start an alignment revision to review and update a copy; the saved revision remains immutable.'}
         </span>
+        {reasons.length > 0 && (
+          <span className="text-xs text-destructive/90">
+            Reason{reasons.length === 1 ? '' : 's'}:{' '}
+            {reasons.map(alignmentReasonLabel).join(', ')}
+          </span>
+        )}
       </div>
     </div>
   )
+}
+
+function alignmentReasonLabel(reason: string): string {
+  switch (reason) {
+    case 'specification_changed':
+      return 'Specification changed'
+    case 'input_changed':
+      return 'Raw input selection changed'
+    case 'upstream_plan_changed':
+      return 'upstream SDTM plan changed'
+    default:
+      return reason.replaceAll('_', ' ')
+  }
 }

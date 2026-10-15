@@ -27,10 +27,24 @@ import type {
   AggregateCollection,
   AggregateCreate,
   AggregateResponse,
+  AppTlfRoutesCompileRequest,
+  ArtifactBuildResponse,
+  ArtifactRequest,
+  AuthoringResponse,
   DependencySelectionInput,
   DependencySelectionResponse,
+  ExecutionRunResponse,
   HTTPValidationError,
-  ListTlfAggregatesParams
+  ListTlfAggregatesParams,
+  PreviewResponse,
+  RenderRequest,
+  TlfArs,
+  TlfAssumptions,
+  TlfBindings,
+  TlfExecutionRequest,
+  TlfProgramPlan,
+  TlfShell,
+  ValidationRunResponse
 } from '.././model';
 
 import { customInstance } from '../../axios-instance';
@@ -451,6 +465,1232 @@ export const useReplaceTlfDependencies = <TError = ErrorType<HTTPValidationError
       > => {
 
       const mutationOptions = getReplaceTlfDependenciesMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Get Shell
+ */
+export const getShell = (
+    tlfId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<AuthoringResponse>(
+      {url: `/api/v1/tlfs/${tlfId}/shell`, method: 'GET', signal
+    },
+      options);
+    }
+  
+
+
+
+export const getGetShellQueryKey = (tlfId?: string,) => {
+    return [
+    `/api/v1/tlfs/${tlfId}/shell`
+    ] as const;
+    }
+
+    
+export const getGetShellQueryOptions = <TData = Awaited<ReturnType<typeof getShell>>, TError = ErrorType<HTTPValidationError>>(tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getShell>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetShellQueryKey(tlfId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getShell>>> = ({ signal }) => getShell(tlfId, requestOptions, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(tlfId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getShell>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetShellQueryResult = NonNullable<Awaited<ReturnType<typeof getShell>>>
+export type GetShellQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetShell<TData = Awaited<ReturnType<typeof getShell>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getShell>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getShell>>,
+          TError,
+          Awaited<ReturnType<typeof getShell>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetShell<TData = Awaited<ReturnType<typeof getShell>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getShell>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getShell>>,
+          TError,
+          Awaited<ReturnType<typeof getShell>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetShell<TData = Awaited<ReturnType<typeof getShell>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getShell>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary Get Shell
+ */
+
+export function useGetShell<TData = Awaited<ReturnType<typeof getShell>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getShell>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetShellQueryOptions(tlfId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Put Shell
+ */
+export const putShell = (
+    tlfId: string,
+    tlfShell: BodyType<TlfShell>,
+ options?: SecondParameter<typeof customInstance>,) => {
+      
+      
+      return customInstance<AuthoringResponse>(
+      {url: `/api/v1/tlfs/${tlfId}/shell`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: tlfShell
+    },
+      options);
+    }
+  
+
+
+export const getPutShellMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putShell>>, TError,{tlfId: string;data: BodyType<TlfShell>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof putShell>>, TError,{tlfId: string;data: BodyType<TlfShell>}, TContext> => {
+
+const mutationKey = ['putShell'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putShell>>, {tlfId: string;data: BodyType<TlfShell>}> = (props) => {
+          const {tlfId,data} = props ?? {};
+
+          return  putShell(tlfId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutShellMutationResult = NonNullable<Awaited<ReturnType<typeof putShell>>>
+    export type PutShellMutationBody = BodyType<TlfShell>
+    export type PutShellMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Put Shell
+ */
+export const usePutShell = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putShell>>, TError,{tlfId: string;data: BodyType<TlfShell>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putShell>>,
+        TError,
+        {tlfId: string;data: BodyType<TlfShell>},
+        TContext
+      > => {
+
+      const mutationOptions = getPutShellMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Get Bindings
+ */
+export const getBindings = (
+    tlfId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<AuthoringResponse>(
+      {url: `/api/v1/tlfs/${tlfId}/bindings`, method: 'GET', signal
+    },
+      options);
+    }
+  
+
+
+
+export const getGetBindingsQueryKey = (tlfId?: string,) => {
+    return [
+    `/api/v1/tlfs/${tlfId}/bindings`
+    ] as const;
+    }
+
+    
+export const getGetBindingsQueryOptions = <TData = Awaited<ReturnType<typeof getBindings>>, TError = ErrorType<HTTPValidationError>>(tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getBindings>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBindingsQueryKey(tlfId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBindings>>> = ({ signal }) => getBindings(tlfId, requestOptions, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(tlfId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBindings>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetBindingsQueryResult = NonNullable<Awaited<ReturnType<typeof getBindings>>>
+export type GetBindingsQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetBindings<TData = Awaited<ReturnType<typeof getBindings>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getBindings>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getBindings>>,
+          TError,
+          Awaited<ReturnType<typeof getBindings>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetBindings<TData = Awaited<ReturnType<typeof getBindings>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getBindings>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getBindings>>,
+          TError,
+          Awaited<ReturnType<typeof getBindings>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetBindings<TData = Awaited<ReturnType<typeof getBindings>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getBindings>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary Get Bindings
+ */
+
+export function useGetBindings<TData = Awaited<ReturnType<typeof getBindings>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getBindings>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetBindingsQueryOptions(tlfId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Put Bindings
+ */
+export const putBindings = (
+    tlfId: string,
+    tlfBindings: BodyType<TlfBindings>,
+ options?: SecondParameter<typeof customInstance>,) => {
+      
+      
+      return customInstance<AuthoringResponse>(
+      {url: `/api/v1/tlfs/${tlfId}/bindings`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: tlfBindings
+    },
+      options);
+    }
+  
+
+
+export const getPutBindingsMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putBindings>>, TError,{tlfId: string;data: BodyType<TlfBindings>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof putBindings>>, TError,{tlfId: string;data: BodyType<TlfBindings>}, TContext> => {
+
+const mutationKey = ['putBindings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putBindings>>, {tlfId: string;data: BodyType<TlfBindings>}> = (props) => {
+          const {tlfId,data} = props ?? {};
+
+          return  putBindings(tlfId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutBindingsMutationResult = NonNullable<Awaited<ReturnType<typeof putBindings>>>
+    export type PutBindingsMutationBody = BodyType<TlfBindings>
+    export type PutBindingsMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Put Bindings
+ */
+export const usePutBindings = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putBindings>>, TError,{tlfId: string;data: BodyType<TlfBindings>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putBindings>>,
+        TError,
+        {tlfId: string;data: BodyType<TlfBindings>},
+        TContext
+      > => {
+
+      const mutationOptions = getPutBindingsMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Get Assumptions
+ */
+export const getAssumptions = (
+    tlfId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<AuthoringResponse>(
+      {url: `/api/v1/tlfs/${tlfId}/assumptions`, method: 'GET', signal
+    },
+      options);
+    }
+  
+
+
+
+export const getGetAssumptionsQueryKey = (tlfId?: string,) => {
+    return [
+    `/api/v1/tlfs/${tlfId}/assumptions`
+    ] as const;
+    }
+
+    
+export const getGetAssumptionsQueryOptions = <TData = Awaited<ReturnType<typeof getAssumptions>>, TError = ErrorType<HTTPValidationError>>(tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssumptions>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAssumptionsQueryKey(tlfId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAssumptions>>> = ({ signal }) => getAssumptions(tlfId, requestOptions, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(tlfId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAssumptions>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetAssumptionsQueryResult = NonNullable<Awaited<ReturnType<typeof getAssumptions>>>
+export type GetAssumptionsQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetAssumptions<TData = Awaited<ReturnType<typeof getAssumptions>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssumptions>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAssumptions>>,
+          TError,
+          Awaited<ReturnType<typeof getAssumptions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAssumptions<TData = Awaited<ReturnType<typeof getAssumptions>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssumptions>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAssumptions>>,
+          TError,
+          Awaited<ReturnType<typeof getAssumptions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAssumptions<TData = Awaited<ReturnType<typeof getAssumptions>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssumptions>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary Get Assumptions
+ */
+
+export function useGetAssumptions<TData = Awaited<ReturnType<typeof getAssumptions>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssumptions>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetAssumptionsQueryOptions(tlfId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Put Assumptions
+ */
+export const putAssumptions = (
+    tlfId: string,
+    tlfAssumptions: BodyType<TlfAssumptions>,
+ options?: SecondParameter<typeof customInstance>,) => {
+      
+      
+      return customInstance<AuthoringResponse>(
+      {url: `/api/v1/tlfs/${tlfId}/assumptions`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: tlfAssumptions
+    },
+      options);
+    }
+  
+
+
+export const getPutAssumptionsMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putAssumptions>>, TError,{tlfId: string;data: BodyType<TlfAssumptions>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof putAssumptions>>, TError,{tlfId: string;data: BodyType<TlfAssumptions>}, TContext> => {
+
+const mutationKey = ['putAssumptions'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putAssumptions>>, {tlfId: string;data: BodyType<TlfAssumptions>}> = (props) => {
+          const {tlfId,data} = props ?? {};
+
+          return  putAssumptions(tlfId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutAssumptionsMutationResult = NonNullable<Awaited<ReturnType<typeof putAssumptions>>>
+    export type PutAssumptionsMutationBody = BodyType<TlfAssumptions>
+    export type PutAssumptionsMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Put Assumptions
+ */
+export const usePutAssumptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putAssumptions>>, TError,{tlfId: string;data: BodyType<TlfAssumptions>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putAssumptions>>,
+        TError,
+        {tlfId: string;data: BodyType<TlfAssumptions>},
+        TContext
+      > => {
+
+      const mutationOptions = getPutAssumptionsMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Get Ars
+ */
+export const getArs = (
+    tlfId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<AuthoringResponse>(
+      {url: `/api/v1/tlfs/${tlfId}/ars`, method: 'GET', signal
+    },
+      options);
+    }
+  
+
+
+
+export const getGetArsQueryKey = (tlfId?: string,) => {
+    return [
+    `/api/v1/tlfs/${tlfId}/ars`
+    ] as const;
+    }
+
+    
+export const getGetArsQueryOptions = <TData = Awaited<ReturnType<typeof getArs>>, TError = ErrorType<HTTPValidationError>>(tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArs>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetArsQueryKey(tlfId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getArs>>> = ({ signal }) => getArs(tlfId, requestOptions, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(tlfId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getArs>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetArsQueryResult = NonNullable<Awaited<ReturnType<typeof getArs>>>
+export type GetArsQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetArs<TData = Awaited<ReturnType<typeof getArs>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArs>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getArs>>,
+          TError,
+          Awaited<ReturnType<typeof getArs>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetArs<TData = Awaited<ReturnType<typeof getArs>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArs>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getArs>>,
+          TError,
+          Awaited<ReturnType<typeof getArs>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetArs<TData = Awaited<ReturnType<typeof getArs>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArs>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary Get Ars
+ */
+
+export function useGetArs<TData = Awaited<ReturnType<typeof getArs>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArs>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetArsQueryOptions(tlfId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Put Ars
+ */
+export const putArs = (
+    tlfId: string,
+    tlfArs: BodyType<TlfArs>,
+ options?: SecondParameter<typeof customInstance>,) => {
+      
+      
+      return customInstance<AuthoringResponse>(
+      {url: `/api/v1/tlfs/${tlfId}/ars`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: tlfArs
+    },
+      options);
+    }
+  
+
+
+export const getPutArsMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putArs>>, TError,{tlfId: string;data: BodyType<TlfArs>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof putArs>>, TError,{tlfId: string;data: BodyType<TlfArs>}, TContext> => {
+
+const mutationKey = ['putArs'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putArs>>, {tlfId: string;data: BodyType<TlfArs>}> = (props) => {
+          const {tlfId,data} = props ?? {};
+
+          return  putArs(tlfId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutArsMutationResult = NonNullable<Awaited<ReturnType<typeof putArs>>>
+    export type PutArsMutationBody = BodyType<TlfArs>
+    export type PutArsMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Put Ars
+ */
+export const usePutArs = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putArs>>, TError,{tlfId: string;data: BodyType<TlfArs>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putArs>>,
+        TError,
+        {tlfId: string;data: BodyType<TlfArs>},
+        TContext
+      > => {
+
+      const mutationOptions = getPutArsMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Get Program Plan
+ */
+export const getProgramPlan = (
+    tlfId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<AuthoringResponse>(
+      {url: `/api/v1/tlfs/${tlfId}/program-plan`, method: 'GET', signal
+    },
+      options);
+    }
+  
+
+
+
+export const getGetProgramPlanQueryKey = (tlfId?: string,) => {
+    return [
+    `/api/v1/tlfs/${tlfId}/program-plan`
+    ] as const;
+    }
+
+    
+export const getGetProgramPlanQueryOptions = <TData = Awaited<ReturnType<typeof getProgramPlan>>, TError = ErrorType<HTTPValidationError>>(tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProgramPlan>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProgramPlanQueryKey(tlfId);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProgramPlan>>> = ({ signal }) => getProgramPlan(tlfId, requestOptions, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(tlfId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProgramPlan>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetProgramPlanQueryResult = NonNullable<Awaited<ReturnType<typeof getProgramPlan>>>
+export type GetProgramPlanQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetProgramPlan<TData = Awaited<ReturnType<typeof getProgramPlan>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProgramPlan>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getProgramPlan>>,
+          TError,
+          Awaited<ReturnType<typeof getProgramPlan>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetProgramPlan<TData = Awaited<ReturnType<typeof getProgramPlan>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProgramPlan>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getProgramPlan>>,
+          TError,
+          Awaited<ReturnType<typeof getProgramPlan>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetProgramPlan<TData = Awaited<ReturnType<typeof getProgramPlan>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProgramPlan>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary Get Program Plan
+ */
+
+export function useGetProgramPlan<TData = Awaited<ReturnType<typeof getProgramPlan>>, TError = ErrorType<HTTPValidationError>>(
+ tlfId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProgramPlan>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetProgramPlanQueryOptions(tlfId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Put Program Plan
+ */
+export const putProgramPlan = (
+    tlfId: string,
+    tlfProgramPlan: BodyType<TlfProgramPlan>,
+ options?: SecondParameter<typeof customInstance>,) => {
+      
+      
+      return customInstance<AuthoringResponse>(
+      {url: `/api/v1/tlfs/${tlfId}/program-plan`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: tlfProgramPlan
+    },
+      options);
+    }
+  
+
+
+export const getPutProgramPlanMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putProgramPlan>>, TError,{tlfId: string;data: BodyType<TlfProgramPlan>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof putProgramPlan>>, TError,{tlfId: string;data: BodyType<TlfProgramPlan>}, TContext> => {
+
+const mutationKey = ['putProgramPlan'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putProgramPlan>>, {tlfId: string;data: BodyType<TlfProgramPlan>}> = (props) => {
+          const {tlfId,data} = props ?? {};
+
+          return  putProgramPlan(tlfId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutProgramPlanMutationResult = NonNullable<Awaited<ReturnType<typeof putProgramPlan>>>
+    export type PutProgramPlanMutationBody = BodyType<TlfProgramPlan>
+    export type PutProgramPlanMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Put Program Plan
+ */
+export const usePutProgramPlan = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putProgramPlan>>, TError,{tlfId: string;data: BodyType<TlfProgramPlan>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putProgramPlan>>,
+        TError,
+        {tlfId: string;data: BodyType<TlfProgramPlan>},
+        TContext
+      > => {
+
+      const mutationOptions = getPutProgramPlanMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Validate Program Plan
+ */
+export const validateProgramPlan = (
+    tlfId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<ValidationRunResponse>(
+      {url: `/api/v1/tlfs/${tlfId}/program-plan/validate`, method: 'POST', signal
+    },
+      options);
+    }
+  
+
+
+export const getValidateProgramPlanMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateProgramPlan>>, TError,{tlfId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof validateProgramPlan>>, TError,{tlfId: string}, TContext> => {
+
+const mutationKey = ['validateProgramPlan'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof validateProgramPlan>>, {tlfId: string}> = (props) => {
+          const {tlfId} = props ?? {};
+
+          return  validateProgramPlan(tlfId,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ValidateProgramPlanMutationResult = NonNullable<Awaited<ReturnType<typeof validateProgramPlan>>>
+    
+    export type ValidateProgramPlanMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Validate Program Plan
+ */
+export const useValidateProgramPlan = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateProgramPlan>>, TError,{tlfId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof validateProgramPlan>>,
+        TError,
+        {tlfId: string},
+        TContext
+      > => {
+
+      const mutationOptions = getValidateProgramPlanMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Validate Tlf
+ */
+export const validateTlf = (
+    tlfId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<ValidationRunResponse>(
+      {url: `/api/v1/tlfs/${tlfId}/validate`, method: 'POST', signal
+    },
+      options);
+    }
+  
+
+
+export const getValidateTlfMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateTlf>>, TError,{tlfId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof validateTlf>>, TError,{tlfId: string}, TContext> => {
+
+const mutationKey = ['validateTlf'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof validateTlf>>, {tlfId: string}> = (props) => {
+          const {tlfId} = props ?? {};
+
+          return  validateTlf(tlfId,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ValidateTlfMutationResult = NonNullable<Awaited<ReturnType<typeof validateTlf>>>
+    
+    export type ValidateTlfMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Validate Tlf
+ */
+export const useValidateTlf = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateTlf>>, TError,{tlfId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof validateTlf>>,
+        TError,
+        {tlfId: string},
+        TContext
+      > => {
+
+      const mutationOptions = getValidateTlfMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Preview Program Plan
+ */
+export const previewProgramPlan = (
+    tlfId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<PreviewResponse>(
+      {url: `/api/v1/tlfs/${tlfId}/program-plan/preview`, method: 'POST', signal
+    },
+      options);
+    }
+  
+
+
+export const getPreviewProgramPlanMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewProgramPlan>>, TError,{tlfId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewProgramPlan>>, TError,{tlfId: string}, TContext> => {
+
+const mutationKey = ['previewProgramPlan'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewProgramPlan>>, {tlfId: string}> = (props) => {
+          const {tlfId} = props ?? {};
+
+          return  previewProgramPlan(tlfId,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewProgramPlanMutationResult = NonNullable<Awaited<ReturnType<typeof previewProgramPlan>>>
+    
+    export type PreviewProgramPlanMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Preview Program Plan
+ */
+export const usePreviewProgramPlan = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewProgramPlan>>, TError,{tlfId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof previewProgramPlan>>,
+        TError,
+        {tlfId: string},
+        TContext
+      > => {
+
+      const mutationOptions = getPreviewProgramPlanMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Create Tlf Artifacts
+ */
+export const createTlfArtifacts = (
+    tlfId: string,
+    artifactRequest: BodyType<ArtifactRequest>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<ArtifactBuildResponse>(
+      {url: `/api/v1/tlfs/${tlfId}/artifacts`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: artifactRequest, signal
+    },
+      options);
+    }
+  
+
+
+export const getCreateTlfArtifactsMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTlfArtifacts>>, TError,{tlfId: string;data: BodyType<ArtifactRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTlfArtifacts>>, TError,{tlfId: string;data: BodyType<ArtifactRequest>}, TContext> => {
+
+const mutationKey = ['createTlfArtifacts'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTlfArtifacts>>, {tlfId: string;data: BodyType<ArtifactRequest>}> = (props) => {
+          const {tlfId,data} = props ?? {};
+
+          return  createTlfArtifacts(tlfId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTlfArtifactsMutationResult = NonNullable<Awaited<ReturnType<typeof createTlfArtifacts>>>
+    export type CreateTlfArtifactsMutationBody = BodyType<ArtifactRequest>
+    export type CreateTlfArtifactsMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Create Tlf Artifacts
+ */
+export const useCreateTlfArtifacts = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTlfArtifacts>>, TError,{tlfId: string;data: BodyType<ArtifactRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createTlfArtifacts>>,
+        TError,
+        {tlfId: string;data: BodyType<ArtifactRequest>},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateTlfArtifactsMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Compile Tlf
+ */
+export const compileTlf = (
+    tlfId: string,
+    appTlfRoutesCompileRequest: BodyType<AppTlfRoutesCompileRequest>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<ArtifactBuildResponse>(
+      {url: `/api/v1/tlfs/${tlfId}/compile`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: appTlfRoutesCompileRequest, signal
+    },
+      options);
+    }
+  
+
+
+export const getCompileTlfMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof compileTlf>>, TError,{tlfId: string;data: BodyType<AppTlfRoutesCompileRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof compileTlf>>, TError,{tlfId: string;data: BodyType<AppTlfRoutesCompileRequest>}, TContext> => {
+
+const mutationKey = ['compileTlf'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof compileTlf>>, {tlfId: string;data: BodyType<AppTlfRoutesCompileRequest>}> = (props) => {
+          const {tlfId,data} = props ?? {};
+
+          return  compileTlf(tlfId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompileTlfMutationResult = NonNullable<Awaited<ReturnType<typeof compileTlf>>>
+    export type CompileTlfMutationBody = BodyType<AppTlfRoutesCompileRequest>
+    export type CompileTlfMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Compile Tlf
+ */
+export const useCompileTlf = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof compileTlf>>, TError,{tlfId: string;data: BodyType<AppTlfRoutesCompileRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof compileTlf>>,
+        TError,
+        {tlfId: string;data: BodyType<AppTlfRoutesCompileRequest>},
+        TContext
+      > => {
+
+      const mutationOptions = getCompileTlfMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Render Tlf
+ */
+export const renderTlf = (
+    tlfId: string,
+    renderRequest: BodyType<RenderRequest>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<ArtifactBuildResponse>(
+      {url: `/api/v1/tlfs/${tlfId}/render`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: renderRequest, signal
+    },
+      options);
+    }
+  
+
+
+export const getRenderTlfMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renderTlf>>, TError,{tlfId: string;data: BodyType<RenderRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof renderTlf>>, TError,{tlfId: string;data: BodyType<RenderRequest>}, TContext> => {
+
+const mutationKey = ['renderTlf'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof renderTlf>>, {tlfId: string;data: BodyType<RenderRequest>}> = (props) => {
+          const {tlfId,data} = props ?? {};
+
+          return  renderTlf(tlfId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RenderTlfMutationResult = NonNullable<Awaited<ReturnType<typeof renderTlf>>>
+    export type RenderTlfMutationBody = BodyType<RenderRequest>
+    export type RenderTlfMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Render Tlf
+ */
+export const useRenderTlf = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renderTlf>>, TError,{tlfId: string;data: BodyType<RenderRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof renderTlf>>,
+        TError,
+        {tlfId: string;data: BodyType<RenderRequest>},
+        TContext
+      > => {
+
+      const mutationOptions = getRenderTlfMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * @summary Execute Tlf
+ */
+export const executeTlf = (
+    tlfId: string,
+    tlfExecutionRequest: BodyType<TlfExecutionRequest>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<ExecutionRunResponse>(
+      {url: `/api/v1/tlfs/${tlfId}/execute`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: tlfExecutionRequest, signal
+    },
+      options);
+    }
+  
+
+
+export const getExecuteTlfMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof executeTlf>>, TError,{tlfId: string;data: BodyType<TlfExecutionRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof executeTlf>>, TError,{tlfId: string;data: BodyType<TlfExecutionRequest>}, TContext> => {
+
+const mutationKey = ['executeTlf'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof executeTlf>>, {tlfId: string;data: BodyType<TlfExecutionRequest>}> = (props) => {
+          const {tlfId,data} = props ?? {};
+
+          return  executeTlf(tlfId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExecuteTlfMutationResult = NonNullable<Awaited<ReturnType<typeof executeTlf>>>
+    export type ExecuteTlfMutationBody = BodyType<TlfExecutionRequest>
+    export type ExecuteTlfMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Execute Tlf
+ */
+export const useExecuteTlf = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof executeTlf>>, TError,{tlfId: string;data: BodyType<TlfExecutionRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof executeTlf>>,
+        TError,
+        {tlfId: string;data: BodyType<TlfExecutionRequest>},
+        TContext
+      > => {
+
+      const mutationOptions = getExecuteTlfMutationOptions(options);
 
       return useMutation(mutationOptions, queryClient);
     }

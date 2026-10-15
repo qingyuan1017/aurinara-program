@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.transformation.contracts import CustomFunctionDefinition
+
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -147,11 +149,18 @@ class TlfArs(StrictModel):
 class TlfAnalysisStep(StrictModel):
     id: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
     analysis_id: str
-    method: Literal["frequency", "descriptive_statistics"]
+    method: Literal["frequency", "descriptive_statistics", "custom"]
     variable: str = Field(pattern=r"^[A-Z][A-Z0-9_]{0,31}$")
     group_by: tuple[str, ...] = ()
     order: int = Field(ge=1)
     tolerance: float | None = Field(default=None, ge=0)
+    custom_function_id: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{0,62}$")
+
+    @model_validator(mode="after")
+    def valid_custom_method(self) -> "TlfAnalysisStep":
+        if (self.method == "custom") != (self.custom_function_id is not None):
+            raise ValueError("custom TLF steps require exactly one custom_function_id")
+        return self
 
 
 class TlfProgramPlan(StrictModel):
@@ -161,10 +170,26 @@ class TlfProgramPlan(StrictModel):
     assumptions_revision: int = Field(ge=1)
     ars_revision: int = Field(ge=1)
     output_filename: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,62}\.csv$")
+    custom_functions: tuple[CustomFunctionDefinition, ...] = ()
     steps: tuple[TlfAnalysisStep, ...] = Field(min_length=1)
 
     @model_validator(mode="after")
     def unique_steps(self) -> "TlfProgramPlan":
+        function_ids = [item.id for item in self.custom_functions]
+        if len(function_ids) != len(set(function_ids)):
+            raise ValueError("custom function IDs must be unique")
+        functions = {item.id: item for item in self.custom_functions}
+        for step in self.steps:
+            if step.custom_function_id is not None:
+                definition = functions.get(step.custom_function_id)
+                if definition is None:
+                    raise ValueError("custom TLF function references must resolve")
+                if definition.parameters != ("rows", "parameters"):
+                    raise ValueError(
+                        "TLF custom functions must declare parameters ('rows', 'parameters')"
+                    )
+                if definition.return_type != "result_rows":
+                    raise ValueError("TLF custom functions must return result_rows")
         identifiers = [item.id for item in self.steps]
         analyses = [item.analysis_id for item in self.steps]
         orders = [item.order for item in self.steps]

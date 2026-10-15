@@ -46,12 +46,17 @@ import { installJsdomHarness } from '@/test/jsdom-harness'
 import { ifMatchRequest } from '@/lib/requests'
 import type {
   AggregateResponse,
+  DependencySelectionResponse,
   InputSelectionResponse,
+  SdtmSpecificationInitializationOptions,
   SpecificationResponse,
+  StandardProductResponse,
+  StandardVersionResponse,
 } from '@/api/generated/model'
 
 beforeAll(() => {
   installJsdomHarness()
+  HTMLElement.prototype.scrollIntoView = vi.fn()
 })
 
 // ---------------------------------------------------------------------------
@@ -81,6 +86,7 @@ interface RawDatasetOption {
   label: string
   revision: number
   current_source_file_id: string
+  status?: string
 }
 interface SourceFileOption {
   id: string
@@ -156,6 +162,35 @@ vi.mock('@/api/generated/artifacts/artifacts', () => ({
   }),
 }))
 
+const catalogApi: {
+  products: StandardProductResponse[]
+  versions: StandardVersionResponse[]
+} = {
+  products: [],
+  versions: [],
+}
+
+vi.mock('@/api/generated/provider-catalogs/provider-catalogs', () => ({
+  useListStandards: () => ({
+    data: catalogApi.products,
+    error: null,
+    isLoading: false,
+    isError: false,
+  }),
+  useListStandardVersions: (productId: string) => ({
+    data: catalogApi.versions.filter((version) => version.product_id === productId),
+    error: null,
+    isLoading: false,
+    isError: false,
+  }),
+  useGetStandardVersion: (versionId: string) => ({
+    data: catalogApi.versions.find((version) => version.id === versionId),
+    error: null,
+    isLoading: false,
+    isError: false,
+  }),
+}))
+
 // ---------------------------------------------------------------------------
 // Generated SDTM hook stubs. Each test installs the behaviour it needs via the
 // mutable `sdtmApi` object the mock reads through.
@@ -175,8 +210,17 @@ const sdtmApi: {
   // specification
   spec: SpecificationResponse | undefined
   specError: AxiosError | null
+  dependencies: DependencySelectionResponse | undefined
+  initializationOptions: SdtmSpecificationInitializationOptions | undefined
+  replaceDependenciesImpl: (vars: {
+    sdtmId: string
+    data: unknown
+  }) => Promise<unknown>
+  replaceDependenciesRequests: unknown[]
   putSpecImpl: (vars: { sdtmId: string; data: unknown }) => Promise<unknown>
   putSpecRequests: unknown[]
+  initializeSpecImpl: (vars: { sdtmId: string; data: unknown }) => Promise<unknown>
+  initializeSpecRequests: unknown[]
   importImpl: (vars: { sdtmId: string }) => Promise<unknown>
   importCalls: MutationCall[]
 } = {
@@ -187,8 +231,14 @@ const sdtmApi: {
   putSelectionRequests: [],
   spec: undefined,
   specError: null,
+  dependencies: undefined,
+  initializationOptions: undefined,
+  replaceDependenciesImpl: async () => ({}),
+  replaceDependenciesRequests: [],
   putSpecImpl: async () => ({}),
   putSpecRequests: [],
+  initializeSpecImpl: async () => ({}),
+  initializeSpecRequests: [],
   importImpl: async () => ({}),
   importCalls: [],
 }
@@ -223,6 +273,18 @@ vi.mock('@/api/generated/sdtm/sdtm', () => {
     isLoading: false,
     isError: !!sdtmApi.specError,
   })
+  const useGetSdtmDependencies = () => ({
+    data: sdtmApi.dependencies,
+    error: null,
+    isLoading: false,
+    isError: false,
+  })
+  const useGetSpecificationInitializationOptions = () => ({
+    data: sdtmApi.initializationOptions,
+    error: null,
+    isLoading: false,
+    isError: false,
+  })
   const usePutSpecification = (options?: {
     mutation?: { onSuccess?: (data: unknown) => void }
     request?: unknown
@@ -231,6 +293,24 @@ vi.mock('@/api/generated/sdtm/sdtm', () => {
     return useMutationFake(
       (vars: { sdtmId: string; data: unknown }) => sdtmApi.putSpecImpl(vars),
       options?.mutation?.onSuccess,
+    )
+  }
+  const useReplaceSdtmDependencies = (options?: {
+    mutation?: { onSuccess?: (data: unknown) => void }
+    request?: unknown
+  }) => {
+    sdtmApi.replaceDependenciesRequests.push(options?.request)
+    return useMutationFake(
+      (vars: { sdtmId: string; data: unknown }) =>
+        sdtmApi.replaceDependenciesImpl(vars),
+      options?.mutation?.onSuccess,
+    )
+  }
+  const useInitializeSpecification = (options?: { request?: unknown }) => {
+    sdtmApi.initializeSpecRequests.push(options?.request)
+    return useMutationFake(
+      (vars: { sdtmId: string; data: unknown }) =>
+        sdtmApi.initializeSpecImpl(vars),
     )
   }
   // The real generated hook forwards only a HOOK-LEVEL `request` to the mutator
@@ -260,7 +340,11 @@ vi.mock('@/api/generated/sdtm/sdtm', () => {
     useGetRawContext,
     usePutInputSelection,
     useGetSpecification,
+    useGetSdtmDependencies,
+    useGetSpecificationInitializationOptions,
     usePutSpecification,
+    useReplaceSdtmDependencies,
+    useInitializeSpecification,
     useImportSpecification,
     getGetInputSelectionQueryKey: (sdtmId: string) => [
       '/sdtms',
@@ -272,6 +356,12 @@ vi.mock('@/api/generated/sdtm/sdtm', () => {
       '/sdtms',
       sdtmId,
       'specification',
+    ],
+    getGetSpecificationInitializationOptionsQueryKey: (sdtmId: string) => [
+      '/sdtms',
+      sdtmId,
+      'specification',
+      'initialization-options',
     ],
     getGetSdtmAggregateQueryKey: (sdtmId: string) => ['/sdtms', sdtmId],
   }
@@ -497,6 +587,49 @@ beforeEach(() => {
   rawApi.latestValidationRunError = null
   rawApi.latestValidationRunLoading = false
   rawApi.dependencyFingerprint = 'raw-dep-fp'
+  catalogApi.products = [
+    {
+      id: 'standard-product-1',
+      code: 'SDTMIG',
+      name: 'SDTM Implementation Guide',
+      provider: 'CDISC',
+      family: 'SDTMIG',
+      product_type: 'implementation_guide',
+      scope: 'clinical',
+    },
+  ]
+  catalogApi.versions = [
+    {
+      id: 'standard-version-1',
+      product_id: 'standard-product-1',
+      version: '3.3',
+      publication_date: null,
+      library_href: '/mdr/sdtmig/3-3',
+      content_schema_version: '1.0.0',
+      lifecycle: 'active',
+      checksum: 'sha-sdtmig-3-3',
+      provenance: {},
+      applicable_modules: ['sdtm'],
+      purposes: ['reference_metadata'],
+      compatibility: {},
+      created_at: '2024-01-01T00:00:00Z',
+    },
+    {
+      id: 'standard-version-2',
+      product_id: 'standard-product-1',
+      version: '3.4',
+      publication_date: null,
+      library_href: '/mdr/sdtmig/3-4',
+      content_schema_version: '1.0.0',
+      lifecycle: 'active',
+      checksum: 'sha-sdtmig-3-4',
+      provenance: {},
+      applicable_modules: ['sdtm'],
+      purposes: ['reference_metadata', 'sdtm_ig'],
+      compatibility: {},
+      created_at: '2024-06-01T00:00:00Z',
+    },
+  ]
   sdtmApi.selection = undefined
   sdtmApi.selectionError = null
   sdtmApi.rawContext = undefined
@@ -504,8 +637,14 @@ beforeEach(() => {
   sdtmApi.putSelectionRequests = []
   sdtmApi.spec = undefined
   sdtmApi.specError = null
+  sdtmApi.dependencies = undefined
+  sdtmApi.initializationOptions = undefined
+  sdtmApi.replaceDependenciesImpl = async () => ({})
+  sdtmApi.replaceDependenciesRequests = []
   sdtmApi.putSpecImpl = async () => ({})
   sdtmApi.putSpecRequests = []
+  sdtmApi.initializeSpecImpl = async () => ({})
+  sdtmApi.initializeSpecRequests = []
   sdtmApi.importImpl = async () => ({})
   sdtmApi.importCalls = []
   downloadSpy.downloadSpecificationExport.mockClear()
@@ -557,18 +696,24 @@ describe('InputSelectionPanel', () => {
     expect(request.headers?.['If-Match']).toBe(`"revision-${AGGREGATE_REVISION}"`)
   })
 
-  it('renders the seeded dropdown labels and submits the unchanged pinned body', async () => {
+  it('shows one Raw version choice and submits its automatically resolved pins', async () => {
     sdtmApi.selection = makeSelection()
     sdtmApi.putSelectionImpl = vi.fn(async () => makeSelection({ revision: 3 }))
 
     renderInWorkbench(<InputSelectionPanel />)
 
-    // The dropdown triggers show the human labels for the seeded ids. Radix
-    // renders both a visible trigger value and a hidden native <option> for the
-    // selected item, so the label appears more than once — assert presence.
-    expect(screen.getAllByText('RAW1 — Raw one').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('DM — Demographics').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('dm.xpt').length).toBeGreaterThan(0)
+    // The only editable choice is the coherent Raw workbench/revision. Dataset,
+    // artifact, checksum, validation, and dependency details stay automatic.
+    expect(screen.getByLabelText('Raw data version')).toBeTruthy()
+    expect(
+      screen.getAllByText('RAW1 — Raw one · revision 4').length,
+    ).toBeGreaterThan(0)
+    expect(screen.queryByText('Dataset code')).toBeNull()
+    expect(screen.queryByText('Artifact ID')).toBeNull()
+    expect(screen.queryByText('Checksum (SHA-256)')).toBeNull()
+    expect(
+      screen.getByText(/1 active dataset and source artifact will be pinned automatically/i),
+    ).toBeTruthy()
 
     fireEvent.click(
       screen.getByRole('button', { name: /save input selection/i }),
@@ -595,6 +740,64 @@ describe('InputSelectionPanel', () => {
     })
     const request = sdtmApi.putSelectionRequests.at(-1) as AxiosRequestConfig
     expect(request).toEqual(ifMatchRequest(AGGREGATE_REVISION))
+  })
+
+  it('automatically pins every active dataset to its bound source artifact', async () => {
+    rawApi.datasets = [
+      ...rawApi.datasets,
+      {
+        id: 'ds-2',
+        raw_id: 'raw-1',
+        code: 'AE',
+        label: 'Adverse Events',
+        revision: 1,
+        current_source_file_id: 'sf-2',
+        status: 'active',
+      },
+      {
+        id: 'ds-3',
+        raw_id: 'raw-1',
+        code: 'OLD',
+        label: 'Retired input',
+        revision: 2,
+        current_source_file_id: 'sf-3',
+        status: 'retired',
+      },
+    ]
+    rawApi.sourceFiles = [
+      ...rawApi.sourceFiles,
+      {
+        id: 'sf-2',
+        artifact_id: 'art-ae',
+        sha256: 'sha-ae',
+        filename: 'ae.xpt',
+        size: 1,
+      },
+      {
+        id: 'sf-3',
+        artifact_id: 'art-old',
+        sha256: 'sha-old',
+        filename: 'old.xpt',
+        size: 1,
+      },
+    ]
+    sdtmApi.selection = makeSelection()
+    sdtmApi.putSelectionImpl = vi.fn(async () => makeSelection({ revision: 3 }))
+
+    renderInWorkbench(<InputSelectionPanel />)
+    fireEvent.click(
+      screen.getByRole('button', { name: /save input selection/i }),
+    )
+
+    await waitFor(() => {
+      expect(sdtmApi.putSelectionImpl).toHaveBeenCalledTimes(1)
+    })
+    const call = (sdtmApi.putSelectionImpl as ReturnType<typeof vi.fn>).mock
+      .calls[0][0]
+    expect(call.data.source_artifacts).toEqual([
+      { dataset_code: 'DM', artifact_id: 'art-dm', checksum: 'sha-dm' },
+      { dataset_code: 'AE', artifact_id: 'art-ae', checksum: 'sha-ae' },
+    ])
   })
 
   it('retains a seeded raw_id absent from the loaded list and still submits it', async () => {
@@ -675,7 +878,7 @@ describe('InputSelectionPanel', () => {
     expect(screen.getByText(/input selection needs a refresh/i)).toBeTruthy()
   })
 
-  it('shows the run-and-pass-validation prompt when no successful run resolves (no free-text fallback)', () => {
+  it('blocks save and prompts for validation when the selected version has no successful run', () => {
     // The saved selection pins raw-1 so the resolvers run, but the Raw
     // workbench has no successful validation run yet (404).
     sdtmApi.selection = makeSelection({
@@ -699,14 +902,15 @@ describe('InputSelectionPanel', () => {
 
     // The inline prompt is shown…
     expect(
-      screen.getByText(/run and pass validation on this raw workbench first/i),
+      screen.getByText(/run and pass validation on this raw version first/i),
     ).toBeTruthy()
-    // …and there is NO free-text validation-run input to type into. The
-    // resolved-field prompt reuses the id, so any element with that id must not
-    // be an editable input.
-    const field = document.getElementById('is-validation-run')
-    expect(field).toBeTruthy()
-    expect((field as HTMLElement).tagName).not.toBe('INPUT')
+    // …and the implementation detail is not exposed as a separate control.
+    expect(screen.queryByLabelText(/validation run/i)).toBeNull()
+    expect(
+      screen
+        .getByRole('button', { name: /save input selection/i })
+        .hasAttribute('disabled'),
+    ).toBe(true)
   })
 
   it('on 412 shows the concurrency message + reload action re-fetching the aggregate (Req 10.6)', async () => {
@@ -778,6 +982,183 @@ describe('SpecificationPanel', () => {
     // …and the mutation was wired with the aggregate ETag as If-Match (11.4).
     const request = sdtmApi.putSpecRequests.at(-1) as AxiosRequestConfig
     expect(request).toEqual(ifMatchRequest(AGGREGATE_REVISION))
+    expect(request.headers?.['If-Match']).toBe(`"revision-${AGGREGATE_REVISION}"`)
+  })
+
+  it('populates selected domains and can limit additions to Req and Exp variables', async () => {
+    sdtmApi.spec = makeSpec()
+    sdtmApi.dependencies = {
+      revision: 2,
+      state: 'current',
+      fingerprint: 'dependency-fingerprint',
+      standards: [
+        {
+          purpose: 'sdtm_ig',
+          standard_version_id: 'standard-version-1',
+        },
+      ],
+      terminology: [],
+      references: [],
+      templates: [],
+    }
+    sdtmApi.initializationOptions = {
+      standard_version_id: 'standard-version-1',
+      domains: [
+        {
+          code: 'DM',
+          label: 'Demographics',
+          domain_class: 'Special Purpose',
+          required_variable_count: 2,
+          expected_variable_count: 1,
+          permissible_variable_count: 4,
+        },
+        {
+          code: 'AE',
+          label: 'Adverse Events',
+          domain_class: 'Events',
+          required_variable_count: 3,
+          expected_variable_count: 5,
+          permissible_variable_count: 8,
+        },
+      ],
+    }
+    sdtmApi.initializeSpecImpl = vi.fn(async () => makeSpec({ revision: 4 }))
+
+    renderInWorkbench(<SpecificationPanel sdtmId="sdtm-1" />)
+
+    const populate = screen.getByRole('button', {
+      name: /populate from industry standard/i,
+    })
+    expect(populate.hasAttribute('disabled')).toBe(true)
+    fireEvent.click(
+      await screen.findByLabelText('Select DM — Demographics'),
+    )
+    fireEvent.click(
+      screen.getByLabelText(/include only required and expected variables/i),
+    )
+    fireEvent.click(
+      populate,
+    )
+
+    await waitFor(() => {
+      expect(sdtmApi.initializeSpecImpl).toHaveBeenCalledWith({
+        sdtmId: 'sdtm-1',
+        data: {
+          domain_codes: ['DM'],
+          required_expected_only: true,
+        },
+      })
+    })
+    const request = sdtmApi.initializeSpecRequests.at(-1) as AxiosRequestConfig
+    expect(request.headers?.['If-Match']).toBe(`"revision-${AGGREGATE_REVISION}"`)
+  })
+
+  it('requires a saved industry standard selection before populating', async () => {
+    sdtmApi.spec = makeSpec()
+    sdtmApi.dependencies = {
+      revision: 1,
+      state: 'current',
+      fingerprint: 'dependency-fingerprint',
+      standards: [],
+      terminology: [],
+      references: [],
+      templates: [],
+    }
+
+    renderInWorkbench(<SpecificationPanel sdtmId="sdtm-1" />)
+
+    expect(screen.getByLabelText(/implementation guide/i)).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.getByLabelText(/version/i).hasAttribute('disabled')).toBe(false)
+    })
+    expect(
+      screen
+        .getByRole('button', { name: /populate from industry standard/i })
+        .hasAttribute('disabled'),
+    ).toBe(true)
+  })
+
+  it('lets the user select and save an exact catalog version without entering an ID', async () => {
+    sdtmApi.spec = makeSpec()
+    sdtmApi.dependencies = {
+      revision: 2,
+      state: 'current',
+      fingerprint: 'dependency-fingerprint',
+      standards: [
+        {
+          purpose: 'reference_metadata',
+          standard_version_id: 'standard-version-1',
+        },
+      ],
+      terminology: [
+        {
+          scope: 'sdtm',
+          terminology_release_id: 'terminology-1',
+          terminology_extension_revision_ids: [],
+        },
+      ],
+      references: [
+        {
+          purpose: 'study_reference',
+          reference_id: 'reference-logical-1',
+          reference_revision_id: 'reference-1',
+        },
+      ],
+      templates: [
+        { purpose: 'define', template_version_id: 'template-1' },
+      ],
+    }
+    sdtmApi.replaceDependenciesImpl = vi.fn(async () => ({
+      ...sdtmApi.dependencies,
+      revision: 3,
+    }))
+
+    renderInWorkbench(<SpecificationPanel sdtmId="sdtm-1" />)
+
+    const versionSelect = await screen.findByLabelText('Version')
+    fireEvent.pointerDown(versionSelect, {
+      button: 0,
+      pointerType: 'mouse',
+    })
+    fireEvent.click(await screen.findByRole('option', { name: /3\.4 · active/i }))
+    fireEvent.click(
+      screen.getByRole('button', { name: /save standard selection/i }),
+    )
+
+    await waitFor(() => {
+      expect(sdtmApi.replaceDependenciesImpl).toHaveBeenCalledTimes(1)
+    })
+    expect(
+      (sdtmApi.replaceDependenciesImpl as ReturnType<typeof vi.fn>).mock.calls[0][0],
+    ).toEqual({
+      sdtmId: 'sdtm-1',
+      data: {
+        standards: [
+          {
+            purpose: 'sdtm_ig',
+            standard_version_id: 'standard-version-2',
+          },
+        ],
+        terminology: [
+          {
+            scope: 'sdtm',
+            terminology_release_id: 'terminology-1',
+            terminology_extension_revision_ids: [],
+          },
+        ],
+        references: [
+          {
+            purpose: 'study_reference',
+            reference_id: 'reference-logical-1',
+            reference_revision_id: 'reference-1',
+          },
+        ],
+        templates: [
+          { purpose: 'define', template_version_id: 'template-1' },
+        ],
+      },
+    })
+    const request = sdtmApi.replaceDependenciesRequests.at(-1) as AxiosRequestConfig
     expect(request.headers?.['If-Match']).toBe(`"revision-${AGGREGATE_REVISION}"`)
   })
 

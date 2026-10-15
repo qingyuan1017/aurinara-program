@@ -11,6 +11,9 @@
 //   * rebind (R3.6) and retire (R3.7) send the dataset ETag as `If-Match` and
 //     surface the 412 reload path (R3.8);
 //   * retire requires a confirmation that names the dataset (R3.7).
+//   * initialize-all coordinates every dataset's existing source initializer,
+//     preserves each If-Match revision, refreshes affected queries, and reports
+//     partial failures without skipping later datasets.
 //
 // Like the Raw screens tests, the repo mocks the generated Orval hooks + study
 // provider + toast rather than running a network layer (no MSW is installed),
@@ -35,6 +38,7 @@ import { installJsdomHarness } from '@/test/jsdom-harness'
 import { ifMatchRequest } from '@/lib/requests'
 import type {
   RawDatasetResponse,
+  RawInitializeResponse,
   SourceFileResponse,
 } from '@/api/generated/model'
 
@@ -64,6 +68,11 @@ const rawApi: {
   patchDatasetRequests: unknown[]
   retireDatasetImpl: (vars: { datasetId: string }) => Promise<unknown>
   retireDatasetRequests: unknown[]
+  initializeVariablesImpl: (
+    datasetId: string,
+    request?: unknown,
+  ) => Promise<RawInitializeResponse>
+  initializeVariablesCalls: { datasetId: string; request?: unknown }[]
 } = {
   datasets: [],
   createDatasetImpl: async () => ({}),
@@ -72,6 +81,9 @@ const rawApi: {
   patchDatasetRequests: [],
   retireDatasetImpl: async () => ({}),
   retireDatasetRequests: [],
+  initializeVariablesImpl: async () =>
+    ({ created: 0, filled: 0 }) as RawInitializeResponse,
+  initializeVariablesCalls: [],
 }
 
 const sourceFileApi: {
@@ -104,6 +116,11 @@ function makeMutationResult(
 }
 
 vi.mock('@/api/generated/raw/raw', () => {
+  const initializeVariables = (datasetId: string, request?: unknown) => {
+    rawApi.initializeVariablesCalls.push({ datasetId, request })
+    return rawApi.initializeVariablesImpl(datasetId, request)
+  }
+
   const useListDatasets = (_rawId: string) => ({
     data: rawApi.datasets,
     isLoading: false,
@@ -149,6 +166,7 @@ vi.mock('@/api/generated/raw/raw', () => {
   // Query-key helpers used by lib/invalidate.ts (imported at module load) —
   // return bare prefixes so prefix-matching invalidation works.
   return {
+    initializeVariables,
     useListDatasets,
     useCreateDataset,
     usePatchDataset,
@@ -275,12 +293,110 @@ beforeEach(() => {
   rawApi.patchDatasetRequests = []
   rawApi.retireDatasetImpl = async () => ({})
   rawApi.retireDatasetRequests = []
+  rawApi.initializeVariablesImpl = async () =>
+    ({ created: 0, filled: 0 }) as RawInitializeResponse
+  rawApi.initializeVariablesCalls = []
   sourceFileApi.createImpl = async () => makeSourceFile()
   sourceFileApi.calls = []
 })
 
 afterEach(() => {
   vi.clearAllMocks()
+})
+
+// ===========================================================================
+// Initialize all datasets from their bound sources
+// ===========================================================================
+describe('Initialize all datasets', () => {
+  it('is disabled when the workbench has no datasets', () => {
+    renderWithClient(<DatasetsPanel rawId="raw-1" studyId="study-1" />)
+
+    expect(
+      (
+        screen.getByRole('button', {
+          name: /initialize all from source/i,
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true)
+  })
+
+  it('initializes every dataset with its own revision and refreshes its data', async () => {
+    rawApi.datasets = [
+      makeDataset({ id: 'ds-dm', code: 'DM', revision: 4 }),
+      makeDataset({ id: 'ds-ae', code: 'AE', revision: 7 }),
+    ]
+    rawApi.initializeVariablesImpl = vi.fn(async (datasetId: string) =>
+      datasetId === 'ds-ae'
+        ? ({ created: 3, filled: 1 } as RawInitializeResponse)
+        : ({ created: 2, filled: 0 } as RawInitializeResponse),
+    )
+    const { toast } = await import('@/components/ui/sonner')
+    const { invalidateSpy } = renderWithClient(
+      <DatasetsPanel rawId="raw-1" studyId="study-1" />,
+    )
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /initialize all from source/i }),
+    )
+
+    await waitFor(() => {
+      expect(rawApi.initializeVariablesCalls).toHaveLength(2)
+    })
+    // The panel sorts by code, and the bulk action follows that stable order.
+    expect(rawApi.initializeVariablesCalls).toEqual([
+      { datasetId: 'ds-ae', request: ifMatchRequest(7) },
+      { datasetId: 'ds-dm', request: ifMatchRequest(4) },
+    ])
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith(
+        'Initialized 2 datasets: 5 variables created, 1 field filled.',
+      )
+    })
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['/api/v1/raw-datasets/ds-ae/variables'],
+    })
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['/api/v1/raw-datasets/ds-dm/variables'],
+    })
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['/api/v1/raw/raw-1/datasets'],
+    })
+  })
+
+  it('continues after a failure and reports the failed dataset codes', async () => {
+    rawApi.datasets = [
+      makeDataset({ id: 'ds-ae', code: 'AE', revision: 2 }),
+      makeDataset({ id: 'ds-dm', code: 'DM', revision: 4 }),
+      makeDataset({ id: 'ds-lb', code: 'LB', revision: 6 }),
+    ]
+    rawApi.initializeVariablesImpl = vi.fn(async (datasetId: string) => {
+      if (datasetId === 'ds-dm') {
+        throw problemError(422, {
+          title: 'Unprocessable Content',
+          detail: 'Source inspection failed.',
+        })
+      }
+      return { created: 1, filled: 0 } as RawInitializeResponse
+    })
+    const { toast } = await import('@/components/ui/sonner')
+    renderWithClient(<DatasetsPanel rawId="raw-1" studyId="study-1" />)
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /initialize all from source/i }),
+    )
+
+    await waitFor(() => {
+      expect(rawApi.initializeVariablesCalls).toHaveLength(3)
+    })
+    expect(rawApi.initializeVariablesCalls.map((call) => call.datasetId)).toEqual(
+      ['ds-ae', 'ds-dm', 'ds-lb'],
+    )
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        'Initialized 2 of 3 datasets. Failed: DM. 2 variables created, 0 fields filled.',
+      )
+    })
+  })
 })
 
 // Open the create dialog and return the dropzone's hidden file input.

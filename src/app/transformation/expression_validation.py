@@ -15,6 +15,7 @@ from app.transformation.contracts import (
     _FUNCTION_ARITY,
     _FUNCTION_MIN_ARITY,
     ConditionalExpression,
+    DerivationExpression,
     Expression,
     FunctionCallExpression,
 )
@@ -221,7 +222,6 @@ def _check_function(
             f"{field_path}.function",
         )
         return
-
     if name in _FUNCTION_ARITY and count != _FUNCTION_ARITY[name]:
         yield issue(
             EXPR_FUNCTION_ARITY,
@@ -308,7 +308,7 @@ def _check_function(
 
 
 def _walk(
-    expression: Expression,
+    expression: DerivationExpression,
     *,
     field_path: str,
     module: str,
@@ -346,6 +346,16 @@ def _walk(
                 entity_id=entity_id,
             )
         return
+    if expression.kind == "custom_function":
+        for index, argument in enumerate(expression.arguments):
+            yield from _walk(
+                argument,
+                field_path=f"{field_path}.arguments[{index}]",
+                module=module,
+                entity_type=entity_type,
+                entity_id=entity_id,
+            )
+        return
     if expression.kind == "list_literal":
         yield _issue(
             code=EXPR_LIST_LITERAL_MISPLACED,
@@ -356,6 +366,24 @@ def _walk(
             entity_type=entity_type,
             entity_id=entity_id,
             field_path=field_path,
+        )
+        return
+    if expression.kind == "cast":
+        yield from _walk(
+            expression.value,
+            field_path=f"{field_path}.value",
+            module=module,
+            entity_type=entity_type,
+            entity_id=entity_id,
+        )
+        return
+    if expression.kind == "terminology_map":
+        yield from _walk(
+            expression.value,
+            field_path=f"{field_path}.value",
+            module=module,
+            entity_type=entity_type,
+            entity_id=entity_id,
         )
         return
     if expression.kind == "conditional":
@@ -415,7 +443,7 @@ def _walk(
 
 
 def validate_expression(
-    expression: Expression,
+    expression: DerivationExpression,
     *,
     field_path: str,
     module: str,
@@ -436,7 +464,7 @@ def validate_expression(
 
 
 def validate_expressions(
-    expressions: Iterable[tuple[str, Expression]],
+    expressions: Iterable[tuple[str, DerivationExpression]],
     *,
     module: str,
     entity_type: str,

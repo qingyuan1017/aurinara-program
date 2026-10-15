@@ -2,11 +2,83 @@
 
 from collections.abc import Callable
 
-from app.transformation.contracts import DataflowIR, DataflowNode, Expression
+from app.transformation.contracts import (
+    CustomFunctionDefinition,
+    CustomFunctionLanguage,
+    DataflowIR,
+    DataflowNode,
+    DerivationExpression,
+    Expression,
+)
 
 
 class UnsupportedOperator(ValueError):
     """Raised when a backend cannot preserve one operator's semantics."""
+
+
+def _custom_name(identifier: str) -> str:
+    return f"aur_user_{identifier}"
+
+
+def missing_custom_functions(
+    functions: tuple[CustomFunctionDefinition, ...], language: CustomFunctionLanguage
+) -> tuple[str, ...]:
+    """List functions for which generated source contains a TODO placeholder."""
+
+    return tuple(item.id for item in functions if item.implementation(language) is None)
+
+
+def _python_custom_functions(functions: tuple[CustomFunctionDefinition, ...]) -> str:
+    blocks: list[str] = []
+    for definition in functions:
+        source = definition.implementation("python")
+        parameters = ", ".join(definition.parameters)
+        if source is None:
+            source = (
+                f"# TODO: provide Python implementation for custom function {definition.id}\n"
+                f"raise NotImplementedError('custom_function_todo:{definition.id}:python')"
+            )
+        body = "\n".join(f"    {line}" if line else "" for line in source.splitlines())
+        blocks.append(f"def {_custom_name(definition.id)}({parameters}):\n{body}")
+    return "\n\n".join(blocks)
+
+
+def _r_custom_functions(functions: tuple[CustomFunctionDefinition, ...]) -> str:
+    blocks: list[str] = []
+    for definition in functions:
+        source = definition.implementation("r")
+        parameters = ", ".join(definition.parameters)
+        if source is None:
+            source = (
+                f"# TODO: provide R implementation for custom function {definition.id}\n"
+                f"stop('custom_function_todo:{definition.id}:r')"
+            )
+        blocks.append(f"{_custom_name(definition.id)} <- function({parameters}) {{\n{source}\n}}")
+    return "\n\n".join(blocks)
+
+
+def _sas_custom_functions(functions: tuple[CustomFunctionDefinition, ...]) -> str:
+    if not functions:
+        return ""
+    lines = ["proc fcmp outlib=work.aurinara.user; "]
+    for definition in functions:
+        source = definition.implementation("sas")
+        parameters = ", ".join(definition.parameters)
+        lines.append(f"  function {_custom_name(definition.id)}({parameters});")
+        if source is None:
+            lines.extend(
+                [
+                    "    /* TODO: provide SAS implementation for custom function "
+                    f"{definition.id} */",
+                    f'    put "ERROR: custom_function_todo:{definition.id}:sas";',
+                    "    return(.);",
+                ]
+            )
+        else:
+            lines.extend(f"    {line}" if line else "" for line in source.splitlines())
+        lines.append("  endsub;")
+    lines.extend(["run;", "options cmplib=work.aurinara;"])
+    return "\n".join(lines)
 
 
 _PY_FUNCTION_PREAMBLE = r"""
@@ -256,7 +328,7 @@ def _single(node: DataflowNode, incoming: tuple[str, ...]) -> str:
     return incoming[0]
 
 
-def _py_expr(expression: Expression, row: str = "row") -> str:
+def _py_expr(expression: DerivationExpression, row: str = "row") -> str:
     if expression.kind == "literal":
         return repr(expression.value)
     if expression.kind == "column":
@@ -281,6 +353,18 @@ def _py_expr(expression: Expression, row: str = "row") -> str:
             return f"fn_is_in({value}, {candidates})"
         arguments = ", ".join(_py_expr(argument, row) for argument in expression.arguments)
         return f"fn_{expression.function}([{arguments}])"
+    if expression.kind == "custom_function":
+        arguments = ", ".join(_py_expr(argument, row) for argument in expression.arguments)
+        return f"{_custom_name(expression.function_id)}({arguments})"
+    if expression.kind == "cast":
+        value = _py_expr(expression.value, row)
+        return f"cast_value({value}, {expression.target_type!r}, {expression.invalid!r})"
+    if expression.kind == "terminology_map":
+        value = _py_expr(expression.value, row)
+        return (
+            f"terminology_value({value}, {expression.mappings!r}, "
+            f"{expression.unmapped!r})"
+        )
     if expression.kind == "unary":
         operand = _py_expr(expression.operand, row)
         return {
@@ -311,7 +395,7 @@ def _py_expr(expression: Expression, row: str = "row") -> str:
 
 def python_source(value: DataflowIR, digest: str) -> str:
     lines = [
-        f"# aurinara-dataflow compiler=1.5.0 ir={digest}",
+        f"# aurinara-dataflow compiler=1.7.0 ir={digest}",
         "import csv",
         "import os",
         "from pathlib import Path",
@@ -325,6 +409,7 @@ def python_source(value: DataflowIR, digest: str) -> str:
         "    try: return thunk()",
         "    except (ZeroDivisionError, TypeError, ValueError): return None",
         _PY_FUNCTION_PREAMBLE,
+        _python_custom_functions(value.custom_functions),
         "def read(name):",
         '    with (inputs / f"{name}.csv").open(encoding="utf-8-sig", newline="") as stream:',
         "        return list(csv.DictReader(stream))",
@@ -346,6 +431,11 @@ def python_source(value: DataflowIR, digest: str) -> str:
         "    except (TypeError, ValueError):",
         "        if invalid == 'null': return None",
         "        raise RuntimeError('cast_invalid')",
+        "def terminology_value(value, mappings, unmapped):",
+        "    mapped = mappings.get(str(value)) if value is not None else None",
+        "    if mapped is None and unmapped == 'error':",
+        "        raise RuntimeError('terminology_mapping_unmapped')",
+        "    return value if mapped is None and unmapped == 'preserve' else mapped",
         "def join_rows(left, right, keys, how, suffix):",
         "    index = {}",
         "    for position, row in enumerate(right):",
@@ -463,7 +553,7 @@ def python_source(value: DataflowIR, digest: str) -> str:
             lines.extend(
                 [f"state[{target}] = []", f"for row in {source}:", "    next_row = dict(row)"]
             )
-            for name, expression in node.assignments.items():
+            for name, expression in node.ordered_assignments():
                 lines.append(f"    next_row[{name!r}] = {_py_expr(expression, 'next_row')}")
             lines.append(f"    state[{target}].append(next_row)")
         elif node.node_type == "cast":
@@ -564,6 +654,10 @@ def _rq(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def _r_mapping(value: dict[str, str]) -> str:
+    return "c(" + ", ".join(f"{_rq(key)}={_rq(mapped)}" for key, mapped in value.items()) + ")"
+
+
 def _r_literal_scalar(value: str | int | float | bool | None) -> str:
     if value is None:
         return "NA"
@@ -574,7 +668,7 @@ def _r_literal_scalar(value: str | int | float | bool | None) -> str:
     return repr(value)
 
 
-def _r_expr(expression: Expression, frame: str = "frame") -> str:
+def _r_expr(expression: DerivationExpression, frame: str = "frame") -> str:
     if expression.kind == "literal":
         if expression.value is None:
             return "NA"
@@ -602,6 +696,19 @@ def _r_expr(expression: Expression, frame: str = "frame") -> str:
             return f"aur_is_in({value}, {candidates})"
         arguments = ", ".join(_r_expr(argument, frame) for argument in expression.arguments)
         return f"aur_{expression.function}({arguments})"
+    if expression.kind == "custom_function":
+        arguments = ", ".join(_r_expr(argument, frame) for argument in expression.arguments)
+        return f"{_custom_name(expression.function_id)}({arguments})"
+    if expression.kind == "cast":
+        return (
+            f"aur_cast({_r_expr(expression.value, frame)}, "
+            f"{_rq(expression.target_type)}, {_rq(expression.invalid)})"
+        )
+    if expression.kind == "terminology_map":
+        return (
+            f"aur_terminology_map({_r_expr(expression.value, frame)}, "
+            f"{_r_mapping(expression.mappings)}, {_rq(expression.unmapped)})"
+        )
     if expression.kind == "unary":
         operand = _r_expr(expression.operand, frame)
         return {
@@ -638,6 +745,33 @@ aur_norm <- function(x) { if (is.numeric(x)) x[!is.finite(x)] <- NA; x }
 }
 .aur_num <- function(x) suppressWarnings(as.numeric(x))
 .aur_int <- function(x) suppressWarnings(as.integer(round(as.numeric(x))))
+aur_cast <- function(x, target, invalid) {
+  missing <- is.na(x) | x == ""
+  if (target == "text") converted <- as.character(x)
+  else if (target == "float") converted <- suppressWarnings(as.numeric(x))
+  else if (target == "integer") {
+    numeric_values <- suppressWarnings(as.numeric(x))
+    converted <- as.integer(numeric_values)
+    converted[!is.na(numeric_values) & numeric_values != trunc(numeric_values)] <- NA_integer_
+  } else {
+    normalized <- tolower(trimws(as.character(x)))
+    converted <- rep(NA, length(x))
+    converted[normalized %in% c("true", "1")] <- TRUE
+    converted[normalized %in% c("false", "0")] <- FALSE
+  }
+  failed <- !missing & is.na(converted)
+  if (invalid == "error" && any(failed)) stop("cast_invalid")
+  converted[missing] <- NA
+  converted
+}
+aur_terminology_map <- function(x, mappings, unmapped) {
+  keys <- as.character(x)
+  matched <- !is.na(keys) & keys %in% names(mappings)
+  if (unmapped == "error" && any(!matched)) stop("terminology_mapping_unmapped")
+  result <- unname(mappings[keys])
+  if (unmapped == "preserve") result[!matched] <- x[!matched]
+  result
+}
 .aur_vec <- function(fun, n, ...) {
   args <- list(...)
   out <- vector("list", n)
@@ -890,12 +1024,13 @@ aur_date_diff_months <- function(e, s) {
 
 def r_source(value: DataflowIR, digest: str) -> str:
     lines = [
-        f"# aurinara-dataflow compiler=1.5.0 ir={digest}",
+        f"# aurinara-dataflow compiler=1.7.0 ir={digest}",
         'root <- Sys.getenv("AURINARA_WORKSPACE", unset = "/workspace")',
         'inputs <- file.path(root, "inputs")',
         'outputs <- file.path(root, "outputs")',
         "dir.create(outputs, recursive=TRUE, showWarnings=FALSE)",
         _R_FUNCTION_PREAMBLE,
+        _r_custom_functions(value.custom_functions),
         "state <- list()",
     ]
     incoming = incoming_nodes(value)
@@ -943,7 +1078,7 @@ def r_source(value: DataflowIR, digest: str) -> str:
             lines.append(f"frame <- {source}")
             lines.extend(
                 f"frame[[{_rq(name)}]] <- {_r_expr(expr)}"
-                for name, expr in node.assignments.items()
+                for name, expr in node.ordered_assignments()
             )
             lines.append(f"state[[{target}]] <- frame")
         elif node.node_type == "cast":
@@ -1334,7 +1469,7 @@ def _sas_function(expression: Expression, result_type: str | None) -> str:
     raise UnsupportedOperator(f"function_{name}")
 
 
-def _sas_expr(expression: Expression, result_type: str | None = None) -> str:
+def _sas_expr(expression: DerivationExpression, result_type: str | None = None) -> str:
     if expression.kind == "literal":
         if expression.value is None:
             return "." if result_type != "character" else "''"
@@ -1359,6 +1494,39 @@ def _sas_expr(expression: Expression, result_type: str | None = None) -> str:
         return "(" + ", ".join(_sas_list_scalar(value) for value in expression.values) + ")"
     if expression.kind == "function":
         return _sas_function(expression, result_type)
+    if expression.kind == "custom_function":
+        arguments = ", ".join(_sas_expr(item) for item in expression.arguments)
+        return f"{_custom_name(expression.function_id)}({arguments})"
+    if expression.kind == "cast":
+        if expression.invalid == "error":
+            raise UnsupportedOperator("cast_error_policy")
+        value = _sas_expr(expression.value)
+        if expression.target_type == "text":
+            return f"cats({value})"
+        if expression.target_type in {"integer", "float"}:
+            return f"input(cats({value}), ?? best32.)"
+        normalized = f"lowcase(strip(cats({value})))"
+        return f"ifn({normalized} in ('true', '1'), 1, ifn({normalized} in ('false', '0'), 0, .))"
+    if expression.kind == "terminology_map":
+        if expression.unmapped == "error":
+            raise UnsupportedOperator("terminology_mapping_error_policy")
+        if result_type not in {"character", "numeric"}:
+            raise UnsupportedOperator("terminology_mapping_result_type_unknown")
+        source = _sas_expr(expression.value)
+        character = result_type == "character"
+        conditional = "IFC" if character else "IFN"
+        result = source if expression.unmapped == "preserve" else ("''" if character else ".")
+        for original, mapped in reversed(expression.mappings.items()):
+            if character:
+                mapped_value = "'" + mapped.replace("'", "''") + "'"
+            else:
+                try:
+                    mapped_value = repr(float(mapped))
+                except ValueError as error:
+                    raise UnsupportedOperator("terminology_mapping_numeric_value") from error
+            original_value = "'" + original.replace("'", "''") + "'"
+            result = f"{conditional}((cats({source}) = {original_value}), {mapped_value}, {result})"
+        return result
     if expression.kind == "unary":
         operand = _sas_expr(expression.operand)
         return {
@@ -1388,7 +1556,10 @@ def _sas_expr(expression: Expression, result_type: str | None = None) -> str:
 
 
 def sas_source(value: DataflowIR, digest: str) -> str:
-    lines = [f"/* aurinara-dataflow compiler=1.5.0 ir={digest} */"]
+    lines = [
+        f"/* aurinara-dataflow compiler=1.7.0 ir={digest} */",
+        _sas_custom_functions(value.custom_functions),
+    ]
     ordered = ordered_nodes(value)
     incoming = incoming_nodes(value)
     names = {node.id: f"n{index:04d}" for index, node in enumerate(ordered, start=1)}
@@ -1433,7 +1604,7 @@ def sas_source(value: DataflowIR, digest: str) -> str:
             lines.extend([f"data work.{target};", f"  set work.{source};"])
             lines.extend(
                 f"  {name} = {_sas_expr(expression, node.result_types.get(name))};"
-                for name, expression in node.assignments.items()
+                for name, expression in node.ordered_assignments()
             )
             lines.append("run;")
         elif node.node_type == "sort":
