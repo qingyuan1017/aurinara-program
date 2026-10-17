@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.config import Settings
-from app.database import create_database_engine
+from app.database import build_database_url, create_database_engine
 
 
 def test_development_defaults_are_loadable() -> None:
@@ -83,7 +83,10 @@ def test_split_database_settings_build_a_tls_postgresql_url() -> None:
     )
 
     engine = create_database_engine(settings)
+    migration_url = build_database_url(settings)
 
     assert engine.url.host == "database.internal"
     assert engine.url.database == "aurinara"
     assert engine.url.query["sslmode"] == "require"
+    assert migration_url.host == "database.internal"
+    assert migration_url.password == "secret"

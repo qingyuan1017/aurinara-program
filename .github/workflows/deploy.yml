@@ -10,10 +10,6 @@ permissions:
   id-token: write
   security-events: write
 
-concurrency:
-  group: aws-production-delivery
-  cancel-in-progress: false
-
 env:
   AWS_REGION: us-east-1
   BOOTSTRAP_STACK: aurinara-bootstrap
@@ -71,6 +67,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     environment: staging
+    concurrency:
+      group: aurinara-staging-delivery
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -114,6 +113,9 @@ jobs:
     needs: [build, staging]
     runs-on: ubuntu-latest
     environment: production
+    concurrency:
+      group: aurinara-production-delivery
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

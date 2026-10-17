@@ -24,24 +24,27 @@ class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
+def build_database_url(settings: Settings) -> str | URL:
+    """Resolve either the local URL or production split database settings."""
+    if settings.database_url:
+        return settings.database_url
+    password = settings.database_password
+    return URL.create(
+        "postgresql+psycopg",
+        username=settings.database_user,
+        password=password.get_secret_value() if password is not None else None,
+        host=settings.database_host,
+        port=settings.database_port,
+        database=settings.database_name,
+        query={"sslmode": settings.database_ssl_mode},
+    )
+
+
 def create_database_engine(settings: Settings) -> Engine:
     """Create an engine without connecting at import time."""
 
-    if settings.database_url:
-        url: str | URL = settings.database_url
-    else:
-        password = settings.database_password
-        url = URL.create(
-            "postgresql+psycopg",
-            username=settings.database_user,
-            password=password.get_secret_value() if password is not None else None,
-            host=settings.database_host,
-            port=settings.database_port,
-            database=settings.database_name,
-            query={"sslmode": settings.database_ssl_mode},
-        )
     return create_engine(
-        url,
+        build_database_url(settings),
         pool_pre_ping=True,
         pool_size=settings.database_pool_size,
         max_overflow=settings.database_max_overflow,

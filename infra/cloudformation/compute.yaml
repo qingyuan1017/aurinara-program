@@ -214,8 +214,16 @@ Resources:
       RuntimePlatform: {CpuArchitecture: ARM64, OperatingSystemFamily: LINUX}
       Volumes: [{Name: scratch}]
       ContainerDefinitions:
+        - Name: scratch-init
+          Image: !Ref ApplicationImage
+          User: '0'
+          Command: [/bin/sh, -c, 'chmod 1777 /tmp']
+          Essential: false
+          ReadonlyRootFilesystem: true
+          MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
         - Name: application
           Image: !Ref ApplicationImage
+          DependsOn: [{ContainerName: scratch-init, Condition: SUCCESS}]
           Essential: true
           ReadonlyRootFilesystem: true
           MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
@@ -293,9 +301,17 @@ Resources:
       RuntimePlatform: {CpuArchitecture: ARM64, OperatingSystemFamily: LINUX}
       Volumes: [{Name: scratch}]
       ContainerDefinitions:
+        - Name: scratch-init
+          Image: !Ref ApplicationImage
+          User: '0'
+          Command: [/bin/sh, -c, 'chmod 1777 /tmp']
+          Essential: false
+          ReadonlyRootFilesystem: true
+          MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
         - Name: worker
           Image: !Ref ApplicationImage
           Command: [python, -m, workers.job_worker]
+          DependsOn: [{ContainerName: scratch-init, Condition: SUCCESS}]
           Essential: true
           ReadonlyRootFilesystem: true
           MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
@@ -363,17 +379,28 @@ Resources:
             TransitEncryption: ENABLED
             RootDirectory: /
             AuthorizationConfig: {AccessPointId: !Ref EfsAccessPointId, IAM: DISABLED}
+        - {Name: scratch}
       ContainerDefinitions:
+        - Name: scratch-init
+          Image: !Ref PythonRunnerImage
+          EntryPoint: [/bin/sh, -c]
+          Command: ['chmod 1777 /tmp']
+          User: '0'
+          Essential: false
+          ReadonlyRootFilesystem: true
+          MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
         - Name: runner
           Image: !Ref PythonRunnerImage
+          DependsOn: [{ContainerName: scratch-init, Condition: SUCCESS}]
           Essential: true
           User: '10001'
           ReadonlyRootFilesystem: true
-          MountPoints: [{SourceVolume: workspace, ContainerPath: /workspace, ReadOnly: false}]
+          MountPoints:
+            - {SourceVolume: workspace, ContainerPath: /workspace, ReadOnly: false}
+            - {SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}
           LinuxParameters:
             InitProcessEnabled: true
             Capabilities: {Drop: [ALL]}
-            Tmpfs: [{ContainerPath: /tmp, Size: 1024, MountOptions: [rw, noexec, nosuid, nodev]}]
           Ulimits:
             - {Name: nproc, SoftLimit: 64, HardLimit: 64}
             - {Name: nofile, SoftLimit: 1024, HardLimit: 1024}
@@ -399,17 +426,28 @@ Resources:
             TransitEncryption: ENABLED
             RootDirectory: /
             AuthorizationConfig: {AccessPointId: !Ref EfsAccessPointId, IAM: DISABLED}
+        - {Name: scratch}
       ContainerDefinitions:
+        - Name: scratch-init
+          Image: !Ref RRunnerImage
+          EntryPoint: [/bin/sh, -c]
+          Command: ['chmod 1777 /tmp']
+          User: '0'
+          Essential: false
+          ReadonlyRootFilesystem: true
+          MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
         - Name: runner
           Image: !Ref RRunnerImage
+          DependsOn: [{ContainerName: scratch-init, Condition: SUCCESS}]
           Essential: true
           User: '10001'
           ReadonlyRootFilesystem: true
-          MountPoints: [{SourceVolume: workspace, ContainerPath: /workspace, ReadOnly: false}]
+          MountPoints:
+            - {SourceVolume: workspace, ContainerPath: /workspace, ReadOnly: false}
+            - {SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}
           LinuxParameters:
             InitProcessEnabled: true
             Capabilities: {Drop: [ALL]}
-            Tmpfs: [{ContainerPath: /tmp, Size: 1024, MountOptions: [rw, noexec, nosuid, nodev]}]
           Ulimits:
             - {Name: nproc, SoftLimit: 64, HardLimit: 64}
             - {Name: nofile, SoftLimit: 1024, HardLimit: 1024}
@@ -437,9 +475,17 @@ Resources:
             AuthorizationConfig: {AccessPointId: !Ref EfsAccessPointId, IAM: DISABLED}
         - {Name: scratch}
       ContainerDefinitions:
+        - Name: scratch-init
+          Image: !Ref ApplicationImage
+          User: '0'
+          Command: [/bin/sh, -c, 'chmod 1777 /tmp']
+          Essential: false
+          ReadonlyRootFilesystem: true
+          MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
         - Name: dispatcher
           Image: !Ref ApplicationImage
           Command: [python, -m, workers.execution_dispatcher]
+          DependsOn: [{ContainerName: scratch-init, Condition: SUCCESS}]
           Essential: true
           ReadonlyRootFilesystem: true
           MountPoints:
@@ -509,9 +555,17 @@ Resources:
       RuntimePlatform: {CpuArchitecture: ARM64, OperatingSystemFamily: LINUX}
       Volumes: [{Name: scratch}]
       ContainerDefinitions:
+        - Name: scratch-init
+          Image: !Ref ApplicationImage
+          User: '0'
+          Command: [/bin/sh, -c, 'chmod 1777 /tmp']
+          Essential: false
+          ReadonlyRootFilesystem: true
+          MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
         - Name: integration
           Image: !Ref ApplicationImage
           Command: [python, -m, workers.integration_dispatcher]
+          DependsOn: [{ContainerName: scratch-init, Condition: SUCCESS}]
           Essential: true
           ReadonlyRootFilesystem: true
           MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
@@ -546,9 +600,17 @@ Resources:
       RuntimePlatform: {CpuArchitecture: ARM64, OperatingSystemFamily: LINUX}
       Volumes: [{Name: scratch}]
       ContainerDefinitions:
+        - Name: scratch-init
+          Image: !Ref ApplicationImage
+          User: '0'
+          Command: [/bin/sh, -c, 'chmod 1777 /tmp']
+          Essential: false
+          ReadonlyRootFilesystem: true
+          MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
         - Name: projection
           Image: !Ref ApplicationImage
           Command: [python, -m, workers.platform_projection_worker]
+          DependsOn: [{ContainerName: scratch-init, Condition: SUCCESS}]
           Essential: true
           ReadonlyRootFilesystem: true
           MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
@@ -610,9 +672,17 @@ Resources:
       RuntimePlatform: {CpuArchitecture: ARM64, OperatingSystemFamily: LINUX}
       Volumes: [{Name: scratch}]
       ContainerDefinitions:
+        - Name: scratch-init
+          Image: !Ref MigrationApplicationImage
+          User: '0'
+          Command: [/bin/sh, -c, 'chmod 1777 /tmp']
+          Essential: false
+          ReadonlyRootFilesystem: true
+          MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
         - Name: migration
           Image: !Ref MigrationApplicationImage
           Command: [sh, -c, 'alembic upgrade head && python -m app.catalog_seed && python -m app.cdisc_registry publish-assets --verify-existing']
+          DependsOn: [{ContainerName: scratch-init, Condition: SUCCESS}]
           Essential: true
           ReadonlyRootFilesystem: true
           MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
