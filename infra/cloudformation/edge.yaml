@@ -4,13 +4,17 @@ Description: Aurinara CloudFront, private SPA origin, VPC API origin, WAF, DNS, 
 Parameters:
   Environment: {Type: String, AllowedValues: [staging, production]}
   ApplicationDomain: {Type: String}
-  HostedZoneId: {Type: AWS::Route53::HostedZone::Id}
+  DnsProvider: {Type: String, AllowedValues: [cloudflare, route53], Default: cloudflare}
+  HostedZoneId: {Type: String, Default: ''}
   CertificateArn: {Type: String}
   FrontendBucketName: {Type: String}
   FrontendBucketRegionalDomainName: {Type: String}
   AccessLogBucketDomainName: {Type: String}
   AlbArn: {Type: String}
   AlbDnsName: {Type: String}
+
+Conditions:
+  ManageRoute53Dns: !Equals [!Ref DnsProvider, route53]
 
 Resources:
   WebAcl:
@@ -165,6 +169,7 @@ Resources:
 
   DnsA:
     Type: AWS::Route53::RecordSet
+    Condition: ManageRoute53Dns
     Properties:
       HostedZoneId: !Ref HostedZoneId
       Name: !Ref ApplicationDomain
@@ -172,6 +177,7 @@ Resources:
       AliasTarget: {DNSName: !GetAtt Distribution.DomainName, HostedZoneId: Z2FDTNDATAQYW2, EvaluateTargetHealth: false}
   DnsAaaa:
     Type: AWS::Route53::RecordSet
+    Condition: ManageRoute53Dns
     Properties:
       HostedZoneId: !Ref HostedZoneId
       Name: !Ref ApplicationDomain

@@ -6,12 +6,13 @@ environment=${2:?missing environment}
 vpc_cidr=${3:?missing VPC CIDR}
 database_class=${4:?missing database class}
 platform_authorization_mode=${PLATFORM_AUTHORIZATION_MODE:-shadow}
+dns_provider=${DNS_PROVIDER:-cloudflare}
+hosted_zone_id=${HOSTED_ZONE_ID:-}
 
 : "${APPLICATION_IMAGE:?}"
 : "${PYTHON_RUNNER_IMAGE:?}"
 : "${R_RUNNER_IMAGE:?}"
 : "${BASE_DOMAIN:?}"
-: "${HOSTED_ZONE_ID:?}"
 : "${CERTIFICATE_ARN:?}"
 : "${COGNITO_DOMAIN_PREFIX:?}"
 : "${SES_SOURCE_ARN:?}"
@@ -22,6 +23,20 @@ platform_authorization_mode=${PLATFORM_AUTHORIZATION_MODE:-shadow}
 : "${PLATFORM_PUBLISHER_PRINCIPAL_ARN:?}"
 : "${ALARM_EMAIL:?}"
 : "${CLOUDFORMATION_EXECUTION_ROLE_ARN:?}"
+
+case "$dns_provider" in
+  cloudflare) ;;
+  route53)
+    if [[ -z "$hosted_zone_id" ]]; then
+      echo "HOSTED_ZONE_ID is required when DNS_PROVIDER=route53" >&2
+      exit 1
+    fi
+    ;;
+  *)
+    echo "DNS_PROVIDER must be cloudflare or route53" >&2
+    exit 1
+    ;;
+esac
 
 current_image=$APPLICATION_IMAGE
 activate_services=false
@@ -47,7 +62,8 @@ deploy() {
       Environment="$environment" \
       VpcCidr="$vpc_cidr" \
       BaseDomain="$BASE_DOMAIN" \
-      HostedZoneId="$HOSTED_ZONE_ID" \
+      DnsProvider="$dns_provider" \
+      HostedZoneId="$hosted_zone_id" \
       CertificateArn="$CERTIFICATE_ARN" \
       CognitoDomainPrefix="$COGNITO_DOMAIN_PREFIX" \
       SesSourceArn="$SES_SOURCE_ARN" \

@@ -18,13 +18,28 @@ template without `aws cloudformation package`.
 Supply these values through reviewed GitHub environment variables or an approved
 operator parameter file. Do not commit secrets.
 
-- Route 53 base domain, hosted-zone ID, and a `us-east-1` ACM certificate.
+- Cloudflare-managed base domain, Cloudflare zone ID, a zone-scoped DNS API
+  token, and a DNS-validated `us-east-1` ACM certificate. Route 53 remains an
+  optional DNS provider.
 - Exact GitHub owner, repository, deployment branch, and protected `staging` and
   `production` environments.
 - Cognito domain prefix, verified SES source ARN/from address, and notification email.
 - External platform public URL, private URL, PrivateLink endpoint-service name,
   and environment-specific SQS publisher principal.
 - Digest-pinned application, Python-runner, and R-runner ECR image references.
+
+For Cloudflare, set the GitHub environment variable `DNS_PROVIDER=cloudflare`,
+set `CLOUDFLARE_ZONE_ID`, and store `CLOUDFLARE_API_TOKEN` as a GitHub
+environment secret. Scope the token to DNS read and edit for only the Aurinara
+zone. Do not use a Cloudflare global API key. `HOSTED_ZONE_ID` is unused in this
+mode. Route 53 deployments instead set `DNS_PROVIDER=route53` and provide
+`HOSTED_ZONE_ID`.
+
+Request or import the viewer certificate in ACM in `us-east-1`. When using DNS
+validation, add the ACM validation CNAME in Cloudflare with proxying disabled and
+wait for the certificate to be issued before deployment. The certificate must
+cover `staging.<base-domain>` and `production.<base-domain>` (a wildcard at that
+level is acceptable).
 
 The platform endpoint service must enable private DNS and accept the environment
 VPC endpoint. Its OAuth trust must accept the Cognito service client and custom
@@ -57,15 +72,33 @@ ECR repositories are immutable and scanned on push. The delivery workflow builds
 the three images once per commit, creates SBOM attestations, scans the digest,
 and passes the same digests through staging and production.
 
+## Cloudflare DNS
+
+CloudFormation creates CloudFront and exports
+`CloudFrontDistributionDomainName`; it does not create Route 53 records when
+`DNS_PROVIDER=cloudflare`. After each environment stack update, the delivery
+workflow calls `scripts/cloudflare-upsert-dns.sh` to create or update the exact
+environment CNAME (`staging.<base-domain>` or `production.<base-domain>`). The
+record always has `proxied=false` and targets the stack's CloudFront hostname.
+
+Keep these application records DNS-only (gray cloud). CloudFront and AWS WAF are
+the public browser edge; adding the Cloudflare HTTP proxy would create a second
+edge, obscure client IPs used by WAF/rate limits, and can impose a smaller upload
+limit. The deployment fails if Cloudflare returns more than one matching CNAME,
+the stack output is not a CloudFront hostname, or the applied record is proxied.
+The API token is passed only to the DNS step and is never a CloudFormation
+parameter or application secret.
+
 ## Environment deployment
 
 `.github/workflows/deploy.yml` is the authoritative release path. It packages
 the nested templates, deploys staging, runs the one-off migration/catalog task,
-publishes the SPA, and performs a readiness check. The production job is guarded
-by GitHub Environment approval, takes an RDS snapshot, applies the reviewed
-CloudFormation change set with rolling-update circuit breakers, runs only
-backward-compatible migrations, publishes the SPA, enables parent-stack
-termination protection, and runs the same readiness check.
+updates the Cloudflare DNS-only CNAME, publishes the SPA, and performs a
+readiness check. The production job is guarded by GitHub Environment approval,
+takes an RDS snapshot, applies the reviewed CloudFormation change set with
+rolling-update circuit breakers, runs only backward-compatible migrations,
+updates its Cloudflare CNAME, publishes the SPA, enables parent-stack termination
+protection, and runs the same readiness check.
 
 Database changes use expand/contract sequencing. Application rollback means
 restoring the prior image digests and redeploying the stack. It never means an
@@ -183,6 +216,11 @@ copy, and enable GitHub secret scanning and push protection. Secrets Manager own
 database, integration-signing, and Cognito service-client secrets. Never print
 resolved secret values, authorization headers, object keys, EFS paths, ECS task
 ARNs, or clinical payloads in operational logs or public API responses.
+
+The Cloudflare API token remains only in the matching GitHub environment secret.
+Rotate it if workflow logs, runner state, or environment access is suspected of
+exposure. A token with account-wide permissions or permissions beyond DNS read
+and edit for the selected zone is not accepted operational practice.
 
 Drift detection, production termination protection, clean staging replacement,
 RDS/S3 restore evidence, platform PrivateLink acceptance, SES verification, alert

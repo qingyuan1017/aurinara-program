@@ -10,8 +10,13 @@ Parameters:
     Default: 10.40.0.0/16
   BaseDomain:
     Type: String
+  DnsProvider:
+    Type: String
+    AllowedValues: [cloudflare, route53]
+    Default: cloudflare
   HostedZoneId:
-    Type: AWS::Route53::HostedZone::Id
+    Type: String
+    Default: ''
   CertificateArn:
     Type: String
   CognitoDomainPrefix:
@@ -53,6 +58,13 @@ Parameters:
   DatabaseInstanceClass:
     Type: String
     Default: db.m7g.large
+
+Rules:
+  Route53HostedZoneRequired:
+    RuleCondition: !Equals [!Ref DnsProvider, route53]
+    Assertions:
+      - Assert: !Not [!Equals [!Ref HostedZoneId, '']]
+        AssertDescription: HostedZoneId is required when DnsProvider is route53.
 
 Resources:
   Network:
@@ -140,6 +152,7 @@ Resources:
       Parameters:
         Environment: !Ref Environment
         ApplicationDomain: !Sub ${Environment}.${BaseDomain}
+        DnsProvider: !Ref DnsProvider
         HostedZoneId: !Ref HostedZoneId
         CertificateArn: !Ref CertificateArn
         FrontendBucketName: !GetAtt Data.Outputs.FrontendBucketName
@@ -199,6 +212,7 @@ Outputs:
   OidcEndSessionUrl: {Value: !GetAtt Identity.Outputs.LogoutUrl}
   FrontendBucketName: {Value: !GetAtt Data.Outputs.FrontendBucketName}
   CloudFrontDistributionId: {Value: !GetAtt Edge.Outputs.DistributionId}
+  CloudFrontDistributionDomainName: {Value: !GetAtt Edge.Outputs.DistributionDomainName}
   ClusterName: {Value: !GetAtt Compute.Outputs.ClusterName}
   MigrationTaskDefinitionArn: {Value: !GetAtt Compute.Outputs.MigrationTaskDefinitionArn}
   AppSubnetIds: {Value: !GetAtt Network.Outputs.AppSubnetIds}

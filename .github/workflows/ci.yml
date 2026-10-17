@@ -34,7 +34,7 @@ jobs:
           src/app/common/logging.py src/app/common/metrics.py
           src/app/artifacts/storage.py src/app/execution
           src/app/platform/authorization.py src/app/integration/delivery.py
-          workers
+          scripts/cloudflare_dns.py workers
       - run: uv run pytest tests/unit tests/contract
       - name: Require one Alembic head
         run: test "$(uv run alembic heads | wc -l)" -eq 1
