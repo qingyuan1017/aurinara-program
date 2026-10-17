@@ -13,7 +13,8 @@ pool/product clients, Platform event bus, and Platform PrivateLink service.
 Aurinara's bootstrap consumes that OIDC provider, while each Aurinara environment
 uses `infra/cloudformation/environment.yaml` for its isolated network, data,
 compute, edge, and operations stacks. Never deploy the parent template without
-`aws cloudformation package`.
+first uploading and rewriting its nested template URLs with
+`scripts/aws-package-nested-templates.sh`.
 
 ## Required inputs
 
@@ -25,7 +26,9 @@ operator parameter file. Do not commit secrets.
   optional DNS provider.
 - Exact GitHub owner, repository, deployment branch, and protected `staging` and
   `production` environments.
-- Matching `aurinara-platform-<environment>` stack and notification email. The
+- Matching `aurinara-platform-<environment>` stack. A notification email is
+  optional; when omitted, alarms and dashboards are created without email or
+  budget subscriptions. The
   deploy script reads shared Cognito, event-bus, public/private URL, service
   client secret, and PrivateLink outputs directly from that stack.
 - Digest-pinned application, Python-runner, and R-runner ECR image references.

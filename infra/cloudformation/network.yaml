@@ -118,6 +118,16 @@ Resources:
       GroupDescription: CloudFront VPC origin to internal ALB
       VpcId: !Ref Vpc
       SecurityGroupIngress: [{IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: !Ref VpcCidr}]
+
+  CloudFrontAlbIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref AlbSecurityGroup
+      IpProtocol: tcp
+      FromPort: 80
+      ToPort: 80
+      SourcePrefixListId: pl-3b927c52
+      Description: CloudFront origin-facing managed prefix list for us-east-1
   ApiSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:

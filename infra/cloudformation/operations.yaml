@@ -3,7 +3,7 @@ Description: Aurinara operational notifications, alarms, dashboard, trail, and b
 
 Parameters:
   Environment: {Type: String, AllowedValues: [staging, production]}
-  AlarmEmail: {Type: String}
+  AlarmEmail: {Type: String, Default: ''}
   ClusterName: {Type: String}
   ApiServiceName: {Type: String}
   AlbFullName: {Type: String}
@@ -16,6 +16,10 @@ Parameters:
   ArtifactBucketName: {Type: String}
   AccessLogBucketName: {Type: String}
 
+Conditions:
+  IsProduction: !Equals [!Ref Environment, production]
+  HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, '']]
+
 Resources:
   AlarmTopic:
     Type: AWS::SNS::Topic
@@ -24,6 +28,7 @@ Resources:
       KmsMasterKeyId: alias/aws/sns
   AlarmSubscription:
     Type: AWS::SNS::Subscription
+    Condition: HasAlarmEmail
     Properties: {Protocol: email, Endpoint: !Ref AlarmEmail, TopicArn: !Ref AlarmTopic}
 
   ApiUnhealthyTargets:
@@ -340,12 +345,11 @@ Resources:
         BudgetType: COST
         TimeUnit: MONTHLY
         CostFilters: {TagKeyValue: [!Sub 'user:aurinara:environment$${Environment}']}
-      NotificationsWithSubscribers:
-        - Notification: {NotificationType: FORECASTED, ComparisonOperator: GREATER_THAN, Threshold: 80, ThresholdType: PERCENTAGE}
-          Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlarmEmail}]
-
-Conditions:
-  IsProduction: !Equals [!Ref Environment, production]
+      NotificationsWithSubscribers: !If
+        - HasAlarmEmail
+        - - Notification: {NotificationType: FORECASTED, ComparisonOperator: GREATER_THAN, Threshold: 80, ThresholdType: PERCENTAGE}
+            Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlarmEmail}]
+        - !Ref AWS::NoValue
 
 Outputs:
   AlarmTopicArn: {Value: !Ref AlarmTopic}

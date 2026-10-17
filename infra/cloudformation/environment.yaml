@@ -67,6 +67,7 @@ Parameters:
     Type: String
   AlarmEmail:
     Type: String
+    Default: ''
   DatabaseInstanceClass:
     Type: String
     Default: db.m7g.large

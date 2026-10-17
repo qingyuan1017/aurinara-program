@@ -8,6 +8,7 @@ database_class=${4:?missing database class}
 platform_authorization_mode=${PLATFORM_AUTHORIZATION_MODE:-shadow}
 dns_provider=${DNS_PROVIDER:-cloudflare}
 hosted_zone_id=${HOSTED_ZONE_ID:-}
+alarm_email=${ALARM_EMAIL:-}
 
 : "${APPLICATION_IMAGE:?}"
 : "${PYTHON_RUNNER_IMAGE:?}"
@@ -15,7 +16,6 @@ hosted_zone_id=${HOSTED_ZONE_ID:-}
 : "${BASE_DOMAIN:?}"
 : "${CERTIFICATE_ARN:?}"
 : "${PLATFORM_STACK_NAME:?}"
-: "${ALARM_EMAIL:?}"
 : "${CLOUDFORMATION_EXECUTION_ROLE_ARN:?}"
 
 case "$dns_provider" in
@@ -56,7 +56,11 @@ if aws cloudformation describe-stacks --stack-name "$stack_name" >/dev/null 2>&1
     --stack-name "$stack_name" \
     --query "Stacks[0].Parameters[?ParameterKey=='ApplicationImage'].ParameterValue" \
     --output text)
-  activate_services=true
+  activate_services=$(aws cloudformation describe-stacks \
+    --stack-name "$stack_name" \
+    --query "Stacks[0].Parameters[?ParameterKey=='ActivateServices'].ParameterValue" \
+    --output text)
+  [[ "$activate_services" == true ]] || activate_services=false
 fi
 
 deploy() {
@@ -95,7 +99,7 @@ deploy() {
       ServiceClientSecretArn="$service_client_secret_arn" \
       ServiceTokenUrl="$service_token_url" \
       OidcEndSessionUrl="$oidc_end_session_url" \
-      AlarmEmail="$ALARM_EMAIL" \
+      AlarmEmail="$alarm_email" \
       DatabaseInstanceClass="$database_class"
 }
 

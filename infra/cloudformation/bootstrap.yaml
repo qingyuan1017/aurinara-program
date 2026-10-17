@@ -34,6 +34,8 @@ Resources:
                 token.actions.githubusercontent.com:sub:
                   - !Sub repo:${GitHubOwner}/${GitHubRepository}:environment:staging
                   - !Sub repo:${GitHubOwner}/${GitHubRepository}:environment:production
+                  - !Sub repo:${GitHubOwner}@*/${GitHubRepository}@*:environment:staging
+                  - !Sub repo:${GitHubOwner}@*/${GitHubRepository}@*:environment:production
       Policies:
         - PolicyName: cloudformation-deployment
           PolicyDocument:
