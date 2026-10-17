@@ -8,6 +8,14 @@ Parameters:
   VpcCidr:
     Type: String
     Default: 10.40.0.0/16
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  AppSubnetIds:
+    Type: CommaDelimitedList
+  RunnerSubnetIds:
+    Type: CommaDelimitedList
+  DataSubnetIds:
+    Type: CommaDelimitedList
   BaseDomain:
     Type: String
   DnsProvider:
@@ -87,6 +95,10 @@ Resources:
       Parameters:
         Environment: !Ref Environment
         VpcCidr: !Ref VpcCidr
+        VpcId: !Ref VpcId
+        AppSubnetIds: !Join [',', !Ref AppSubnetIds]
+        RunnerSubnetIds: !Join [',', !Ref RunnerSubnetIds]
+        DataSubnetIds: !Join [',', !Ref DataSubnetIds]
         PlatformPrivateLinkServiceName: !Ref PlatformPrivateLinkServiceName
 
   Data:

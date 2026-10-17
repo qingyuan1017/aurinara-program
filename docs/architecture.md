@@ -75,9 +75,11 @@ platform-projection workers are independent Fargate services and share no public
 listener.
 
 PostgreSQL 16, artifact S3, execution EFS, Secrets Manager, KMS, and the platform
-projection SQS queue are environment-owned resources. Staging and production use
-separate VPCs, keys, buckets, databases, Cognito pools, queues, and secrets in the
-same account. Production RDS is Multi-AZ; regional disaster recovery is deferred.
+projection SQS queue are application-owned resources. Staging and production use
+separate Platform-owned VPCs; Aurinara and EDC consume the matching environment's
+private subnets while retaining separate security groups, keys, buckets,
+databases, queues, and secrets. Production RDS is Multi-AZ; regional disaster
+recovery is deferred.
 Backend platform calls traverse an interface endpoint to the external
 `aurinara-platform` PrivateLink service. Browser Repository calls use only the
 platform's public authenticated edge.

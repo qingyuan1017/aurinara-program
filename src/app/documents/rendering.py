@@ -25,7 +25,6 @@ from reportlab.platypus import (
 )
 
 from app.common.zip_normalization import normalize_zip_bytes
-
 from app.documents.contracts import (
     DocumentContentContract,
     DocumentCover,

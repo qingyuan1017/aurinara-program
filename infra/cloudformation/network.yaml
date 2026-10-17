@@ -1,124 +1,24 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Aurinara two-AZ network, restricted security groups, endpoints, and PrivateLink.
+Description: Aurinara security boundaries in the shared platform VPC.
 
 Parameters:
   Environment: {Type: String, AllowedValues: [staging, production]}
+  VpcId: {Type: AWS::EC2::VPC::Id}
   VpcCidr: {Type: String}
+  AppSubnetIds: {Type: CommaDelimitedList}
+  RunnerSubnetIds: {Type: CommaDelimitedList}
+  DataSubnetIds: {Type: CommaDelimitedList}
   PlatformPrivateLinkServiceName: {Type: String}
 
-Conditions:
-  IsProduction: !Equals [!Ref Environment, production]
-
 Resources:
-  Vpc:
-    Type: AWS::EC2::VPC
-    Properties:
-      CidrBlock: !Ref VpcCidr
-      EnableDnsHostnames: true
-      EnableDnsSupport: true
-      Tags: [{Key: Name, Value: !Sub 'aurinara-${Environment}'}]
-  InternetGateway: {Type: AWS::EC2::InternetGateway}
-  GatewayAttachment:
-    Type: AWS::EC2::VPCGatewayAttachment
-    Properties: {VpcId: !Ref Vpc, InternetGatewayId: !Ref InternetGateway}
-
-  PublicSubnetA:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref Vpc
-      AvailabilityZone: !Select [0, !GetAZs '']
-      CidrBlock: !Select [0, !Cidr [!Ref VpcCidr, 12, 8]]
-      MapPublicIpOnLaunch: false
-  PublicSubnetB:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref Vpc
-      AvailabilityZone: !Select [1, !GetAZs '']
-      CidrBlock: !Select [1, !Cidr [!Ref VpcCidr, 12, 8]]
-      MapPublicIpOnLaunch: false
-  AppSubnetA:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref Vpc
-      AvailabilityZone: !Select [0, !GetAZs '']
-      CidrBlock: !Select [2, !Cidr [!Ref VpcCidr, 12, 8]]
-  AppSubnetB:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref Vpc
-      AvailabilityZone: !Select [1, !GetAZs '']
-      CidrBlock: !Select [3, !Cidr [!Ref VpcCidr, 12, 8]]
-  RunnerSubnetA:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref Vpc
-      AvailabilityZone: !Select [0, !GetAZs '']
-      CidrBlock: !Select [4, !Cidr [!Ref VpcCidr, 12, 8]]
-  RunnerSubnetB:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref Vpc
-      AvailabilityZone: !Select [1, !GetAZs '']
-      CidrBlock: !Select [5, !Cidr [!Ref VpcCidr, 12, 8]]
-  DataSubnetA:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref Vpc
-      AvailabilityZone: !Select [0, !GetAZs '']
-      CidrBlock: !Select [6, !Cidr [!Ref VpcCidr, 12, 8]]
-  DataSubnetB:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref Vpc
-      AvailabilityZone: !Select [1, !GetAZs '']
-      CidrBlock: !Select [7, !Cidr [!Ref VpcCidr, 12, 8]]
-
-  PublicRouteTable: {Type: AWS::EC2::RouteTable, Properties: {VpcId: !Ref Vpc}}
-  PublicDefaultRoute:
-    Type: AWS::EC2::Route
-    DependsOn: GatewayAttachment
-    Properties:
-      RouteTableId: !Ref PublicRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
-  PublicSubnetARoute: {Type: AWS::EC2::SubnetRouteTableAssociation, Properties: {SubnetId: !Ref PublicSubnetA, RouteTableId: !Ref PublicRouteTable}}
-  PublicSubnetBRoute: {Type: AWS::EC2::SubnetRouteTableAssociation, Properties: {SubnetId: !Ref PublicSubnetB, RouteTableId: !Ref PublicRouteTable}}
-  NatEipA: {Type: AWS::EC2::EIP, DependsOn: GatewayAttachment, Properties: {Domain: vpc}}
-  NatGatewayA: {Type: AWS::EC2::NatGateway, Properties: {SubnetId: !Ref PublicSubnetA, AllocationId: !GetAtt NatEipA.AllocationId}}
-  NatEipB:
-    Type: AWS::EC2::EIP
-    Condition: IsProduction
-    DependsOn: GatewayAttachment
-    Properties: {Domain: vpc}
-  NatGatewayB:
-    Type: AWS::EC2::NatGateway
-    Condition: IsProduction
-    Properties: {SubnetId: !Ref PublicSubnetB, AllocationId: !GetAtt NatEipB.AllocationId}
-  AppRouteTableA: {Type: AWS::EC2::RouteTable, Properties: {VpcId: !Ref Vpc}}
-  AppRouteTableB: {Type: AWS::EC2::RouteTable, Properties: {VpcId: !Ref Vpc}}
-  AppDefaultRouteA: {Type: AWS::EC2::Route, Properties: {RouteTableId: !Ref AppRouteTableA, DestinationCidrBlock: 0.0.0.0/0, NatGatewayId: !Ref NatGatewayA}}
-  AppDefaultRouteB:
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref AppRouteTableB
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !If [IsProduction, !Ref NatGatewayB, !Ref NatGatewayA]
-  AppSubnetARoute: {Type: AWS::EC2::SubnetRouteTableAssociation, Properties: {SubnetId: !Ref AppSubnetA, RouteTableId: !Ref AppRouteTableA}}
-  AppSubnetBRoute: {Type: AWS::EC2::SubnetRouteTableAssociation, Properties: {SubnetId: !Ref AppSubnetB, RouteTableId: !Ref AppRouteTableB}}
-  RunnerRouteTable: {Type: AWS::EC2::RouteTable, Properties: {VpcId: !Ref Vpc}}
-  RunnerSubnetARoute: {Type: AWS::EC2::SubnetRouteTableAssociation, Properties: {SubnetId: !Ref RunnerSubnetA, RouteTableId: !Ref RunnerRouteTable}}
-  RunnerSubnetBRoute: {Type: AWS::EC2::SubnetRouteTableAssociation, Properties: {SubnetId: !Ref RunnerSubnetB, RouteTableId: !Ref RunnerRouteTable}}
-  DataRouteTable: {Type: AWS::EC2::RouteTable, Properties: {VpcId: !Ref Vpc}}
-  DataSubnetARoute: {Type: AWS::EC2::SubnetRouteTableAssociation, Properties: {SubnetId: !Ref DataSubnetA, RouteTableId: !Ref DataRouteTable}}
-  DataSubnetBRoute: {Type: AWS::EC2::SubnetRouteTableAssociation, Properties: {SubnetId: !Ref DataSubnetB, RouteTableId: !Ref DataRouteTable}}
-
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: CloudFront VPC origin to internal ALB
-      VpcId: !Ref Vpc
-      SecurityGroupIngress: [{IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: !Ref VpcCidr}]
-
+      GroupDescription: CloudFront VPC origin to the Aurinara internal ALB
+      VpcId: !Ref VpcId
+      Tags: [{Key: Name, Value: !Sub 'aurinara-${Environment}-alb'}]
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: !Ref VpcCidr}
   CloudFrontAlbIngress:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
@@ -132,105 +32,89 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Aurinara API
-      VpcId: !Ref Vpc
-      SecurityGroupIngress: [{IpProtocol: tcp, FromPort: 8000, ToPort: 8000, SourceSecurityGroupId: !Ref AlbSecurityGroup}]
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 8000, ToPort: 8000, SourceSecurityGroupId: !Ref AlbSecurityGroup}
   WorkerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
-    Properties: {GroupDescription: Aurinara clinical workers, VpcId: !Ref Vpc}
+    Properties: {GroupDescription: Aurinara workers, VpcId: !Ref VpcId}
   IntegrationSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Outbound integration dispatcher
-      VpcId: !Ref Vpc
-      SecurityGroupEgress: [{IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0}]
+      GroupDescription: Aurinara outbound integration workers
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - {IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0}
   IntegrationDnsUdp:
     Type: AWS::EC2::SecurityGroupEgress
     Properties: {GroupId: !Ref IntegrationSecurityGroup, IpProtocol: udp, FromPort: 53, ToPort: 53, CidrIp: !Ref VpcCidr}
   IntegrationDnsTcp:
     Type: AWS::EC2::SecurityGroupEgress
     Properties: {GroupId: !Ref IntegrationSecurityGroup, IpProtocol: tcp, FromPort: 53, ToPort: 53, CidrIp: !Ref VpcCidr}
-  IntegrationDatabaseEgress:
-    Type: AWS::EC2::SecurityGroupEgress
-    Properties: {GroupId: !Ref IntegrationSecurityGroup, IpProtocol: tcp, FromPort: 5432, ToPort: 5432, DestinationSecurityGroupId: !Ref DatabaseSecurityGroup}
   RunnerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Disposable runner tasks without internet egress
-      VpcId: !Ref Vpc
+      GroupDescription: Aurinara isolated runner tasks
+      VpcId: !Ref VpcId
       SecurityGroupEgress: []
-  EndpointSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Interface VPC endpoints
-      VpcId: !Ref Vpc
-      SecurityGroupIngress:
-        - {IpProtocol: tcp, FromPort: 443, ToPort: 443, SourceSecurityGroupId: !Ref ApiSecurityGroup}
-        - {IpProtocol: tcp, FromPort: 443, ToPort: 443, SourceSecurityGroupId: !Ref WorkerSecurityGroup}
-        - {IpProtocol: tcp, FromPort: 443, ToPort: 443, SourceSecurityGroupId: !Ref IntegrationSecurityGroup}
-        - {IpProtocol: tcp, FromPort: 443, ToPort: 443, SourceSecurityGroupId: !Ref RunnerSecurityGroup}
-        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, SourceSecurityGroupId: !Ref ApiSecurityGroup}
-        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, SourceSecurityGroupId: !Ref WorkerSecurityGroup}
-        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, SourceSecurityGroupId: !Ref IntegrationSecurityGroup}
+  RunnerHttpsWithoutInternetRoute:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties: {GroupId: !Ref RunnerSecurityGroup, IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0}
+  RunnerDnsUdp:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties: {GroupId: !Ref RunnerSecurityGroup, IpProtocol: udp, FromPort: 53, ToPort: 53, CidrIp: !Ref VpcCidr}
+  RunnerDnsTcp:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties: {GroupId: !Ref RunnerSecurityGroup, IpProtocol: tcp, FromPort: 53, ToPort: 53, CidrIp: !Ref VpcCidr}
   DatabaseSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: PostgreSQL from application tasks
-      VpcId: !Ref Vpc
+      GroupDescription: Aurinara PostgreSQL
+      VpcId: !Ref VpcId
       SecurityGroupIngress:
         - {IpProtocol: tcp, FromPort: 5432, ToPort: 5432, SourceSecurityGroupId: !Ref ApiSecurityGroup}
         - {IpProtocol: tcp, FromPort: 5432, ToPort: 5432, SourceSecurityGroupId: !Ref WorkerSecurityGroup}
         - {IpProtocol: tcp, FromPort: 5432, ToPort: 5432, SourceSecurityGroupId: !Ref IntegrationSecurityGroup}
+  IntegrationDatabaseEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties: {GroupId: !Ref IntegrationSecurityGroup, IpProtocol: tcp, FromPort: 5432, ToPort: 5432, DestinationSecurityGroupId: !Ref DatabaseSecurityGroup}
   EfsSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: EFS execution workspace
-      VpcId: !Ref Vpc
+      GroupDescription: Aurinara execution workspace
+      VpcId: !Ref VpcId
       SecurityGroupIngress:
         - {IpProtocol: tcp, FromPort: 2049, ToPort: 2049, SourceSecurityGroupId: !Ref WorkerSecurityGroup}
         - {IpProtocol: tcp, FromPort: 2049, ToPort: 2049, SourceSecurityGroupId: !Ref RunnerSecurityGroup}
   RunnerToEfs:
     Type: AWS::EC2::SecurityGroupEgress
     Properties: {GroupId: !Ref RunnerSecurityGroup, IpProtocol: tcp, FromPort: 2049, ToPort: 2049, DestinationSecurityGroupId: !Ref EfsSecurityGroup}
-  RunnerHttpsWithoutInternetRoute:
-    Type: AWS::EC2::SecurityGroupEgress
-    Properties: {GroupId: !Ref RunnerSecurityGroup, IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0}
-  RunnerDnsUdp:
-    Type: AWS::EC2::SecurityGroupEgress
-    Properties: {GroupId: !Ref RunnerSecurityGroup, IpProtocol: udp, FromPort: 53, ToPort: 53, CidrIp: !Sub '${VpcCidr}' }
-  RunnerDnsTcp:
-    Type: AWS::EC2::SecurityGroupEgress
-    Properties: {GroupId: !Ref RunnerSecurityGroup, IpProtocol: tcp, FromPort: 53, ToPort: 53, CidrIp: !Sub '${VpcCidr}' }
-
-  S3Endpoint:
-    Type: AWS::EC2::VPCEndpoint
+  PlatformEndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
     Properties:
-      VpcId: !Ref Vpc
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
-      VpcEndpointType: Gateway
-      RouteTableIds: [!Ref AppRouteTableA, !Ref AppRouteTableB, !Ref RunnerRouteTable]
-  EcrApiEndpoint: {Type: AWS::EC2::VPCEndpoint, Properties: {VpcId: !Ref Vpc, ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ecr.api', VpcEndpointType: Interface, PrivateDnsEnabled: true, SubnetIds: [!Ref AppSubnetA, !Ref AppSubnetB], SecurityGroupIds: [!Ref EndpointSecurityGroup]}}
-  EcrDkrEndpoint: {Type: AWS::EC2::VPCEndpoint, Properties: {VpcId: !Ref Vpc, ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ecr.dkr', VpcEndpointType: Interface, PrivateDnsEnabled: true, SubnetIds: [!Ref AppSubnetA, !Ref AppSubnetB], SecurityGroupIds: [!Ref EndpointSecurityGroup]}}
-  LogsEndpoint: {Type: AWS::EC2::VPCEndpoint, Properties: {VpcId: !Ref Vpc, ServiceName: !Sub 'com.amazonaws.${AWS::Region}.logs', VpcEndpointType: Interface, PrivateDnsEnabled: true, SubnetIds: [!Ref AppSubnetA, !Ref AppSubnetB], SecurityGroupIds: [!Ref EndpointSecurityGroup]}}
-  SecretsEndpoint: {Type: AWS::EC2::VPCEndpoint, Properties: {VpcId: !Ref Vpc, ServiceName: !Sub 'com.amazonaws.${AWS::Region}.secretsmanager', VpcEndpointType: Interface, PrivateDnsEnabled: true, SubnetIds: [!Ref AppSubnetA, !Ref AppSubnetB], SecurityGroupIds: [!Ref EndpointSecurityGroup]}}
-  SqsEndpoint: {Type: AWS::EC2::VPCEndpoint, Properties: {VpcId: !Ref Vpc, ServiceName: !Sub 'com.amazonaws.${AWS::Region}.sqs', VpcEndpointType: Interface, PrivateDnsEnabled: true, SubnetIds: [!Ref AppSubnetA, !Ref AppSubnetB], SecurityGroupIds: [!Ref EndpointSecurityGroup]}}
-  EcsEndpoint: {Type: AWS::EC2::VPCEndpoint, Properties: {VpcId: !Ref Vpc, ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ecs', VpcEndpointType: Interface, PrivateDnsEnabled: true, SubnetIds: [!Ref AppSubnetA, !Ref AppSubnetB], SecurityGroupIds: [!Ref EndpointSecurityGroup]}}
+      GroupDescription: Aurinara access to the platform PrivateLink endpoint
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, SourceSecurityGroupId: !Ref ApiSecurityGroup}
+        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, SourceSecurityGroupId: !Ref WorkerSecurityGroup}
+        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, SourceSecurityGroupId: !Ref IntegrationSecurityGroup}
   PlatformEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
-      VpcId: !Ref Vpc
+      VpcId: !Ref VpcId
       ServiceName: !Ref PlatformPrivateLinkServiceName
       VpcEndpointType: Interface
       PrivateDnsEnabled: true
-      SubnetIds: [!Ref AppSubnetA, !Ref AppSubnetB]
-      SecurityGroupIds: [!Ref EndpointSecurityGroup]
+      SubnetIds: !Ref AppSubnetIds
+      SecurityGroupIds: [!Ref PlatformEndpointSecurityGroup]
 
 Outputs:
-  VpcId: {Value: !Ref Vpc}
+  VpcId: {Value: !Ref VpcId}
   VpcCidr: {Value: !Ref VpcCidr}
-  AppSubnetIds: {Value: !Join [',', [!Ref AppSubnetA, !Ref AppSubnetB]]}
-  RunnerSubnetIds: {Value: !Join [',', [!Ref RunnerSubnetA, !Ref RunnerSubnetB]]}
-  DataSubnetIds: {Value: !Join [',', [!Ref DataSubnetA, !Ref DataSubnetB]]}
-  PublicSubnetIds: {Value: !Join [',', [!Ref PublicSubnetA, !Ref PublicSubnetB]]}
+  AppSubnetIds: {Value: !Join [',', !Ref AppSubnetIds]}
+  RunnerSubnetIds: {Value: !Join [',', !Ref RunnerSubnetIds]}
+  DataSubnetIds: {Value: !Join [',', !Ref DataSubnetIds]}
+  PublicSubnetIds: {Value: !Join [',', !Ref AppSubnetIds]}
   AlbSecurityGroupId: {Value: !Ref AlbSecurityGroup}
   ApiSecurityGroupId: {Value: !Ref ApiSecurityGroup}
   WorkerSecurityGroupId: {Value: !Ref WorkerSecurityGroup}

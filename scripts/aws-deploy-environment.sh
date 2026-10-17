@@ -36,6 +36,11 @@ platform_output() {
   aws cloudformation describe-stacks --stack-name "$PLATFORM_STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text
 }
 platform_privatelink_service_name=$(platform_output PlatformPrivateLinkServiceName)
+vpc_id=$(platform_output VpcId)
+vpc_cidr=$(platform_output VpcCidr)
+app_subnet_ids=$(platform_output AppSubnetIds)
+runner_subnet_ids=$(platform_output RunnerSubnetIds)
+data_subnet_ids=$(platform_output DataSubnetIds)
 platform_private_url=$(platform_output PlatformPrivateUrl)
 platform_public_url=$(platform_output PlatformUrl)
 platform_event_bus_name=$(platform_output EventBusName)
@@ -76,6 +81,10 @@ deploy() {
     --parameter-overrides \
       Environment="$environment" \
       VpcCidr="$vpc_cidr" \
+      VpcId="$vpc_id" \
+      AppSubnetIds="$app_subnet_ids" \
+      RunnerSubnetIds="$runner_subnet_ids" \
+      DataSubnetIds="$data_subnet_ids" \
       BaseDomain="$BASE_DOMAIN" \
       DnsProvider="$dns_provider" \
       HostedZoneId="$hosted_zone_id" \

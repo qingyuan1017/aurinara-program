@@ -10,9 +10,10 @@ electronic signatures, PHI authorization, or regional disaster recovery.
 
 `aurinara-platform` owns the account GitHub OIDC provider, shared Cognito user
 pool/product clients, Platform event bus, and Platform PrivateLink service.
-Aurinara's bootstrap consumes that OIDC provider, while each Aurinara environment
-uses `infra/cloudformation/environment.yaml` for its isolated network, data,
-compute, edge, and operations stacks. Never deploy the parent template without
+Aurinara's bootstrap consumes that OIDC provider. Each Aurinara environment
+uses the matching Platform VPC and private subnets, and
+`infra/cloudformation/environment.yaml` creates application-specific security,
+data, compute, edge, and operations stacks. Never deploy the parent template without
 first uploading and rewriting its nested template URLs with
 `scripts/aws-package-nested-templates.sh`.
 
@@ -29,8 +30,8 @@ operator parameter file. Do not commit secrets.
 - Matching `aurinara-platform-<environment>` stack. A notification email is
   optional; when omitted, alarms and dashboards are created without email or
   budget subscriptions. The
-  deploy script reads shared Cognito, event-bus, public/private URL, service
-  client secret, and PrivateLink outputs directly from that stack.
+  deploy script reads shared network, Cognito, event-bus, public/private URL,
+  service client secret, and PrivateLink outputs directly from that stack.
 - Digest-pinned application, Python-runner, and R-runner ECR image references.
 
 For Cloudflare, set the GitHub environment variable `DNS_PROVIDER=cloudflare`,

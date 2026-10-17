@@ -55,6 +55,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    env: {
+      VITE_COGNITO_USER_POOL_ID: 'us-east-1_testpool',
+      VITE_COGNITO_CLIENT_ID: 'test-client-id',
+    },
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     exclude: [
       'node_modules/**',
