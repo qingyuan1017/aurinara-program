@@ -120,7 +120,27 @@ bash scripts/aws-run-migration.sh "$stack_name"
 deploy "$APPLICATION_IMAGE" "$APPLICATION_IMAGE" true
 
 drift_id=$(aws cloudformation detect-stack-drift --stack-name "$stack_name" --query StackDriftDetectionId --output text)
-aws cloudformation wait stack-drift-detection-complete --stack-drift-detection-id "$drift_id"
+drift_detection_status="DETECTION_IN_PROGRESS"
+for _ in {1..60}; do
+  drift_detection_status=$(aws cloudformation describe-stack-drift-detection-status \
+    --stack-drift-detection-id "$drift_id" \
+    --query DetectionStatus \
+    --output text)
+  case "$drift_detection_status" in
+    DETECTION_COMPLETE)
+      break
+      ;;
+    DETECTION_FAILED)
+      echo "Stack drift detection failed" >&2
+      exit 1
+      ;;
+  esac
+  sleep 10
+done
+if [[ "$drift_detection_status" != "DETECTION_COMPLETE" ]]; then
+  echo "Timed out waiting for stack drift detection" >&2
+  exit 1
+fi
 drift_status=$(aws cloudformation describe-stack-drift-detection-status \
   --stack-drift-detection-id "$drift_id" \
   --query StackDriftStatus \
