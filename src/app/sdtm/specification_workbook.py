@@ -10,6 +10,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
+from app.common.zip_normalization import normalize_zip_bytes
 from app.sdtm.contracts import SdtmSpecification, SdtmTerminologyBinding
 
 _FIXED_TIME = datetime(2000, 1, 1)
@@ -203,7 +204,7 @@ def render_specification_xlsx(specification: SdtmSpecification) -> bytes:
     workbook.properties.modified = _FIXED_TIME
     output = io.BytesIO()
     workbook.save(output)
-    return output.getvalue()
+    return normalize_zip_bytes(output.getvalue())
 
 
 def _records(sheet: Any, headers: tuple[str, ...]) -> list[dict[str, object]]:

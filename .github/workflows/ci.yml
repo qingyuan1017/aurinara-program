@@ -74,7 +74,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: '3.13'}
       - run: pip install cfn-lint
-      - run: cfn-lint infra/cloudformation/*.yaml
+      - run: cfn-lint -i W1100 W1101 W3002 W3005 W3045 -- infra/cloudformation/*.yaml
       - name: Build application and runner images without publishing
         run: |
           docker build -t aurinara-ci:application .

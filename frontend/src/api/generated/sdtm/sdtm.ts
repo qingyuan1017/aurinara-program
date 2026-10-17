@@ -4,7 +4,10 @@
  * Aurinara Clinical Artifact Platform
  * OpenAPI spec version: 0.1.0
  */
-import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery
+} from '@tanstack/react-query';
 import type {
   DataTag,
   DefinedInitialDataOptions,
@@ -17,8 +20,8 @@ import type {
   UseMutationOptions,
   UseMutationResult,
   UseQueryOptions,
-  UseQueryResult,
-} from "@tanstack/react-query";
+  UseQueryResult
+} from '@tanstack/react-query';
 
 import type {
   AggregateCollection,
@@ -56,4669 +59,2878 @@ import type {
   TestWorkarea202,
   ValidationRunResponse,
   WorkareaPage,
-  WorkareaResponse,
-} from ".././model";
+  WorkareaResponse
+} from '.././model';
 
-import { customInstance } from "../../axios-instance";
-import type { ErrorType, BodyType } from "../../axios-instance";
+import { customInstance } from '../../axios-instance';
+import type { ErrorType , BodyType } from '../../axios-instance';
+
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+
 
 /**
  * @summary Create
  */
 export const createSdtmAggregate = (
-  studyId: string,
-  aggregateCreate: BodyType<AggregateCreate>,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    studyId: string,
+    aggregateCreate: BodyType<AggregateCreate>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<AggregateResponse>(
-    {
-      url: `/api/v1/studies/${studyId}/sdtms`,
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      data: aggregateCreate,
-      signal,
+      
+      
+      return customInstance<AggregateResponse>(
+      {url: `/api/v1/studies/${studyId}/sdtms`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: aggregateCreate, signal
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getCreateSdtmAggregateMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof createSdtmAggregate>>,
-    TError,
-    { studyId: string; data: BodyType<AggregateCreate> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof createSdtmAggregate>>,
-  TError,
-  { studyId: string; data: BodyType<AggregateCreate> },
-  TContext
-> => {
-  const mutationKey = ["createSdtmAggregate"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof createSdtmAggregate>>,
-    { studyId: string; data: BodyType<AggregateCreate> }
-  > = (props) => {
-    const { studyId, data } = props ?? {};
+export const getCreateSdtmAggregateMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSdtmAggregate>>, TError,{studyId: string;data: BodyType<AggregateCreate>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSdtmAggregate>>, TError,{studyId: string;data: BodyType<AggregateCreate>}, TContext> => {
 
-    return createSdtmAggregate(studyId, data, requestOptions);
-  };
+const mutationKey = ['createSdtmAggregate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-  return { mutationFn, ...mutationOptions };
-};
+      
 
-export type CreateSdtmAggregateMutationResult = NonNullable<
-  Awaited<ReturnType<typeof createSdtmAggregate>>
->;
-export type CreateSdtmAggregateMutationBody = BodyType<AggregateCreate>;
-export type CreateSdtmAggregateMutationError = ErrorType<HTTPValidationError>;
 
-/**
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSdtmAggregate>>, {studyId: string;data: BodyType<AggregateCreate>}> = (props) => {
+          const {studyId,data} = props ?? {};
+
+          return  createSdtmAggregate(studyId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSdtmAggregateMutationResult = NonNullable<Awaited<ReturnType<typeof createSdtmAggregate>>>
+    export type CreateSdtmAggregateMutationBody = BodyType<AggregateCreate>
+    export type CreateSdtmAggregateMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Create
  */
-export const useCreateSdtmAggregate = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof createSdtmAggregate>>,
-      TError,
-      { studyId: string; data: BodyType<AggregateCreate> },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof createSdtmAggregate>>,
-  TError,
-  { studyId: string; data: BodyType<AggregateCreate> },
-  TContext
-> => {
-  const mutationOptions = getCreateSdtmAggregateMutationOptions(options);
+export const useCreateSdtmAggregate = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSdtmAggregate>>, TError,{studyId: string;data: BodyType<AggregateCreate>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createSdtmAggregate>>,
+        TError,
+        {studyId: string;data: BodyType<AggregateCreate>},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getCreateSdtmAggregateMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * @summary List Items
  */
 export const listSdtmAggregates = (
-  studyId: string,
-  params?: ListSdtmAggregatesParams,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    studyId: string,
+    params?: ListSdtmAggregatesParams,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<AggregateCollection>(
-    { url: `/api/v1/studies/${studyId}/sdtms`, method: "GET", params, signal },
-    options,
-  );
-};
+      
+      
+      return customInstance<AggregateCollection>(
+      {url: `/api/v1/studies/${studyId}/sdtms`, method: 'GET',
+        params, signal
+    },
+      options);
+    }
+  
 
-export const getListSdtmAggregatesQueryKey = (
-  studyId?: string,
-  params?: ListSdtmAggregatesParams,
+
+
+export const getListSdtmAggregatesQueryKey = (studyId?: string,
+    params?: ListSdtmAggregatesParams,) => {
+    return [
+    `/api/v1/studies/${studyId}/sdtms`, ...(params ? [params]: [])
+    ] as const;
+    }
+
+    
+export const getListSdtmAggregatesQueryOptions = <TData = Awaited<ReturnType<typeof listSdtmAggregates>>, TError = ErrorType<HTTPValidationError>>(studyId: string,
+    params?: ListSdtmAggregatesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSdtmAggregates>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  return [
-    `/api/v1/studies/${studyId}/sdtms`,
-    ...(params ? [params] : []),
-  ] as const;
-};
 
-export const getListSdtmAggregatesQueryOptions = <
-  TData = Awaited<ReturnType<typeof listSdtmAggregates>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  studyId: string,
-  params?: ListSdtmAggregatesParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listSdtmAggregates>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getListSdtmAggregatesQueryKey(studyId, params);
+  const queryKey =  queryOptions?.queryKey ?? getListSdtmAggregatesQueryKey(studyId,params);
 
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof listSdtmAggregates>>
-  > = ({ signal }) =>
-    listSdtmAggregates(studyId, params, requestOptions, signal);
+  
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!studyId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof listSdtmAggregates>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSdtmAggregates>>> = ({ signal }) => listSdtmAggregates(studyId,params, requestOptions, signal);
 
-export type ListSdtmAggregatesQueryResult = NonNullable<
-  Awaited<ReturnType<typeof listSdtmAggregates>>
->;
-export type ListSdtmAggregatesQueryError = ErrorType<HTTPValidationError>;
+      
 
-export function useListSdtmAggregates<
-  TData = Awaited<ReturnType<typeof listSdtmAggregates>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  studyId: string,
-  params: undefined | ListSdtmAggregatesParams,
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listSdtmAggregates>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+      
+
+   return  { queryKey, queryFn, enabled: !!(studyId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSdtmAggregates>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type ListSdtmAggregatesQueryResult = NonNullable<Awaited<ReturnType<typeof listSdtmAggregates>>>
+export type ListSdtmAggregatesQueryError = ErrorType<HTTPValidationError>
+
+
+export function useListSdtmAggregates<TData = Awaited<ReturnType<typeof listSdtmAggregates>>, TError = ErrorType<HTTPValidationError>>(
+ studyId: string,
+    params: undefined |  ListSdtmAggregatesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSdtmAggregates>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof listSdtmAggregates>>,
           TError,
           Awaited<ReturnType<typeof listSdtmAggregates>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useListSdtmAggregates<
-  TData = Awaited<ReturnType<typeof listSdtmAggregates>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  studyId: string,
-  params?: ListSdtmAggregatesParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listSdtmAggregates>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListSdtmAggregates<TData = Awaited<ReturnType<typeof listSdtmAggregates>>, TError = ErrorType<HTTPValidationError>>(
+ studyId: string,
+    params?: ListSdtmAggregatesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSdtmAggregates>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof listSdtmAggregates>>,
           TError,
           Awaited<ReturnType<typeof listSdtmAggregates>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useListSdtmAggregates<
-  TData = Awaited<ReturnType<typeof listSdtmAggregates>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  studyId: string,
-  params?: ListSdtmAggregatesParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listSdtmAggregates>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListSdtmAggregates<TData = Awaited<ReturnType<typeof listSdtmAggregates>>, TError = ErrorType<HTTPValidationError>>(
+ studyId: string,
+    params?: ListSdtmAggregatesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSdtmAggregates>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary List Items
  */
 
-export function useListSdtmAggregates<
-  TData = Awaited<ReturnType<typeof listSdtmAggregates>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  studyId: string,
-  params?: ListSdtmAggregatesParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listSdtmAggregates>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getListSdtmAggregatesQueryOptions(
-    studyId,
-    params,
-    options,
-  );
+export function useListSdtmAggregates<TData = Awaited<ReturnType<typeof listSdtmAggregates>>, TError = ErrorType<HTTPValidationError>>(
+ studyId: string,
+    params?: ListSdtmAggregatesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSdtmAggregates>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getListSdtmAggregatesQueryOptions(studyId,params,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * @summary Get Item
  */
 export const getSdtmAggregate = (
-  sdtmId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<AggregateResponse>(
-    { url: `/api/v1/sdtms/${sdtmId}`, method: "GET", signal },
-    options,
-  );
-};
+      
+      
+      return customInstance<AggregateResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}`, method: 'GET', signal
+    },
+      options);
+    }
+  
 
-export const getGetSdtmAggregateQueryKey = (sdtmId?: string) => {
-  return [`/api/v1/sdtms/${sdtmId}`] as const;
-};
 
-export const getGetSdtmAggregateQueryOptions = <
-  TData = Awaited<ReturnType<typeof getSdtmAggregate>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSdtmAggregate>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
+
+export const getGetSdtmAggregateQueryKey = (sdtmId?: string,) => {
+    return [
+    `/api/v1/sdtms/${sdtmId}`
+    ] as const;
+    }
+
+    
+export const getGetSdtmAggregateQueryOptions = <TData = Awaited<ReturnType<typeof getSdtmAggregate>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSdtmAggregate>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getGetSdtmAggregateQueryKey(sdtmId);
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getSdtmAggregate>>
-  > = ({ signal }) => getSdtmAggregate(sdtmId, requestOptions, signal);
+  const queryKey =  queryOptions?.queryKey ?? getGetSdtmAggregateQueryKey(sdtmId);
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!sdtmId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof getSdtmAggregate>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+  
 
-export type GetSdtmAggregateQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getSdtmAggregate>>
->;
-export type GetSdtmAggregateQueryError = ErrorType<HTTPValidationError>;
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSdtmAggregate>>> = ({ signal }) => getSdtmAggregate(sdtmId, requestOptions, signal);
 
-export function useGetSdtmAggregate<
-  TData = Awaited<ReturnType<typeof getSdtmAggregate>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSdtmAggregate>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(sdtmId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSdtmAggregate>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetSdtmAggregateQueryResult = NonNullable<Awaited<ReturnType<typeof getSdtmAggregate>>>
+export type GetSdtmAggregateQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetSdtmAggregate<TData = Awaited<ReturnType<typeof getSdtmAggregate>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSdtmAggregate>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getSdtmAggregate>>,
           TError,
           Awaited<ReturnType<typeof getSdtmAggregate>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useGetSdtmAggregate<
-  TData = Awaited<ReturnType<typeof getSdtmAggregate>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSdtmAggregate>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSdtmAggregate<TData = Awaited<ReturnType<typeof getSdtmAggregate>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSdtmAggregate>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getSdtmAggregate>>,
           TError,
           Awaited<ReturnType<typeof getSdtmAggregate>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useGetSdtmAggregate<
-  TData = Awaited<ReturnType<typeof getSdtmAggregate>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSdtmAggregate>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSdtmAggregate<TData = Awaited<ReturnType<typeof getSdtmAggregate>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSdtmAggregate>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Get Item
  */
 
-export function useGetSdtmAggregate<
-  TData = Awaited<ReturnType<typeof getSdtmAggregate>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSdtmAggregate>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getGetSdtmAggregateQueryOptions(sdtmId, options);
+export function useGetSdtmAggregate<TData = Awaited<ReturnType<typeof getSdtmAggregate>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSdtmAggregate>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getGetSdtmAggregateQueryOptions(sdtmId,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * @summary Get Dependencies
  */
 export const getSdtmDependencies = (
-  sdtmId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<DependencySelectionResponse>(
-    { url: `/api/v1/sdtms/${sdtmId}/dependencies`, method: "GET", signal },
-    options,
-  );
-};
+      
+      
+      return customInstance<DependencySelectionResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/dependencies`, method: 'GET', signal
+    },
+      options);
+    }
+  
 
-export const getGetSdtmDependenciesQueryKey = (sdtmId?: string) => {
-  return [`/api/v1/sdtms/${sdtmId}/dependencies`] as const;
-};
 
-export const getGetSdtmDependenciesQueryOptions = <
-  TData = Awaited<ReturnType<typeof getSdtmDependencies>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSdtmDependencies>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
+
+export const getGetSdtmDependenciesQueryKey = (sdtmId?: string,) => {
+    return [
+    `/api/v1/sdtms/${sdtmId}/dependencies`
+    ] as const;
+    }
+
+    
+export const getGetSdtmDependenciesQueryOptions = <TData = Awaited<ReturnType<typeof getSdtmDependencies>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSdtmDependencies>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getGetSdtmDependenciesQueryKey(sdtmId);
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getSdtmDependencies>>
-  > = ({ signal }) => getSdtmDependencies(sdtmId, requestOptions, signal);
+  const queryKey =  queryOptions?.queryKey ?? getGetSdtmDependenciesQueryKey(sdtmId);
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!sdtmId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof getSdtmDependencies>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+  
 
-export type GetSdtmDependenciesQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getSdtmDependencies>>
->;
-export type GetSdtmDependenciesQueryError = ErrorType<HTTPValidationError>;
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSdtmDependencies>>> = ({ signal }) => getSdtmDependencies(sdtmId, requestOptions, signal);
 
-export function useGetSdtmDependencies<
-  TData = Awaited<ReturnType<typeof getSdtmDependencies>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSdtmDependencies>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(sdtmId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSdtmDependencies>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetSdtmDependenciesQueryResult = NonNullable<Awaited<ReturnType<typeof getSdtmDependencies>>>
+export type GetSdtmDependenciesQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetSdtmDependencies<TData = Awaited<ReturnType<typeof getSdtmDependencies>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSdtmDependencies>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getSdtmDependencies>>,
           TError,
           Awaited<ReturnType<typeof getSdtmDependencies>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useGetSdtmDependencies<
-  TData = Awaited<ReturnType<typeof getSdtmDependencies>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSdtmDependencies>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSdtmDependencies<TData = Awaited<ReturnType<typeof getSdtmDependencies>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSdtmDependencies>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getSdtmDependencies>>,
           TError,
           Awaited<ReturnType<typeof getSdtmDependencies>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useGetSdtmDependencies<
-  TData = Awaited<ReturnType<typeof getSdtmDependencies>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSdtmDependencies>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSdtmDependencies<TData = Awaited<ReturnType<typeof getSdtmDependencies>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSdtmDependencies>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Get Dependencies
  */
 
-export function useGetSdtmDependencies<
-  TData = Awaited<ReturnType<typeof getSdtmDependencies>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSdtmDependencies>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getGetSdtmDependenciesQueryOptions(sdtmId, options);
+export function useGetSdtmDependencies<TData = Awaited<ReturnType<typeof getSdtmDependencies>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSdtmDependencies>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getGetSdtmDependenciesQueryOptions(sdtmId,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * @summary Put Dependencies
  */
 export const replaceSdtmDependencies = (
-  sdtmId: string,
-  dependencySelectionInput: BodyType<DependencySelectionInput>,
-  options?: SecondParameter<typeof customInstance>,
-) => {
-  return customInstance<DependencySelectionResponse>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/dependencies`,
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      data: dependencySelectionInput,
+    sdtmId: string,
+    dependencySelectionInput: BodyType<DependencySelectionInput>,
+ options?: SecondParameter<typeof customInstance>,) => {
+      
+      
+      return customInstance<DependencySelectionResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/dependencies`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: dependencySelectionInput
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getReplaceSdtmDependenciesMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof replaceSdtmDependencies>>,
-    TError,
-    { sdtmId: string; data: BodyType<DependencySelectionInput> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof replaceSdtmDependencies>>,
-  TError,
-  { sdtmId: string; data: BodyType<DependencySelectionInput> },
-  TContext
-> => {
-  const mutationKey = ["replaceSdtmDependencies"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof replaceSdtmDependencies>>,
-    { sdtmId: string; data: BodyType<DependencySelectionInput> }
-  > = (props) => {
-    const { sdtmId, data } = props ?? {};
+export const getReplaceSdtmDependenciesMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof replaceSdtmDependencies>>, TError,{sdtmId: string;data: BodyType<DependencySelectionInput>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof replaceSdtmDependencies>>, TError,{sdtmId: string;data: BodyType<DependencySelectionInput>}, TContext> => {
 
-    return replaceSdtmDependencies(sdtmId, data, requestOptions);
-  };
+const mutationKey = ['replaceSdtmDependencies'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-  return { mutationFn, ...mutationOptions };
-};
+      
 
-export type ReplaceSdtmDependenciesMutationResult = NonNullable<
-  Awaited<ReturnType<typeof replaceSdtmDependencies>>
->;
-export type ReplaceSdtmDependenciesMutationBody =
-  BodyType<DependencySelectionInput>;
-export type ReplaceSdtmDependenciesMutationError =
-  ErrorType<HTTPValidationError>;
 
-/**
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof replaceSdtmDependencies>>, {sdtmId: string;data: BodyType<DependencySelectionInput>}> = (props) => {
+          const {sdtmId,data} = props ?? {};
+
+          return  replaceSdtmDependencies(sdtmId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReplaceSdtmDependenciesMutationResult = NonNullable<Awaited<ReturnType<typeof replaceSdtmDependencies>>>
+    export type ReplaceSdtmDependenciesMutationBody = BodyType<DependencySelectionInput>
+    export type ReplaceSdtmDependenciesMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Put Dependencies
  */
-export const useReplaceSdtmDependencies = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof replaceSdtmDependencies>>,
-      TError,
-      { sdtmId: string; data: BodyType<DependencySelectionInput> },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof replaceSdtmDependencies>>,
-  TError,
-  { sdtmId: string; data: BodyType<DependencySelectionInput> },
-  TContext
-> => {
-  const mutationOptions = getReplaceSdtmDependenciesMutationOptions(options);
+export const useReplaceSdtmDependencies = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof replaceSdtmDependencies>>, TError,{sdtmId: string;data: BodyType<DependencySelectionInput>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof replaceSdtmDependencies>>,
+        TError,
+        {sdtmId: string;data: BodyType<DependencySelectionInput>},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getReplaceSdtmDependenciesMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * @summary Get Input Selection
  */
 export const getInputSelection = (
-  sdtmId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<InputSelectionResponse>(
-    { url: `/api/v1/sdtms/${sdtmId}/input-selection`, method: "GET", signal },
-    options,
-  );
-};
+      
+      
+      return customInstance<InputSelectionResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/input-selection`, method: 'GET', signal
+    },
+      options);
+    }
+  
 
-export const getGetInputSelectionQueryKey = (sdtmId?: string) => {
-  return [`/api/v1/sdtms/${sdtmId}/input-selection`] as const;
-};
 
-export const getGetInputSelectionQueryOptions = <
-  TData = Awaited<ReturnType<typeof getInputSelection>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getInputSelection>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
+
+export const getGetInputSelectionQueryKey = (sdtmId?: string,) => {
+    return [
+    `/api/v1/sdtms/${sdtmId}/input-selection`
+    ] as const;
+    }
+
+    
+export const getGetInputSelectionQueryOptions = <TData = Awaited<ReturnType<typeof getInputSelection>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getInputSelection>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getGetInputSelectionQueryKey(sdtmId);
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getInputSelection>>
-  > = ({ signal }) => getInputSelection(sdtmId, requestOptions, signal);
+  const queryKey =  queryOptions?.queryKey ?? getGetInputSelectionQueryKey(sdtmId);
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!sdtmId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof getInputSelection>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+  
 
-export type GetInputSelectionQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getInputSelection>>
->;
-export type GetInputSelectionQueryError = ErrorType<HTTPValidationError>;
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getInputSelection>>> = ({ signal }) => getInputSelection(sdtmId, requestOptions, signal);
 
-export function useGetInputSelection<
-  TData = Awaited<ReturnType<typeof getInputSelection>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getInputSelection>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(sdtmId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getInputSelection>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetInputSelectionQueryResult = NonNullable<Awaited<ReturnType<typeof getInputSelection>>>
+export type GetInputSelectionQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetInputSelection<TData = Awaited<ReturnType<typeof getInputSelection>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getInputSelection>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getInputSelection>>,
           TError,
           Awaited<ReturnType<typeof getInputSelection>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useGetInputSelection<
-  TData = Awaited<ReturnType<typeof getInputSelection>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getInputSelection>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetInputSelection<TData = Awaited<ReturnType<typeof getInputSelection>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getInputSelection>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getInputSelection>>,
           TError,
           Awaited<ReturnType<typeof getInputSelection>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useGetInputSelection<
-  TData = Awaited<ReturnType<typeof getInputSelection>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getInputSelection>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetInputSelection<TData = Awaited<ReturnType<typeof getInputSelection>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getInputSelection>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Get Input Selection
  */
 
-export function useGetInputSelection<
-  TData = Awaited<ReturnType<typeof getInputSelection>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getInputSelection>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getGetInputSelectionQueryOptions(sdtmId, options);
+export function useGetInputSelection<TData = Awaited<ReturnType<typeof getInputSelection>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getInputSelection>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getGetInputSelectionQueryOptions(sdtmId,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * @summary Put Input Selection
  */
 export const putInputSelection = (
-  sdtmId: string,
-  sdtmInputSelectionWrite: BodyType<SdtmInputSelectionWrite>,
-  options?: SecondParameter<typeof customInstance>,
-) => {
-  return customInstance<InputSelectionResponse>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/input-selection`,
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      data: sdtmInputSelectionWrite,
+    sdtmId: string,
+    sdtmInputSelectionWrite: BodyType<SdtmInputSelectionWrite>,
+ options?: SecondParameter<typeof customInstance>,) => {
+      
+      
+      return customInstance<InputSelectionResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/input-selection`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: sdtmInputSelectionWrite
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getPutInputSelectionMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof putInputSelection>>,
-    TError,
-    { sdtmId: string; data: BodyType<SdtmInputSelectionWrite> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof putInputSelection>>,
-  TError,
-  { sdtmId: string; data: BodyType<SdtmInputSelectionWrite> },
-  TContext
-> => {
-  const mutationKey = ["putInputSelection"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof putInputSelection>>,
-    { sdtmId: string; data: BodyType<SdtmInputSelectionWrite> }
-  > = (props) => {
-    const { sdtmId, data } = props ?? {};
+export const getPutInputSelectionMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putInputSelection>>, TError,{sdtmId: string;data: BodyType<SdtmInputSelectionWrite>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof putInputSelection>>, TError,{sdtmId: string;data: BodyType<SdtmInputSelectionWrite>}, TContext> => {
 
-    return putInputSelection(sdtmId, data, requestOptions);
-  };
+const mutationKey = ['putInputSelection'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-  return { mutationFn, ...mutationOptions };
-};
+      
 
-export type PutInputSelectionMutationResult = NonNullable<
-  Awaited<ReturnType<typeof putInputSelection>>
->;
-export type PutInputSelectionMutationBody = BodyType<SdtmInputSelectionWrite>;
-export type PutInputSelectionMutationError = ErrorType<HTTPValidationError>;
 
-/**
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putInputSelection>>, {sdtmId: string;data: BodyType<SdtmInputSelectionWrite>}> = (props) => {
+          const {sdtmId,data} = props ?? {};
+
+          return  putInputSelection(sdtmId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutInputSelectionMutationResult = NonNullable<Awaited<ReturnType<typeof putInputSelection>>>
+    export type PutInputSelectionMutationBody = BodyType<SdtmInputSelectionWrite>
+    export type PutInputSelectionMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Put Input Selection
  */
-export const usePutInputSelection = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof putInputSelection>>,
-      TError,
-      { sdtmId: string; data: BodyType<SdtmInputSelectionWrite> },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof putInputSelection>>,
-  TError,
-  { sdtmId: string; data: BodyType<SdtmInputSelectionWrite> },
-  TContext
-> => {
-  const mutationOptions = getPutInputSelectionMutationOptions(options);
+export const usePutInputSelection = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putInputSelection>>, TError,{sdtmId: string;data: BodyType<SdtmInputSelectionWrite>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putInputSelection>>,
+        TError,
+        {sdtmId: string;data: BodyType<SdtmInputSelectionWrite>},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getPutInputSelectionMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * @summary Get Raw Context
  */
 export const getRawContext = (
-  sdtmId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<GetRawContext200>(
-    { url: `/api/v1/sdtms/${sdtmId}/raw-context`, method: "GET", signal },
-    options,
-  );
-};
+      
+      
+      return customInstance<GetRawContext200>(
+      {url: `/api/v1/sdtms/${sdtmId}/raw-context`, method: 'GET', signal
+    },
+      options);
+    }
+  
 
-export const getGetRawContextQueryKey = (sdtmId?: string) => {
-  return [`/api/v1/sdtms/${sdtmId}/raw-context`] as const;
-};
 
-export const getGetRawContextQueryOptions = <
-  TData = Awaited<ReturnType<typeof getRawContext>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getRawContext>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
+
+export const getGetRawContextQueryKey = (sdtmId?: string,) => {
+    return [
+    `/api/v1/sdtms/${sdtmId}/raw-context`
+    ] as const;
+    }
+
+    
+export const getGetRawContextQueryOptions = <TData = Awaited<ReturnType<typeof getRawContext>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRawContext>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetRawContextQueryKey(sdtmId);
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getRawContext>>> = ({
-    signal,
-  }) => getRawContext(sdtmId, requestOptions, signal);
+  const queryKey =  queryOptions?.queryKey ?? getGetRawContextQueryKey(sdtmId);
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!sdtmId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof getRawContext>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+  
 
-export type GetRawContextQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getRawContext>>
->;
-export type GetRawContextQueryError = ErrorType<HTTPValidationError>;
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRawContext>>> = ({ signal }) => getRawContext(sdtmId, requestOptions, signal);
 
-export function useGetRawContext<
-  TData = Awaited<ReturnType<typeof getRawContext>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getRawContext>>, TError, TData>
-    > &
-      Pick<
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(sdtmId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRawContext>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetRawContextQueryResult = NonNullable<Awaited<ReturnType<typeof getRawContext>>>
+export type GetRawContextQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetRawContext<TData = Awaited<ReturnType<typeof getRawContext>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRawContext>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getRawContext>>,
           TError,
           Awaited<ReturnType<typeof getRawContext>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useGetRawContext<
-  TData = Awaited<ReturnType<typeof getRawContext>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getRawContext>>, TError, TData>
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetRawContext<TData = Awaited<ReturnType<typeof getRawContext>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRawContext>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getRawContext>>,
           TError,
           Awaited<ReturnType<typeof getRawContext>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useGetRawContext<
-  TData = Awaited<ReturnType<typeof getRawContext>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getRawContext>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetRawContext<TData = Awaited<ReturnType<typeof getRawContext>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRawContext>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Get Raw Context
  */
 
-export function useGetRawContext<
-  TData = Awaited<ReturnType<typeof getRawContext>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getRawContext>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getGetRawContextQueryOptions(sdtmId, options);
+export function useGetRawContext<TData = Awaited<ReturnType<typeof getRawContext>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRawContext>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getGetRawContextQueryOptions(sdtmId,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * @summary Get Specification
  */
 export const getSpecification = (
-  sdtmId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<SpecificationResponse>(
-    { url: `/api/v1/sdtms/${sdtmId}/specification`, method: "GET", signal },
-    options,
-  );
-};
+      
+      
+      return customInstance<SpecificationResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/specification`, method: 'GET', signal
+    },
+      options);
+    }
+  
 
-export const getGetSpecificationQueryKey = (sdtmId?: string) => {
-  return [`/api/v1/sdtms/${sdtmId}/specification`] as const;
-};
 
-export const getGetSpecificationQueryOptions = <
-  TData = Awaited<ReturnType<typeof getSpecification>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSpecification>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
+
+export const getGetSpecificationQueryKey = (sdtmId?: string,) => {
+    return [
+    `/api/v1/sdtms/${sdtmId}/specification`
+    ] as const;
+    }
+
+    
+export const getGetSpecificationQueryOptions = <TData = Awaited<ReturnType<typeof getSpecification>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSpecification>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getGetSpecificationQueryKey(sdtmId);
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getSpecification>>
-  > = ({ signal }) => getSpecification(sdtmId, requestOptions, signal);
+  const queryKey =  queryOptions?.queryKey ?? getGetSpecificationQueryKey(sdtmId);
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!sdtmId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof getSpecification>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+  
 
-export type GetSpecificationQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getSpecification>>
->;
-export type GetSpecificationQueryError = ErrorType<HTTPValidationError>;
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSpecification>>> = ({ signal }) => getSpecification(sdtmId, requestOptions, signal);
 
-export function useGetSpecification<
-  TData = Awaited<ReturnType<typeof getSpecification>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSpecification>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(sdtmId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSpecification>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetSpecificationQueryResult = NonNullable<Awaited<ReturnType<typeof getSpecification>>>
+export type GetSpecificationQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetSpecification<TData = Awaited<ReturnType<typeof getSpecification>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSpecification>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getSpecification>>,
           TError,
           Awaited<ReturnType<typeof getSpecification>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useGetSpecification<
-  TData = Awaited<ReturnType<typeof getSpecification>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSpecification>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSpecification<TData = Awaited<ReturnType<typeof getSpecification>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSpecification>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getSpecification>>,
           TError,
           Awaited<ReturnType<typeof getSpecification>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useGetSpecification<
-  TData = Awaited<ReturnType<typeof getSpecification>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSpecification>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSpecification<TData = Awaited<ReturnType<typeof getSpecification>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSpecification>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Get Specification
  */
 
-export function useGetSpecification<
-  TData = Awaited<ReturnType<typeof getSpecification>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSpecification>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getGetSpecificationQueryOptions(sdtmId, options);
+export function useGetSpecification<TData = Awaited<ReturnType<typeof getSpecification>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSpecification>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getGetSpecificationQueryOptions(sdtmId,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * @summary Put Specification
  */
 export const putSpecification = (
-  sdtmId: string,
-  sdtmSpecification: BodyType<SdtmSpecification>,
-  options?: SecondParameter<typeof customInstance>,
-) => {
-  return customInstance<SpecificationResponse>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/specification`,
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      data: sdtmSpecification,
+    sdtmId: string,
+    sdtmSpecification: BodyType<SdtmSpecification>,
+ options?: SecondParameter<typeof customInstance>,) => {
+      
+      
+      return customInstance<SpecificationResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/specification`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: sdtmSpecification
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getPutSpecificationMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof putSpecification>>,
-    TError,
-    { sdtmId: string; data: BodyType<SdtmSpecification> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof putSpecification>>,
-  TError,
-  { sdtmId: string; data: BodyType<SdtmSpecification> },
-  TContext
-> => {
-  const mutationKey = ["putSpecification"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof putSpecification>>,
-    { sdtmId: string; data: BodyType<SdtmSpecification> }
-  > = (props) => {
-    const { sdtmId, data } = props ?? {};
+export const getPutSpecificationMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putSpecification>>, TError,{sdtmId: string;data: BodyType<SdtmSpecification>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof putSpecification>>, TError,{sdtmId: string;data: BodyType<SdtmSpecification>}, TContext> => {
 
-    return putSpecification(sdtmId, data, requestOptions);
-  };
+const mutationKey = ['putSpecification'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-  return { mutationFn, ...mutationOptions };
-};
+      
 
-export type PutSpecificationMutationResult = NonNullable<
-  Awaited<ReturnType<typeof putSpecification>>
->;
-export type PutSpecificationMutationBody = BodyType<SdtmSpecification>;
-export type PutSpecificationMutationError = ErrorType<HTTPValidationError>;
 
-/**
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putSpecification>>, {sdtmId: string;data: BodyType<SdtmSpecification>}> = (props) => {
+          const {sdtmId,data} = props ?? {};
+
+          return  putSpecification(sdtmId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutSpecificationMutationResult = NonNullable<Awaited<ReturnType<typeof putSpecification>>>
+    export type PutSpecificationMutationBody = BodyType<SdtmSpecification>
+    export type PutSpecificationMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Put Specification
  */
-export const usePutSpecification = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof putSpecification>>,
-      TError,
-      { sdtmId: string; data: BodyType<SdtmSpecification> },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof putSpecification>>,
-  TError,
-  { sdtmId: string; data: BodyType<SdtmSpecification> },
-  TContext
-> => {
-  const mutationOptions = getPutSpecificationMutationOptions(options);
+export const usePutSpecification = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putSpecification>>, TError,{sdtmId: string;data: BodyType<SdtmSpecification>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putSpecification>>,
+        TError,
+        {sdtmId: string;data: BodyType<SdtmSpecification>},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getPutSpecificationMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * List the concrete domains available from the exact selected SDTMIG.
  * @summary Get Specification Initialization Options
  */
 export const getSpecificationInitializationOptions = (
-  sdtmId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<SdtmSpecificationInitializationOptions>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/specification/initialization-options`,
-      method: "GET",
-      signal,
+      
+      
+      return customInstance<SdtmSpecificationInitializationOptions>(
+      {url: `/api/v1/sdtms/${sdtmId}/specification/initialization-options`, method: 'GET', signal
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getGetSpecificationInitializationOptionsQueryKey = (
-  sdtmId?: string,
+
+
+export const getGetSpecificationInitializationOptionsQueryKey = (sdtmId?: string,) => {
+    return [
+    `/api/v1/sdtms/${sdtmId}/specification/initialization-options`
+    ] as const;
+    }
+
+    
+export const getGetSpecificationInitializationOptionsQueryOptions = <TData = Awaited<ReturnType<typeof getSpecificationInitializationOptions>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSpecificationInitializationOptions>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  return [
-    `/api/v1/sdtms/${sdtmId}/specification/initialization-options`,
-  ] as const;
-};
 
-export const getGetSpecificationInitializationOptionsQueryOptions = <
-  TData = Awaited<ReturnType<typeof getSpecificationInitializationOptions>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSpecificationInitializationOptions>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ??
-    getGetSpecificationInitializationOptionsQueryKey(sdtmId);
+  const queryKey =  queryOptions?.queryKey ?? getGetSpecificationInitializationOptionsQueryKey(sdtmId);
 
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getSpecificationInitializationOptions>>
-  > = ({ signal }) =>
-    getSpecificationInitializationOptions(sdtmId, requestOptions, signal);
+  
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!sdtmId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof getSpecificationInitializationOptions>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSpecificationInitializationOptions>>> = ({ signal }) => getSpecificationInitializationOptions(sdtmId, requestOptions, signal);
 
-export type GetSpecificationInitializationOptionsQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getSpecificationInitializationOptions>>
->;
-export type GetSpecificationInitializationOptionsQueryError =
-  ErrorType<HTTPValidationError>;
+      
 
-export function useGetSpecificationInitializationOptions<
-  TData = Awaited<ReturnType<typeof getSpecificationInitializationOptions>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSpecificationInitializationOptions>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+      
+
+   return  { queryKey, queryFn, enabled: !!(sdtmId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSpecificationInitializationOptions>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetSpecificationInitializationOptionsQueryResult = NonNullable<Awaited<ReturnType<typeof getSpecificationInitializationOptions>>>
+export type GetSpecificationInitializationOptionsQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetSpecificationInitializationOptions<TData = Awaited<ReturnType<typeof getSpecificationInitializationOptions>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSpecificationInitializationOptions>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getSpecificationInitializationOptions>>,
           TError,
           Awaited<ReturnType<typeof getSpecificationInitializationOptions>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useGetSpecificationInitializationOptions<
-  TData = Awaited<ReturnType<typeof getSpecificationInitializationOptions>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSpecificationInitializationOptions>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSpecificationInitializationOptions<TData = Awaited<ReturnType<typeof getSpecificationInitializationOptions>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSpecificationInitializationOptions>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getSpecificationInitializationOptions>>,
           TError,
           Awaited<ReturnType<typeof getSpecificationInitializationOptions>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useGetSpecificationInitializationOptions<
-  TData = Awaited<ReturnType<typeof getSpecificationInitializationOptions>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSpecificationInitializationOptions>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSpecificationInitializationOptions<TData = Awaited<ReturnType<typeof getSpecificationInitializationOptions>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSpecificationInitializationOptions>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Get Specification Initialization Options
  */
 
-export function useGetSpecificationInitializationOptions<
-  TData = Awaited<ReturnType<typeof getSpecificationInitializationOptions>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getSpecificationInitializationOptions>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getGetSpecificationInitializationOptionsQueryOptions(
-    sdtmId,
-    options,
-  );
+export function useGetSpecificationInitializationOptions<TData = Awaited<ReturnType<typeof getSpecificationInitializationOptions>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSpecificationInitializationOptions>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getGetSpecificationInitializationOptionsQueryOptions(sdtmId,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * Populate missing Specification structures from the exact selected SDTMIG.
  * @summary Initialize Specification
  */
 export const initializeSpecification = (
-  sdtmId: string,
-  sdtmSpecificationInitialize: BodyType<SdtmSpecificationInitialize>,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+    sdtmSpecificationInitialize: BodyType<SdtmSpecificationInitialize>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<SpecificationResponse>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/specification/initialize`,
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      data: sdtmSpecificationInitialize,
-      signal,
+      
+      
+      return customInstance<SpecificationResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/specification/initialize`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: sdtmSpecificationInitialize, signal
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getInitializeSpecificationMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof initializeSpecification>>,
-    TError,
-    { sdtmId: string; data: BodyType<SdtmSpecificationInitialize> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof initializeSpecification>>,
-  TError,
-  { sdtmId: string; data: BodyType<SdtmSpecificationInitialize> },
-  TContext
-> => {
-  const mutationKey = ["initializeSpecification"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof initializeSpecification>>,
-    { sdtmId: string; data: BodyType<SdtmSpecificationInitialize> }
-  > = (props) => {
-    const { sdtmId, data } = props ?? {};
+export const getInitializeSpecificationMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof initializeSpecification>>, TError,{sdtmId: string;data: BodyType<SdtmSpecificationInitialize>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof initializeSpecification>>, TError,{sdtmId: string;data: BodyType<SdtmSpecificationInitialize>}, TContext> => {
 
-    return initializeSpecification(sdtmId, data, requestOptions);
-  };
+const mutationKey = ['initializeSpecification'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-  return { mutationFn, ...mutationOptions };
-};
+      
 
-export type InitializeSpecificationMutationResult = NonNullable<
-  Awaited<ReturnType<typeof initializeSpecification>>
->;
-export type InitializeSpecificationMutationBody =
-  BodyType<SdtmSpecificationInitialize>;
-export type InitializeSpecificationMutationError =
-  ErrorType<HTTPValidationError>;
 
-/**
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof initializeSpecification>>, {sdtmId: string;data: BodyType<SdtmSpecificationInitialize>}> = (props) => {
+          const {sdtmId,data} = props ?? {};
+
+          return  initializeSpecification(sdtmId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type InitializeSpecificationMutationResult = NonNullable<Awaited<ReturnType<typeof initializeSpecification>>>
+    export type InitializeSpecificationMutationBody = BodyType<SdtmSpecificationInitialize>
+    export type InitializeSpecificationMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Initialize Specification
  */
-export const useInitializeSpecification = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof initializeSpecification>>,
-      TError,
-      { sdtmId: string; data: BodyType<SdtmSpecificationInitialize> },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof initializeSpecification>>,
-  TError,
-  { sdtmId: string; data: BodyType<SdtmSpecificationInitialize> },
-  TContext
-> => {
-  const mutationOptions = getInitializeSpecificationMutationOptions(options);
+export const useInitializeSpecification = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof initializeSpecification>>, TError,{sdtmId: string;data: BodyType<SdtmSpecificationInitialize>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof initializeSpecification>>,
+        TError,
+        {sdtmId: string;data: BodyType<SdtmSpecificationInitialize>},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getInitializeSpecificationMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * @summary Import Specification
  */
 export const importSpecification = (
-  sdtmId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<SpecificationResponse>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/specification/import`,
-      method: "POST",
-      signal,
+      
+      
+      return customInstance<SpecificationResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/specification/import`, method: 'POST', signal
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getImportSpecificationMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof importSpecification>>,
-    TError,
-    { sdtmId: string },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof importSpecification>>,
-  TError,
-  { sdtmId: string },
-  TContext
-> => {
-  const mutationKey = ["importSpecification"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof importSpecification>>,
-    { sdtmId: string }
-  > = (props) => {
-    const { sdtmId } = props ?? {};
+export const getImportSpecificationMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importSpecification>>, TError,{sdtmId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof importSpecification>>, TError,{sdtmId: string}, TContext> => {
 
-    return importSpecification(sdtmId, requestOptions);
-  };
+const mutationKey = ['importSpecification'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-  return { mutationFn, ...mutationOptions };
-};
+      
 
-export type ImportSpecificationMutationResult = NonNullable<
-  Awaited<ReturnType<typeof importSpecification>>
->;
 
-export type ImportSpecificationMutationError = ErrorType<HTTPValidationError>;
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importSpecification>>, {sdtmId: string}> = (props) => {
+          const {sdtmId} = props ?? {};
 
-/**
+          return  importSpecification(sdtmId,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportSpecificationMutationResult = NonNullable<Awaited<ReturnType<typeof importSpecification>>>
+    
+    export type ImportSpecificationMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Import Specification
  */
-export const useImportSpecification = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof importSpecification>>,
-      TError,
-      { sdtmId: string },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof importSpecification>>,
-  TError,
-  { sdtmId: string },
-  TContext
-> => {
-  const mutationOptions = getImportSpecificationMutationOptions(options);
+export const useImportSpecification = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importSpecification>>, TError,{sdtmId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof importSpecification>>,
+        TError,
+        {sdtmId: string},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getImportSpecificationMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * @summary Export Specification
  */
 export const exportSpecification = (
-  sdtmId: string,
-  params?: ExportSpecificationParams,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+    params?: ExportSpecificationParams,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<unknown>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/specification/export`,
-      method: "GET",
-      params,
-      signal,
+      
+      
+      return customInstance<unknown>(
+      {url: `/api/v1/sdtms/${sdtmId}/specification/export`, method: 'GET',
+        params, signal
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getExportSpecificationQueryKey = (
-  sdtmId?: string,
-  params?: ExportSpecificationParams,
+
+
+export const getExportSpecificationQueryKey = (sdtmId?: string,
+    params?: ExportSpecificationParams,) => {
+    return [
+    `/api/v1/sdtms/${sdtmId}/specification/export`, ...(params ? [params]: [])
+    ] as const;
+    }
+
+    
+export const getExportSpecificationQueryOptions = <TData = Awaited<ReturnType<typeof exportSpecification>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string,
+    params?: ExportSpecificationParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportSpecification>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  return [
-    `/api/v1/sdtms/${sdtmId}/specification/export`,
-    ...(params ? [params] : []),
-  ] as const;
-};
 
-export const getExportSpecificationQueryOptions = <
-  TData = Awaited<ReturnType<typeof exportSpecification>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  params?: ExportSpecificationParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof exportSpecification>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getExportSpecificationQueryKey(sdtmId, params);
+  const queryKey =  queryOptions?.queryKey ?? getExportSpecificationQueryKey(sdtmId,params);
 
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof exportSpecification>>
-  > = ({ signal }) =>
-    exportSpecification(sdtmId, params, requestOptions, signal);
+  
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!sdtmId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof exportSpecification>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof exportSpecification>>> = ({ signal }) => exportSpecification(sdtmId,params, requestOptions, signal);
 
-export type ExportSpecificationQueryResult = NonNullable<
-  Awaited<ReturnType<typeof exportSpecification>>
->;
-export type ExportSpecificationQueryError = ErrorType<HTTPValidationError>;
+      
 
-export function useExportSpecification<
-  TData = Awaited<ReturnType<typeof exportSpecification>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  params: undefined | ExportSpecificationParams,
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof exportSpecification>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+      
+
+   return  { queryKey, queryFn, enabled: !!(sdtmId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof exportSpecification>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type ExportSpecificationQueryResult = NonNullable<Awaited<ReturnType<typeof exportSpecification>>>
+export type ExportSpecificationQueryError = ErrorType<HTTPValidationError>
+
+
+export function useExportSpecification<TData = Awaited<ReturnType<typeof exportSpecification>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    params: undefined |  ExportSpecificationParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportSpecification>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof exportSpecification>>,
           TError,
           Awaited<ReturnType<typeof exportSpecification>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useExportSpecification<
-  TData = Awaited<ReturnType<typeof exportSpecification>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  params?: ExportSpecificationParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof exportSpecification>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useExportSpecification<TData = Awaited<ReturnType<typeof exportSpecification>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    params?: ExportSpecificationParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportSpecification>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof exportSpecification>>,
           TError,
           Awaited<ReturnType<typeof exportSpecification>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useExportSpecification<
-  TData = Awaited<ReturnType<typeof exportSpecification>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  params?: ExportSpecificationParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof exportSpecification>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useExportSpecification<TData = Awaited<ReturnType<typeof exportSpecification>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    params?: ExportSpecificationParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportSpecification>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Export Specification
  */
 
-export function useExportSpecification<
-  TData = Awaited<ReturnType<typeof exportSpecification>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  params?: ExportSpecificationParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof exportSpecification>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getExportSpecificationQueryOptions(
-    sdtmId,
-    params,
-    options,
-  );
+export function useExportSpecification<TData = Awaited<ReturnType<typeof exportSpecification>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    params?: ExportSpecificationParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportSpecification>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getExportSpecificationQueryOptions(sdtmId,params,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * @summary Get Lineage
  */
 export const getLineage = (
-  sdtmId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<GetLineage200>(
-    { url: `/api/v1/sdtms/${sdtmId}/lineage`, method: "GET", signal },
-    options,
-  );
-};
+      
+      
+      return customInstance<GetLineage200>(
+      {url: `/api/v1/sdtms/${sdtmId}/lineage`, method: 'GET', signal
+    },
+      options);
+    }
+  
 
-export const getGetLineageQueryKey = (sdtmId?: string) => {
-  return [`/api/v1/sdtms/${sdtmId}/lineage`] as const;
-};
 
-export const getGetLineageQueryOptions = <
-  TData = Awaited<ReturnType<typeof getLineage>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getLineage>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
+
+export const getGetLineageQueryKey = (sdtmId?: string,) => {
+    return [
+    `/api/v1/sdtms/${sdtmId}/lineage`
+    ] as const;
+    }
+
+    
+export const getGetLineageQueryOptions = <TData = Awaited<ReturnType<typeof getLineage>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLineage>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetLineageQueryKey(sdtmId);
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getLineage>>> = ({
-    signal,
-  }) => getLineage(sdtmId, requestOptions, signal);
+  const queryKey =  queryOptions?.queryKey ?? getGetLineageQueryKey(sdtmId);
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!sdtmId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof getLineage>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+  
 
-export type GetLineageQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getLineage>>
->;
-export type GetLineageQueryError = ErrorType<HTTPValidationError>;
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLineage>>> = ({ signal }) => getLineage(sdtmId, requestOptions, signal);
 
-export function useGetLineage<
-  TData = Awaited<ReturnType<typeof getLineage>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getLineage>>, TError, TData>
-    > &
-      Pick<
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(sdtmId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLineage>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetLineageQueryResult = NonNullable<Awaited<ReturnType<typeof getLineage>>>
+export type GetLineageQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetLineage<TData = Awaited<ReturnType<typeof getLineage>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLineage>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getLineage>>,
           TError,
           Awaited<ReturnType<typeof getLineage>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useGetLineage<
-  TData = Awaited<ReturnType<typeof getLineage>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getLineage>>, TError, TData>
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetLineage<TData = Awaited<ReturnType<typeof getLineage>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLineage>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getLineage>>,
           TError,
           Awaited<ReturnType<typeof getLineage>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useGetLineage<
-  TData = Awaited<ReturnType<typeof getLineage>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getLineage>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetLineage<TData = Awaited<ReturnType<typeof getLineage>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLineage>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Get Lineage
  */
 
-export function useGetLineage<
-  TData = Awaited<ReturnType<typeof getLineage>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getLineage>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getGetLineageQueryOptions(sdtmId, options);
+export function useGetLineage<TData = Awaited<ReturnType<typeof getLineage>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLineage>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getGetLineageQueryOptions(sdtmId,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * Per-domain validation run for authoring feedback and per-domain program builds.
  * @summary Validate Sdtm Domain
  */
 export const validateSdtmDomain = (
-  sdtmId: string,
-  domainCode: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+    domainCode: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<ValidationRunResponse>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/domains/${domainCode}/validate`,
-      method: "POST",
-      signal,
+      
+      
+      return customInstance<ValidationRunResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/domains/${domainCode}/validate`, method: 'POST', signal
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getValidateSdtmDomainMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof validateSdtmDomain>>,
-    TError,
-    { sdtmId: string; domainCode: string },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof validateSdtmDomain>>,
-  TError,
-  { sdtmId: string; domainCode: string },
-  TContext
-> => {
-  const mutationKey = ["validateSdtmDomain"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof validateSdtmDomain>>,
-    { sdtmId: string; domainCode: string }
-  > = (props) => {
-    const { sdtmId, domainCode } = props ?? {};
+export const getValidateSdtmDomainMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateSdtmDomain>>, TError,{sdtmId: string;domainCode: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof validateSdtmDomain>>, TError,{sdtmId: string;domainCode: string}, TContext> => {
 
-    return validateSdtmDomain(sdtmId, domainCode, requestOptions);
-  };
+const mutationKey = ['validateSdtmDomain'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-  return { mutationFn, ...mutationOptions };
-};
+      
 
-export type ValidateSdtmDomainMutationResult = NonNullable<
-  Awaited<ReturnType<typeof validateSdtmDomain>>
->;
 
-export type ValidateSdtmDomainMutationError = ErrorType<HTTPValidationError>;
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof validateSdtmDomain>>, {sdtmId: string;domainCode: string}> = (props) => {
+          const {sdtmId,domainCode} = props ?? {};
 
-/**
+          return  validateSdtmDomain(sdtmId,domainCode,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ValidateSdtmDomainMutationResult = NonNullable<Awaited<ReturnType<typeof validateSdtmDomain>>>
+    
+    export type ValidateSdtmDomainMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Validate Sdtm Domain
  */
-export const useValidateSdtmDomain = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof validateSdtmDomain>>,
-      TError,
-      { sdtmId: string; domainCode: string },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof validateSdtmDomain>>,
-  TError,
-  { sdtmId: string; domainCode: string },
-  TContext
-> => {
-  const mutationOptions = getValidateSdtmDomainMutationOptions(options);
+export const useValidateSdtmDomain = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateSdtmDomain>>, TError,{sdtmId: string;domainCode: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof validateSdtmDomain>>,
+        TError,
+        {sdtmId: string;domainCode: string},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getValidateSdtmDomainMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * @summary Validate Sdtm
  */
 export const validateSdtm = (
-  sdtmId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<ValidationRunResponse>(
-    { url: `/api/v1/sdtms/${sdtmId}/validate`, method: "POST", signal },
-    options,
-  );
-};
+      
+      
+      return customInstance<ValidationRunResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/validate`, method: 'POST', signal
+    },
+      options);
+    }
+  
 
-export const getValidateSdtmMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof validateSdtm>>,
-    TError,
-    { sdtmId: string },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof validateSdtm>>,
-  TError,
-  { sdtmId: string },
-  TContext
-> => {
-  const mutationKey = ["validateSdtm"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof validateSdtm>>,
-    { sdtmId: string }
-  > = (props) => {
-    const { sdtmId } = props ?? {};
+export const getValidateSdtmMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateSdtm>>, TError,{sdtmId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof validateSdtm>>, TError,{sdtmId: string}, TContext> => {
 
-    return validateSdtm(sdtmId, requestOptions);
-  };
+const mutationKey = ['validateSdtm'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-  return { mutationFn, ...mutationOptions };
-};
+      
 
-export type ValidateSdtmMutationResult = NonNullable<
-  Awaited<ReturnType<typeof validateSdtm>>
->;
 
-export type ValidateSdtmMutationError = ErrorType<HTTPValidationError>;
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof validateSdtm>>, {sdtmId: string}> = (props) => {
+          const {sdtmId} = props ?? {};
 
-/**
+          return  validateSdtm(sdtmId,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ValidateSdtmMutationResult = NonNullable<Awaited<ReturnType<typeof validateSdtm>>>
+    
+    export type ValidateSdtmMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Validate Sdtm
  */
-export const useValidateSdtm = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof validateSdtm>>,
-      TError,
-      { sdtmId: string },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof validateSdtm>>,
-  TError,
-  { sdtmId: string },
-  TContext
-> => {
-  const mutationOptions = getValidateSdtmMutationOptions(options);
+export const useValidateSdtm = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateSdtm>>, TError,{sdtmId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof validateSdtm>>,
+        TError,
+        {sdtmId: string},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getValidateSdtmMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * @summary Create Sdtm Artifacts
  */
 export const createSdtmArtifacts = (
-  sdtmId: string,
-  sdtmArtifactRequest: BodyType<SdtmArtifactRequest>,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+    sdtmArtifactRequest: BodyType<SdtmArtifactRequest>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<ArtifactBuildResponse>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/artifacts`,
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      data: sdtmArtifactRequest,
-      signal,
+      
+      
+      return customInstance<ArtifactBuildResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/artifacts`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: sdtmArtifactRequest, signal
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getCreateSdtmArtifactsMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof createSdtmArtifacts>>,
-    TError,
-    { sdtmId: string; data: BodyType<SdtmArtifactRequest> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof createSdtmArtifacts>>,
-  TError,
-  { sdtmId: string; data: BodyType<SdtmArtifactRequest> },
-  TContext
-> => {
-  const mutationKey = ["createSdtmArtifacts"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof createSdtmArtifacts>>,
-    { sdtmId: string; data: BodyType<SdtmArtifactRequest> }
-  > = (props) => {
-    const { sdtmId, data } = props ?? {};
+export const getCreateSdtmArtifactsMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSdtmArtifacts>>, TError,{sdtmId: string;data: BodyType<SdtmArtifactRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSdtmArtifacts>>, TError,{sdtmId: string;data: BodyType<SdtmArtifactRequest>}, TContext> => {
 
-    return createSdtmArtifacts(sdtmId, data, requestOptions);
-  };
+const mutationKey = ['createSdtmArtifacts'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-  return { mutationFn, ...mutationOptions };
-};
+      
 
-export type CreateSdtmArtifactsMutationResult = NonNullable<
-  Awaited<ReturnType<typeof createSdtmArtifacts>>
->;
-export type CreateSdtmArtifactsMutationBody = BodyType<SdtmArtifactRequest>;
-export type CreateSdtmArtifactsMutationError = ErrorType<HTTPValidationError>;
 
-/**
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSdtmArtifacts>>, {sdtmId: string;data: BodyType<SdtmArtifactRequest>}> = (props) => {
+          const {sdtmId,data} = props ?? {};
+
+          return  createSdtmArtifacts(sdtmId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSdtmArtifactsMutationResult = NonNullable<Awaited<ReturnType<typeof createSdtmArtifacts>>>
+    export type CreateSdtmArtifactsMutationBody = BodyType<SdtmArtifactRequest>
+    export type CreateSdtmArtifactsMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Create Sdtm Artifacts
  */
-export const useCreateSdtmArtifacts = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof createSdtmArtifacts>>,
-      TError,
-      { sdtmId: string; data: BodyType<SdtmArtifactRequest> },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof createSdtmArtifacts>>,
-  TError,
-  { sdtmId: string; data: BodyType<SdtmArtifactRequest> },
-  TContext
-> => {
-  const mutationOptions = getCreateSdtmArtifactsMutationOptions(options);
+export const useCreateSdtmArtifacts = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSdtmArtifacts>>, TError,{sdtmId: string;data: BodyType<SdtmArtifactRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createSdtmArtifacts>>,
+        TError,
+        {sdtmId: string;data: BodyType<SdtmArtifactRequest>},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getCreateSdtmArtifactsMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * @summary List Domain Mappings
  */
 export const listDomainMappings = (
-  sdtmId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<MappingHeadPage>(
-    { url: `/api/v1/sdtms/${sdtmId}/domain-mappings`, method: "GET", signal },
-    options,
-  );
-};
+      
+      
+      return customInstance<MappingHeadPage>(
+      {url: `/api/v1/sdtms/${sdtmId}/domain-mappings`, method: 'GET', signal
+    },
+      options);
+    }
+  
 
-export const getListDomainMappingsQueryKey = (sdtmId?: string) => {
-  return [`/api/v1/sdtms/${sdtmId}/domain-mappings`] as const;
-};
 
-export const getListDomainMappingsQueryOptions = <
-  TData = Awaited<ReturnType<typeof listDomainMappings>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listDomainMappings>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
+
+export const getListDomainMappingsQueryKey = (sdtmId?: string,) => {
+    return [
+    `/api/v1/sdtms/${sdtmId}/domain-mappings`
+    ] as const;
+    }
+
+    
+export const getListDomainMappingsQueryOptions = <TData = Awaited<ReturnType<typeof listDomainMappings>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listDomainMappings>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getListDomainMappingsQueryKey(sdtmId);
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof listDomainMappings>>
-  > = ({ signal }) => listDomainMappings(sdtmId, requestOptions, signal);
+  const queryKey =  queryOptions?.queryKey ?? getListDomainMappingsQueryKey(sdtmId);
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!sdtmId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof listDomainMappings>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+  
 
-export type ListDomainMappingsQueryResult = NonNullable<
-  Awaited<ReturnType<typeof listDomainMappings>>
->;
-export type ListDomainMappingsQueryError = ErrorType<HTTPValidationError>;
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDomainMappings>>> = ({ signal }) => listDomainMappings(sdtmId, requestOptions, signal);
 
-export function useListDomainMappings<
-  TData = Awaited<ReturnType<typeof listDomainMappings>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listDomainMappings>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(sdtmId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDomainMappings>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type ListDomainMappingsQueryResult = NonNullable<Awaited<ReturnType<typeof listDomainMappings>>>
+export type ListDomainMappingsQueryError = ErrorType<HTTPValidationError>
+
+
+export function useListDomainMappings<TData = Awaited<ReturnType<typeof listDomainMappings>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listDomainMappings>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof listDomainMappings>>,
           TError,
           Awaited<ReturnType<typeof listDomainMappings>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useListDomainMappings<
-  TData = Awaited<ReturnType<typeof listDomainMappings>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listDomainMappings>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListDomainMappings<TData = Awaited<ReturnType<typeof listDomainMappings>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listDomainMappings>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof listDomainMappings>>,
           TError,
           Awaited<ReturnType<typeof listDomainMappings>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useListDomainMappings<
-  TData = Awaited<ReturnType<typeof listDomainMappings>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listDomainMappings>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListDomainMappings<TData = Awaited<ReturnType<typeof listDomainMappings>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listDomainMappings>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary List Domain Mappings
  */
 
-export function useListDomainMappings<
-  TData = Awaited<ReturnType<typeof listDomainMappings>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listDomainMappings>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getListDomainMappingsQueryOptions(sdtmId, options);
+export function useListDomainMappings<TData = Awaited<ReturnType<typeof listDomainMappings>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listDomainMappings>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getListDomainMappingsQueryOptions(sdtmId,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * @summary Get Domain Mapping
  */
 export const getDomainMapping = (
-  sdtmId: string,
-  domain: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+    domain: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<MappingResponse>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/domains/${domain}/domain-mapping`,
-      method: "GET",
-      signal,
+      
+      
+      return customInstance<MappingResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/domains/${domain}/domain-mapping`, method: 'GET', signal
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getGetDomainMappingQueryKey = (
-  sdtmId?: string,
-  domain?: string,
+
+
+export const getGetDomainMappingQueryKey = (sdtmId?: string,
+    domain?: string,) => {
+    return [
+    `/api/v1/sdtms/${sdtmId}/domains/${domain}/domain-mapping`
+    ] as const;
+    }
+
+    
+export const getGetDomainMappingQueryOptions = <TData = Awaited<ReturnType<typeof getDomainMapping>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string,
+    domain: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDomainMapping>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  return [`/api/v1/sdtms/${sdtmId}/domains/${domain}/domain-mapping`] as const;
-};
 
-export const getGetDomainMappingQueryOptions = <
-  TData = Awaited<ReturnType<typeof getDomainMapping>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  domain: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getDomainMapping>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getGetDomainMappingQueryKey(sdtmId, domain);
+  const queryKey =  queryOptions?.queryKey ?? getGetDomainMappingQueryKey(sdtmId,domain);
 
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getDomainMapping>>
-  > = ({ signal }) => getDomainMapping(sdtmId, domain, requestOptions, signal);
+  
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!(sdtmId && domain),
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof getDomainMapping>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDomainMapping>>> = ({ signal }) => getDomainMapping(sdtmId,domain, requestOptions, signal);
 
-export type GetDomainMappingQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getDomainMapping>>
->;
-export type GetDomainMappingQueryError = ErrorType<HTTPValidationError>;
+      
 
-export function useGetDomainMapping<
-  TData = Awaited<ReturnType<typeof getDomainMapping>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  domain: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getDomainMapping>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+      
+
+   return  { queryKey, queryFn, enabled: !!(sdtmId && domain), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDomainMapping>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetDomainMappingQueryResult = NonNullable<Awaited<ReturnType<typeof getDomainMapping>>>
+export type GetDomainMappingQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetDomainMapping<TData = Awaited<ReturnType<typeof getDomainMapping>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    domain: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDomainMapping>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getDomainMapping>>,
           TError,
           Awaited<ReturnType<typeof getDomainMapping>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useGetDomainMapping<
-  TData = Awaited<ReturnType<typeof getDomainMapping>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  domain: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getDomainMapping>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetDomainMapping<TData = Awaited<ReturnType<typeof getDomainMapping>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    domain: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDomainMapping>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getDomainMapping>>,
           TError,
           Awaited<ReturnType<typeof getDomainMapping>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useGetDomainMapping<
-  TData = Awaited<ReturnType<typeof getDomainMapping>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  domain: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getDomainMapping>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetDomainMapping<TData = Awaited<ReturnType<typeof getDomainMapping>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    domain: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDomainMapping>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Get Domain Mapping
  */
 
-export function useGetDomainMapping<
-  TData = Awaited<ReturnType<typeof getDomainMapping>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  domain: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getDomainMapping>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getGetDomainMappingQueryOptions(sdtmId, domain, options);
+export function useGetDomainMapping<TData = Awaited<ReturnType<typeof getDomainMapping>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    domain: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDomainMapping>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getGetDomainMappingQueryOptions(sdtmId,domain,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * @summary Put Domain Mapping
  */
 export const putDomainMapping = (
-  sdtmId: string,
-  domain: string,
-  sdtmDomainMappingWrite: BodyType<SdtmDomainMappingWrite>,
-  options?: SecondParameter<typeof customInstance>,
-) => {
-  return customInstance<MappingResponse>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/domains/${domain}/domain-mapping`,
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      data: sdtmDomainMappingWrite,
+    sdtmId: string,
+    domain: string,
+    sdtmDomainMappingWrite: BodyType<SdtmDomainMappingWrite>,
+ options?: SecondParameter<typeof customInstance>,) => {
+      
+      
+      return customInstance<MappingResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/domains/${domain}/domain-mapping`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: sdtmDomainMappingWrite
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getPutDomainMappingMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof putDomainMapping>>,
-    TError,
-    { sdtmId: string; domain: string; data: BodyType<SdtmDomainMappingWrite> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof putDomainMapping>>,
-  TError,
-  { sdtmId: string; domain: string; data: BodyType<SdtmDomainMappingWrite> },
-  TContext
-> => {
-  const mutationKey = ["putDomainMapping"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof putDomainMapping>>,
-    { sdtmId: string; domain: string; data: BodyType<SdtmDomainMappingWrite> }
-  > = (props) => {
-    const { sdtmId, domain, data } = props ?? {};
+export const getPutDomainMappingMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putDomainMapping>>, TError,{sdtmId: string;domain: string;data: BodyType<SdtmDomainMappingWrite>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof putDomainMapping>>, TError,{sdtmId: string;domain: string;data: BodyType<SdtmDomainMappingWrite>}, TContext> => {
 
-    return putDomainMapping(sdtmId, domain, data, requestOptions);
-  };
+const mutationKey = ['putDomainMapping'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-  return { mutationFn, ...mutationOptions };
-};
+      
 
-export type PutDomainMappingMutationResult = NonNullable<
-  Awaited<ReturnType<typeof putDomainMapping>>
->;
-export type PutDomainMappingMutationBody = BodyType<SdtmDomainMappingWrite>;
-export type PutDomainMappingMutationError = ErrorType<HTTPValidationError>;
 
-/**
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putDomainMapping>>, {sdtmId: string;domain: string;data: BodyType<SdtmDomainMappingWrite>}> = (props) => {
+          const {sdtmId,domain,data} = props ?? {};
+
+          return  putDomainMapping(sdtmId,domain,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutDomainMappingMutationResult = NonNullable<Awaited<ReturnType<typeof putDomainMapping>>>
+    export type PutDomainMappingMutationBody = BodyType<SdtmDomainMappingWrite>
+    export type PutDomainMappingMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Put Domain Mapping
  */
-export const usePutDomainMapping = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof putDomainMapping>>,
-      TError,
-      {
-        sdtmId: string;
-        domain: string;
-        data: BodyType<SdtmDomainMappingWrite>;
-      },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof putDomainMapping>>,
-  TError,
-  { sdtmId: string; domain: string; data: BodyType<SdtmDomainMappingWrite> },
-  TContext
-> => {
-  const mutationOptions = getPutDomainMappingMutationOptions(options);
+export const usePutDomainMapping = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putDomainMapping>>, TError,{sdtmId: string;domain: string;data: BodyType<SdtmDomainMappingWrite>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putDomainMapping>>,
+        TError,
+        {sdtmId: string;domain: string;data: BodyType<SdtmDomainMappingWrite>},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getPutDomainMappingMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * @summary Get Variable Mapping
  */
 export const getVariableMapping = (
-  sdtmId: string,
-  domain: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+    domain: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<MappingResponse>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/domains/${domain}/variable-mapping`,
-      method: "GET",
-      signal,
+      
+      
+      return customInstance<MappingResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/domains/${domain}/variable-mapping`, method: 'GET', signal
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getGetVariableMappingQueryKey = (
-  sdtmId?: string,
-  domain?: string,
+
+
+export const getGetVariableMappingQueryKey = (sdtmId?: string,
+    domain?: string,) => {
+    return [
+    `/api/v1/sdtms/${sdtmId}/domains/${domain}/variable-mapping`
+    ] as const;
+    }
+
+    
+export const getGetVariableMappingQueryOptions = <TData = Awaited<ReturnType<typeof getVariableMapping>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string,
+    domain: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVariableMapping>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  return [
-    `/api/v1/sdtms/${sdtmId}/domains/${domain}/variable-mapping`,
-  ] as const;
-};
 
-export const getGetVariableMappingQueryOptions = <
-  TData = Awaited<ReturnType<typeof getVariableMapping>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  domain: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getVariableMapping>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getGetVariableMappingQueryKey(sdtmId, domain);
+  const queryKey =  queryOptions?.queryKey ?? getGetVariableMappingQueryKey(sdtmId,domain);
 
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getVariableMapping>>
-  > = ({ signal }) =>
-    getVariableMapping(sdtmId, domain, requestOptions, signal);
+  
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!(sdtmId && domain),
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof getVariableMapping>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getVariableMapping>>> = ({ signal }) => getVariableMapping(sdtmId,domain, requestOptions, signal);
 
-export type GetVariableMappingQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getVariableMapping>>
->;
-export type GetVariableMappingQueryError = ErrorType<HTTPValidationError>;
+      
 
-export function useGetVariableMapping<
-  TData = Awaited<ReturnType<typeof getVariableMapping>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  domain: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getVariableMapping>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+      
+
+   return  { queryKey, queryFn, enabled: !!(sdtmId && domain), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVariableMapping>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetVariableMappingQueryResult = NonNullable<Awaited<ReturnType<typeof getVariableMapping>>>
+export type GetVariableMappingQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetVariableMapping<TData = Awaited<ReturnType<typeof getVariableMapping>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    domain: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVariableMapping>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getVariableMapping>>,
           TError,
           Awaited<ReturnType<typeof getVariableMapping>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useGetVariableMapping<
-  TData = Awaited<ReturnType<typeof getVariableMapping>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  domain: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getVariableMapping>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetVariableMapping<TData = Awaited<ReturnType<typeof getVariableMapping>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    domain: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVariableMapping>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getVariableMapping>>,
           TError,
           Awaited<ReturnType<typeof getVariableMapping>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useGetVariableMapping<
-  TData = Awaited<ReturnType<typeof getVariableMapping>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  domain: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getVariableMapping>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetVariableMapping<TData = Awaited<ReturnType<typeof getVariableMapping>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    domain: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVariableMapping>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Get Variable Mapping
  */
 
-export function useGetVariableMapping<
-  TData = Awaited<ReturnType<typeof getVariableMapping>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  domain: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getVariableMapping>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getGetVariableMappingQueryOptions(
-    sdtmId,
-    domain,
-    options,
-  );
+export function useGetVariableMapping<TData = Awaited<ReturnType<typeof getVariableMapping>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    domain: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVariableMapping>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getGetVariableMappingQueryOptions(sdtmId,domain,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * @summary Put Variable Mapping
  */
 export const putVariableMapping = (
-  sdtmId: string,
-  domain: string,
-  sdtmVariableMappingWrite: BodyType<SdtmVariableMappingWrite>,
-  options?: SecondParameter<typeof customInstance>,
-) => {
-  return customInstance<MappingResponse>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/domains/${domain}/variable-mapping`,
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      data: sdtmVariableMappingWrite,
+    sdtmId: string,
+    domain: string,
+    sdtmVariableMappingWrite: BodyType<SdtmVariableMappingWrite>,
+ options?: SecondParameter<typeof customInstance>,) => {
+      
+      
+      return customInstance<MappingResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/domains/${domain}/variable-mapping`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: sdtmVariableMappingWrite
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getPutVariableMappingMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof putVariableMapping>>,
-    TError,
-    {
-      sdtmId: string;
-      domain: string;
-      data: BodyType<SdtmVariableMappingWrite>;
-    },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof putVariableMapping>>,
-  TError,
-  { sdtmId: string; domain: string; data: BodyType<SdtmVariableMappingWrite> },
-  TContext
-> => {
-  const mutationKey = ["putVariableMapping"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof putVariableMapping>>,
-    { sdtmId: string; domain: string; data: BodyType<SdtmVariableMappingWrite> }
-  > = (props) => {
-    const { sdtmId, domain, data } = props ?? {};
+export const getPutVariableMappingMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putVariableMapping>>, TError,{sdtmId: string;domain: string;data: BodyType<SdtmVariableMappingWrite>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof putVariableMapping>>, TError,{sdtmId: string;domain: string;data: BodyType<SdtmVariableMappingWrite>}, TContext> => {
 
-    return putVariableMapping(sdtmId, domain, data, requestOptions);
-  };
+const mutationKey = ['putVariableMapping'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-  return { mutationFn, ...mutationOptions };
-};
+      
 
-export type PutVariableMappingMutationResult = NonNullable<
-  Awaited<ReturnType<typeof putVariableMapping>>
->;
-export type PutVariableMappingMutationBody = BodyType<SdtmVariableMappingWrite>;
-export type PutVariableMappingMutationError = ErrorType<HTTPValidationError>;
 
-/**
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putVariableMapping>>, {sdtmId: string;domain: string;data: BodyType<SdtmVariableMappingWrite>}> = (props) => {
+          const {sdtmId,domain,data} = props ?? {};
+
+          return  putVariableMapping(sdtmId,domain,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutVariableMappingMutationResult = NonNullable<Awaited<ReturnType<typeof putVariableMapping>>>
+    export type PutVariableMappingMutationBody = BodyType<SdtmVariableMappingWrite>
+    export type PutVariableMappingMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Put Variable Mapping
  */
-export const usePutVariableMapping = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof putVariableMapping>>,
-      TError,
-      {
-        sdtmId: string;
-        domain: string;
-        data: BodyType<SdtmVariableMappingWrite>;
-      },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof putVariableMapping>>,
-  TError,
-  { sdtmId: string; domain: string; data: BodyType<SdtmVariableMappingWrite> },
-  TContext
-> => {
-  const mutationOptions = getPutVariableMappingMutationOptions(options);
+export const usePutVariableMapping = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putVariableMapping>>, TError,{sdtmId: string;domain: string;data: BodyType<SdtmVariableMappingWrite>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putVariableMapping>>,
+        TError,
+        {sdtmId: string;domain: string;data: BodyType<SdtmVariableMappingWrite>},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getPutVariableMappingMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * @summary List Workareas
  */
 export const listWorkareas = (
-  sdtmId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<WorkareaPage>(
-    { url: `/api/v1/sdtms/${sdtmId}/code-workareas`, method: "GET", signal },
-    options,
-  );
-};
+      
+      
+      return customInstance<WorkareaPage>(
+      {url: `/api/v1/sdtms/${sdtmId}/code-workareas`, method: 'GET', signal
+    },
+      options);
+    }
+  
 
-export const getListWorkareasQueryKey = (sdtmId?: string) => {
-  return [`/api/v1/sdtms/${sdtmId}/code-workareas`] as const;
-};
 
-export const getListWorkareasQueryOptions = <
-  TData = Awaited<ReturnType<typeof listWorkareas>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof listWorkareas>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
+
+export const getListWorkareasQueryKey = (sdtmId?: string,) => {
+    return [
+    `/api/v1/sdtms/${sdtmId}/code-workareas`
+    ] as const;
+    }
+
+    
+export const getListWorkareasQueryOptions = <TData = Awaited<ReturnType<typeof listWorkareas>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listWorkareas>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListWorkareasQueryKey(sdtmId);
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof listWorkareas>>> = ({
-    signal,
-  }) => listWorkareas(sdtmId, requestOptions, signal);
+  const queryKey =  queryOptions?.queryKey ?? getListWorkareasQueryKey(sdtmId);
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!sdtmId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof listWorkareas>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+  
 
-export type ListWorkareasQueryResult = NonNullable<
-  Awaited<ReturnType<typeof listWorkareas>>
->;
-export type ListWorkareasQueryError = ErrorType<HTTPValidationError>;
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWorkareas>>> = ({ signal }) => listWorkareas(sdtmId, requestOptions, signal);
 
-export function useListWorkareas<
-  TData = Awaited<ReturnType<typeof listWorkareas>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof listWorkareas>>, TError, TData>
-    > &
-      Pick<
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(sdtmId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWorkareas>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type ListWorkareasQueryResult = NonNullable<Awaited<ReturnType<typeof listWorkareas>>>
+export type ListWorkareasQueryError = ErrorType<HTTPValidationError>
+
+
+export function useListWorkareas<TData = Awaited<ReturnType<typeof listWorkareas>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listWorkareas>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof listWorkareas>>,
           TError,
           Awaited<ReturnType<typeof listWorkareas>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useListWorkareas<
-  TData = Awaited<ReturnType<typeof listWorkareas>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof listWorkareas>>, TError, TData>
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListWorkareas<TData = Awaited<ReturnType<typeof listWorkareas>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listWorkareas>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof listWorkareas>>,
           TError,
           Awaited<ReturnType<typeof listWorkareas>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useListWorkareas<
-  TData = Awaited<ReturnType<typeof listWorkareas>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof listWorkareas>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListWorkareas<TData = Awaited<ReturnType<typeof listWorkareas>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listWorkareas>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary List Workareas
  */
 
-export function useListWorkareas<
-  TData = Awaited<ReturnType<typeof listWorkareas>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof listWorkareas>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getListWorkareasQueryOptions(sdtmId, options);
+export function useListWorkareas<TData = Awaited<ReturnType<typeof listWorkareas>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listWorkareas>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getListWorkareasQueryOptions(sdtmId,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * @summary Create Workarea
  */
 export const createWorkarea = (
-  sdtmId: string,
-  sdtmCodeWorkareaCreate: BodyType<SdtmCodeWorkareaCreate>,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+    sdtmCodeWorkareaCreate: BodyType<SdtmCodeWorkareaCreate>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<WorkareaResponse>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/code-workareas`,
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      data: sdtmCodeWorkareaCreate,
-      signal,
+      
+      
+      return customInstance<WorkareaResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/code-workareas`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: sdtmCodeWorkareaCreate, signal
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getCreateWorkareaMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof createWorkarea>>,
-    TError,
-    { sdtmId: string; data: BodyType<SdtmCodeWorkareaCreate> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof createWorkarea>>,
-  TError,
-  { sdtmId: string; data: BodyType<SdtmCodeWorkareaCreate> },
-  TContext
-> => {
-  const mutationKey = ["createWorkarea"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof createWorkarea>>,
-    { sdtmId: string; data: BodyType<SdtmCodeWorkareaCreate> }
-  > = (props) => {
-    const { sdtmId, data } = props ?? {};
+export const getCreateWorkareaMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWorkarea>>, TError,{sdtmId: string;data: BodyType<SdtmCodeWorkareaCreate>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof createWorkarea>>, TError,{sdtmId: string;data: BodyType<SdtmCodeWorkareaCreate>}, TContext> => {
 
-    return createWorkarea(sdtmId, data, requestOptions);
-  };
+const mutationKey = ['createWorkarea'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-  return { mutationFn, ...mutationOptions };
-};
+      
 
-export type CreateWorkareaMutationResult = NonNullable<
-  Awaited<ReturnType<typeof createWorkarea>>
->;
-export type CreateWorkareaMutationBody = BodyType<SdtmCodeWorkareaCreate>;
-export type CreateWorkareaMutationError = ErrorType<HTTPValidationError>;
 
-/**
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createWorkarea>>, {sdtmId: string;data: BodyType<SdtmCodeWorkareaCreate>}> = (props) => {
+          const {sdtmId,data} = props ?? {};
+
+          return  createWorkarea(sdtmId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateWorkareaMutationResult = NonNullable<Awaited<ReturnType<typeof createWorkarea>>>
+    export type CreateWorkareaMutationBody = BodyType<SdtmCodeWorkareaCreate>
+    export type CreateWorkareaMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Create Workarea
  */
-export const useCreateWorkarea = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof createWorkarea>>,
-      TError,
-      { sdtmId: string; data: BodyType<SdtmCodeWorkareaCreate> },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof createWorkarea>>,
-  TError,
-  { sdtmId: string; data: BodyType<SdtmCodeWorkareaCreate> },
-  TContext
-> => {
-  const mutationOptions = getCreateWorkareaMutationOptions(options);
+export const useCreateWorkarea = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWorkarea>>, TError,{sdtmId: string;data: BodyType<SdtmCodeWorkareaCreate>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createWorkarea>>,
+        TError,
+        {sdtmId: string;data: BodyType<SdtmCodeWorkareaCreate>},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getCreateWorkareaMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * @summary Get Workarea
  */
 export const getWorkarea = (
-  sdtmId: string,
-  workareaId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+    workareaId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<WorkareaResponse>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/code-workareas/${workareaId}`,
-      method: "GET",
-      signal,
+      
+      
+      return customInstance<WorkareaResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/code-workareas/${workareaId}`, method: 'GET', signal
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getGetWorkareaQueryKey = (
-  sdtmId?: string,
-  workareaId?: string,
+
+
+export const getGetWorkareaQueryKey = (sdtmId?: string,
+    workareaId?: string,) => {
+    return [
+    `/api/v1/sdtms/${sdtmId}/code-workareas/${workareaId}`
+    ] as const;
+    }
+
+    
+export const getGetWorkareaQueryOptions = <TData = Awaited<ReturnType<typeof getWorkarea>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string,
+    workareaId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getWorkarea>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  return [`/api/v1/sdtms/${sdtmId}/code-workareas/${workareaId}`] as const;
-};
 
-export const getGetWorkareaQueryOptions = <
-  TData = Awaited<ReturnType<typeof getWorkarea>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  workareaId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getWorkarea>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getGetWorkareaQueryKey(sdtmId, workareaId);
+  const queryKey =  queryOptions?.queryKey ?? getGetWorkareaQueryKey(sdtmId,workareaId);
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getWorkarea>>> = ({
-    signal,
-  }) => getWorkarea(sdtmId, workareaId, requestOptions, signal);
+  
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!(sdtmId && workareaId),
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof getWorkarea>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWorkarea>>> = ({ signal }) => getWorkarea(sdtmId,workareaId, requestOptions, signal);
 
-export type GetWorkareaQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getWorkarea>>
->;
-export type GetWorkareaQueryError = ErrorType<HTTPValidationError>;
+      
 
-export function useGetWorkarea<
-  TData = Awaited<ReturnType<typeof getWorkarea>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  workareaId: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getWorkarea>>, TError, TData>
-    > &
-      Pick<
+      
+
+   return  { queryKey, queryFn, enabled: !!(sdtmId && workareaId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWorkarea>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetWorkareaQueryResult = NonNullable<Awaited<ReturnType<typeof getWorkarea>>>
+export type GetWorkareaQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetWorkarea<TData = Awaited<ReturnType<typeof getWorkarea>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    workareaId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getWorkarea>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getWorkarea>>,
           TError,
           Awaited<ReturnType<typeof getWorkarea>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useGetWorkarea<
-  TData = Awaited<ReturnType<typeof getWorkarea>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  workareaId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getWorkarea>>, TError, TData>
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetWorkarea<TData = Awaited<ReturnType<typeof getWorkarea>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    workareaId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getWorkarea>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getWorkarea>>,
           TError,
           Awaited<ReturnType<typeof getWorkarea>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useGetWorkarea<
-  TData = Awaited<ReturnType<typeof getWorkarea>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  workareaId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getWorkarea>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetWorkarea<TData = Awaited<ReturnType<typeof getWorkarea>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    workareaId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getWorkarea>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Get Workarea
  */
 
-export function useGetWorkarea<
-  TData = Awaited<ReturnType<typeof getWorkarea>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  workareaId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getWorkarea>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getGetWorkareaQueryOptions(sdtmId, workareaId, options);
+export function useGetWorkarea<TData = Awaited<ReturnType<typeof getWorkarea>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    workareaId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getWorkarea>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getGetWorkareaQueryOptions(sdtmId,workareaId,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * @summary Update Workarea
  */
 export const updateWorkarea = (
-  sdtmId: string,
-  workareaId: string,
-  sdtmCodeWorkareaUpdate: BodyType<SdtmCodeWorkareaUpdate>,
-  options?: SecondParameter<typeof customInstance>,
-) => {
-  return customInstance<WorkareaResponse>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/code-workareas/${workareaId}`,
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      data: sdtmCodeWorkareaUpdate,
+    sdtmId: string,
+    workareaId: string,
+    sdtmCodeWorkareaUpdate: BodyType<SdtmCodeWorkareaUpdate>,
+ options?: SecondParameter<typeof customInstance>,) => {
+      
+      
+      return customInstance<WorkareaResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/code-workareas/${workareaId}`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: sdtmCodeWorkareaUpdate
     },
-    options,
-  );
-};
-
-export const getUpdateWorkareaMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof updateWorkarea>>,
-    TError,
-    {
-      sdtmId: string;
-      workareaId: string;
-      data: BodyType<SdtmCodeWorkareaUpdate>;
-    },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof updateWorkarea>>,
-  TError,
-  {
-    sdtmId: string;
-    workareaId: string;
-    data: BodyType<SdtmCodeWorkareaUpdate>;
-  },
-  TContext
-> => {
-  const mutationKey = ["updateWorkarea"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof updateWorkarea>>,
-    {
-      sdtmId: string;
-      workareaId: string;
-      data: BodyType<SdtmCodeWorkareaUpdate>;
+      options);
     }
-  > = (props) => {
-    const { sdtmId, workareaId, data } = props ?? {};
+  
 
-    return updateWorkarea(sdtmId, workareaId, data, requestOptions);
-  };
 
-  return { mutationFn, ...mutationOptions };
-};
+export const getUpdateWorkareaMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWorkarea>>, TError,{sdtmId: string;workareaId: string;data: BodyType<SdtmCodeWorkareaUpdate>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateWorkarea>>, TError,{sdtmId: string;workareaId: string;data: BodyType<SdtmCodeWorkareaUpdate>}, TContext> => {
 
-export type UpdateWorkareaMutationResult = NonNullable<
-  Awaited<ReturnType<typeof updateWorkarea>>
->;
-export type UpdateWorkareaMutationBody = BodyType<SdtmCodeWorkareaUpdate>;
-export type UpdateWorkareaMutationError = ErrorType<HTTPValidationError>;
+const mutationKey = ['updateWorkarea'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-/**
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateWorkarea>>, {sdtmId: string;workareaId: string;data: BodyType<SdtmCodeWorkareaUpdate>}> = (props) => {
+          const {sdtmId,workareaId,data} = props ?? {};
+
+          return  updateWorkarea(sdtmId,workareaId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateWorkareaMutationResult = NonNullable<Awaited<ReturnType<typeof updateWorkarea>>>
+    export type UpdateWorkareaMutationBody = BodyType<SdtmCodeWorkareaUpdate>
+    export type UpdateWorkareaMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Update Workarea
  */
-export const useUpdateWorkarea = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof updateWorkarea>>,
-      TError,
-      {
-        sdtmId: string;
-        workareaId: string;
-        data: BodyType<SdtmCodeWorkareaUpdate>;
-      },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof updateWorkarea>>,
-  TError,
-  {
-    sdtmId: string;
-    workareaId: string;
-    data: BodyType<SdtmCodeWorkareaUpdate>;
-  },
-  TContext
-> => {
-  const mutationOptions = getUpdateWorkareaMutationOptions(options);
+export const useUpdateWorkarea = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWorkarea>>, TError,{sdtmId: string;workareaId: string;data: BodyType<SdtmCodeWorkareaUpdate>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateWorkarea>>,
+        TError,
+        {sdtmId: string;workareaId: string;data: BodyType<SdtmCodeWorkareaUpdate>},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getUpdateWorkareaMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * @summary Archive Workarea
  */
 export const archiveWorkarea = (
-  sdtmId: string,
-  workareaId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+    workareaId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<WorkareaResponse>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/code-workareas/${workareaId}/archive`,
-      method: "POST",
-      signal,
+      
+      
+      return customInstance<WorkareaResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/code-workareas/${workareaId}/archive`, method: 'POST', signal
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getArchiveWorkareaMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof archiveWorkarea>>,
-    TError,
-    { sdtmId: string; workareaId: string },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof archiveWorkarea>>,
-  TError,
-  { sdtmId: string; workareaId: string },
-  TContext
-> => {
-  const mutationKey = ["archiveWorkarea"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof archiveWorkarea>>,
-    { sdtmId: string; workareaId: string }
-  > = (props) => {
-    const { sdtmId, workareaId } = props ?? {};
+export const getArchiveWorkareaMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof archiveWorkarea>>, TError,{sdtmId: string;workareaId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof archiveWorkarea>>, TError,{sdtmId: string;workareaId: string}, TContext> => {
 
-    return archiveWorkarea(sdtmId, workareaId, requestOptions);
-  };
+const mutationKey = ['archiveWorkarea'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-  return { mutationFn, ...mutationOptions };
-};
+      
 
-export type ArchiveWorkareaMutationResult = NonNullable<
-  Awaited<ReturnType<typeof archiveWorkarea>>
->;
 
-export type ArchiveWorkareaMutationError = ErrorType<HTTPValidationError>;
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof archiveWorkarea>>, {sdtmId: string;workareaId: string}> = (props) => {
+          const {sdtmId,workareaId} = props ?? {};
 
-/**
+          return  archiveWorkarea(sdtmId,workareaId,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ArchiveWorkareaMutationResult = NonNullable<Awaited<ReturnType<typeof archiveWorkarea>>>
+    
+    export type ArchiveWorkareaMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Archive Workarea
  */
-export const useArchiveWorkarea = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof archiveWorkarea>>,
-      TError,
-      { sdtmId: string; workareaId: string },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof archiveWorkarea>>,
-  TError,
-  { sdtmId: string; workareaId: string },
-  TContext
-> => {
-  const mutationOptions = getArchiveWorkareaMutationOptions(options);
+export const useArchiveWorkarea = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof archiveWorkarea>>, TError,{sdtmId: string;workareaId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof archiveWorkarea>>,
+        TError,
+        {sdtmId: string;workareaId: string},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getArchiveWorkareaMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * @summary Test Workarea
  */
 export const testWorkarea = (
-  sdtmId: string,
-  workareaId: string,
-  sdtmWorkareaRunCreate: BodyType<SdtmWorkareaRunCreate>,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+    workareaId: string,
+    sdtmWorkareaRunCreate: BodyType<SdtmWorkareaRunCreate>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<TestWorkarea202>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/code-workareas/${workareaId}/test`,
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      data: sdtmWorkareaRunCreate,
-      signal,
+      
+      
+      return customInstance<TestWorkarea202>(
+      {url: `/api/v1/sdtms/${sdtmId}/code-workareas/${workareaId}/test`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: sdtmWorkareaRunCreate, signal
     },
-    options,
-  );
-};
-
-export const getTestWorkareaMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof testWorkarea>>,
-    TError,
-    {
-      sdtmId: string;
-      workareaId: string;
-      data: BodyType<SdtmWorkareaRunCreate>;
-    },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof testWorkarea>>,
-  TError,
-  { sdtmId: string; workareaId: string; data: BodyType<SdtmWorkareaRunCreate> },
-  TContext
-> => {
-  const mutationKey = ["testWorkarea"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof testWorkarea>>,
-    {
-      sdtmId: string;
-      workareaId: string;
-      data: BodyType<SdtmWorkareaRunCreate>;
+      options);
     }
-  > = (props) => {
-    const { sdtmId, workareaId, data } = props ?? {};
+  
 
-    return testWorkarea(sdtmId, workareaId, data, requestOptions);
-  };
 
-  return { mutationFn, ...mutationOptions };
-};
+export const getTestWorkareaMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testWorkarea>>, TError,{sdtmId: string;workareaId: string;data: BodyType<SdtmWorkareaRunCreate>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof testWorkarea>>, TError,{sdtmId: string;workareaId: string;data: BodyType<SdtmWorkareaRunCreate>}, TContext> => {
 
-export type TestWorkareaMutationResult = NonNullable<
-  Awaited<ReturnType<typeof testWorkarea>>
->;
-export type TestWorkareaMutationBody = BodyType<SdtmWorkareaRunCreate>;
-export type TestWorkareaMutationError = ErrorType<HTTPValidationError>;
+const mutationKey = ['testWorkarea'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-/**
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof testWorkarea>>, {sdtmId: string;workareaId: string;data: BodyType<SdtmWorkareaRunCreate>}> = (props) => {
+          const {sdtmId,workareaId,data} = props ?? {};
+
+          return  testWorkarea(sdtmId,workareaId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TestWorkareaMutationResult = NonNullable<Awaited<ReturnType<typeof testWorkarea>>>
+    export type TestWorkareaMutationBody = BodyType<SdtmWorkareaRunCreate>
+    export type TestWorkareaMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Test Workarea
  */
-export const useTestWorkarea = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof testWorkarea>>,
-      TError,
-      {
-        sdtmId: string;
-        workareaId: string;
-        data: BodyType<SdtmWorkareaRunCreate>;
-      },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof testWorkarea>>,
-  TError,
-  { sdtmId: string; workareaId: string; data: BodyType<SdtmWorkareaRunCreate> },
-  TContext
-> => {
-  const mutationOptions = getTestWorkareaMutationOptions(options);
+export const useTestWorkarea = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testWorkarea>>, TError,{sdtmId: string;workareaId: string;data: BodyType<SdtmWorkareaRunCreate>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof testWorkarea>>,
+        TError,
+        {sdtmId: string;workareaId: string;data: BodyType<SdtmWorkareaRunCreate>},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getTestWorkareaMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * @summary Generate Workarea
  */
 export const generateWorkarea = (
-  sdtmId: string,
-  workareaId: string,
-  sdtmWorkareaRunCreate: BodyType<SdtmWorkareaRunCreate>,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+    workareaId: string,
+    sdtmWorkareaRunCreate: BodyType<SdtmWorkareaRunCreate>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<GenerateWorkarea202>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/code-workareas/${workareaId}/generate`,
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      data: sdtmWorkareaRunCreate,
-      signal,
+      
+      
+      return customInstance<GenerateWorkarea202>(
+      {url: `/api/v1/sdtms/${sdtmId}/code-workareas/${workareaId}/generate`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: sdtmWorkareaRunCreate, signal
     },
-    options,
-  );
-};
-
-export const getGenerateWorkareaMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof generateWorkarea>>,
-    TError,
-    {
-      sdtmId: string;
-      workareaId: string;
-      data: BodyType<SdtmWorkareaRunCreate>;
-    },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof generateWorkarea>>,
-  TError,
-  { sdtmId: string; workareaId: string; data: BodyType<SdtmWorkareaRunCreate> },
-  TContext
-> => {
-  const mutationKey = ["generateWorkarea"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof generateWorkarea>>,
-    {
-      sdtmId: string;
-      workareaId: string;
-      data: BodyType<SdtmWorkareaRunCreate>;
+      options);
     }
-  > = (props) => {
-    const { sdtmId, workareaId, data } = props ?? {};
+  
 
-    return generateWorkarea(sdtmId, workareaId, data, requestOptions);
-  };
 
-  return { mutationFn, ...mutationOptions };
-};
+export const getGenerateWorkareaMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateWorkarea>>, TError,{sdtmId: string;workareaId: string;data: BodyType<SdtmWorkareaRunCreate>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof generateWorkarea>>, TError,{sdtmId: string;workareaId: string;data: BodyType<SdtmWorkareaRunCreate>}, TContext> => {
 
-export type GenerateWorkareaMutationResult = NonNullable<
-  Awaited<ReturnType<typeof generateWorkarea>>
->;
-export type GenerateWorkareaMutationBody = BodyType<SdtmWorkareaRunCreate>;
-export type GenerateWorkareaMutationError = ErrorType<HTTPValidationError>;
+const mutationKey = ['generateWorkarea'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-/**
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof generateWorkarea>>, {sdtmId: string;workareaId: string;data: BodyType<SdtmWorkareaRunCreate>}> = (props) => {
+          const {sdtmId,workareaId,data} = props ?? {};
+
+          return  generateWorkarea(sdtmId,workareaId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GenerateWorkareaMutationResult = NonNullable<Awaited<ReturnType<typeof generateWorkarea>>>
+    export type GenerateWorkareaMutationBody = BodyType<SdtmWorkareaRunCreate>
+    export type GenerateWorkareaMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Generate Workarea
  */
-export const useGenerateWorkarea = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof generateWorkarea>>,
-      TError,
-      {
-        sdtmId: string;
-        workareaId: string;
-        data: BodyType<SdtmWorkareaRunCreate>;
-      },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof generateWorkarea>>,
-  TError,
-  { sdtmId: string; workareaId: string; data: BodyType<SdtmWorkareaRunCreate> },
-  TContext
-> => {
-  const mutationOptions = getGenerateWorkareaMutationOptions(options);
+export const useGenerateWorkarea = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateWorkarea>>, TError,{sdtmId: string;workareaId: string;data: BodyType<SdtmWorkareaRunCreate>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof generateWorkarea>>,
+        TError,
+        {sdtmId: string;workareaId: string;data: BodyType<SdtmWorkareaRunCreate>},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getGenerateWorkareaMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * @summary Get Code Run
  */
 export const getCodeRun = (
-  runId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    runId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<GetCodeRun200>(
-    { url: `/api/v1/sdtm-code-runs/${runId}`, method: "GET", signal },
-    options,
-  );
-};
+      
+      
+      return customInstance<GetCodeRun200>(
+      {url: `/api/v1/sdtm-code-runs/${runId}`, method: 'GET', signal
+    },
+      options);
+    }
+  
 
-export const getGetCodeRunQueryKey = (runId?: string) => {
-  return [`/api/v1/sdtm-code-runs/${runId}`] as const;
-};
 
-export const getGetCodeRunQueryOptions = <
-  TData = Awaited<ReturnType<typeof getCodeRun>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  runId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getCodeRun>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
+
+export const getGetCodeRunQueryKey = (runId?: string,) => {
+    return [
+    `/api/v1/sdtm-code-runs/${runId}`
+    ] as const;
+    }
+
+    
+export const getGetCodeRunQueryOptions = <TData = Awaited<ReturnType<typeof getCodeRun>>, TError = ErrorType<HTTPValidationError>>(runId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCodeRun>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetCodeRunQueryKey(runId);
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getCodeRun>>> = ({
-    signal,
-  }) => getCodeRun(runId, requestOptions, signal);
+  const queryKey =  queryOptions?.queryKey ?? getGetCodeRunQueryKey(runId);
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!runId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof getCodeRun>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+  
 
-export type GetCodeRunQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getCodeRun>>
->;
-export type GetCodeRunQueryError = ErrorType<HTTPValidationError>;
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCodeRun>>> = ({ signal }) => getCodeRun(runId, requestOptions, signal);
 
-export function useGetCodeRun<
-  TData = Awaited<ReturnType<typeof getCodeRun>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  runId: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getCodeRun>>, TError, TData>
-    > &
-      Pick<
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(runId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCodeRun>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetCodeRunQueryResult = NonNullable<Awaited<ReturnType<typeof getCodeRun>>>
+export type GetCodeRunQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetCodeRun<TData = Awaited<ReturnType<typeof getCodeRun>>, TError = ErrorType<HTTPValidationError>>(
+ runId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCodeRun>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getCodeRun>>,
           TError,
           Awaited<ReturnType<typeof getCodeRun>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useGetCodeRun<
-  TData = Awaited<ReturnType<typeof getCodeRun>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  runId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getCodeRun>>, TError, TData>
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetCodeRun<TData = Awaited<ReturnType<typeof getCodeRun>>, TError = ErrorType<HTTPValidationError>>(
+ runId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCodeRun>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getCodeRun>>,
           TError,
           Awaited<ReturnType<typeof getCodeRun>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useGetCodeRun<
-  TData = Awaited<ReturnType<typeof getCodeRun>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  runId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getCodeRun>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetCodeRun<TData = Awaited<ReturnType<typeof getCodeRun>>, TError = ErrorType<HTTPValidationError>>(
+ runId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCodeRun>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Get Code Run
  */
 
-export function useGetCodeRun<
-  TData = Awaited<ReturnType<typeof getCodeRun>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  runId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getCodeRun>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getGetCodeRunQueryOptions(runId, options);
+export function useGetCodeRun<TData = Awaited<ReturnType<typeof getCodeRun>>, TError = ErrorType<HTTPValidationError>>(
+ runId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCodeRun>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getGetCodeRunQueryOptions(runId,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * @summary Get Output Selection
  */
 export const getOutputSelection = (
-  sdtmId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<OutputSelectionResponse>(
-    { url: `/api/v1/sdtms/${sdtmId}/output-selection`, method: "GET", signal },
-    options,
-  );
-};
+      
+      
+      return customInstance<OutputSelectionResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/output-selection`, method: 'GET', signal
+    },
+      options);
+    }
+  
 
-export const getGetOutputSelectionQueryKey = (sdtmId?: string) => {
-  return [`/api/v1/sdtms/${sdtmId}/output-selection`] as const;
-};
 
-export const getGetOutputSelectionQueryOptions = <
-  TData = Awaited<ReturnType<typeof getOutputSelection>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getOutputSelection>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
+
+export const getGetOutputSelectionQueryKey = (sdtmId?: string,) => {
+    return [
+    `/api/v1/sdtms/${sdtmId}/output-selection`
+    ] as const;
+    }
+
+    
+export const getGetOutputSelectionQueryOptions = <TData = Awaited<ReturnType<typeof getOutputSelection>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOutputSelection>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getGetOutputSelectionQueryKey(sdtmId);
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getOutputSelection>>
-  > = ({ signal }) => getOutputSelection(sdtmId, requestOptions, signal);
+  const queryKey =  queryOptions?.queryKey ?? getGetOutputSelectionQueryKey(sdtmId);
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!sdtmId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof getOutputSelection>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+  
 
-export type GetOutputSelectionQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getOutputSelection>>
->;
-export type GetOutputSelectionQueryError = ErrorType<HTTPValidationError>;
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOutputSelection>>> = ({ signal }) => getOutputSelection(sdtmId, requestOptions, signal);
 
-export function useGetOutputSelection<
-  TData = Awaited<ReturnType<typeof getOutputSelection>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getOutputSelection>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(sdtmId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOutputSelection>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetOutputSelectionQueryResult = NonNullable<Awaited<ReturnType<typeof getOutputSelection>>>
+export type GetOutputSelectionQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetOutputSelection<TData = Awaited<ReturnType<typeof getOutputSelection>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOutputSelection>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getOutputSelection>>,
           TError,
           Awaited<ReturnType<typeof getOutputSelection>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useGetOutputSelection<
-  TData = Awaited<ReturnType<typeof getOutputSelection>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getOutputSelection>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetOutputSelection<TData = Awaited<ReturnType<typeof getOutputSelection>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOutputSelection>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getOutputSelection>>,
           TError,
           Awaited<ReturnType<typeof getOutputSelection>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useGetOutputSelection<
-  TData = Awaited<ReturnType<typeof getOutputSelection>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getOutputSelection>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetOutputSelection<TData = Awaited<ReturnType<typeof getOutputSelection>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOutputSelection>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Get Output Selection
  */
 
-export function useGetOutputSelection<
-  TData = Awaited<ReturnType<typeof getOutputSelection>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getOutputSelection>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getGetOutputSelectionQueryOptions(sdtmId, options);
+export function useGetOutputSelection<TData = Awaited<ReturnType<typeof getOutputSelection>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOutputSelection>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getGetOutputSelectionQueryOptions(sdtmId,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * @summary Put Output Selection
  */
 export const putOutputSelection = (
-  sdtmId: string,
-  sdtmOutputSelectionWrite: BodyType<SdtmOutputSelectionWrite>,
-  options?: SecondParameter<typeof customInstance>,
-) => {
-  return customInstance<OutputSelectionResponse>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/output-selection`,
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      data: sdtmOutputSelectionWrite,
+    sdtmId: string,
+    sdtmOutputSelectionWrite: BodyType<SdtmOutputSelectionWrite>,
+ options?: SecondParameter<typeof customInstance>,) => {
+      
+      
+      return customInstance<OutputSelectionResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/output-selection`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: sdtmOutputSelectionWrite
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getPutOutputSelectionMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof putOutputSelection>>,
-    TError,
-    { sdtmId: string; data: BodyType<SdtmOutputSelectionWrite> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof putOutputSelection>>,
-  TError,
-  { sdtmId: string; data: BodyType<SdtmOutputSelectionWrite> },
-  TContext
-> => {
-  const mutationKey = ["putOutputSelection"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof putOutputSelection>>,
-    { sdtmId: string; data: BodyType<SdtmOutputSelectionWrite> }
-  > = (props) => {
-    const { sdtmId, data } = props ?? {};
+export const getPutOutputSelectionMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putOutputSelection>>, TError,{sdtmId: string;data: BodyType<SdtmOutputSelectionWrite>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof putOutputSelection>>, TError,{sdtmId: string;data: BodyType<SdtmOutputSelectionWrite>}, TContext> => {
 
-    return putOutputSelection(sdtmId, data, requestOptions);
-  };
+const mutationKey = ['putOutputSelection'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-  return { mutationFn, ...mutationOptions };
-};
+      
 
-export type PutOutputSelectionMutationResult = NonNullable<
-  Awaited<ReturnType<typeof putOutputSelection>>
->;
-export type PutOutputSelectionMutationBody = BodyType<SdtmOutputSelectionWrite>;
-export type PutOutputSelectionMutationError = ErrorType<HTTPValidationError>;
 
-/**
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putOutputSelection>>, {sdtmId: string;data: BodyType<SdtmOutputSelectionWrite>}> = (props) => {
+          const {sdtmId,data} = props ?? {};
+
+          return  putOutputSelection(sdtmId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutOutputSelectionMutationResult = NonNullable<Awaited<ReturnType<typeof putOutputSelection>>>
+    export type PutOutputSelectionMutationBody = BodyType<SdtmOutputSelectionWrite>
+    export type PutOutputSelectionMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Put Output Selection
  */
-export const usePutOutputSelection = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof putOutputSelection>>,
-      TError,
-      { sdtmId: string; data: BodyType<SdtmOutputSelectionWrite> },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof putOutputSelection>>,
-  TError,
-  { sdtmId: string; data: BodyType<SdtmOutputSelectionWrite> },
-  TContext
-> => {
-  const mutationOptions = getPutOutputSelectionMutationOptions(options);
+export const usePutOutputSelection = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putOutputSelection>>, TError,{sdtmId: string;data: BodyType<SdtmOutputSelectionWrite>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putOutputSelection>>,
+        TError,
+        {sdtmId: string;data: BodyType<SdtmOutputSelectionWrite>},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getPutOutputSelectionMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * @summary Get Program Artifact Readiness
  */
 export const getProgramArtifactReadiness = (
-  sdtmId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<GetProgramArtifactReadiness200>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/program-artifact-readiness`,
-      method: "GET",
-      signal,
+      
+      
+      return customInstance<GetProgramArtifactReadiness200>(
+      {url: `/api/v1/sdtms/${sdtmId}/program-artifact-readiness`, method: 'GET', signal
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getGetProgramArtifactReadinessQueryKey = (sdtmId?: string) => {
-  return [`/api/v1/sdtms/${sdtmId}/program-artifact-readiness`] as const;
-};
 
-export const getGetProgramArtifactReadinessQueryOptions = <
-  TData = Awaited<ReturnType<typeof getProgramArtifactReadiness>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getProgramArtifactReadiness>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
+
+export const getGetProgramArtifactReadinessQueryKey = (sdtmId?: string,) => {
+    return [
+    `/api/v1/sdtms/${sdtmId}/program-artifact-readiness`
+    ] as const;
+    }
+
+    
+export const getGetProgramArtifactReadinessQueryOptions = <TData = Awaited<ReturnType<typeof getProgramArtifactReadiness>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProgramArtifactReadiness>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getGetProgramArtifactReadinessQueryKey(sdtmId);
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getProgramArtifactReadiness>>
-  > = ({ signal }) =>
-    getProgramArtifactReadiness(sdtmId, requestOptions, signal);
+  const queryKey =  queryOptions?.queryKey ?? getGetProgramArtifactReadinessQueryKey(sdtmId);
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!sdtmId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof getProgramArtifactReadiness>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+  
 
-export type GetProgramArtifactReadinessQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getProgramArtifactReadiness>>
->;
-export type GetProgramArtifactReadinessQueryError =
-  ErrorType<HTTPValidationError>;
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProgramArtifactReadiness>>> = ({ signal }) => getProgramArtifactReadiness(sdtmId, requestOptions, signal);
 
-export function useGetProgramArtifactReadiness<
-  TData = Awaited<ReturnType<typeof getProgramArtifactReadiness>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getProgramArtifactReadiness>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(sdtmId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProgramArtifactReadiness>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetProgramArtifactReadinessQueryResult = NonNullable<Awaited<ReturnType<typeof getProgramArtifactReadiness>>>
+export type GetProgramArtifactReadinessQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetProgramArtifactReadiness<TData = Awaited<ReturnType<typeof getProgramArtifactReadiness>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProgramArtifactReadiness>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getProgramArtifactReadiness>>,
           TError,
           Awaited<ReturnType<typeof getProgramArtifactReadiness>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useGetProgramArtifactReadiness<
-  TData = Awaited<ReturnType<typeof getProgramArtifactReadiness>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getProgramArtifactReadiness>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetProgramArtifactReadiness<TData = Awaited<ReturnType<typeof getProgramArtifactReadiness>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProgramArtifactReadiness>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getProgramArtifactReadiness>>,
           TError,
           Awaited<ReturnType<typeof getProgramArtifactReadiness>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useGetProgramArtifactReadiness<
-  TData = Awaited<ReturnType<typeof getProgramArtifactReadiness>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getProgramArtifactReadiness>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetProgramArtifactReadiness<TData = Awaited<ReturnType<typeof getProgramArtifactReadiness>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProgramArtifactReadiness>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Get Program Artifact Readiness
  */
 
-export function useGetProgramArtifactReadiness<
-  TData = Awaited<ReturnType<typeof getProgramArtifactReadiness>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getProgramArtifactReadiness>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getGetProgramArtifactReadinessQueryOptions(
-    sdtmId,
-    options,
-  );
+export function useGetProgramArtifactReadiness<TData = Awaited<ReturnType<typeof getProgramArtifactReadiness>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getProgramArtifactReadiness>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getGetProgramArtifactReadinessQueryOptions(sdtmId,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * @summary Get Imported Domain
  */
 export const getImportedDomain = (
-  sdtmId: string,
-  domainCode: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+    domainCode: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<ImportedDomainResponse>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/domains/${domainCode}/imported-dataset`,
-      method: "GET",
-      signal,
+      
+      
+      return customInstance<ImportedDomainResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/domains/${domainCode}/imported-dataset`, method: 'GET', signal
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getGetImportedDomainQueryKey = (
-  sdtmId?: string,
-  domainCode?: string,
+
+
+export const getGetImportedDomainQueryKey = (sdtmId?: string,
+    domainCode?: string,) => {
+    return [
+    `/api/v1/sdtms/${sdtmId}/domains/${domainCode}/imported-dataset`
+    ] as const;
+    }
+
+    
+export const getGetImportedDomainQueryOptions = <TData = Awaited<ReturnType<typeof getImportedDomain>>, TError = ErrorType<HTTPValidationError>>(sdtmId: string,
+    domainCode: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getImportedDomain>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  return [
-    `/api/v1/sdtms/${sdtmId}/domains/${domainCode}/imported-dataset`,
-  ] as const;
-};
 
-export const getGetImportedDomainQueryOptions = <
-  TData = Awaited<ReturnType<typeof getImportedDomain>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  domainCode: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getImportedDomain>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getGetImportedDomainQueryKey(sdtmId, domainCode);
+  const queryKey =  queryOptions?.queryKey ?? getGetImportedDomainQueryKey(sdtmId,domainCode);
 
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getImportedDomain>>
-  > = ({ signal }) =>
-    getImportedDomain(sdtmId, domainCode, requestOptions, signal);
+  
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!(sdtmId && domainCode),
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof getImportedDomain>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getImportedDomain>>> = ({ signal }) => getImportedDomain(sdtmId,domainCode, requestOptions, signal);
 
-export type GetImportedDomainQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getImportedDomain>>
->;
-export type GetImportedDomainQueryError = ErrorType<HTTPValidationError>;
+      
 
-export function useGetImportedDomain<
-  TData = Awaited<ReturnType<typeof getImportedDomain>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  domainCode: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getImportedDomain>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+      
+
+   return  { queryKey, queryFn, enabled: !!(sdtmId && domainCode), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getImportedDomain>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetImportedDomainQueryResult = NonNullable<Awaited<ReturnType<typeof getImportedDomain>>>
+export type GetImportedDomainQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetImportedDomain<TData = Awaited<ReturnType<typeof getImportedDomain>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    domainCode: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getImportedDomain>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getImportedDomain>>,
           TError,
           Awaited<ReturnType<typeof getImportedDomain>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useGetImportedDomain<
-  TData = Awaited<ReturnType<typeof getImportedDomain>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  domainCode: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getImportedDomain>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetImportedDomain<TData = Awaited<ReturnType<typeof getImportedDomain>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    domainCode: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getImportedDomain>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getImportedDomain>>,
           TError,
           Awaited<ReturnType<typeof getImportedDomain>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useGetImportedDomain<
-  TData = Awaited<ReturnType<typeof getImportedDomain>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  domainCode: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getImportedDomain>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetImportedDomain<TData = Awaited<ReturnType<typeof getImportedDomain>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    domainCode: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getImportedDomain>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Get Imported Domain
  */
 
-export function useGetImportedDomain<
-  TData = Awaited<ReturnType<typeof getImportedDomain>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sdtmId: string,
-  domainCode: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof getImportedDomain>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getGetImportedDomainQueryOptions(
-    sdtmId,
-    domainCode,
-    options,
-  );
+export function useGetImportedDomain<TData = Awaited<ReturnType<typeof getImportedDomain>>, TError = ErrorType<HTTPValidationError>>(
+ sdtmId: string,
+    domainCode: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getImportedDomain>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getGetImportedDomainQueryOptions(sdtmId,domainCode,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * Accept one external XPT as the exact current provider for an SDTM domain.
  * @summary Import Domain
  */
 export const importDomain = (
-  sdtmId: string,
-  domainCode: string,
-  sdtmImportedDomainCreate: BodyType<SdtmImportedDomainCreate>,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sdtmId: string,
+    domainCode: string,
+    sdtmImportedDomainCreate: BodyType<SdtmImportedDomainCreate>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<ImportedDomainResponse>(
-    {
-      url: `/api/v1/sdtms/${sdtmId}/domains/${domainCode}/imported-dataset`,
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      data: sdtmImportedDomainCreate,
-      signal,
+      
+      
+      return customInstance<ImportedDomainResponse>(
+      {url: `/api/v1/sdtms/${sdtmId}/domains/${domainCode}/imported-dataset`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: sdtmImportedDomainCreate, signal
     },
-    options,
-  );
-};
-
-export const getImportDomainMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof importDomain>>,
-    TError,
-    {
-      sdtmId: string;
-      domainCode: string;
-      data: BodyType<SdtmImportedDomainCreate>;
-    },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof importDomain>>,
-  TError,
-  {
-    sdtmId: string;
-    domainCode: string;
-    data: BodyType<SdtmImportedDomainCreate>;
-  },
-  TContext
-> => {
-  const mutationKey = ["importDomain"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof importDomain>>,
-    {
-      sdtmId: string;
-      domainCode: string;
-      data: BodyType<SdtmImportedDomainCreate>;
+      options);
     }
-  > = (props) => {
-    const { sdtmId, domainCode, data } = props ?? {};
+  
 
-    return importDomain(sdtmId, domainCode, data, requestOptions);
-  };
 
-  return { mutationFn, ...mutationOptions };
-};
+export const getImportDomainMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importDomain>>, TError,{sdtmId: string;domainCode: string;data: BodyType<SdtmImportedDomainCreate>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof importDomain>>, TError,{sdtmId: string;domainCode: string;data: BodyType<SdtmImportedDomainCreate>}, TContext> => {
 
-export type ImportDomainMutationResult = NonNullable<
-  Awaited<ReturnType<typeof importDomain>>
->;
-export type ImportDomainMutationBody = BodyType<SdtmImportedDomainCreate>;
-export type ImportDomainMutationError = ErrorType<HTTPValidationError>;
+const mutationKey = ['importDomain'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-/**
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importDomain>>, {sdtmId: string;domainCode: string;data: BodyType<SdtmImportedDomainCreate>}> = (props) => {
+          const {sdtmId,domainCode,data} = props ?? {};
+
+          return  importDomain(sdtmId,domainCode,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportDomainMutationResult = NonNullable<Awaited<ReturnType<typeof importDomain>>>
+    export type ImportDomainMutationBody = BodyType<SdtmImportedDomainCreate>
+    export type ImportDomainMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Import Domain
  */
-export const useImportDomain = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof importDomain>>,
-      TError,
-      {
-        sdtmId: string;
-        domainCode: string;
-        data: BodyType<SdtmImportedDomainCreate>;
-      },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof importDomain>>,
-  TError,
-  {
-    sdtmId: string;
-    domainCode: string;
-    data: BodyType<SdtmImportedDomainCreate>;
-  },
-  TContext
-> => {
-  const mutationOptions = getImportDomainMutationOptions(options);
+export const useImportDomain = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importDomain>>, TError,{sdtmId: string;domainCode: string;data: BodyType<SdtmImportedDomainCreate>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof importDomain>>,
+        TError,
+        {sdtmId: string;domainCode: string;data: BodyType<SdtmImportedDomainCreate>},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
+      const mutationOptions = getImportDomainMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    

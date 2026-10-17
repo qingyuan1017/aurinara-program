@@ -1,8 +1,6 @@
 """Deterministic renderers for shared narrative and workbook contracts."""
 
 import io
-import re
-import zipfile
 from datetime import UTC, datetime
 from typing import Any
 
@@ -25,6 +23,8 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
+
+from app.common.zip_normalization import normalize_zip_bytes
 
 from app.documents.contracts import (
     DocumentContentContract,
@@ -137,7 +137,7 @@ def render_docx(document: RenderDocument, template: dict[str, object] | None = N
                 for cell, value in zip(cells, row, strict=True):
                     cell.text = value
     target.save(output)
-    return _normalize_zip(output.getvalue())
+    return normalize_zip_bytes(output.getvalue())
 
 
 def render_pdf(document: RenderDocument, template: dict[str, object] | None = None) -> bytes:
@@ -236,7 +236,7 @@ def render_xlsx(content: WorkbookContentBase, template: dict[str, object] | None
     workbook.properties.modified = _FIXED_TIME.replace(tzinfo=None)
     output = io.BytesIO()
     workbook.save(output)
-    return _normalize_zip(output.getvalue())
+    return normalize_zip_bytes(output.getvalue())
 
 
 def workbook_payload(data: bytes) -> dict[str, object]:
@@ -279,28 +279,6 @@ def normalized_pdf_text(data: bytes) -> tuple[str, ...]:
         for line in (page.extract_text() or "").splitlines()
         if line.strip()
     )
-
-
-def _normalize_zip(data: bytes) -> bytes:
-    source = io.BytesIO(data)
-    target = io.BytesIO()
-    with (
-        zipfile.ZipFile(source, "r") as reader,
-        zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as writer,
-    ):
-        for name in sorted(reader.namelist()):
-            info = zipfile.ZipInfo(name, date_time=(2000, 1, 1, 0, 0, 0))
-            info.compress_type = zipfile.ZIP_DEFLATED
-            info.external_attr = 0o600 << 16
-            member = reader.read(name)
-            if name == "docProps/core.xml":
-                member = re.sub(
-                    rb"(<dcterms:modified[^>]*>)[^<]*(</dcterms:modified>)",
-                    rb"\g<1>2000-01-01T00:00:00Z\g<2>",
-                    member,
-                )
-            writer.writestr(info, member)
-    return target.getvalue()
 
 
 def _escape(value: str) -> str:

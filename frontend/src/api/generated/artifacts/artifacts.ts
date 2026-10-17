@@ -4,7 +4,10 @@
  * Aurinara Clinical Artifact Platform
  * OpenAPI spec version: 0.1.0
  */
-import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery
+} from '@tanstack/react-query';
 import type {
   DataTag,
   DefinedInitialDataOptions,
@@ -17,8 +20,8 @@ import type {
   UseMutationOptions,
   UseMutationResult,
   UseQueryOptions,
-  UseQueryResult,
-} from "@tanstack/react-query";
+  UseQueryResult
+} from '@tanstack/react-query';
 
 import type {
   ArtifactCollection,
@@ -31,1289 +34,790 @@ import type {
   RepositorySourceFileBind,
   SourceFileBulkResponse,
   SourceFileCollection,
-  SourceFileResponse,
-} from ".././model";
+  SourceFileResponse
+} from '.././model';
 
-import { customInstance } from "../../axios-instance";
-import type { ErrorType, BodyType } from "../../axios-instance";
+import { customInstance } from '../../axios-instance';
+import type { ErrorType , BodyType } from '../../axios-instance';
+
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+
 
 /**
  * Bind an exact authorized Repository version without copying its bytes.
  * @summary Bind Repository Source File
  */
 export const bindRepositorySourceFile = (
-  studyId: string,
-  repositorySourceFileBind: BodyType<RepositorySourceFileBind>,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    studyId: string,
+    repositorySourceFileBind: BodyType<RepositorySourceFileBind>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<SourceFileResponse>(
-    {
-      url: `/api/v1/studies/${studyId}/source-files:bind-repository`,
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      data: repositorySourceFileBind,
-      signal,
+      
+      
+      return customInstance<SourceFileResponse>(
+      {url: `/api/v1/studies/${studyId}/source-files:bind-repository`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: repositorySourceFileBind, signal
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getBindRepositorySourceFileMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof bindRepositorySourceFile>>,
-    TError,
-    { studyId: string; data: BodyType<RepositorySourceFileBind> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof bindRepositorySourceFile>>,
-  TError,
-  { studyId: string; data: BodyType<RepositorySourceFileBind> },
-  TContext
-> => {
-  const mutationKey = ["bindRepositorySourceFile"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof bindRepositorySourceFile>>,
-    { studyId: string; data: BodyType<RepositorySourceFileBind> }
-  > = (props) => {
-    const { studyId, data } = props ?? {};
+export const getBindRepositorySourceFileMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bindRepositorySourceFile>>, TError,{studyId: string;data: BodyType<RepositorySourceFileBind>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof bindRepositorySourceFile>>, TError,{studyId: string;data: BodyType<RepositorySourceFileBind>}, TContext> => {
 
-    return bindRepositorySourceFile(studyId, data, requestOptions);
-  };
+const mutationKey = ['bindRepositorySourceFile'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-  return { mutationFn, ...mutationOptions };
-};
+      
 
-export type BindRepositorySourceFileMutationResult = NonNullable<
-  Awaited<ReturnType<typeof bindRepositorySourceFile>>
->;
-export type BindRepositorySourceFileMutationBody =
-  BodyType<RepositorySourceFileBind>;
-export type BindRepositorySourceFileMutationError =
-  ErrorType<HTTPValidationError>;
 
-/**
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bindRepositorySourceFile>>, {studyId: string;data: BodyType<RepositorySourceFileBind>}> = (props) => {
+          const {studyId,data} = props ?? {};
+
+          return  bindRepositorySourceFile(studyId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BindRepositorySourceFileMutationResult = NonNullable<Awaited<ReturnType<typeof bindRepositorySourceFile>>>
+    export type BindRepositorySourceFileMutationBody = BodyType<RepositorySourceFileBind>
+    export type BindRepositorySourceFileMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Bind Repository Source File
  */
-export const useBindRepositorySourceFile = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof bindRepositorySourceFile>>,
-      TError,
-      { studyId: string; data: BodyType<RepositorySourceFileBind> },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof bindRepositorySourceFile>>,
-  TError,
-  { studyId: string; data: BodyType<RepositorySourceFileBind> },
-  TContext
-> => {
-  const mutationOptions = getBindRepositorySourceFileMutationOptions(options);
+export const useBindRepositorySourceFile = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bindRepositorySourceFile>>, TError,{studyId: string;data: BodyType<RepositorySourceFileBind>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof bindRepositorySourceFile>>,
+        TError,
+        {studyId: string;data: BodyType<RepositorySourceFileBind>},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getBindRepositorySourceFileMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * Upload immutable bytes and publish their verified metadata.
  * @summary Create Source File
  */
 export const createSourceFile = (
-  studyId: string,
-  bodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost: BodyType<BodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost>,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    studyId: string,
+    bodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost: BodyType<BodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  const formData = new FormData();
-  formData.append(
-    `file`,
-    bodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost.file,
-  );
+      
+      const formData = new FormData();
+formData.append(`file`, bodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost.file)
 
-  return customInstance<SourceFileResponse>(
-    {
-      url: `/api/v1/studies/${studyId}/source-files`,
-      method: "POST",
-      headers: { "Content-Type": "multipart/form-data" },
-      data: formData,
-      signal,
+      return customInstance<SourceFileResponse>(
+      {url: `/api/v1/studies/${studyId}/source-files`, method: 'POST',
+      headers: {'Content-Type': 'multipart/form-data', },
+       data: formData, signal
     },
-    options,
-  );
-};
-
-export const getCreateSourceFileMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof createSourceFile>>,
-    TError,
-    {
-      studyId: string;
-      data: BodyType<BodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost>;
-    },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof createSourceFile>>,
-  TError,
-  {
-    studyId: string;
-    data: BodyType<BodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost>;
-  },
-  TContext
-> => {
-  const mutationKey = ["createSourceFile"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof createSourceFile>>,
-    {
-      studyId: string;
-      data: BodyType<BodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost>;
+      options);
     }
-  > = (props) => {
-    const { studyId, data } = props ?? {};
+  
 
-    return createSourceFile(studyId, data, requestOptions);
-  };
 
-  return { mutationFn, ...mutationOptions };
-};
+export const getCreateSourceFileMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSourceFile>>, TError,{studyId: string;data: BodyType<BodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSourceFile>>, TError,{studyId: string;data: BodyType<BodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost>}, TContext> => {
 
-export type CreateSourceFileMutationResult = NonNullable<
-  Awaited<ReturnType<typeof createSourceFile>>
->;
-export type CreateSourceFileMutationBody =
-  BodyType<BodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost>;
-export type CreateSourceFileMutationError = ErrorType<HTTPValidationError>;
+const mutationKey = ['createSourceFile'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-/**
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSourceFile>>, {studyId: string;data: BodyType<BodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost>}> = (props) => {
+          const {studyId,data} = props ?? {};
+
+          return  createSourceFile(studyId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSourceFileMutationResult = NonNullable<Awaited<ReturnType<typeof createSourceFile>>>
+    export type CreateSourceFileMutationBody = BodyType<BodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost>
+    export type CreateSourceFileMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Create Source File
  */
-export const useCreateSourceFile = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof createSourceFile>>,
-      TError,
-      {
-        studyId: string;
-        data: BodyType<BodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost>;
-      },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof createSourceFile>>,
-  TError,
-  {
-    studyId: string;
-    data: BodyType<BodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost>;
-  },
-  TContext
-> => {
-  const mutationOptions = getCreateSourceFileMutationOptions(options);
+export const useCreateSourceFile = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSourceFile>>, TError,{studyId: string;data: BodyType<BodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createSourceFile>>,
+        TError,
+        {studyId: string;data: BodyType<BodyCreateSourceFileApiV1StudiesStudyIdSourceFilesPost>},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getCreateSourceFileMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * List source files visible within a study.
  * @summary List Source Files
  */
 export const listSourceFiles = (
-  studyId: string,
-  params?: ListSourceFilesParams,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    studyId: string,
+    params?: ListSourceFilesParams,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<SourceFileCollection>(
-    {
-      url: `/api/v1/studies/${studyId}/source-files`,
-      method: "GET",
-      params,
-      signal,
+      
+      
+      return customInstance<SourceFileCollection>(
+      {url: `/api/v1/studies/${studyId}/source-files`, method: 'GET',
+        params, signal
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getListSourceFilesQueryKey = (
-  studyId?: string,
-  params?: ListSourceFilesParams,
+
+
+export const getListSourceFilesQueryKey = (studyId?: string,
+    params?: ListSourceFilesParams,) => {
+    return [
+    `/api/v1/studies/${studyId}/source-files`, ...(params ? [params]: [])
+    ] as const;
+    }
+
+    
+export const getListSourceFilesQueryOptions = <TData = Awaited<ReturnType<typeof listSourceFiles>>, TError = ErrorType<HTTPValidationError>>(studyId: string,
+    params?: ListSourceFilesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSourceFiles>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  return [
-    `/api/v1/studies/${studyId}/source-files`,
-    ...(params ? [params] : []),
-  ] as const;
-};
 
-export const getListSourceFilesQueryOptions = <
-  TData = Awaited<ReturnType<typeof listSourceFiles>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  studyId: string,
-  params?: ListSourceFilesParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listSourceFiles>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getListSourceFilesQueryKey(studyId, params);
+  const queryKey =  queryOptions?.queryKey ?? getListSourceFilesQueryKey(studyId,params);
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof listSourceFiles>>> = ({
-    signal,
-  }) => listSourceFiles(studyId, params, requestOptions, signal);
+  
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!studyId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof listSourceFiles>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSourceFiles>>> = ({ signal }) => listSourceFiles(studyId,params, requestOptions, signal);
 
-export type ListSourceFilesQueryResult = NonNullable<
-  Awaited<ReturnType<typeof listSourceFiles>>
->;
-export type ListSourceFilesQueryError = ErrorType<HTTPValidationError>;
+      
 
-export function useListSourceFiles<
-  TData = Awaited<ReturnType<typeof listSourceFiles>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  studyId: string,
-  params: undefined | ListSourceFilesParams,
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listSourceFiles>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+      
+
+   return  { queryKey, queryFn, enabled: !!(studyId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSourceFiles>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type ListSourceFilesQueryResult = NonNullable<Awaited<ReturnType<typeof listSourceFiles>>>
+export type ListSourceFilesQueryError = ErrorType<HTTPValidationError>
+
+
+export function useListSourceFiles<TData = Awaited<ReturnType<typeof listSourceFiles>>, TError = ErrorType<HTTPValidationError>>(
+ studyId: string,
+    params: undefined |  ListSourceFilesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSourceFiles>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof listSourceFiles>>,
           TError,
           Awaited<ReturnType<typeof listSourceFiles>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useListSourceFiles<
-  TData = Awaited<ReturnType<typeof listSourceFiles>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  studyId: string,
-  params?: ListSourceFilesParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listSourceFiles>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListSourceFiles<TData = Awaited<ReturnType<typeof listSourceFiles>>, TError = ErrorType<HTTPValidationError>>(
+ studyId: string,
+    params?: ListSourceFilesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSourceFiles>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof listSourceFiles>>,
           TError,
           Awaited<ReturnType<typeof listSourceFiles>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useListSourceFiles<
-  TData = Awaited<ReturnType<typeof listSourceFiles>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  studyId: string,
-  params?: ListSourceFilesParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listSourceFiles>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListSourceFiles<TData = Awaited<ReturnType<typeof listSourceFiles>>, TError = ErrorType<HTTPValidationError>>(
+ studyId: string,
+    params?: ListSourceFilesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSourceFiles>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary List Source Files
  */
 
-export function useListSourceFiles<
-  TData = Awaited<ReturnType<typeof listSourceFiles>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  studyId: string,
-  params?: ListSourceFilesParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof listSourceFiles>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getListSourceFilesQueryOptions(studyId, params, options);
+export function useListSourceFiles<TData = Awaited<ReturnType<typeof listSourceFiles>>, TError = ErrorType<HTTPValidationError>>(
+ studyId: string,
+    params?: ListSourceFilesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listSourceFiles>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getListSourceFilesQueryOptions(studyId,params,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * Upload many immutable source files atomically in request order.
  * @summary Create Source Files Bulk
  */
 export const createSourceFilesBulk = (
-  studyId: string,
-  bodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost: BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    studyId: string,
+    bodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost: BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  const formData = new FormData();
-  bodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost.files.forEach(
-    (value) => formData.append(`files`, value),
-  );
+      
+      const formData = new FormData();
+bodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost.files.forEach(value => formData.append(`files`, value));
 
-  return customInstance<SourceFileBulkResponse>(
-    {
-      url: `/api/v1/studies/${studyId}/source-files:bulk`,
-      method: "POST",
-      headers: { "Content-Type": "multipart/form-data" },
-      data: formData,
-      signal,
+      return customInstance<SourceFileBulkResponse>(
+      {url: `/api/v1/studies/${studyId}/source-files:bulk`, method: 'POST',
+      headers: {'Content-Type': 'multipart/form-data', },
+       data: formData, signal
     },
-    options,
-  );
-};
-
-export const getCreateSourceFilesBulkMutationOptions = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof createSourceFilesBulk>>,
-    TError,
-    {
-      studyId: string;
-      data: BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>;
-    },
-    TContext
-  >;
-  request?: SecondParameter<typeof customInstance>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof createSourceFilesBulk>>,
-  TError,
-  {
-    studyId: string;
-    data: BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>;
-  },
-  TContext
-> => {
-  const mutationKey = ["createSourceFilesBulk"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof createSourceFilesBulk>>,
-    {
-      studyId: string;
-      data: BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>;
+      options);
     }
-  > = (props) => {
-    const { studyId, data } = props ?? {};
+  
 
-    return createSourceFilesBulk(studyId, data, requestOptions);
-  };
 
-  return { mutationFn, ...mutationOptions };
-};
+export const getCreateSourceFilesBulkMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSourceFilesBulk>>, TError,{studyId: string;data: BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSourceFilesBulk>>, TError,{studyId: string;data: BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>}, TContext> => {
 
-export type CreateSourceFilesBulkMutationResult = NonNullable<
-  Awaited<ReturnType<typeof createSourceFilesBulk>>
->;
-export type CreateSourceFilesBulkMutationBody =
-  BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>;
-export type CreateSourceFilesBulkMutationError = ErrorType<HTTPValidationError>;
+const mutationKey = ['createSourceFilesBulk'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
 
-/**
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSourceFilesBulk>>, {studyId: string;data: BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>}> = (props) => {
+          const {studyId,data} = props ?? {};
+
+          return  createSourceFilesBulk(studyId,data,requestOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSourceFilesBulkMutationResult = NonNullable<Awaited<ReturnType<typeof createSourceFilesBulk>>>
+    export type CreateSourceFilesBulkMutationBody = BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>
+    export type CreateSourceFilesBulkMutationError = ErrorType<HTTPValidationError>
+
+    /**
  * @summary Create Source Files Bulk
  */
-export const useCreateSourceFilesBulk = <
-  TError = ErrorType<HTTPValidationError>,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof createSourceFilesBulk>>,
-      TError,
-      {
-        studyId: string;
-        data: BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>;
-      },
-      TContext
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof createSourceFilesBulk>>,
-  TError,
-  {
-    studyId: string;
-    data: BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>;
-  },
-  TContext
-> => {
-  const mutationOptions = getCreateSourceFilesBulkMutationOptions(options);
+export const useCreateSourceFilesBulk = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSourceFilesBulk>>, TError,{studyId: string;data: BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createSourceFilesBulk>>,
+        TError,
+        {studyId: string;data: BodyType<BodyCreateSourceFilesBulkApiV1StudiesStudyIdSourceFilesBulkPost>},
+        TContext
+      > => {
 
-  return useMutation(mutationOptions, queryClient);
-};
-/**
+      const mutationOptions = getCreateSourceFilesBulkMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
  * Get one authorized source-file record.
  * @summary Get Source File
  */
 export const getSourceFile = (
-  sourceFileId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sourceFileId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<SourceFileResponse>(
-    { url: `/api/v1/source-files/${sourceFileId}`, method: "GET", signal },
-    options,
-  );
-};
+      
+      
+      return customInstance<SourceFileResponse>(
+      {url: `/api/v1/source-files/${sourceFileId}`, method: 'GET', signal
+    },
+      options);
+    }
+  
 
-export const getGetSourceFileQueryKey = (sourceFileId?: string) => {
-  return [`/api/v1/source-files/${sourceFileId}`] as const;
-};
 
-export const getGetSourceFileQueryOptions = <
-  TData = Awaited<ReturnType<typeof getSourceFile>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sourceFileId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getSourceFile>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
+
+export const getGetSourceFileQueryKey = (sourceFileId?: string,) => {
+    return [
+    `/api/v1/source-files/${sourceFileId}`
+    ] as const;
+    }
+
+    
+export const getGetSourceFileQueryOptions = <TData = Awaited<ReturnType<typeof getSourceFile>>, TError = ErrorType<HTTPValidationError>>(sourceFileId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSourceFile>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getGetSourceFileQueryKey(sourceFileId);
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getSourceFile>>> = ({
-    signal,
-  }) => getSourceFile(sourceFileId, requestOptions, signal);
+  const queryKey =  queryOptions?.queryKey ?? getGetSourceFileQueryKey(sourceFileId);
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!sourceFileId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof getSourceFile>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+  
 
-export type GetSourceFileQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getSourceFile>>
->;
-export type GetSourceFileQueryError = ErrorType<HTTPValidationError>;
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSourceFile>>> = ({ signal }) => getSourceFile(sourceFileId, requestOptions, signal);
 
-export function useGetSourceFile<
-  TData = Awaited<ReturnType<typeof getSourceFile>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sourceFileId: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getSourceFile>>, TError, TData>
-    > &
-      Pick<
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(sourceFileId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSourceFile>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetSourceFileQueryResult = NonNullable<Awaited<ReturnType<typeof getSourceFile>>>
+export type GetSourceFileQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetSourceFile<TData = Awaited<ReturnType<typeof getSourceFile>>, TError = ErrorType<HTTPValidationError>>(
+ sourceFileId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSourceFile>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getSourceFile>>,
           TError,
           Awaited<ReturnType<typeof getSourceFile>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useGetSourceFile<
-  TData = Awaited<ReturnType<typeof getSourceFile>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sourceFileId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getSourceFile>>, TError, TData>
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSourceFile<TData = Awaited<ReturnType<typeof getSourceFile>>, TError = ErrorType<HTTPValidationError>>(
+ sourceFileId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSourceFile>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getSourceFile>>,
           TError,
           Awaited<ReturnType<typeof getSourceFile>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useGetSourceFile<
-  TData = Awaited<ReturnType<typeof getSourceFile>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sourceFileId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getSourceFile>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSourceFile<TData = Awaited<ReturnType<typeof getSourceFile>>, TError = ErrorType<HTTPValidationError>>(
+ sourceFileId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSourceFile>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Get Source File
  */
 
-export function useGetSourceFile<
-  TData = Awaited<ReturnType<typeof getSourceFile>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sourceFileId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getSourceFile>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getGetSourceFileQueryOptions(sourceFileId, options);
+export function useGetSourceFile<TData = Awaited<ReturnType<typeof getSourceFile>>, TError = ErrorType<HTTPValidationError>>(
+ sourceFileId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSourceFile>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getGetSourceFileQueryOptions(sourceFileId,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * Stream authorized immutable source bytes.
  * @summary Download Source File
  */
 export const downloadSourceFile = (
-  sourceFileId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    sourceFileId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<unknown>(
-    {
-      url: `/api/v1/source-files/${sourceFileId}/download`,
-      method: "GET",
-      signal,
+      
+      
+      return customInstance<unknown>(
+      {url: `/api/v1/source-files/${sourceFileId}/download`, method: 'GET', signal
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getDownloadSourceFileQueryKey = (sourceFileId?: string) => {
-  return [`/api/v1/source-files/${sourceFileId}/download`] as const;
-};
 
-export const getDownloadSourceFileQueryOptions = <
-  TData = Awaited<ReturnType<typeof downloadSourceFile>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sourceFileId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof downloadSourceFile>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
+
+export const getDownloadSourceFileQueryKey = (sourceFileId?: string,) => {
+    return [
+    `/api/v1/source-files/${sourceFileId}/download`
+    ] as const;
+    }
+
+    
+export const getDownloadSourceFileQueryOptions = <TData = Awaited<ReturnType<typeof downloadSourceFile>>, TError = ErrorType<HTTPValidationError>>(sourceFileId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadSourceFile>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getDownloadSourceFileQueryKey(sourceFileId);
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof downloadSourceFile>>
-  > = ({ signal }) => downloadSourceFile(sourceFileId, requestOptions, signal);
+  const queryKey =  queryOptions?.queryKey ?? getDownloadSourceFileQueryKey(sourceFileId);
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!sourceFileId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof downloadSourceFile>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+  
 
-export type DownloadSourceFileQueryResult = NonNullable<
-  Awaited<ReturnType<typeof downloadSourceFile>>
->;
-export type DownloadSourceFileQueryError = ErrorType<HTTPValidationError>;
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadSourceFile>>> = ({ signal }) => downloadSourceFile(sourceFileId, requestOptions, signal);
 
-export function useDownloadSourceFile<
-  TData = Awaited<ReturnType<typeof downloadSourceFile>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sourceFileId: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof downloadSourceFile>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(sourceFileId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadSourceFile>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type DownloadSourceFileQueryResult = NonNullable<Awaited<ReturnType<typeof downloadSourceFile>>>
+export type DownloadSourceFileQueryError = ErrorType<HTTPValidationError>
+
+
+export function useDownloadSourceFile<TData = Awaited<ReturnType<typeof downloadSourceFile>>, TError = ErrorType<HTTPValidationError>>(
+ sourceFileId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadSourceFile>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof downloadSourceFile>>,
           TError,
           Awaited<ReturnType<typeof downloadSourceFile>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useDownloadSourceFile<
-  TData = Awaited<ReturnType<typeof downloadSourceFile>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sourceFileId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof downloadSourceFile>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useDownloadSourceFile<TData = Awaited<ReturnType<typeof downloadSourceFile>>, TError = ErrorType<HTTPValidationError>>(
+ sourceFileId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadSourceFile>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof downloadSourceFile>>,
           TError,
           Awaited<ReturnType<typeof downloadSourceFile>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useDownloadSourceFile<
-  TData = Awaited<ReturnType<typeof downloadSourceFile>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sourceFileId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof downloadSourceFile>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useDownloadSourceFile<TData = Awaited<ReturnType<typeof downloadSourceFile>>, TError = ErrorType<HTTPValidationError>>(
+ sourceFileId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadSourceFile>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Download Source File
  */
 
-export function useDownloadSourceFile<
-  TData = Awaited<ReturnType<typeof downloadSourceFile>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  sourceFileId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof downloadSourceFile>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getDownloadSourceFileQueryOptions(sourceFileId, options);
+export function useDownloadSourceFile<TData = Awaited<ReturnType<typeof downloadSourceFile>>, TError = ErrorType<HTTPValidationError>>(
+ sourceFileId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadSourceFile>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getDownloadSourceFileQueryOptions(sourceFileId,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * List immutable artifact metadata.
  * @summary List Artifacts
  */
 export const listArtifacts = (
-  studyId: string,
-  params?: ListArtifactsParams,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    studyId: string,
+    params?: ListArtifactsParams,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<ArtifactCollection>(
-    {
-      url: `/api/v1/studies/${studyId}/artifacts`,
-      method: "GET",
-      params,
-      signal,
+      
+      
+      return customInstance<ArtifactCollection>(
+      {url: `/api/v1/studies/${studyId}/artifacts`, method: 'GET',
+        params, signal
     },
-    options,
-  );
-};
+      options);
+    }
+  
 
-export const getListArtifactsQueryKey = (
-  studyId?: string,
-  params?: ListArtifactsParams,
+
+
+export const getListArtifactsQueryKey = (studyId?: string,
+    params?: ListArtifactsParams,) => {
+    return [
+    `/api/v1/studies/${studyId}/artifacts`, ...(params ? [params]: [])
+    ] as const;
+    }
+
+    
+export const getListArtifactsQueryOptions = <TData = Awaited<ReturnType<typeof listArtifacts>>, TError = ErrorType<HTTPValidationError>>(studyId: string,
+    params?: ListArtifactsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listArtifacts>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  return [
-    `/api/v1/studies/${studyId}/artifacts`,
-    ...(params ? [params] : []),
-  ] as const;
-};
 
-export const getListArtifactsQueryOptions = <
-  TData = Awaited<ReturnType<typeof listArtifacts>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  studyId: string,
-  params?: ListArtifactsParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof listArtifacts>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getListArtifactsQueryKey(studyId, params);
+  const queryKey =  queryOptions?.queryKey ?? getListArtifactsQueryKey(studyId,params);
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof listArtifacts>>> = ({
-    signal,
-  }) => listArtifacts(studyId, params, requestOptions, signal);
+  
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!studyId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof listArtifacts>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listArtifacts>>> = ({ signal }) => listArtifacts(studyId,params, requestOptions, signal);
 
-export type ListArtifactsQueryResult = NonNullable<
-  Awaited<ReturnType<typeof listArtifacts>>
->;
-export type ListArtifactsQueryError = ErrorType<HTTPValidationError>;
+      
 
-export function useListArtifacts<
-  TData = Awaited<ReturnType<typeof listArtifacts>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  studyId: string,
-  params: undefined | ListArtifactsParams,
-  options: {
-    query: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof listArtifacts>>, TError, TData>
-    > &
-      Pick<
+      
+
+   return  { queryKey, queryFn, enabled: !!(studyId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listArtifacts>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type ListArtifactsQueryResult = NonNullable<Awaited<ReturnType<typeof listArtifacts>>>
+export type ListArtifactsQueryError = ErrorType<HTTPValidationError>
+
+
+export function useListArtifacts<TData = Awaited<ReturnType<typeof listArtifacts>>, TError = ErrorType<HTTPValidationError>>(
+ studyId: string,
+    params: undefined |  ListArtifactsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listArtifacts>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof listArtifacts>>,
           TError,
           Awaited<ReturnType<typeof listArtifacts>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useListArtifacts<
-  TData = Awaited<ReturnType<typeof listArtifacts>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  studyId: string,
-  params?: ListArtifactsParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof listArtifacts>>, TError, TData>
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListArtifacts<TData = Awaited<ReturnType<typeof listArtifacts>>, TError = ErrorType<HTTPValidationError>>(
+ studyId: string,
+    params?: ListArtifactsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listArtifacts>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof listArtifacts>>,
           TError,
           Awaited<ReturnType<typeof listArtifacts>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useListArtifacts<
-  TData = Awaited<ReturnType<typeof listArtifacts>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  studyId: string,
-  params?: ListArtifactsParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof listArtifacts>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListArtifacts<TData = Awaited<ReturnType<typeof listArtifacts>>, TError = ErrorType<HTTPValidationError>>(
+ studyId: string,
+    params?: ListArtifactsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listArtifacts>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary List Artifacts
  */
 
-export function useListArtifacts<
-  TData = Awaited<ReturnType<typeof listArtifacts>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  studyId: string,
-  params?: ListArtifactsParams,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof listArtifacts>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getListArtifactsQueryOptions(studyId, params, options);
+export function useListArtifacts<TData = Awaited<ReturnType<typeof listArtifacts>>, TError = ErrorType<HTTPValidationError>>(
+ studyId: string,
+    params?: ListArtifactsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listArtifacts>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getListArtifactsQueryOptions(studyId,params,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * Get authorized artifact metadata.
  * @summary Get Artifact
  */
 export const getArtifact = (
-  artifactId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    artifactId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<ArtifactResponse>(
-    { url: `/api/v1/artifacts/${artifactId}`, method: "GET", signal },
-    options,
-  );
-};
+      
+      
+      return customInstance<ArtifactResponse>(
+      {url: `/api/v1/artifacts/${artifactId}`, method: 'GET', signal
+    },
+      options);
+    }
+  
 
-export const getGetArtifactQueryKey = (artifactId?: string) => {
-  return [`/api/v1/artifacts/${artifactId}`] as const;
-};
 
-export const getGetArtifactQueryOptions = <
-  TData = Awaited<ReturnType<typeof getArtifact>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  artifactId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getArtifact>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
+
+export const getGetArtifactQueryKey = (artifactId?: string,) => {
+    return [
+    `/api/v1/artifacts/${artifactId}`
+    ] as const;
+    }
+
+    
+export const getGetArtifactQueryOptions = <TData = Awaited<ReturnType<typeof getArtifact>>, TError = ErrorType<HTTPValidationError>>(artifactId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtifact>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetArtifactQueryKey(artifactId);
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getArtifact>>> = ({
-    signal,
-  }) => getArtifact(artifactId, requestOptions, signal);
+  const queryKey =  queryOptions?.queryKey ?? getGetArtifactQueryKey(artifactId);
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!artifactId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof getArtifact>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+  
 
-export type GetArtifactQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getArtifact>>
->;
-export type GetArtifactQueryError = ErrorType<HTTPValidationError>;
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getArtifact>>> = ({ signal }) => getArtifact(artifactId, requestOptions, signal);
 
-export function useGetArtifact<
-  TData = Awaited<ReturnType<typeof getArtifact>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  artifactId: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getArtifact>>, TError, TData>
-    > &
-      Pick<
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(artifactId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getArtifact>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetArtifactQueryResult = NonNullable<Awaited<ReturnType<typeof getArtifact>>>
+export type GetArtifactQueryError = ErrorType<HTTPValidationError>
+
+
+export function useGetArtifact<TData = Awaited<ReturnType<typeof getArtifact>>, TError = ErrorType<HTTPValidationError>>(
+ artifactId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtifact>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getArtifact>>,
           TError,
           Awaited<ReturnType<typeof getArtifact>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useGetArtifact<
-  TData = Awaited<ReturnType<typeof getArtifact>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  artifactId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getArtifact>>, TError, TData>
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetArtifact<TData = Awaited<ReturnType<typeof getArtifact>>, TError = ErrorType<HTTPValidationError>>(
+ artifactId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtifact>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getArtifact>>,
           TError,
           Awaited<ReturnType<typeof getArtifact>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useGetArtifact<
-  TData = Awaited<ReturnType<typeof getArtifact>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  artifactId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getArtifact>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetArtifact<TData = Awaited<ReturnType<typeof getArtifact>>, TError = ErrorType<HTTPValidationError>>(
+ artifactId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtifact>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Get Artifact
  */
 
-export function useGetArtifact<
-  TData = Awaited<ReturnType<typeof getArtifact>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  artifactId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<Awaited<ReturnType<typeof getArtifact>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getGetArtifactQueryOptions(artifactId, options);
+export function useGetArtifact<TData = Awaited<ReturnType<typeof getArtifact>>, TError = ErrorType<HTTPValidationError>>(
+ artifactId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtifact>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getGetArtifactQueryOptions(artifactId,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
 
 /**
  * Stream authorized artifact bytes, including retained stale evidence.
  * @summary Download Artifact
  */
 export const downloadArtifact = (
-  artifactId: string,
-  options?: SecondParameter<typeof customInstance>,
-  signal?: AbortSignal,
+    artifactId: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
-  return customInstance<unknown>(
-    { url: `/api/v1/artifacts/${artifactId}/download`, method: "GET", signal },
-    options,
-  );
-};
+      
+      
+      return customInstance<unknown>(
+      {url: `/api/v1/artifacts/${artifactId}/download`, method: 'GET', signal
+    },
+      options);
+    }
+  
 
-export const getDownloadArtifactQueryKey = (artifactId?: string) => {
-  return [`/api/v1/artifacts/${artifactId}/download`] as const;
-};
 
-export const getDownloadArtifactQueryOptions = <
-  TData = Awaited<ReturnType<typeof downloadArtifact>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  artifactId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof downloadArtifact>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
+
+export const getDownloadArtifactQueryKey = (artifactId?: string,) => {
+    return [
+    `/api/v1/artifacts/${artifactId}/download`
+    ] as const;
+    }
+
+    
+export const getDownloadArtifactQueryOptions = <TData = Awaited<ReturnType<typeof downloadArtifact>>, TError = ErrorType<HTTPValidationError>>(artifactId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadArtifact>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =
-    queryOptions?.queryKey ?? getDownloadArtifactQueryKey(artifactId);
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof downloadArtifact>>
-  > = ({ signal }) => downloadArtifact(artifactId, requestOptions, signal);
+  const queryKey =  queryOptions?.queryKey ?? getDownloadArtifactQueryKey(artifactId);
 
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!artifactId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof downloadArtifact>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData> };
-};
+  
 
-export type DownloadArtifactQueryResult = NonNullable<
-  Awaited<ReturnType<typeof downloadArtifact>>
->;
-export type DownloadArtifactQueryError = ErrorType<HTTPValidationError>;
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadArtifact>>> = ({ signal }) => downloadArtifact(artifactId, requestOptions, signal);
 
-export function useDownloadArtifact<
-  TData = Awaited<ReturnType<typeof downloadArtifact>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  artifactId: string,
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof downloadArtifact>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(artifactId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadArtifact>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type DownloadArtifactQueryResult = NonNullable<Awaited<ReturnType<typeof downloadArtifact>>>
+export type DownloadArtifactQueryError = ErrorType<HTTPValidationError>
+
+
+export function useDownloadArtifact<TData = Awaited<ReturnType<typeof downloadArtifact>>, TError = ErrorType<HTTPValidationError>>(
+ artifactId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadArtifact>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof downloadArtifact>>,
           TError,
           Awaited<ReturnType<typeof downloadArtifact>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData>;
-};
-export function useDownloadArtifact<
-  TData = Awaited<ReturnType<typeof downloadArtifact>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  artifactId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof downloadArtifact>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useDownloadArtifact<TData = Awaited<ReturnType<typeof downloadArtifact>>, TError = ErrorType<HTTPValidationError>>(
+ artifactId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadArtifact>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof downloadArtifact>>,
           TError,
           Awaited<ReturnType<typeof downloadArtifact>>
-        >,
-        "initialData"
-      >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-export function useDownloadArtifact<
-  TData = Awaited<ReturnType<typeof downloadArtifact>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  artifactId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof downloadArtifact>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useDownloadArtifact<TData = Awaited<ReturnType<typeof downloadArtifact>>, TError = ErrorType<HTTPValidationError>>(
+ artifactId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadArtifact>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Download Artifact
  */
 
-export function useDownloadArtifact<
-  TData = Awaited<ReturnType<typeof downloadArtifact>>,
-  TError = ErrorType<HTTPValidationError>,
->(
-  artifactId: string,
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof downloadArtifact>>,
-        TError,
-        TData
-      >
-    >;
-    request?: SecondParameter<typeof customInstance>;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-  const queryOptions = getDownloadArtifactQueryOptions(artifactId, options);
+export function useDownloadArtifact<TData = Awaited<ReturnType<typeof downloadArtifact>>, TError = ErrorType<HTTPValidationError>>(
+ artifactId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadArtifact>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData> };
+  const queryOptions = getDownloadArtifactQueryOptions(artifactId,options)
 
-  query.queryKey = queryOptions.queryKey;
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
+
+
+
+
