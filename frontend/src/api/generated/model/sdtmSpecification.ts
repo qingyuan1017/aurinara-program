@@ -4,10 +4,11 @@
  * Aurinara Clinical Artifact Platform
  * OpenAPI spec version: 0.1.0
  */
+import type { SdtmSpecificationSchemaVersion } from './sdtmSpecificationSchemaVersion';
 import type { SdtmDomain } from './sdtmDomain';
 
 export interface SdtmSpecification {
-  schema_version?: '1.0.0';
+  schema_version?: SdtmSpecificationSchemaVersion;
   /** @minItems 1 */
   domains: SdtmDomain[];
 }

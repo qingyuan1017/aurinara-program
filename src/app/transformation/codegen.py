@@ -395,7 +395,7 @@ def _py_expr(expression: DerivationExpression, row: str = "row") -> str:
 
 def python_source(value: DataflowIR, digest: str) -> str:
     lines = [
-        f"# aurinara-dataflow compiler=1.7.0 ir={digest}",
+        f"# aurinara-dataflow compiler=1.8.0 ir={digest}",
         "import csv",
         "import os",
         "from pathlib import Path",
@@ -418,6 +418,9 @@ def python_source(value: DataflowIR, digest: str) -> str:
         '    with (outputs / f"{name}.csv").open("w", encoding="utf-8", newline="") as stream:',
         '        writer = csv.DictWriter(stream, fieldnames=fields, extrasaction="ignore")',
         "        if fields: writer.writeheader(); writer.writerows(rows)",
+        "def normalize_rows(rows):",
+        "    fields = list(dict.fromkeys(key for row in rows for key in row))",
+        "    return [{field: row.get(field) for field in fields} for row in rows]",
         "def cast_value(value, target_type, invalid):",
         "    if value in (None, ''): return None",
         "    try:",
@@ -539,7 +542,7 @@ def python_source(value: DataflowIR, digest: str) -> str:
                 f"{node.right_suffix!r})"
             )
             continue
-        source = f"state[{_single(node, incoming[node.id])!r}]"
+        source = f"normalize_rows(state[{_single(node, incoming[node.id])!r}])"
         if node.node_type == "select":
             lines.append(
                 f"state[{target}] = [{{name: row.get(name) for name in "
@@ -551,10 +554,16 @@ def python_source(value: DataflowIR, digest: str) -> str:
             )
         elif node.node_type == "derive":
             lines.extend(
-                [f"state[{target}] = []", f"for row in {source}:", "    next_row = dict(row)"]
+                [
+                    f"state[{target}] = []",
+                    f"for row in {source}:",
+                    "    next_row = dict(row)",
+                    "    derived = {}",
+                ]
             )
             for name, expression in node.ordered_assignments():
-                lines.append(f"    next_row[{name!r}] = {_py_expr(expression, 'next_row')}")
+                lines.append(f"    derived[{name!r}] = {_py_expr(expression, 'row')}")
+            lines.append("    next_row.update(derived)")
             lines.append(f"    state[{target}].append(next_row)")
         elif node.node_type == "cast":
             lines.extend(
@@ -1024,11 +1033,21 @@ aur_date_diff_months <- function(e, s) {
 
 def r_source(value: DataflowIR, digest: str) -> str:
     lines = [
-        f"# aurinara-dataflow compiler=1.7.0 ir={digest}",
+        f"# aurinara-dataflow compiler=1.8.0 ir={digest}",
         'root <- Sys.getenv("AURINARA_WORKSPACE", unset = "/workspace")',
         'inputs <- file.path(root, "inputs")',
         'outputs <- file.path(root, "outputs")',
         "dir.create(outputs, recursive=TRUE, showWarnings=FALSE)",
+        "bind_rows <- function(frames) {",
+        "  columns <- unique(unlist(lapply(frames, names), use.names=FALSE))",
+        "  normalized <- lapply(frames, function(frame) {",
+        "    for (column in setdiff(columns, names(frame))) frame[[column]] <- NA",
+        "    frame[, columns, drop=FALSE]",
+        "  })",
+        "  result <- do.call(rbind, normalized)",
+        "  row.names(result) <- NULL",
+        "  result",
+        "}",
         _R_FUNCTION_PREAMBLE,
         _r_custom_functions(value.custom_functions),
         "state <- list()",
@@ -1045,7 +1064,7 @@ def r_source(value: DataflowIR, digest: str) -> str:
             continue
         if node.node_type == "union":
             refs = ", ".join(f"state[[{_rq(item)}]]" for item in incoming[node.id])
-            lines.append(f"state[[{target}]] <- do.call(rbind, list({refs}))")
+            lines.append(f"state[[{target}]] <- bind_rows(list({refs}))")
             continue
         if node.node_type == "join":
             left_keys = ", ".join(_rq(pair[0]) for pair in node.keys)
@@ -1075,10 +1094,14 @@ def r_source(value: DataflowIR, digest: str) -> str:
                 ]
             )
         elif node.node_type == "derive":
-            lines.append(f"frame <- {source}")
+            lines.extend([f"frame <- {source}", "derived <- list()"])
             lines.extend(
-                f"frame[[{_rq(name)}]] <- {_r_expr(expr)}"
+                f"derived[[{_rq(name)}]] <- {_r_expr(expr)}"
                 for name, expr in node.ordered_assignments()
+            )
+            lines.extend(
+                f"frame[[{_rq(name)}]] <- derived[[{_rq(name)}]]"
+                for name, _ in node.ordered_assignments()
             )
             lines.append(f"state[[{target}]] <- frame")
         elif node.node_type == "cast":
@@ -1557,7 +1580,7 @@ def _sas_expr(expression: DerivationExpression, result_type: str | None = None) 
 
 def sas_source(value: DataflowIR, digest: str) -> str:
     lines = [
-        f"/* aurinara-dataflow compiler=1.7.0 ir={digest} */",
+        f"/* aurinara-dataflow compiler=1.8.0 ir={digest} */",
         _sas_custom_functions(value.custom_functions),
     ]
     ordered = ordered_nodes(value)
@@ -1601,11 +1624,24 @@ def sas_source(value: DataflowIR, digest: str) -> str:
                 ]
             )
         elif node.node_type == "derive":
-            lines.extend([f"data work.{target};", f"  set work.{source};"])
+            assignments = node.ordered_assignments()
+            temporary_names = {
+                name: f"_aur_d{index}" for index, (name, _) in enumerate(assignments, start=1)
+            }
+            lines.append(f"data work.{target};")
+            for name, temporary in temporary_names.items():
+                if node.result_types.get(name) == "character":
+                    lines.append(f"  length {temporary} $32767;")
+            lines.append(f"  set work.{source};")
             lines.extend(
-                f"  {name} = {_sas_expr(expression, node.result_types.get(name))};"
-                for name, expression in node.ordered_assignments()
+                f"  {temporary_names[name]} = "
+                f"{_sas_expr(expression, node.result_types.get(name))};"
+                for name, expression in assignments
             )
+            lines.extend(
+                f"  {name} = {temporary_names[name]};" for name, _ in assignments
+            )
+            lines.append("  drop _aur_d:;")
             lines.append("run;")
         elif node.node_type == "sort":
             lines.extend(

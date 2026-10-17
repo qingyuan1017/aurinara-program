@@ -69,7 +69,14 @@ class LiteralExpression(StrictModel):
 
 class ColumnExpression(StrictModel):
     kind: Literal["column"]
-    dataset: str
+    dataset: str | None = Field(
+        default=None,
+        json_schema_extra={"deprecated": True},
+        description=(
+            "Legacy source label. Column values are always read from the row entering "
+            "the current operator."
+        ),
+    )
     column: str
 
 
@@ -309,7 +316,7 @@ class DeriveNode(StrictModel):
 
     @model_validator(mode="after")
     def valid_assignment_order(self) -> "DeriveNode":
-        """Keep derive evaluation order explicit across JSONB serialization."""
+        """Keep derive presentation and canonical order explicit across JSONB serialization."""
 
         order = self.assignment_order or tuple(self.assignments)
         if len(order) != len(set(order)) or set(order) != set(self.assignments):
@@ -323,7 +330,7 @@ class DeriveNode(StrictModel):
         return self
 
     def ordered_assignments(self) -> tuple[tuple[str, DerivationExpression], ...]:
-        """Return assignments in their persisted deterministic evaluation order."""
+        """Return assignments in their persisted deterministic output order."""
 
         return tuple((target, self.assignments[target]) for target in self.assignment_order)
 
@@ -470,7 +477,7 @@ class Edge(StrictModel):
 
 class DataflowIR(StrictModel):
     schema_version: Literal["1.0.0"] = "1.0.0"
-    operator_version: Literal["1.3.0"] = "1.3.0"
+    operator_version: Literal["1.4.0"] = "1.4.0"
     custom_functions: tuple[CustomFunctionDefinition, ...] = ()
     nodes: tuple[DataflowNode, ...] = Field(min_length=1)
     edges: tuple[Edge, ...] = ()

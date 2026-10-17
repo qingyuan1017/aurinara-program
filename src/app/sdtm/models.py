@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, Uuid
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -80,18 +80,15 @@ class SdtmSpecificationRevision(UuidPrimaryKey, Base):
     )
 
 
-class SdtmDerivationPlanRevision(UuidPrimaryKey, Base):
-    """One immutable per-domain SDTM plan revision pinned to Specification and Raw selection."""
+class SdtmDomainMappingRevision(UuidPrimaryKey, Base):
+    """Immutable declared input lineage for one generated SDTM domain."""
 
-    __tablename__ = "sdtm_derivation_plan_revisions"
+    __tablename__ = "sdtm_domain_mapping_revisions"
     __table_args__ = (
         UniqueConstraint(
-            "aggregate_id",
-            "domain_code",
-            "revision",
-            name="uq_sdtm_plan_aggregate_domain_revision",
+            "aggregate_id", "domain_code", "revision", name="uq_sdtm_domain_mapping_revision"
         ),
-        Index("ix_sdtm_plan_aggregate_domain", "aggregate_id", "domain_code"),
+        Index("ix_sdtm_domain_mapping_head", "aggregate_id", "domain_code"),
     )
 
     aggregate_id: Mapped[UUID] = mapped_column(
@@ -102,19 +99,192 @@ class SdtmDerivationPlanRevision(UuidPrimaryKey, Base):
     )
     domain_code: Mapped[str] = mapped_column(String(8), nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
-    schema_version: Mapped[str] = mapped_column(String(32), nullable=False)
     specification_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     input_selection_revision: Mapped[int] = mapped_column(Integer, nullable=False)
-    state: Mapped[str] = mapped_column(String(32), nullable=False)
-    upstream_plan_pins: Mapped[list[dict[str, object]]] = mapped_column(
-        JSONB, nullable=False, default=list
-    )
-    alignment_reasons: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    state: Mapped[str] = mapped_column(String(32), nullable=False, default="aligned")
+    alignment_reasons: Mapped[list[str] | None] = mapped_column(JSONB)
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     created_by: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
+class SdtmVariableMappingRevision(UuidPrimaryKey, Base):
+    """Immutable sparse target/context to qualified-source mapping."""
+
+    __tablename__ = "sdtm_variable_mapping_revisions"
+    __table_args__ = (
+        UniqueConstraint(
+            "aggregate_id", "domain_code", "revision", name="uq_sdtm_variable_mapping_revision"
+        ),
+        Index("ix_sdtm_variable_mapping_head", "aggregate_id", "domain_code"),
+    )
+
+    aggregate_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("sdtm_workbenches.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    study_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("studies.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    domain_code: Mapped[str] = mapped_column(String(8), nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    specification_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    domain_mapping_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False, default="aligned")
+    alignment_reasons: Mapped[list[str] | None] = mapped_column(JSONB)
+    payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
+class SdtmCodeWorkarea(UuidPrimaryKey, Timestamped, Base):
+    """Named code identity; domain and language never change after creation."""
+
+    __tablename__ = "sdtm_code_workareas"
+    __table_args__ = (
+        UniqueConstraint("aggregate_id", "name", name="uq_sdtm_code_workarea_name"),
+        Index("ix_sdtm_code_workarea_domain", "aggregate_id", "domain_code"),
+    )
+
+    aggregate_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("sdtm_workbenches.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    study_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("studies.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    domain_code: Mapped[str] = mapped_column(String(8), nullable=False)
+    language: Mapped[str] = mapped_column(String(16), nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+
+
+class SdtmCodeRevision(UuidPrimaryKey, Base):
+    """Immutable authored program source with exact mapping pins."""
+
+    __tablename__ = "sdtm_code_revisions"
+    __table_args__ = (UniqueConstraint("workarea_id", "revision", name="uq_sdtm_code_revision"),)
+
+    workarea_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("sdtm_code_workareas.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    aggregate_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("sdtm_workbenches.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    study_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("studies.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    specification_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    domain_mapping_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    variable_mapping_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    source: Mapped[str] = mapped_column(Text, nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
+class SdtmOutputSelection(UuidPrimaryKey, Base):
+    """Current revisioned exact all-domain output set."""
+
+    __tablename__ = "sdtm_output_selections"
+
+    aggregate_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("sdtm_workbenches.id", ondelete="RESTRICT"), unique=True, nullable=False
+    )
+    study_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("studies.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    specification_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False, default="current")
+    payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now
+    )
+
+
+class SdtmImportedDomainRevision(UuidPrimaryKey, Base):
+    """Immutable externally produced SDTM domain accepted against one Specification."""
+
+    __tablename__ = "sdtm_imported_domain_revisions"
+    __table_args__ = (
+        UniqueConstraint(
+            "aggregate_id",
+            "domain_code",
+            "revision",
+            name="uq_sdtm_imported_domain_aggregate_domain_revision",
+        ),
+        Index(
+            "ix_sdtm_imported_domain_aggregate_domain",
+            "aggregate_id",
+            "domain_code",
+        ),
+    )
+
+    aggregate_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("sdtm_workbenches.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    study_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("studies.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    domain_code: Mapped[str] = mapped_column(String(8), nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    specification_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_file_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("source_files.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    artifact_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("artifacts.id", ondelete="RESTRICT"), nullable=False, unique=True
+    )
+    validation_run_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("validation_runs.id", ondelete="RESTRICT"), nullable=False, unique=True
+    )
+    state: Mapped[str] = mapped_column(String(32), nullable=False, default="aligned")
+    alignment_reasons: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    extracted_schema: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    issues: Mapped[list[dict[str, object]]] = mapped_column(JSONB, nullable=False, default=list)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
+class SdtmDomainSourceSelection(UuidPrimaryKey, Base):
+    """Current explicit provider for one SDTM domain."""
+
+    __tablename__ = "sdtm_domain_source_selections"
+    __table_args__ = (
+        UniqueConstraint(
+            "aggregate_id", "domain_code", name="uq_sdtm_domain_source_aggregate_domain"
+        ),
+    )
+
+    aggregate_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("sdtm_workbenches.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    study_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("studies.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    domain_code: Mapped[str] = mapped_column(String(8), nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    source_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now
     )
 
 

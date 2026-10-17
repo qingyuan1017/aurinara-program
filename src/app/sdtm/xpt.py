@@ -7,13 +7,13 @@ import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
 import pandas as pd
 import pyreadstat
 
 from app.common.problems import ProblemException
-from app.sdtm.contracts import SdtmDomain
+from app.sdtm.contracts import SdtmDomain, SdtmImportedSchema, SdtmImportedVariable
 
 _XPT_TIMESTAMP = re.compile(rb"[0-9]{2}[A-Z]{3}[0-9]{2}:[0-9]{2}:[0-9]{2}:[0-9]{2}")
 _NORMALIZED_TIMESTAMP = b"01JAN70:00:00:00"
@@ -24,6 +24,92 @@ _OBS_HEADER = b"HEADER RECORD*******OBS     HEADER RECORD!!!!!!!"
 class XptProduct:
     data: bytes
     manifest: dict[str, object]
+
+
+def inspect_xpt_v5(data: bytes, expected_domain: str) -> SdtmImportedSchema:
+    """Extract factual metadata in chunks from an externally produced XPORT v5 member."""
+
+    if b"LIBV8" in data[:1024] or b"MEMBV8" in data[:1024]:
+        raise ProblemException(
+            status_code=422,
+            code="sdtm_import_xpt_version_unsupported",
+            title="Imported SDTM XPT version is unsupported",
+            detail="Direct SDTM imports require SAS XPORT v5 rather than XPORT v8.",
+        )
+
+    try:
+        metadata = None
+        row_count = 0
+        # pyreadstat accepts file-like values here at runtime, although its
+        # read_file_in_chunks stub narrows this argument more than read_xport.
+        for frame, chunk_metadata in pyreadstat.read_file_in_chunks(  # type: ignore[call-overload]
+            pyreadstat.read_xport,
+            io.BytesIO(data),
+            chunksize=10_000,
+            output_format="pandas",
+        ):
+            metadata = metadata or chunk_metadata
+            row_count += len(frame)
+        if metadata is None:
+            _, metadata = pyreadstat.read_xport(io.BytesIO(data), metadataonly=True)
+    except pyreadstat.ReadstatError as error:
+        raise ProblemException(
+            status_code=422,
+            code="sdtm_import_xpt_invalid",
+            title="Imported SDTM XPT is invalid",
+            detail="The selected source file is not a readable SAS XPORT dataset.",
+        ) from error
+    table_name = str(metadata.table_name or "").upper()
+    if table_name != expected_domain:
+        raise ProblemException(
+            status_code=422,
+            code="sdtm_import_domain_mismatch",
+            title="Imported SDTM domain does not match",
+            detail=(f"The XPT member is '{table_name or 'unknown'}', not '{expected_domain}'."),
+        )
+    names = [str(name) for name in metadata.column_names]
+    if (
+        not names
+        or len(names) != len(set(names))
+        or any(not re.fullmatch(r"[A-Z][A-Z0-9_]{0,7}", name) for name in names)
+    ):
+        raise ProblemException(
+            status_code=422,
+            code="sdtm_import_variable_name_invalid",
+            title="Imported SDTM variables are invalid",
+            detail="XPORT v5 variable names must be unique SDTM-compatible names.",
+        )
+    labels = list(metadata.column_labels or ())
+    variables: list[SdtmImportedVariable] = []
+    for ordinal, name in enumerate(names, start=1):
+        observed_type = metadata.readstat_variable_types[name]
+        data_type: Literal["character", "numeric"] = (
+            "character" if observed_type == "string" else "numeric"
+        )
+        if observed_type not in {"string", "double", "int8", "int16", "int32", "float"}:
+            raise ProblemException(
+                status_code=422,
+                code="sdtm_import_variable_type_invalid",
+                title="Imported SDTM variable type is invalid",
+                detail=f"{expected_domain}.{name} has unsupported type '{observed_type}'.",
+            )
+        label_value = labels[ordinal - 1] if ordinal - 1 < len(labels) else None
+        label = str(label_value)[:40] if label_value not in (None, "") else None
+        width = int(metadata.variable_storage_width[name]) if data_type == "character" else None
+        variables.append(
+            SdtmImportedVariable(
+                name=name,
+                label=label,
+                data_type=data_type,
+                length=width,
+                ordinal=ordinal,
+            )
+        )
+    return SdtmImportedSchema(
+        domain_code=expected_domain,
+        row_count=row_count,
+        variables=tuple(variables),
+    )
 
 
 def read_xpt_rows(
@@ -98,6 +184,12 @@ def _dataframe(
             "sdtm_output_variable_missing",
             f"Domain '{domain.code}' is missing variables: {', '.join(missing)}.",
         )
+    undeclared = [name for name in headers if name not in expected]
+    if undeclared:
+        raise _problem(
+            "sdtm_output_variable_undeclared",
+            f"Domain '{domain.code}' contains undeclared variables: {', '.join(undeclared)}.",
+        )
     columns: dict[str, pd.Series] = {}
     normalized_rows: list[dict[str, object]] = []
     missing_characters: list[tuple[int, str]] = []
@@ -138,6 +230,21 @@ def _dataframe(
                         ) from error
                 normalized[variable.name] = text
         normalized_rows.append(normalized)
+    key_values = [tuple(row[name] for name in domain.keys) for row in normalized_rows]
+    if len(key_values) != len(set(key_values)):
+        raise _problem(
+            "sdtm_output_key_duplicate",
+            f"Domain '{domain.code}' contains duplicate declared key values.",
+        )
+    sortable = [
+        tuple((row[name] is None, row[name]) for name in domain.sort_order)
+        for row in normalized_rows
+    ]
+    if sortable != sorted(sortable):
+        raise _problem(
+            "sdtm_output_sort_order_invalid",
+            f"Domain '{domain.code}' is not ordered by its declared sort order.",
+        )
     for variable in domain.variables:
         values = [row[variable.name] for row in normalized_rows]
         if variable.data_type == "numeric":

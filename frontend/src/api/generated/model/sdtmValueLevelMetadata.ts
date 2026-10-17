@@ -4,6 +4,7 @@
  * Aurinara Clinical Artifact Platform
  * OpenAPI spec version: 0.1.0
  */
+import type { SdtmValueLevelMetadataContextId } from './sdtmValueLevelMetadataContextId';
 import type { SdtmValueLevelMetadataCondition } from './sdtmValueLevelMetadataCondition';
 import type { SdtmValueLevelMetadataDataType } from './sdtmValueLevelMetadataDataType';
 import type { SdtmValueLevelMetadataLength } from './sdtmValueLevelMetadataLength';
@@ -12,7 +13,8 @@ import type { SdtmValueLevelMetadataTerminologyBinding } from './sdtmValueLevelM
 export interface SdtmValueLevelMetadata {
   id: string;
   variable: string;
-  condition: SdtmValueLevelMetadataCondition;
+  context_id?: SdtmValueLevelMetadataContextId;
+  condition?: SdtmValueLevelMetadataCondition;
   label: string;
   data_type: SdtmValueLevelMetadataDataType;
   length?: SdtmValueLevelMetadataLength;

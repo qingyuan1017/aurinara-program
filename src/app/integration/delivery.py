@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.common.canonical import fingerprint
+from app.common.metrics import emit_metric
 from app.common.outbox import OutboxEvent
 from app.config import Settings
 from app.integration.events import PublicEventProjector
@@ -181,6 +182,11 @@ class DeliveryService:
         if attempt.attempt_number >= settings.integration_max_attempts:
             attempt.status = "dead_letter"
             attempt.failure = attempt.failure or {"code": code}
+            emit_metric(
+                "IntegrationDeliveryFailures",
+                1,
+                environment=settings.app_env,
+            )
             return
         attempt.status = "failed"
         session.add(

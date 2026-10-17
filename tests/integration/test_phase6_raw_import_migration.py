@@ -76,7 +76,10 @@ def test_raw_dataset_imports_migration_round_trip(migration_db) -> None:
     assert "ix_raw_dataset_imports_raw_id" in indexes
     assert "ix_raw_dataset_imports_study_id" in indexes
 
-    _alembic("downgrade", "-1")
+    # Downgrade to the parent of the migration under test. Later migrations may
+    # be added after this test is written, so a relative single-step downgrade
+    # would only remove the repository's newest revision.
+    _alembic("downgrade", "20261009_0013")
     assert not _table_exists()
 
     _alembic("upgrade", "head")

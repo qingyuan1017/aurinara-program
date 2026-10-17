@@ -21,6 +21,7 @@ import { Route as AppPackagingRouteImport } from './routes/_app/packaging'
 import { Route as AppRawRouteImport } from './routes/_app/raw'
 import { Route as AppReconciliationRouteImport } from './routes/_app/reconciliation'
 import { Route as AppReferenceRouteImport } from './routes/_app/reference'
+import { Route as AppRepositoryRouteImport } from './routes/_app/repository'
 import { Route as AppReviewRouteImport } from './routes/_app/review'
 import { Route as AppStandardsRouteImport } from './routes/_app/standards'
 import { Route as AppStudiesRouteImport } from './routes/_app/studies'
@@ -102,6 +103,11 @@ const AppReconciliationRoute = AppReconciliationRouteImport.update({
 const AppReferenceRoute = AppReferenceRouteImport.update({
   id: '/reference',
   path: '/reference',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRepositoryRoute = AppRepositoryRouteImport.update({
+  id: '/repository',
+  path: '/repository',
   getParentRoute: () => AppRoute,
 } as any)
 const AppReviewRoute = AppReviewRouteImport.update({
@@ -237,6 +243,7 @@ export interface FileRoutesByFullPath {
   '/raw': typeof AppRawRouteWithChildren
   '/reconciliation': typeof AppReconciliationRoute
   '/reference': typeof AppReferenceRoute
+  '/repository': typeof AppRepositoryRoute
   '/review': typeof AppReviewRoute
   '/standards': typeof AppStandardsRouteWithChildren
   '/studies': typeof AppStudiesRoute
@@ -269,6 +276,7 @@ export interface FileRoutesByTo {
   '/packaging': typeof AppPackagingRoute
   '/reconciliation': typeof AppReconciliationRoute
   '/reference': typeof AppReferenceRoute
+  '/repository': typeof AppRepositoryRoute
   '/review': typeof AppReviewRoute
   '/studies': typeof AppStudiesRoute
   '/terminology': typeof AppTerminologyRoute
@@ -305,6 +313,7 @@ export interface FileRoutesById {
   '/_app/raw': typeof AppRawRouteWithChildren
   '/_app/reconciliation': typeof AppReconciliationRoute
   '/_app/reference': typeof AppReferenceRoute
+  '/_app/repository': typeof AppRepositoryRoute
   '/_app/review': typeof AppReviewRoute
   '/_app/standards': typeof AppStandardsRouteWithChildren
   '/_app/studies': typeof AppStudiesRoute
@@ -344,6 +353,7 @@ export interface FileRouteTypes {
     | '/raw'
     | '/reconciliation'
     | '/reference'
+    | '/repository'
     | '/review'
     | '/standards'
     | '/studies'
@@ -376,6 +386,7 @@ export interface FileRouteTypes {
     | '/packaging'
     | '/reconciliation'
     | '/reference'
+    | '/repository'
     | '/review'
     | '/studies'
     | '/terminology'
@@ -411,6 +422,7 @@ export interface FileRouteTypes {
     | '/_app/raw'
     | '/_app/reconciliation'
     | '/_app/reference'
+    | '/_app/repository'
     | '/_app/review'
     | '/_app/standards'
     | '/_app/studies'
@@ -529,6 +541,13 @@ declare module '@tanstack/react-router' {
       path: '/reference'
       fullPath: '/reference'
       preLoaderRoute: typeof AppReferenceRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/repository': {
+      id: '/_app/repository'
+      path: '/repository'
+      fullPath: '/repository'
+      preLoaderRoute: typeof AppRepositoryRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/review': {
@@ -778,6 +797,7 @@ interface AppRouteChildren {
   AppRawRoute: typeof AppRawRouteWithChildren
   AppReconciliationRoute: typeof AppReconciliationRoute
   AppReferenceRoute: typeof AppReferenceRoute
+  AppRepositoryRoute: typeof AppRepositoryRoute
   AppReviewRoute: typeof AppReviewRoute
   AppStandardsRoute: typeof AppStandardsRouteWithChildren
   AppStudiesRoute: typeof AppStudiesRoute
@@ -797,6 +817,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppRawRoute: AppRawRouteWithChildren,
   AppReconciliationRoute: AppReconciliationRoute,
   AppReferenceRoute: AppReferenceRoute,
+  AppRepositoryRoute: AppRepositoryRoute,
   AppReviewRoute: AppReviewRoute,
   AppStandardsRoute: AppStandardsRouteWithChildren,
   AppStudiesRoute: AppStudiesRoute,

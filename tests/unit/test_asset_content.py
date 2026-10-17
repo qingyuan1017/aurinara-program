@@ -178,6 +178,28 @@ def _s3_storage() -> S3ObjectStorage:
     return storage
 
 
+def test_s3_storage_uses_default_credential_chain_when_static_keys_are_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = MagicMock()
+    create_client = MagicMock(return_value=client)
+    monkeypatch.setattr("app.artifacts.storage.boto3.client", create_client)
+    settings = Settings(
+        _env_file=None,
+        object_store_endpoint=None,
+        object_store_access_key="",
+        object_store_secret_key="",
+        object_store_path_style=False,
+    )
+
+    S3ObjectStorage(settings)
+
+    options = create_client.call_args.kwargs
+    assert "endpoint_url" not in options
+    assert "aws_access_key_id" not in options
+    assert "aws_secret_access_key" not in options
+
+
 def _client_error(code: str) -> ClientError:
     return ClientError({"Error": {"Code": code, "Message": "x"}}, "GetObject")
 

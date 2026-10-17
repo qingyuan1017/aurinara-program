@@ -1,0 +1,205 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Aurinara environment parent stack. Package this template before deployment.
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [staging, production]
+  VpcCidr:
+    Type: String
+    Default: 10.40.0.0/16
+  BaseDomain:
+    Type: String
+  HostedZoneId:
+    Type: AWS::Route53::HostedZone::Id
+  CertificateArn:
+    Type: String
+  CognitoDomainPrefix:
+    Type: String
+  SesSourceArn:
+    Type: String
+  CognitoFromAddress:
+    Type: String
+  ApplicationImage:
+    Type: String
+    AllowedPattern: '^.+@sha256:[a-f0-9]{64}$'
+  MigrationApplicationImage:
+    Type: String
+    AllowedPattern: '^.+@sha256:[a-f0-9]{64}$'
+  ActivateServices:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+  PythonRunnerImage:
+    Type: String
+    AllowedPattern: '^.+@sha256:[a-f0-9]{64}$'
+  RRunnerImage:
+    Type: String
+    AllowedPattern: '^.+@sha256:[a-f0-9]{64}$'
+  PlatformPrivateLinkServiceName:
+    Type: String
+  PlatformPrivateUrl:
+    Type: String
+  PlatformAuthorizationMode:
+    Type: String
+    AllowedValues: [shadow, enforced]
+    Default: shadow
+  PlatformPublicUrl:
+    Type: String
+  PlatformPublisherPrincipalArn:
+    Type: String
+  AlarmEmail:
+    Type: String
+  DatabaseInstanceClass:
+    Type: String
+    Default: db.m7g.large
+
+Resources:
+  Network:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: network.yaml
+      Parameters:
+        Environment: !Ref Environment
+        VpcCidr: !Ref VpcCidr
+        PlatformPrivateLinkServiceName: !Ref PlatformPrivateLinkServiceName
+
+  Data:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: Network
+    Properties:
+      TemplateURL: data.yaml
+      Parameters:
+        Environment: !Ref Environment
+        DataSubnetIds: !GetAtt Network.Outputs.DataSubnetIds
+        DatabaseSecurityGroupId: !GetAtt Network.Outputs.DatabaseSecurityGroupId
+        EfsSecurityGroupId: !GetAtt Network.Outputs.EfsSecurityGroupId
+        DatabaseInstanceClass: !Ref DatabaseInstanceClass
+        PlatformPublisherPrincipalArn: !Ref PlatformPublisherPrincipalArn
+
+  Identity:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: Data
+    Properties:
+      TemplateURL: identity.yaml
+      Parameters:
+        Environment: !Ref Environment
+        ApplicationUrl: !Sub https://${Environment}.${BaseDomain}
+        DomainPrefix: !Ref CognitoDomainPrefix
+        DataKeyArn: !GetAtt Data.Outputs.DataKeyArn
+        SesSourceArn: !Ref SesSourceArn
+        CognitoFromAddress: !Ref CognitoFromAddress
+
+  Compute:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: [Network, Data, Identity]
+    Properties:
+      TemplateURL: compute.yaml
+      Parameters:
+        Environment: !Ref Environment
+        VpcId: !GetAtt Network.Outputs.VpcId
+        AppSubnetIds: !GetAtt Network.Outputs.AppSubnetIds
+        RunnerSubnetIds: !GetAtt Network.Outputs.RunnerSubnetIds
+        AlbSubnetIds: !GetAtt Network.Outputs.AppSubnetIds
+        AlbSecurityGroupId: !GetAtt Network.Outputs.AlbSecurityGroupId
+        ApiSecurityGroupId: !GetAtt Network.Outputs.ApiSecurityGroupId
+        WorkerSecurityGroupId: !GetAtt Network.Outputs.WorkerSecurityGroupId
+        RunnerSecurityGroupId: !GetAtt Network.Outputs.RunnerSecurityGroupId
+        IntegrationSecurityGroupId: !GetAtt Network.Outputs.IntegrationSecurityGroupId
+        ArtifactBucketName: !GetAtt Data.Outputs.ArtifactBucketName
+        AccessLogBucketName: !GetAtt Data.Outputs.AccessLogBucketName
+        DataKeyArn: !GetAtt Data.Outputs.DataKeyArn
+        DatabaseEndpoint: !GetAtt Data.Outputs.DatabaseEndpoint
+        DatabaseSecretArn: !GetAtt Data.Outputs.DatabaseSecretArn
+        ApplicationSecretArn: !GetAtt Data.Outputs.ApplicationSecretArn
+        EfsFileSystemId: !GetAtt Data.Outputs.EfsFileSystemId
+        EfsAccessPointId: !GetAtt Data.Outputs.EfsAccessPointId
+        ProjectionQueueUrl: !GetAtt Data.Outputs.ProjectionQueueUrl
+        ProjectionQueueArn: !GetAtt Data.Outputs.ProjectionQueueArn
+        QueueKeyArn: !GetAtt Data.Outputs.QueueKeyArn
+        ApplicationImage: !Ref ApplicationImage
+        MigrationApplicationImage: !Ref MigrationApplicationImage
+        ActivateServices: !Ref ActivateServices
+        PythonRunnerImage: !Ref PythonRunnerImage
+        RRunnerImage: !Ref RRunnerImage
+        UserPoolClientId: !GetAtt Identity.Outputs.SpaClientId
+        JwtIssuer: !GetAtt Identity.Outputs.JwtIssuer
+        JwtJwksUrl: !GetAtt Identity.Outputs.JwtJwksUrl
+        ServiceClientId: !GetAtt Identity.Outputs.ServiceClientId
+        ServiceClientSecretArn: !GetAtt Identity.Outputs.ServiceClientSecretArn
+        ServiceTokenUrl: !GetAtt Identity.Outputs.TokenUrl
+        PlatformPrivateUrl: !Ref PlatformPrivateUrl
+        PlatformAuthorizationMode: !Ref PlatformAuthorizationMode
+        ApplicationOrigin: !Sub https://${Environment}.${BaseDomain}
+
+  Edge:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: Compute
+    Properties:
+      TemplateURL: edge.yaml
+      Parameters:
+        Environment: !Ref Environment
+        ApplicationDomain: !Sub ${Environment}.${BaseDomain}
+        HostedZoneId: !Ref HostedZoneId
+        CertificateArn: !Ref CertificateArn
+        FrontendBucketName: !GetAtt Data.Outputs.FrontendBucketName
+        FrontendBucketRegionalDomainName: !GetAtt Data.Outputs.FrontendBucketRegionalDomainName
+        AccessLogBucketDomainName: !GetAtt Data.Outputs.AccessLogBucketDomainName
+        AlbArn: !GetAtt Compute.Outputs.AlbArn
+        AlbDnsName: !GetAtt Compute.Outputs.AlbDnsName
+
+  Operations:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: [Compute, Edge]
+    Properties:
+      TemplateURL: operations.yaml
+      Parameters:
+        Environment: !Ref Environment
+        AlarmEmail: !Ref AlarmEmail
+        ClusterName: !GetAtt Compute.Outputs.ClusterName
+        ApiServiceName: !GetAtt Compute.Outputs.ApiServiceName
+        AlbFullName: !GetAtt Compute.Outputs.AlbFullName
+        ApiTargetGroupFullName: !GetAtt Compute.Outputs.ApiTargetGroupFullName
+        DatabaseIdentifier: !GetAtt Data.Outputs.DatabaseIdentifier
+        ProjectionQueueName: !GetAtt Data.Outputs.ProjectionQueueName
+        ProjectionDlqName: !GetAtt Data.Outputs.ProjectionDlqName
+        BackupVaultName: !GetAtt Data.Outputs.BackupVaultName
+        DistributionId: !GetAtt Edge.Outputs.DistributionId
+        ArtifactBucketName: !GetAtt Data.Outputs.ArtifactBucketName
+        AccessLogBucketName: !GetAtt Data.Outputs.AccessLogBucketName
+
+  ProjectionQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues: [!GetAtt Data.Outputs.ProjectionQueueUrl]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PlatformPublish
+            Effect: Allow
+            Principal: {AWS: !Ref PlatformPublisherPrincipalArn}
+            Action: sqs:SendMessage
+            Resource: !GetAtt Data.Outputs.ProjectionQueueArn
+          - Sid: DenyUnapprovedPublishers
+            Effect: Deny
+            Principal: '*'
+            Action: sqs:SendMessage
+            Resource: !GetAtt Data.Outputs.ProjectionQueueArn
+            Condition:
+              ArnNotEquals:
+                aws:PrincipalArn: !Ref PlatformPublisherPrincipalArn
+
+Outputs:
+  ApplicationUrl: {Value: !Sub 'https://${Environment}.${BaseDomain}'}
+  PlatformPublicUrl: {Value: !Ref PlatformPublicUrl}
+  UserPoolId: {Value: !GetAtt Identity.Outputs.UserPoolId}
+  SpaClientId: {Value: !GetAtt Identity.Outputs.SpaClientId}
+  OidcAuthority: {Value: !GetAtt Identity.Outputs.JwtIssuer}
+  OidcLogoutUrl: {Value: !Sub 'https://${Environment}.${BaseDomain}/login'}
+  OidcEndSessionUrl: {Value: !GetAtt Identity.Outputs.LogoutUrl}
+  FrontendBucketName: {Value: !GetAtt Data.Outputs.FrontendBucketName}
+  CloudFrontDistributionId: {Value: !GetAtt Edge.Outputs.DistributionId}
+  ClusterName: {Value: !GetAtt Compute.Outputs.ClusterName}
+  MigrationTaskDefinitionArn: {Value: !GetAtt Compute.Outputs.MigrationTaskDefinitionArn}
+  AppSubnetIds: {Value: !GetAtt Network.Outputs.AppSubnetIds}
+  WorkerSecurityGroupId: {Value: !GetAtt Network.Outputs.WorkerSecurityGroupId}

@@ -4,7 +4,7 @@ import pytest
 
 from app.common.problems import ProblemException
 from app.transformation.contracts import DataflowIR
-from app.transformation.evaluator import evaluate_dataflow
+from app.transformation.evaluator import evaluate_dataflow, evaluate_dataflow_node
 
 
 def test_evaluator_uses_typed_operators_and_declared_write() -> None:
@@ -52,7 +52,7 @@ def test_evaluator_uses_typed_operators_and_declared_write() -> None:
     assert outputs["DM"] == ({"SUBJID": "02", "AGE": 42, "STUDYID": "SYN-001", "USUBJID": "02"},)
 
 
-def test_evaluator_uses_explicit_assignment_order_after_mapping_reorder() -> None:
+def test_derive_assignments_all_read_the_same_incoming_row() -> None:
     ir = DataflowIR.model_validate(
         {
             "nodes": [
@@ -60,9 +60,8 @@ def test_evaluator_uses_explicit_assignment_order_after_mapping_reorder() -> Non
                 {
                     "node_type": "derive",
                     "id": "derive",
-                    # Simulate JSONB returning the dependent target first.
                     "assignments": {
-                        "SUBJID": {"kind": "column", "dataset": "DM", "column": "SITEID"},
+                        "SUBJID": {"kind": "column", "column": "SITEID"},
                         "SITEID": {"kind": "literal", "value": "101"},
                     },
                     "assignment_order": ["SITEID", "SUBJID"],
@@ -76,8 +75,8 @@ def test_evaluator_uses_explicit_assignment_order_after_mapping_reorder() -> Non
         }
     )
 
-    assert evaluate_dataflow(ir, {"RAW": ({},)})["DM"] == (
-        {"SITEID": "101", "SUBJID": "101"},
+    assert evaluate_dataflow(ir, {"RAW": ({"SITEID": "OLD"},)})["DM"] == (
+        {"SITEID": "101", "SUBJID": "OLD"},
     )
 
 
@@ -90,6 +89,128 @@ def test_evaluator_rejects_missing_selected_dataset() -> None:
         evaluate_dataflow(ir, {})
 
     assert captured.value.code == "preview_dataset_unknown"
+    assert captured.value.issues == [{"node_id": "read"}]
+
+
+def test_evaluator_normalizes_heterogeneous_incoming_rows_to_one_schema() -> None:
+    ir = DataflowIR.model_validate(
+        {
+            "nodes": [
+                {"node_type": "read", "id": "read", "dataset": "AE_RAW"},
+                {
+                    "node_type": "derive",
+                    "id": "derive_ae",
+                    "assignments": {
+                        "AETERM": {
+                            "kind": "column",
+                            "column": "VAR5",
+                        }
+                    },
+                },
+                {"node_type": "write", "id": "write", "dataset": "AE"},
+            ],
+            "edges": [
+                {"source_node": "read", "target_node": "derive_ae"},
+                {"source_node": "derive_ae", "target_node": "write"},
+            ],
+        }
+    )
+
+    outputs = evaluate_dataflow(
+        ir,
+        {"AE_RAW": ({"VAR5": "HEADACHE"}, {"VAR4": "NAUSEA"})},
+    )
+
+    assert outputs["AE"] == (
+        {"VAR5": "HEADACHE", "VAR4": None, "AETERM": "HEADACHE"},
+        {"VAR5": None, "VAR4": "NAUSEA", "AETERM": None},
+    )
+
+
+def test_evaluator_reports_source_schema_for_unknown_expression_column() -> None:
+    ir = DataflowIR.model_validate(
+        {
+            "nodes": [
+                {"node_type": "read", "id": "read", "dataset": "AE_RAW"},
+                {
+                    "node_type": "derive",
+                    "id": "derive_ae",
+                    "assignments": {
+                        "AETERM": {"kind": "column", "column": "VAR5"}
+                    },
+                },
+                {"node_type": "write", "id": "write", "dataset": "AE"},
+            ],
+            "edges": [
+                {"source_node": "read", "target_node": "derive_ae"},
+                {"source_node": "derive_ae", "target_node": "write"},
+            ],
+        }
+    )
+
+    with pytest.raises(ProblemException) as captured:
+        evaluate_dataflow(ir, {"AE_RAW": ({"VAR4": "NAUSEA"},)})
+
+    assert captured.value.code == "preview_column_unknown"
+    assert captured.value.detail == (
+        "Column 'VAR5' is not available in preview row 1 entering node "
+        "'derive_ae' from node 'read'. Available columns: VAR4."
+    )
+    assert captured.value.issues == [
+        {
+            "column": "VAR5",
+            "node_id": "derive_ae",
+            "source_node_id": "read",
+            "row_index": 1,
+            "available_columns": ["VAR4"],
+        }
+    ]
+
+
+def test_evaluator_can_preview_healthy_node_before_failing_downstream_node() -> None:
+    ir = DataflowIR.model_validate(
+        {
+            "nodes": [
+                {"node_type": "read", "id": "read", "dataset": "AE_RAW"},
+                {
+                    "node_type": "derive",
+                    "id": "healthy",
+                    "assignments": {
+                        "AETERM": {
+                            "kind": "column",
+                            "dataset": "AE_RAW",
+                            "column": "VAR11",
+                        }
+                    },
+                },
+                {
+                    "node_type": "derive",
+                    "id": "failing",
+                    "assignments": {
+                        "AEDECOD": {
+                            "kind": "column",
+                            "dataset": "AE_RAW",
+                            "column": "VAR12",
+                        }
+                    },
+                },
+                {"node_type": "write", "id": "write", "dataset": "AE"},
+            ],
+            "edges": [
+                {"source_node": "read", "target_node": "healthy"},
+                {"source_node": "healthy", "target_node": "failing"},
+                {"source_node": "failing", "target_node": "write"},
+            ],
+        }
+    )
+
+    rows = evaluate_dataflow_node(
+        ir,
+        {"AE_RAW": ({"VAR11": "HEADACHE"},)},
+        "healthy",
+    )
+
+    assert rows == ({"VAR11": "HEADACHE", "AETERM": "HEADACHE"},)
 
 
 def test_evaluator_joins_maps_pivots_and_aggregates() -> None:

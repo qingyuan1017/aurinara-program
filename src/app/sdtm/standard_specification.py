@@ -63,10 +63,7 @@ def _domain(source: Mapping[str, object]) -> SdtmDomain | None:
     if "[domain name]" in label.casefold():
         return None
     code = _required_text(source, "name", "standard dataset")
-    variables = tuple(
-        _variable(item, code)
-        for item in _objects(source.get("datasetVariables"))
-    )
+    variables = tuple(_variable(item, code) for item in _objects(source.get("datasetVariables")))
     if not variables:
         raise ValueError(f"standard domain {code} has no variables")
     identifiers = tuple(item.name for item in variables if item.role == "Identifier")
@@ -116,12 +113,8 @@ def standard_domain_options(
             code=domain.code,
             label=domain.label,
             domain_class=domain.domain_class,
-            required_variable_count=sum(
-                variable.core == "Req" for variable in domain.variables
-            ),
-            expected_variable_count=sum(
-                variable.core == "Exp" for variable in domain.variables
-            ),
+            required_variable_count=sum(variable.core == "Req" for variable in domain.variables),
+            expected_variable_count=sum(variable.core == "Exp" for variable in domain.variables),
             permissible_variable_count=sum(
                 variable.core == "Perm" for variable in domain.variables
             ),
@@ -145,8 +138,7 @@ def _selected_domains(
     unknown_codes = sorted(selected_codes - known_codes)
     if unknown_codes:
         raise ValueError(
-            "the selected standard does not contain concrete domain(s): "
-            + ", ".join(unknown_codes)
+            "the selected standard does not contain concrete domain(s): " + ", ".join(unknown_codes)
         )
 
     selected: list[SdtmDomain] = []
@@ -159,15 +151,11 @@ def _selected_domains(
             if not core_variables_only or variable.core in {"Req", "Exp"}
         )
         if not variables:
-            raise ValueError(
-                f"standard domain {domain.code} has no Required or Expected variables"
-            )
+            raise ValueError(f"standard domain {domain.code} has no Required or Expected variables")
         names = {item.name for item in variables}
         keys = tuple(item for item in domain.keys if item in names)
         if not keys:
-            identifiers = tuple(
-                item.name for item in variables if item.role == "Identifier"
-            )
+            identifiers = tuple(item.name for item in variables if item.role == "Identifier")
             keys = identifiers or (variables[0].name,)
         sort_order = tuple(item for item in domain.sort_order if item in names) or keys
         selected.append(

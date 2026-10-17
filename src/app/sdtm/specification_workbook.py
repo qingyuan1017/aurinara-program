@@ -13,7 +13,8 @@ from openpyxl.worksheet.worksheet import Worksheet
 from app.sdtm.contracts import SdtmSpecification, SdtmTerminologyBinding
 
 _FIXED_TIME = datetime(2000, 1, 1)
-_SHEETS = ("Metadata", "Domains", "Variables", "ValueLevel")
+_SHEETS_V1 = ("Metadata", "Domains", "Variables", "ValueLevel")
+_SHEETS_V2 = ("Metadata", "Domains", "Variables", "ValueContexts", "ValueLevel")
 _DOMAIN_HEADERS = (
     "code",
     "label",
@@ -43,6 +44,27 @@ _VALUE_LEVEL_HEADERS = (
     "id",
     "variable",
     "condition_json",
+    "label",
+    "data_type",
+    "length",
+    "terminology_release_id",
+    "codelist_code",
+    "term_code",
+    "extension_revision_id",
+)
+_VALUE_CONTEXT_HEADERS = (
+    "domain",
+    "id",
+    "label",
+    "discriminator_variable",
+    "operator",
+    "values_json",
+)
+_VALUE_LEVEL_HEADERS_V2 = (
+    "domain",
+    "id",
+    "variable",
+    "context_id",
     "label",
     "data_type",
     "length",
@@ -95,10 +117,17 @@ def render_specification_xlsx(specification: SdtmSpecification) -> bytes:
     metadata.append(("schema_version", specification.schema_version))
     domains = workbook.create_sheet("Domains")
     variables = workbook.create_sheet("Variables")
+    contexts = (
+        workbook.create_sheet("ValueContexts") if specification.schema_version == "2.0.0" else None
+    )
     value_level = workbook.create_sheet("ValueLevel")
     domains.append(_DOMAIN_HEADERS)
     variables.append(_VARIABLE_HEADERS)
-    value_level.append(_VALUE_LEVEL_HEADERS)
+    if contexts is not None:
+        contexts.append(_VALUE_CONTEXT_HEADERS)
+        value_level.append(_VALUE_LEVEL_HEADERS_V2)
+    else:
+        value_level.append(_VALUE_LEVEL_HEADERS)
     for domain in specification.domains:
         domains.append(
             (
@@ -126,19 +155,47 @@ def render_specification_xlsx(specification: SdtmSpecification) -> bytes:
                     *_binding_values(variable.terminology_binding),
                 )
             )
-        for item in domain.value_level_metadata:
-            value_level.append(
-                (
-                    domain.code,
-                    item.id,
-                    item.variable,
-                    _json(item.condition.model_dump(mode="json")),
-                    item.label,
-                    item.data_type,
-                    item.length,
-                    *_binding_values(item.terminology_binding),
+        if contexts is not None:
+            for context in domain.value_contexts:
+                contexts.append(
+                    (
+                        domain.code,
+                        context.id,
+                        context.label,
+                        context.discriminator_variable,
+                        context.operator,
+                        _json(context.values),
+                    )
                 )
-            )
+        for item in domain.value_level_metadata:
+            if contexts is not None:
+                value_level.append(
+                    (
+                        domain.code,
+                        item.id,
+                        item.variable,
+                        item.context_id,
+                        item.label,
+                        item.data_type,
+                        item.length,
+                        *_binding_values(item.terminology_binding),
+                    )
+                )
+            else:
+                if item.condition is None:
+                    raise ValueError("historical 1.0.0 value-level metadata requires condition")
+                value_level.append(
+                    (
+                        domain.code,
+                        item.id,
+                        item.variable,
+                        _json(item.condition.model_dump(mode="json")),
+                        item.label,
+                        item.data_type,
+                        item.length,
+                        *_binding_values(item.terminology_binding),
+                    )
+                )
     for sheet in workbook.worksheets:
         _format_sheet(sheet)
     workbook.properties.creator = "Aurinara"
@@ -186,15 +243,25 @@ def parse_specification_xlsx(data: bytes) -> SdtmSpecification:
 
     workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
     try:
-        if tuple(workbook.sheetnames) != _SHEETS:
-            raise ValueError(f"workbook sheets must be exactly: {', '.join(_SHEETS)}")
         metadata_rows = _records(workbook["Metadata"], ("key", "value"))
         metadata = {str(row["key"]): row["value"] for row in metadata_rows}
+        schema_version = str(metadata.get("schema_version"))
+        expected_sheets = _SHEETS_V2 if schema_version == "2.0.0" else _SHEETS_V1
+        if tuple(workbook.sheetnames) != expected_sheets:
+            raise ValueError(f"workbook sheets must be exactly: {', '.join(expected_sheets)}")
         domain_rows = _records(workbook["Domains"], _DOMAIN_HEADERS)
         variable_rows = _records(workbook["Variables"], _VARIABLE_HEADERS)
-        value_rows = _records(workbook["ValueLevel"], _VALUE_LEVEL_HEADERS)
+        value_rows = _records(
+            workbook["ValueLevel"],
+            _VALUE_LEVEL_HEADERS_V2 if schema_version == "2.0.0" else _VALUE_LEVEL_HEADERS,
+        )
+        context_rows = (
+            _records(workbook["ValueContexts"], _VALUE_CONTEXT_HEADERS)
+            if schema_version == "2.0.0"
+            else []
+        )
         domain_codes = {str(row["code"]) for row in domain_rows}
-        child_domains = {str(row["domain"]) for row in (*variable_rows, *value_rows)}
+        child_domains = {str(row["domain"]) for row in (*variable_rows, *context_rows, *value_rows)}
         if not child_domains <= domain_codes:
             raise ValueError("Variables and ValueLevel rows must reference declared domains")
         domains: list[dict[str, object]] = []
@@ -225,7 +292,11 @@ def parse_specification_xlsx(data: bytes) -> SdtmSpecification:
                     {
                         "id": row["id"],
                         "variable": row["variable"],
-                        "condition": json.loads(str(row["condition_json"])),
+                        **(
+                            {"context_id": row["context_id"]}
+                            if schema_version == "2.0.0"
+                            else {"condition": json.loads(str(row["condition_json"]))}
+                        ),
                         "label": row["label"],
                         "data_type": row["data_type"],
                         "length": _optional(row["length"]),
@@ -242,11 +313,22 @@ def parse_specification_xlsx(data: bytes) -> SdtmSpecification:
                     "sort_order": json.loads(str(domain["sort_order_json"])),
                     "expected_output_name": domain["expected_output_name"],
                     "variables": variables,
+                    "value_contexts": [
+                        {
+                            "id": row["id"],
+                            "label": row["label"],
+                            "discriminator_variable": row["discriminator_variable"],
+                            "operator": row["operator"],
+                            "values": json.loads(str(row["values_json"])),
+                        }
+                        for row in context_rows
+                        if str(row["domain"]) == code
+                    ],
                     "value_level_metadata": value_level,
                 }
             )
         return SdtmSpecification.model_validate(
-            {"schema_version": metadata.get("schema_version"), "domains": domains}
+            {"schema_version": schema_version, "domains": domains}
         )
     finally:
         workbook.close()

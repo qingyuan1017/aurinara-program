@@ -6,6 +6,5 @@
  */
 import type { AcrfSdtmVariableLink } from './acrfSdtmVariableLink';
 import type { AcrfRawVariableLink } from './acrfRawVariableLink';
-import type { AcrfPlanNodeLink } from './acrfPlanNodeLink';
 
-export type AcrfAnnotationResponseLinksItem = AcrfSdtmVariableLink | AcrfRawVariableLink | AcrfPlanNodeLink;
+export type AcrfAnnotationResponseLinksItem = AcrfSdtmVariableLink | AcrfRawVariableLink;

@@ -31,8 +31,8 @@ from app.execution.worker import process_execution_job
 from app.main import create_app
 from app.sdtm.contracts import SdtmSpecification
 from app.sdtm.models import (
-    SdtmDerivationPlanRevision,
     SdtmInputSelection,
+    SdtmOutputSelection,
     SdtmSpecificationRevision,
 )
 from app.sdtm.xpt import build_xpt_v5
@@ -117,7 +117,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     dependency_fingerprint = dependencies.json()["fingerprint"]
     source_payload = {"raw_id": "00000000-0000-0000-0000-000000000001"}
     specification_payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "domains": [
             {
                 "code": "DM",
@@ -150,16 +150,6 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
             }
         ],
     }
-    plan_payload = {
-        "schema_version": "1.1.0",
-        "domain": "DM",
-        "specification_revision": 1,
-        "input_selection_revision": 1,
-        "nodes": [{"node_type": "raw_read", "id": "read", "raw_dataset_code": "DEMOG"}],
-        "edges": [],
-    }
-    plan_fingerprint = fingerprint(plan_payload)
-    plan_set_fingerprint = fingerprint({"DM": plan_fingerprint})
     sdtm_specification = SdtmSpecification.model_validate(specification_payload)
     xpt = build_xpt_v5(
         b"USUBJID,ARM\n01,Placebo\n02,Active\n",
@@ -180,24 +170,9 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
             aggregate_id=sdtm_uuid,
             study_id=study_uuid,
             revision=1,
-            schema_version="1.0.0",
+            schema_version="2.0.0",
             payload=specification_payload,
             fingerprint=fingerprint(specification_payload),
-            created_by="user-1",
-        )
-        plan = SdtmDerivationPlanRevision(
-            aggregate_id=sdtm_uuid,
-            study_id=study_uuid,
-            domain_code="DM",
-            revision=1,
-            schema_version="1.1.0",
-            specification_revision=1,
-            input_selection_revision=1,
-            state="aligned",
-            upstream_plan_pins=[],
-            alignment_reasons=None,
-            payload=plan_payload,
-            fingerprint=plan_fingerprint,
             created_by="user-1",
         )
         artifact = Artifact(
@@ -217,13 +192,35 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
             input_selection_revision=1,
             source_specification_revision=1,
             source_specification_fingerprint=specification.fingerprint,
-            source_plan_type="sdtm_derivation_plan",
+            source_plan_type="sdtm_code_revision",
             source_plan_revision=1,
             generator_name="phase4-test",
             generator_version="1.0.0",
             status="available",
             manifest=xpt.manifest,
             created_by="user-1",
+        )
+        session.add_all([source, specification, artifact])
+        session.flush()
+        output_payload = {
+            "items": [
+                {
+                    "domain": "DM",
+                    "provider_type": "generation",
+                    "provider_revision_id": str(artifact.id),
+                    "xpt_artifact_id": str(artifact.id),
+                }
+            ]
+        }
+        output_selection = SdtmOutputSelection(
+            aggregate_id=sdtm_uuid,
+            study_id=study_uuid,
+            revision=1,
+            specification_revision=1,
+            state="current",
+            payload=output_payload,
+            fingerprint=fingerprint(output_payload),
+            updated_by="user-1",
         )
         validation = ValidationRun(
             study_id=study_uuid,
@@ -237,10 +234,10 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
             input_manifest={
                 "sdtm_revision": 1,
                 "dependency_fingerprint": dependency_fingerprint,
-                "input_selection_revision": 1,
                 "specification_revision": 1,
-                "plan_revisions": {"DM": 1},
-                "plan_set_fingerprint": plan_set_fingerprint,
+                "output_selection_revision": 1,
+                "output_selection_fingerprint": output_selection.fingerprint,
+                "outputs": output_payload,
             },
             started_at=utc_now(),
             completed_at=utc_now(),
@@ -251,7 +248,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
             report_artifact_ids=[],
             created_by="user-1",
         )
-        session.add_all([source, specification, plan, artifact, validation])
+        session.add_all([output_selection, validation])
         session.flush()
         artifact_id = str(artifact.id)
         validation_id = str(validation.id)

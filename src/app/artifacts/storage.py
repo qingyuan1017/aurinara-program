@@ -45,17 +45,29 @@ class S3ObjectStorage:
     def __init__(self, settings: Settings) -> None:
         self._bucket = settings.object_store_bucket
         self.local_fallback_enabled = settings.pinned_asset_local_fallback
-        self._client = boto3.client(
-            "s3",
-            endpoint_url=settings.object_store_endpoint,
-            aws_access_key_id=settings.object_store_access_key.get_secret_value(),
-            aws_secret_access_key=settings.object_store_secret_key.get_secret_value(),
-            region_name=settings.object_store_region,
-            config=Config(
+        client_options: dict[str, object] = {
+            "region_name": settings.object_store_region,
+            "config": Config(
                 signature_version="s3v4",
                 s3={"addressing_style": "path" if settings.object_store_path_style else "auto"},
             ),
+        }
+        if settings.object_store_endpoint:
+            client_options["endpoint_url"] = settings.object_store_endpoint
+        access_key = (
+            settings.object_store_access_key.get_secret_value()
+            if settings.object_store_access_key is not None
+            else ""
         )
+        secret_key = (
+            settings.object_store_secret_key.get_secret_value()
+            if settings.object_store_secret_key is not None
+            else ""
+        )
+        if access_key and secret_key:
+            client_options["aws_access_key_id"] = access_key
+            client_options["aws_secret_access_key"] = secret_key
+        self._client = boto3.client("s3", **client_options)
 
     def put_file(self, object_key: str, path: Path, media_type: str) -> None:
         """Upload without making the object public."""

@@ -28,7 +28,7 @@ def _binary(operator: str, left: dict[str, object], right: dict[str, object]) ->
 
 
 def _column(name: str) -> dict[str, object]:
-    return {"kind": "column", "dataset": "src", "column": name}
+    return {"kind": "column", "column": name}
 
 
 def _literal(value: object) -> dict[str, object]:
@@ -95,12 +95,16 @@ def _conditional_ir(assignments: dict[str, object], result_types: dict[str, str]
 def _stage_inputs(workspace: Path, rows: list[dict[str, str]]) -> None:
     inputs = workspace / "inputs"
     inputs.mkdir(parents=True, exist_ok=True)
+    _write_input(inputs, "src", rows)
+    (workspace / "outputs").mkdir(parents=True, exist_ok=True)
+
+
+def _write_input(inputs: Path, dataset: str, rows: list[dict[str, str]]) -> None:
     fields = list(dict.fromkeys(key for row in rows for key in row))
-    with (inputs / "src.csv").open("w", encoding="utf-8", newline="") as stream:
+    with (inputs / f"{dataset}.csv").open("w", encoding="utf-8", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
         writer.writerows(rows)
-    (workspace / "outputs").mkdir(parents=True, exist_ok=True)
 
 
 def _read_output(workspace: Path) -> list[dict[str, str]]:
@@ -165,6 +169,78 @@ def test_ittfl_python_and_r_agree(tmp_path: Path) -> None:
     _stage_inputs(r_workspace, rows)
     r_rows = _run_r(ir, r_workspace)
     assert _column_values(r_rows, "ITTFL") == _column_values(python_rows, "ITTFL")
+
+
+def test_derive_assignments_read_the_same_incoming_row_across_backends(
+    tmp_path: Path,
+) -> None:
+    ir = _conditional_ir(
+        {"A": _column("B"), "B": _column("A")},
+        {"A": "character", "B": "character"},
+    )
+    rows = [{"A": "incoming-a", "B": "incoming-b"}]
+
+    python_workspace = tmp_path / "py"
+    _stage_inputs(python_workspace, rows)
+    python_rows = _run_python(ir, python_workspace)
+    assert python_rows == [{"A": "incoming-b", "B": "incoming-a"}]
+
+    if _RSCRIPT is not None:
+        r_workspace = tmp_path / "r"
+        _stage_inputs(r_workspace, rows)
+        assert _run_r(ir, r_workspace) == python_rows
+
+    sas_source = compile_dataflow(ir, "sas").source
+    assert "_aur_d1 = B;" in sas_source
+    assert "_aur_d2 = A;" in sas_source
+    assert sas_source.index("_aur_d2 = A;") < sas_source.index("A = _aur_d1;")
+
+
+def test_union_columns_are_null_on_rows_from_an_input_without_that_column(
+    tmp_path: Path,
+) -> None:
+    ir = DataflowIR.model_validate(
+        {
+            "nodes": [
+                {"node_type": "read", "id": "read_a", "dataset": "a"},
+                {"node_type": "read", "id": "read_b", "dataset": "b"},
+                {"node_type": "union", "id": "combined"},
+                {
+                    "node_type": "derive",
+                    "id": "derive",
+                    "assignments": {"COPY": _column("VAR5")},
+                    "result_types": {"COPY": "character"},
+                },
+                {"node_type": "write", "id": "write", "dataset": "out"},
+            ],
+            "edges": [
+                {"source_node": "read_a", "target_node": "combined"},
+                {"source_node": "read_b", "target_node": "combined"},
+                {"source_node": "combined", "target_node": "derive"},
+                {"source_node": "derive", "target_node": "write"},
+            ],
+        }
+    )
+
+    python_workspace = tmp_path / "py-union"
+    inputs = python_workspace / "inputs"
+    inputs.mkdir(parents=True)
+    _write_input(inputs, "a", [{"VAR5": "present"}])
+    _write_input(inputs, "b", [{"VAR4": "other"}])
+    (python_workspace / "outputs").mkdir()
+    python_rows = _run_python(ir, python_workspace)
+    assert _column_values(python_rows, "COPY") == ["present", ""]
+
+    if _RSCRIPT is not None:
+        r_workspace = tmp_path / "r-union"
+        r_inputs = r_workspace / "inputs"
+        r_inputs.mkdir(parents=True)
+        _write_input(r_inputs, "a", [{"VAR5": "present"}])
+        _write_input(r_inputs, "b", [{"VAR4": "other"}])
+        (r_workspace / "outputs").mkdir()
+        assert _run_r(ir, r_workspace) == python_rows
+
+    assert "set work." in compile_dataflow(ir, "sas").source
 
 
 def test_short_circuit_division_resolves_to_null(tmp_path: Path) -> None:
@@ -389,4 +465,4 @@ def test_function_catalog_python_and_r_agree(tmp_path: Path) -> None:
 def test_function_catalog_generates_sas_program() -> None:
     program = compile_dataflow(_catalog_ir(), "sas")
     assert "data work." in program.source
-    assert program.compiler_version == "1.7.0"
+    assert program.compiler_version == "1.8.0"

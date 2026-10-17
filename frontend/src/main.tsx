@@ -7,7 +7,6 @@ import { AuthProvider } from '@/components/auth-provider'
 import { Toaster } from '@/components/ui/sonner'
 import { queryClient } from '@/lib/query-client'
 import { routeTree } from './routeTree.gen'
-import '@xyflow/react/dist/style.css'
 import '@/styles/globals.css'
 
 const router = createRouter({

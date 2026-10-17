@@ -6,6 +6,15 @@ All public application routes are rooted at `/api/v1`. Operational health routes
 
 The API edits persisted objects directly. There is no proposal, recommendation, confidence-score, or AI-assistance resource.
 
+### Platform Repository binding
+
+`POST /api/v1/studies/{study_id}/source-files:bind-repository` accepts an exact
+Platform `version_id` and `expected_sha256`. Aurinara re-authorizes the version
+with the caller's bearer token, verifies study and checksum, creates a new active
+Platform object reference, and persists a new immutable SourceFile/Artifact pair.
+No bytes are copied and no existing source file, artifact, or package selection is
+changed.
+
 ## 2. Authentication and study scope
 
 Human clients and external-system service identities send an externally issued JWT as a bearer token. The API validates issuer, audience, signature, expiry, subject, and required claims. Module services enforce study membership and registered module/action scopes before reading or changing a study-owned resource. Integration configuration does not create identity-provider credentials or bypass these checks.
@@ -66,20 +75,20 @@ Errors use `application/problem+json` and RFC 9457 fields:
   "type": "https://clinical-artifact-platform.example/problems/clinical-validation",
   "title": "Clinical content is invalid",
   "status": 422,
-  "detail": "The SDTM Derivation Plan contains blocking validation issues.",
-  "instance": "/api/v1/sdtms/7da4.../compile",
+  "detail": "The SDTM Domain Mapping contains blocking validation issues.",
+  "instance": "/api/v1/sdtms/7da4.../domains/DM/domain-mapping",
   "code": "clinical_content_invalid",
   "request_id": "01J...",
   "issues": [
     {
-      "code": "SDTM_DERIVATION_CYCLE",
+      "code": "sdtm_domain_dependency_cycle",
       "severity": "error",
-      "message": "The derivation graph contains a cycle.",
-      "suggestion": "Remove one of the reported graph edges.",
+      "message": "The declared upstream domains contain a cycle.",
+      "suggestion": "Remove one of the cyclic upstream-domain references.",
       "module": "sdtm",
-      "entity_type": "derivation_plan",
+      "entity_type": "domain_mapping",
       "entity_id": "f07a...",
-      "field_path": "graph.edges",
+      "field_path": "upstream_domains",
       "dataset": "DM",
       "variable": null,
       "artifact_id": null
@@ -269,21 +278,13 @@ Publishing a new Standards, Terminology, or Templates version never changes an e
 
 When a clinical aggregate binds an upstream module context, the downstream dependency response also includes that context's aggregate revision, dependency-selection revision, and dependency fingerprint. The downstream service checks compatibility but neither copies nor changes the upstream selection. Shared report builds without a clinical owner selection must provide an exact report `template_version_id` in the build request.
 
-### 4.7 Specifications and compilable plans
+### 4.7 Specifications and executable authoring
 
-There is no public universal Transformation Plan. SDTM and ADaM each expose the same two-resource authoring pattern: a versioned Specification describing target metadata and a versioned Derivation Plan describing how those targets are produced. TLF exposes ARS and ProgramPlan because its analysis and presentation contract is materially different. The SDTM and ADaM resources use consistent envelopes, concurrency rules, revision alignment, import/export behavior, validation, preview, compilation, and provenance, while their module-specific payloads and validation rules remain distinct.
+There is no public universal Transformation Plan. SDTM exposes a Specification, Domain Mappings, Variable Mappings, and named Code Workareas. ADaM retains a Specification plus one Derivation Plan per dataset, and TLF retains ARS plus ProgramPlan. The outer revision, ETag, validation, provenance, and immutable-artifact conventions remain consistent, while each module owns its authoring semantics.
 
-The Specification stays one aggregate per module describing all targets. SDTM serializes its domains, and ADaM its datasets; a module may require, prohibit, or specialize a collection (ADaM owns parameters and reviewer-readable analysis methods, while SDTM prohibits parameters and owns domain structure, keys, sequencing metadata, and submission usage).
+SDTM mappings are declared lineage and are never compiled. A Code Workarea is the only SDTM resource that contains executable Python, R, or SAS source. Every immutable code revision pins the current Specification, Domain Mapping, and Variable Mapping revisions. Runs select exact Raw and upstream SDTM artifacts; the API never evaluates workarea code or infers mappings. ADaM/TLF typed plans continue to lower to the internal IR and compiler framework.
 
-A Derivation Plan is scoped to a single target: SDTM owns one plan per domain and ADaM one plan per dataset, each keyed by `(aggregate, domain/dataset, revision)` and each producing only its own target. The stored authoring payload (SDTM schema version `1.2.0`; ADaM schema version `1.1.0`) contains `schema_version`, the owned `domain` (SDTM) / `dataset` (ADaM), `specification_revision`, `input_selection_revision`, optional `custom_functions`, `nodes`, and `edges`; module discriminators select closed Pydantic contracts rather than arbitrary dictionaries. A custom function has a stable lowercase `id`, unique parameter names, a return type, and one to three unique `{language, source}` bodies. Calls use the typed expression `{kind: "custom_function", function_id, arguments}` and must resolve with exact arity. A plan reads a sibling produced target through an `sdtm_read`/`adam_read` node resolved against the single Specification revision the plan is already aligned to, so no new external input pin is introduced. The server also resolves `upstream_plan_pins` from those read nodes — the exact sibling plan revisions the plan reads — which are returned read-only and never accepted from a client. The response adds the computed `domain`/`dataset`, `alignment_state` (`current` or `alignment_required`, derived from the stored `state`), `alignment_reasons`, and read-only `upstream_plan_pins`. The documented `module`, `outputs`, and `assertions` envelope fields and a variable-level single-producer rule are **deferred**; they are not part of the per-domain/per-dataset model this contract describes.
-
-Each plan declares **exactly one** write for its own target (a `domain_write` whose `domain` equals the plan's domain for SDTM, a `dataset_write` whose `dataset` equals the plan's dataset for ADaM); a derived target must declare that one write. This is a **dataset-level** single-producer rule. SDTM does not enforce a variable-level "every derived variable has exactly one producing node" rule (it has no `output_node_id` field, deferred as above); ADaM additionally scopes its existing `output_node_id` variable-to-node lineage to the owned dataset's variables. The collective whole-Specification coverage invariant — the union of per-domain/per-dataset plans must cover every derived domain/dataset in the Specification — is enforced in the build/packaging orchestration (all-domain/all-dataset deliverables and the whole output-set build), which returns `409 sdtm_output_coverage_incomplete {missing_domains}` / `409 adam_output_coverage_incomplete {missing_datasets}` for any derived target that was never authored.
-
-`alignment_state` is `current` or `alignment_required`; `alignment_reasons` is drawn from `specification_changed`, `input_changed`, and `upstream_plan_changed`, and is empty iff the plan is aligned. Updating a Specification or input selection never rewrites a plan: it marks every affected per-domain/per-dataset plan `alignment_required` with the triggering reason, and a sibling-plan change transitively marks the plans that read it with `upstream_plan_changed`. A per-domain/per-dataset plan carries its own `ETag`/`If-Match` token equal to its plan revision (distinct from the aggregate `workbench.revision` that guards the Specification and input selection); a spec/input write does not change a plan ETag, only its alignment state. A client restores alignment by explicitly copying the saved payload into a reviewed draft, replacing its Specification and input-selection pins with the current revisions, and issuing `PUT derivation-plan` with the misaligned plan revision as `If-Match`; this creates a new immutable revision rather than changing the prior one. Plans with sibling reads must be restored in upstream-first dependency order because the server resolves pins only to already-aligned sibling heads. Validation, preview, compile, and execute return `409 sdtm_plan_misaligned`/`adam_plan_misaligned` (or `409 sdtm_plan_upstream_misaligned`/`adam_plan_upstream_misaligned` when a pinned sibling is no longer aligned) until a `PUT derivation-plan` explicitly targets the current `specification_revision` and `input_selection_revision`, resolves its pins against aligned siblings, and passes module validation.
-
-Specification writes and each per-domain/per-dataset plan write require `If-Match` and replace the complete authoring model atomically. Expressions use a typed AST. The API rejects raw code in ordinary nodes/expressions, arbitrary expression strings, unresolved custom calls, unresolved inputs/outputs, and invalid module semantics. The only raw-language exception is a body inside an explicit typed custom-function declaration. SDTM/ADaM additionally reject cross-plan cycles, dangling ports, incompatible schemas, self/unknown reads (`sdtm_read_self`/`sdtm_read_target_unknown`, `adam_read_self`/`adam_read_target_unknown`), writes outside the owned target (`sdtm_plan_output_scope`/`sdtm_plan_output_duplicate`), and incomplete per-target coverage. Module validation returns its own stable issue codes rather than generic compiler messages.
-
-Preview and compilation use the same internal lowering path to Dataflow IR and, for TLF statistical procedures, Analysis IR. Preview returns `422 preview_custom_function_unsupported` instead of evaluating user code in the API process. IR is not editable or independently addressable through the public API. Compiler manifests freeze the Specification revision/fingerprint when applicable, source-plan type/revision/fingerprint, input-selection revision, exact input artifacts, normalized IR, operator/procedure versions, compiler version, per-language `executable`, and `todo_functions`. A missing custom body publishes a non-executable TODO artifact for that language; `POST /execution-runs` rejects it with `409 execution_custom_function_incomplete`. A backend that cannot implement other declared semantics returns `409 backend_capability_missing` before publishing a program.
+Specification, mapping, workarea, and output-selection writes use `If-Match`. Test and generation commands require `Idempotency-Key` and return `202 Accepted`. A Specification or Raw selection change misaligns affected mappings. A Domain Mapping change misaligns its Variable Mapping. Mapping changes stale output readiness. A code edit does not stale prior immutable runs.
 
 ## 5. Shared component routes
 
@@ -503,7 +504,7 @@ POST /api/v1/raw/{raw_id}/artifacts/fingerprint
 POST /api/v1/raw/{raw_id}/artifacts
 ```
 
-A raw dataset binds a manually maintained dataset record to an exact, study-owned immutable source-file record and its corresponding artifact. Dataset natural keys are unique within the Raw workbench. Replacing the file binding uses `PATCH` with `If-Match`, creates a new aggregate revision, and makes dependent input selections, Derivation Plans, validation runs, artifacts, and executions stale or alignment-required as applicable; it never overwrites the source file.
+A raw dataset binds a manually maintained dataset record to an exact, study-owned immutable source-file record and its corresponding artifact. Dataset natural keys are unique within the Raw workbench. Replacing the file binding uses `PATCH` with `If-Match`, creates a new aggregate revision, and makes dependent input selections, SDTM mappings, validation runs, artifacts, and executions stale or alignment-required as applicable; it never overwrites the source file.
 
 `POST /api/v1/raw/{raw_id}/datasets/import` is the asynchronous bulk create. It takes a versioned JSON-array envelope (`schema_version`, optional `expected_raw_revision`, and `entries` where each entry carries `code`, `label`, optional `description`, `source_file_id`, and `initialize_variables`) and requires an `Idempotency-Key`. It returns `202 Accepted` with `Location: /api/v1/raw-dataset-imports/{import_id}` and a status resource whose `status` is `queued`. Omitting the key returns `400 idempotency_key_required`; replaying the same key and body returns the prior run at `202`; the same key with a different body returns `409 idempotency_key_reused`. A durable worker validates the whole array (source resolution, summed byte cap, checksum, file inspection, workbench-duplicate codes) before committing anything, then atomically creates one dataset and one immutable binding per entry, bumps the workbench revision once, and stales consumers exactly as a single create. `GET /api/v1/raw-dataset-imports/{import_id}` reports the current status, the created `raw_dataset` IDs on success, or the full typed issue list on failure (no datasets written). `POST /api/v1/raw-dataset-imports/{import_id}/cancel` cancels a `queued` import synchronously and requests cancellation of a `running` import, which the worker observes at its next transaction boundary; a terminal import returns `409 invalid_lifecycle_transition`. Content rejections terminate the run `failed` with per-entry issues while the backing job completes successfully and is never requeued.
 
@@ -619,11 +620,25 @@ PUT /api/v1/sdtms/{sdtm_id}/dependencies
 GET /api/v1/sdtms/{sdtm_id}/input-selection
 PUT /api/v1/sdtms/{sdtm_id}/input-selection
 GET /api/v1/sdtms/{sdtm_id}/raw-context
+
+GET  /api/v1/sdtms/{sdtm_id}/domains/{domain_code}/imported-dataset
+POST /api/v1/sdtms/{sdtm_id}/domains/{domain_code}/imported-dataset
 ```
 
 The input selection is not an implicit link to the current Raw workbench. `PUT input-selection` requires `If-Match` and supplies the exact `raw_id`, Raw aggregate revision, successful validation-run ID, selected source-file artifact IDs and checksums, and expected Raw dependency fingerprint. The service verifies study ownership, artifact availability, validation success, dataset identity, and consistency with the selected Raw revision. Changing the selection creates a new SDTM revision and stales all dependent SDTM, ADaM, TLF, and package evidence without changing maintained specification content.
 
 `raw-context` is a read-only resolved DTO containing the selected Raw datasets and variables, file artifacts and checksums, validation run, dependency fingerprint, and trace endpoints. SDTM never reads Raw repositories directly or substitutes a newer source artifact. The dependency selection binds exact SDTM IG, Define-XML, terminology and extension revisions, study Reference revisions, and artifact templates. Define rendering selects `2.0` or `2.1` explicitly, and the requested version must be present and compatible in the dependency selection.
+
+An SDTM domain's Output Selection provider is either a successful Code Workarea generation or an accepted imported dataset. `POST .../imported-dataset` requires `If-Match`,
+`Idempotency-Key`, the current `specification_revision`, and an exact immutable
+`source_file_id`/SHA-256 pair for an XPORT v5 `.xpt`. The service verifies the member
+name, extracts row count and physical variable name/label/type/width facts, and compares
+them with the maintained Specification. Type mismatches and widths exceeding the
+Specification are errors; missing, additional, or differently labelled variables remain
+visible review findings. Extraction never creates or overwrites clinical metadata,
+mappings, origins, roles, keys, terminology bindings, or derivations. Acceptance creates
+an immutable `sdtm_dataset_xpt` artifact and validation snapshot and explicitly selects
+that immutable import revision as an available provider. Output Selection explicitly chooses it; no import or generation silently replaces the current set. Imported domains require neither Domain/Variable Mapping nor a Code Workarea. Inactive revisions remain recoverable.
 
 ### 9.2 SDTM Specification
 
@@ -636,40 +651,51 @@ POST /api/v1/sdtms/{sdtm_id}/specification/import
 GET  /api/v1/sdtms/{sdtm_id}/specification/export
 ```
 
-The versioned SDTM Specification is one aggregate contract containing domains, variables, value-level metadata where applicable, terminology bindings, domain keys and sort order, sequencing metadata, expected output names, and typed trace targets. Natural keys are unique within the workbench or domain. A terminology binding owns only SDTM usage context—domain/variable, optional value-level condition, and submission behavior—and references a codelist or term resolvable within the exact dependency selection; it never copies shared terminology. The Specification owns target metadata but no executable transformation logic.
+The versioned SDTM Specification is one aggregate contract containing domains, variables, reusable value contexts, value-level metadata, terminology bindings, domain keys and sort order, sequencing metadata, expected output names, and typed trace targets. A value context has `id`, `label`, `discriminator_variable`, operator `eq|ne|in`, and typed values; `eq`/`ne` require one value and `in` requires a non-empty unique list. Value-level metadata references `context_id`. Natural keys are unique within the workbench or domain. The Specification owns target metadata but no executable transformation logic.
 
 `GET specification/initialization-options` requires exactly one selected SDTM implementation-guide version under the `sdtm_ig` dependency purpose and lists its concrete domain codes, labels, classes, and Required/Expected/Permissible variable counts. For complete CDISC Library snapshots registered with the earlier generic purpose, `reference_metadata` is accepted as a compatibility alias. `POST specification/initialize` requires `If-Match` plus an explicit non-empty `domain_codes` selection and a `required_expected_only` choice. The service resolves and checksum-verifies the exact pinned root JSON asset, populates only the selected concrete domains, and, when `required_expected_only` is true, adds only Required and Expected variables. Reinitialization preserves existing domain and variable values and ordering—including an already-authored Permissible variable—and only appends eligible structures that are missing. The parameterized `SUPPQUAL` pattern is not materialized as a concrete output. Initialization does not create study mappings, derivations, terminology usage decisions, or clinical judgments.
 
-`PUT specification` and import require `If-Match`, validate the complete contract, and commit one revision atomically. Import also requires `Idempotency-Key`; replaying the same key and exact bytes returns the originally committed revision, while different bytes conflict. JSON/XLSX import validates every sheet, natural-key uniqueness, cross-references, terminology, metadata constraints, and trace targets before writing anything; it never imports backend code or replaces the Derivation Plan. XLSX uses versioned `Metadata`, `Domains`, `Variables`, and `ValueLevel` sheets and serializes keys, sort order, typed conditions, and terminology bindings explicitly. Export selects non-persisting JSON or XLSX with `?format=json|xlsx`. Immutable metadata deliverables use the artifact endpoint.
+`PUT specification` and import require `If-Match`, validate the complete contract, and commit one revision atomically. Import also requires `Idempotency-Key`; replaying the same key and exact bytes returns the originally committed revision, while different bytes conflict. New authoring requires schema `2.0.0`; older revisions remain historical and cannot drive mappings or generation until a user explicitly saves a current revision. XLSX uses versioned `Metadata`, `Domains`, `Variables`, `ValueContexts`, and `ValueLevel` sheets. Export selects non-persisting JSON or XLSX with `?format=json|xlsx`.
 
-### 9.3 Derivation Plan and operations
+### 9.3 Mappings, Code Workareas, Output Selection, and operations
 
 ```text
-GET  /api/v1/sdtms/{sdtm_id}/derivation-plans
-GET  /api/v1/sdtms/{sdtm_id}/domains/{domain_code}/derivation-plan
-PUT  /api/v1/sdtms/{sdtm_id}/domains/{domain_code}/derivation-plan
-POST /api/v1/sdtms/{sdtm_id}/domains/{domain_code}/derivation-plan/validate
-POST /api/v1/sdtms/{sdtm_id}/domains/{domain_code}/derivation-plan/preview
+GET  /api/v1/sdtms/{sdtm_id}/domain-mappings
+GET  /api/v1/sdtms/{sdtm_id}/domains/{domain_code}/domain-mapping
+PUT  /api/v1/sdtms/{sdtm_id}/domains/{domain_code}/domain-mapping
+GET  /api/v1/sdtms/{sdtm_id}/domains/{domain_code}/variable-mapping
+PUT  /api/v1/sdtms/{sdtm_id}/domains/{domain_code}/variable-mapping
+
+GET  /api/v1/sdtms/{sdtm_id}/code-workareas
+POST /api/v1/sdtms/{sdtm_id}/code-workareas
+GET  /api/v1/sdtms/{sdtm_id}/code-workareas/{workarea_id}
+PUT  /api/v1/sdtms/{sdtm_id}/code-workareas/{workarea_id}
+POST /api/v1/sdtms/{sdtm_id}/code-workareas/{workarea_id}/archive
+POST /api/v1/sdtms/{sdtm_id}/code-workareas/{workarea_id}/test
+POST /api/v1/sdtms/{sdtm_id}/code-workareas/{workarea_id}/generate
+GET  /api/v1/sdtm-code-runs/{run_id}
+
+GET  /api/v1/sdtms/{sdtm_id}/output-selection
+PUT  /api/v1/sdtms/{sdtm_id}/output-selection
+GET  /api/v1/sdtms/{sdtm_id}/program-artifact-readiness
 POST /api/v1/sdtms/{sdtm_id}/domains/{domain_code}/validate
 GET  /api/v1/sdtms/{sdtm_id}/lineage
 
 POST /api/v1/sdtms/{sdtm_id}/validate
-POST /api/v1/sdtms/{sdtm_id}/compile
-POST /api/v1/sdtms/{sdtm_id}/execute
 POST /api/v1/sdtms/{sdtm_id}/artifacts
 ```
 
-The Derivation Plan is per domain: one SDTM-owned typed DAG per `{domain_code}`, aligned to one SDTM Specification revision and one exact Raw input-selection revision, producing only its own domain. It owns raw reads, cross-domain `sdtm_read` reads resolved through the Specification, filters, joins, projections, reshaping, derivations, sequencing, sorting, assertions, and the one declared `domain_write` for its domain. Cast and controlled-terminology mapping are column-level typed functions inside a `derive.assignments` expression, not standalone graph nodes. Cast uses `{kind: "cast", value, target_type, invalid}`; terminology mapping uses `{kind: "terminology_map", value, mappings, unmapped}`. Both may wrap another typed expression, and their explicit error/null/preserve policies are retained through preview and compilation. Each derive node persists `assignment_order` alongside its assignment object because JSON-object key order is not stable in JSONB; that list is the deterministic evaluation order and must name every assignment exactly once. A column expression whose `dataset` is the derive node's `target_domain` and whose `column` names another assignment is an explicit same-node dependency; it must name an earlier assignment, so forward and circular recipe references are rejected. Revisions saved before `assignment_order` was introduced are read with a deterministic dependency-safe order. Nodes use SDTM vocabulary and stable raw/domain/variable references; backend-specific code fragments are prohibited. `{domain_code}` must match the pattern, exist in the current Specification (`404 sdtm_domain_unknown`), and equal the body `domain` (`422 sdtm_plan_domain_mismatch`). `GET /derivation-plans` is an opaque-cursor-paginated collection of per-domain plan heads (one per domain, each the max-revision row). Each `GET/PUT /domains/{domain_code}/derivation-plan` uses the per-domain plan revision as its `ETag`/`If-Match` token; a first write accepts an absent or `*` `If-Match`. `POST /domains/{domain_code}/validate` writes a per-domain validation run, while the aggregate `POST /validate` validates every domain plan together and records a `plan_revisions` map and `plan_set_fingerprint`. After SDTM validation, the module lowers each plan to internal Dataflow IR; IR is not exposed as an editable API resource.
+Domain Mapping is immutable per domain and pins the current Specification and Raw input-selection revisions. It accepts one or more total Raw datasets and upstream SDTM domains. The API rejects inputs outside the exact Raw context, duplicates, self-references, unknown domains, and dependency cycles. Logical upstream references are resolved to exact XPT artifacts only in a test or generation request.
 
-Workbench validation covers dependency compatibility with the exact Raw context; Specification completeness; domain structure, keys, variables, value-level metadata, terminology, and sequencing; per-domain Derivation Plan shape and single-domain output coverage; traceability; XPT constraints; and declared output reconciliation. The all-domain deliverables additionally enforce whole-Specification coverage (`409 sdtm_output_coverage_incomplete`) and that every produced domain plan is aligned with satisfied upstream pins. Preview selects target domain codes and bounded rows, then uses the same lowering path as compilation. An `sdtm_read` recursively evaluates the exact server-pinned sibling plan revision and its dependency closure over the same Raw selection; it never treats the sibling domain as another external dataset selection. The response records the resolved `upstream_plan_revisions`. If a pinned sibling plan is not evaluable, preview returns `422 sdtm_preview_upstream_invalid` and identifies that domain. Preview results are transient and cannot serve as submission artifacts. `GET /lineage` is all-domain and fail-fast: it returns a domain-keyed map `{plan_set_fingerprint, domains: {domain_code: {ir_fingerprint, outputs}}}` and `409`s naming the first misaligned domain.
+Variable Mapping is immutable per domain and pins the current Specification and Domain Mapping revisions. Sparse cells are keyed by target SDTM variable plus nullable `context_id`; null is the Default column. Each populated cell contains an ordered unique list of qualified Raw or upstream-SDTM variables, all from datasets declared in Domain Mapping. Empty cells are valid and have no implied derivation semantics.
 
-The artifact endpoint can publish the canonical XLSX `sdtm_specification`, JSON
-`sdtm_derivation_report`, `sdtm_lineage_report`, and `sdtm_validation_report` alongside canonical
-plan JSON and generated programs. Every Python/R execution attempt publishes a bounded immutable
-`sdtm_execution_log` JSON artifact linked to the execution run; successful declared datasets are
-separate CSV/XPT output artifacts.
+Code Workareas are named identities with fixed domain and language and immutable source revisions. Multiple workareas may share a domain and language; there is no global active workarea. A run is allowed only when its source revision pins the current aligned Specification and mappings. Its input manifest contains exactly the declared full Raw datasets and caller-selected exact upstream XPT artifacts. Programs must produce exactly their own domain CSV in the declared location.
 
-Compile requests select `python`, `r`, or `sas`, declared target domain codes, expected Specification/input/Derivation Plan fingerprints, and output options. Execute requests select compiled program artifact IDs and the exact immutable source-file artifacts from the input selection. Every program, execution, and output records the input selection, Specification revision, Derivation Plan revision, normalized IR/operator/compiler versions, runner image, and declared output schema.
+Test and generation return `202`. Test publishes no artifacts and returns bounded preview rows and bounded/redacted logs after cleanup. Generation validates exact variables, types, keys, sorting, XPT v5 constraints, and XPT read-back. Success exposes the immutable program, CSV, XPT, execution log, and output-validation evidence. Ordinary failure exposes no partial artifacts. SAS with no adapter retains a reviewable program, returns `runner_not_configured`, and does not satisfy readiness.
+
+Output Selection chooses exactly one successful generation run or aligned import revision per Specification domain. It verifies selected XPT availability and upstream closure and never resolves `latest`. A current selection is required for aggregate validation, Define, downstream context export, and packaging. `GET /lineage` reports author-maintained Domain/Variable Mapping lineage and explicitly sets `inferred_from_program=false`.
+
+The artifact endpoint builds non-program deliverables such as the Specification, mapping JSON, declared-lineage and validation reports, aCRF, Define, and cSDRG. Programs and dataset artifacts are produced only by Code Workarea generation.
 
 ### 9.4 aCRF
 
@@ -685,14 +711,13 @@ POST   /api/v1/sdtms/{sdtm_id}/acrf/reconcile
 POST   /api/v1/sdtms/{sdtm_id}/acrf/artifacts
 ```
 
-The links operation atomically replaces or amends typed links to SDTM variables, Raw variables, and stable nodes or assertions in an exact Derivation Plan revision. Reconciliation creates an immutable reconciliation run.
+The links operation atomically replaces or amends typed links to exact SDTM variable rows and Raw variables. Graph-node links are not accepted. Reconciliation creates an immutable reconciliation run.
 
 Annotation coordinates use the `normalized_top_left` system with `x`, `y`, `width`, and
 `height` values bounded by the page. Creation identifies one immutable source PDF artifact and
 requires the SDTM workbench `ETag`. Annotation edits, link replacement/amendment, and soft
 deletion require the annotation `ETag`. SDTM-variable links include an exact Specification
-revision and domain/variable natural key; plan-node links include an exact plan revision and node
-ID; Raw-variable links are UUIDs resolved through the Raw module boundary and must belong to the
+revision and domain/variable natural key. Raw-variable links are UUIDs resolved through the Raw module boundary and must belong to the
 SDTM workbench's selected Raw context.
 
 ### 9.5 Define-XML
@@ -913,7 +938,7 @@ Example build request:
   "study_id": "uuid",
   "owner_type": "sdtm_solution",
   "owner_id": "uuid",
-  "artifact_types": ["sdtm_specification", "sdtm_derivation_report"],
+  "artifact_types": ["sdtm_specification", "sdtm_declared_lineage_report"],
   "expected_input_fingerprint": "sha256 hex",
   "options": {}
 }

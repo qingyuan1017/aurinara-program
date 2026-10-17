@@ -2,7 +2,9 @@
 
 import hashlib
 import logging
+import os
 import signal
+import socket
 import time
 from types import FrameType
 from typing import cast
@@ -12,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.artifacts.builds import resolve_build_input
-from app.artifacts.models import Artifact, ArtifactBuild
+from app.artifacts.models import Artifact, ArtifactBuild, SourceFile
 from app.artifacts.service import (
     ArtifactService,
     StoredObject,
@@ -21,12 +23,14 @@ from app.artifacts.service import (
 )
 from app.artifacts.storage import ObjectStorage, S3ObjectStorage
 from app.common.canonical import fingerprint
+from app.common.logging import configure_logging
 from app.common.problems import ProblemException
 from app.common.time import utc_now
 from app.composition import build_module_registry
 from app.config import Settings, get_settings
 from app.database import create_database_engine, create_session_factory
-from app.execution.jobs import Job, JobService
+from app.execution.jobs import Job, JobService, LeaseLostError, claimed_job
+from app.execution.leases import LeaseHeartbeat
 from app.kernel.contracts import ModuleCapability
 from app.kernel.dependencies import RenderedArtifact
 from app.kernel.registry import ModuleRegistry
@@ -44,6 +48,7 @@ from app.raw.service import (
     ISSUE_NAMESPACE,
     ResolvedSource,
     apply_bulk_dataset_import,
+    organize_source_repository,
     resolve_bulk_sources,
 )
 from app.reconciliation.models import ReconciliationRun
@@ -320,7 +325,7 @@ def _handle_validation(
             JobService().complete(job)
             return
         artifact = session.get(Artifact, run.owner_id)
-        if artifact is None:
+        if artifact is None or artifact.object_key is None:
             JobService().fail(job, {"code": "artifact_not_found"})
             return
         run.status = "running"
@@ -604,6 +609,10 @@ def _handle_raw_dataset_import(
                 created_by=record.created_by,
             )
             session.flush()
+            for source_id in {source.id for source in resolved_sources if source is not None}:
+                source_file = session.get(SourceFile, source_id)
+                if source_file is not None:
+                    organize_source_repository(session, source_file)
         except IntegrityError:
             session.rollback()
             with factory.begin() as fresh:
@@ -739,6 +748,8 @@ def _process_job(
                     "detail": f"No handler is registered for '{job.job_type}'.",
                 },
             )
+    except LeaseLostError:
+        logger.warning("job lease lost before publication", extra={"job_id": str(job.id)})
     except ProblemException as error:
         _record_failure(factory, job.id, {"code": error.code, "detail": error.detail})
     except Exception as error:  # worker boundary records a typed, non-sensitive failure
@@ -754,17 +765,19 @@ def main() -> None:
     """Claim jobs briefly and process registered handlers outside the claim lock."""
 
     settings: Settings = get_settings()
+    configure_logging(settings.app_log_level)
     factory = create_session_factory(create_database_engine(settings))
     registry = build_module_registry()
     storage = S3ObjectStorage(settings)
     service = JobService()
+    worker_id = f"build-worker:{socket.gethostname()}:{os.getpid()}"
     signal.signal(signal.SIGTERM, _request_stop)
     signal.signal(signal.SIGINT, _request_stop)
     while not _stopping:
         with factory.begin() as session:
             job = service.claim(
                 session,
-                worker_id="build-worker",
+                worker_id=worker_id,
                 lease_seconds=settings.job_lease_seconds,
                 job_types=(
                     "artifact_build",
@@ -777,7 +790,17 @@ def main() -> None:
         if job is None:
             time.sleep(1)
             continue
-        _process_job(factory, registry, storage, job, settings)
+        if job.lease_token is None:
+            raise RuntimeError("claimed job did not receive a lease token")
+        with claimed_job(job.lease_token), LeaseHeartbeat(
+            factory,
+            job_id=job.id,
+            worker_id=worker_id,
+            lease_token=job.lease_token,
+            lease_seconds=settings.job_lease_seconds,
+            heartbeat_seconds=settings.job_lease_heartbeat_seconds,
+        ):
+            _process_job(factory, registry, storage, job, settings)
 
 
 if __name__ == "__main__":

@@ -33,9 +33,6 @@ import type {
   AggregateCreate,
   AggregateResponse,
   AppAdamRoutesCompileRequest,
-  AppAdamRoutesPlanHeadPage,
-  AppAdamRoutesPlanResponse,
-  AppAdamRoutesPreviewRequest,
   ArtifactBuildResponse,
   DependencySelectionInput,
   DependencySelectionResponse,
@@ -47,7 +44,10 @@ import type {
   InputSelectionResponse,
   ListAdamAggregatesParams,
   ListAdamPlansParams,
+  PlanHeadPage,
+  PlanResponse,
   PreviewAdamPlan200,
+  PreviewRequest,
   SpecificationResponse,
   ValidateAdamPlan200,
   ValidationRunResponse
@@ -1050,7 +1050,7 @@ export const listAdamPlans = (
 ) => {
       
       
-      return customInstance<AppAdamRoutesPlanHeadPage>(
+      return customInstance<PlanHeadPage>(
       {url: `/api/v1/adams/${adamId}/derivation-plans`, method: 'GET',
         params, signal
     },
@@ -1150,7 +1150,7 @@ export const getPlan = (
 ) => {
       
       
-      return customInstance<AppAdamRoutesPlanResponse>(
+      return customInstance<PlanResponse>(
       {url: `/api/v1/adams/${adamId}/datasets/${datasetCode}/derivation-plan`, method: 'GET', signal
     },
       options);
@@ -1249,7 +1249,7 @@ export const putPlan = (
  options?: SecondParameter<typeof customInstance>,) => {
       
       
-      return customInstance<AppAdamRoutesPlanResponse>(
+      return customInstance<PlanResponse>(
       {url: `/api/v1/adams/${adamId}/datasets/${datasetCode}/derivation-plan`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
       data: adamDerivationPlan
@@ -1374,7 +1374,7 @@ export const useValidateAdamPlan = <TError = ErrorType<HTTPValidationError>,
 export const previewAdamPlan = (
     adamId: string,
     datasetCode: string,
-    appAdamRoutesPreviewRequest: BodyType<AppAdamRoutesPreviewRequest>,
+    previewRequest: BodyType<PreviewRequest>,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
       
@@ -1382,7 +1382,7 @@ export const previewAdamPlan = (
       return customInstance<PreviewAdamPlan200>(
       {url: `/api/v1/adams/${adamId}/datasets/${datasetCode}/derivation-plan/preview`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
-      data: appAdamRoutesPreviewRequest, signal
+      data: previewRequest, signal
     },
       options);
     }
@@ -1390,8 +1390,8 @@ export const previewAdamPlan = (
 
 
 export const getPreviewAdamPlanMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewAdamPlan>>, TError,{adamId: string;datasetCode: string;data: BodyType<AppAdamRoutesPreviewRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof previewAdamPlan>>, TError,{adamId: string;datasetCode: string;data: BodyType<AppAdamRoutesPreviewRequest>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewAdamPlan>>, TError,{adamId: string;datasetCode: string;data: BodyType<PreviewRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewAdamPlan>>, TError,{adamId: string;datasetCode: string;data: BodyType<PreviewRequest>}, TContext> => {
 
 const mutationKey = ['previewAdamPlan'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1403,7 +1403,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewAdamPlan>>, {adamId: string;datasetCode: string;data: BodyType<AppAdamRoutesPreviewRequest>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewAdamPlan>>, {adamId: string;datasetCode: string;data: BodyType<PreviewRequest>}> = (props) => {
           const {adamId,datasetCode,data} = props ?? {};
 
           return  previewAdamPlan(adamId,datasetCode,data,requestOptions)
@@ -1415,18 +1415,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type PreviewAdamPlanMutationResult = NonNullable<Awaited<ReturnType<typeof previewAdamPlan>>>
-    export type PreviewAdamPlanMutationBody = BodyType<AppAdamRoutesPreviewRequest>
+    export type PreviewAdamPlanMutationBody = BodyType<PreviewRequest>
     export type PreviewAdamPlanMutationError = ErrorType<HTTPValidationError>
 
     /**
  * @summary Preview Plan
  */
 export const usePreviewAdamPlan = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewAdamPlan>>, TError,{adamId: string;datasetCode: string;data: BodyType<AppAdamRoutesPreviewRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewAdamPlan>>, TError,{adamId: string;datasetCode: string;data: BodyType<PreviewRequest>}, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof previewAdamPlan>>,
         TError,
-        {adamId: string;datasetCode: string;data: BodyType<AppAdamRoutesPreviewRequest>},
+        {adamId: string;datasetCode: string;data: BodyType<PreviewRequest>},
         TContext
       > => {
 

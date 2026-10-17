@@ -24,14 +24,24 @@ from app.studies.service import StudyService
 class StoredJsonObject:
     """Verified immutable object uploaded before metadata publication."""
 
-    object_key: str
+    object_key: str | None
     sha256: str
     size: int
     platform_object_id: UUID | None = None
     platform_reference_id: UUID | None = None
+    platform_external_reference: str | None = None
+    classification: str = "generated-artifact"
 
 
 StoredObject = StoredJsonObject
+
+
+def _repository_solution(owner_type: str, owner_id: UUID) -> tuple[str, str]:
+    """Return a stable, distinct Repository folder for one owning solution."""
+
+    normalized = owner_type.removesuffix("_workbench").replace("_", " ").strip()
+    label = "Workbench" if owner_type.endswith("_workbench") else normalized.title()
+    return f"{owner_type}:{owner_id}", f"{label} · {str(owner_id)[:8]}"
 
 
 class ArtifactService:
@@ -68,6 +78,9 @@ class ArtifactService:
             media_type,
             study_id=study_id,
             external_reference=f"source_file:{source_file_id}",
+            filename=filename,
+            source_file_id=source_file_id,
+            artifact_id=artifact_id,
         )
         artifact, source_file = _build_source_file_rows(
             study_id=study_id,
@@ -140,6 +153,9 @@ class ArtifactService:
                 media_type,
                 study_id=study_id,
                 external_reference=f"source_file:{source_file_id}",
+                filename=filename,
+                source_file_id=source_file_id,
+                artifact_id=artifact_id,
             )
             artifact, source_file = _build_source_file_rows(
                 study_id=study_id,
@@ -158,6 +174,50 @@ class ArtifactService:
         session.commit()
         return source_files
 
+    def organize_source_file_repository(
+        self,
+        session: Session,
+        source_file: SourceFile,
+        *,
+        solution: str,
+        solution_label: str,
+    ) -> None:
+        """Place one source file under its exact Raw workbench folder."""
+
+        artifact = session.get(Artifact, source_file.artifact_id)
+        if (
+            artifact is None
+            or artifact.platform_object_id is None
+            or artifact.platform_reference_id is None
+        ):
+            return
+        gateway = get_platform_objects()
+        if gateway.mode == "disabled":
+            return
+        try:
+            gateway.publish_existing_repository_reference(
+                artifact.platform_reference_id,
+                {
+                    "filename": artifact.filename,
+                    "source_type": "source_file",
+                    "source_id": str(source_file.id),
+                    "source_status": artifact.status,
+                    "module": "raw",
+                    "solution": solution,
+                    "solution_label": solution_label,
+                    "purpose": "source-files",
+                    "classification": "source-file",
+                    "access": {
+                        "read_action": "artifact.study.read",
+                        "write_action": "artifact.study.write",
+                    },
+                    "provenance": {"artifact_id": str(artifact.id)},
+                },
+            )
+        except ProblemException:
+            if gateway.mode == "enforced":
+                raise
+
     def list_source_files(
         self, session: Session, study_id: UUID, principal: Principal
     ) -> tuple[SourceFile, ...]:
@@ -170,6 +230,71 @@ class ArtifactService:
             .order_by(SourceFile.created_at.desc(), SourceFile.id.desc())
         )
         return tuple(session.scalars(statement))
+
+    def bind_repository_source_file(
+        self,
+        session: Session,
+        *,
+        study_id: UUID,
+        version_id: UUID,
+        expected_sha256: str,
+        user_access_token: str,
+        principal: Principal,
+    ) -> SourceFile:
+        """Create a new immutable source record for an exact Repository version."""
+
+        self._studies.require_access(session, study_id, principal, action="artifact.object.upload")
+        gateway = get_platform_objects()
+        version = gateway.resolve_repository_version(version_id, user_access_token)
+        if version.study_id != study_id:
+            raise ProblemException(
+                status_code=422,
+                code="repository_study_mismatch",
+                title="Repository study mismatch",
+                detail="The selected Repository version does not belong to this study.",
+            )
+        if version.sha256 != expected_sha256:
+            raise ProblemException(
+                status_code=409,
+                code="repository_version_changed",
+                title="Repository version changed",
+                detail="Refresh Repository and select the immutable version again.",
+            )
+        if version.source_status in {"deleted", "rejected", "purged"}:
+            raise ProblemException(
+                status_code=409,
+                code="repository_source_unavailable",
+                title="Repository source unavailable",
+                detail="The selected Repository source cannot be bound.",
+            )
+        source_file_id = uuid4()
+        artifact_id = uuid4()
+        external_reference = f"source_file:{source_file_id}"
+        registration = gateway.bind_repository_object(
+            object_id=version.object_id, external_reference=external_reference
+        )
+        stored = StoredJsonObject(
+            object_key=None,
+            sha256=version.sha256,
+            size=version.size,
+            platform_object_id=registration.object_id,
+            platform_reference_id=registration.reference_id,
+            platform_external_reference=external_reference,
+            classification=version.classification,
+        )
+        artifact, source_file = _build_source_file_rows(
+            study_id=study_id,
+            filename=version.filename,
+            media_type=version.media_type,
+            stored=stored,
+            created_by=principal.subject,
+            artifact_id=artifact_id,
+            source_file_id=source_file_id,
+            repository_version_id=version.id,
+        )
+        session.add_all((artifact, source_file))
+        session.commit()
+        return source_file
 
     def require_source_file(
         self,
@@ -223,6 +348,7 @@ class ArtifactService:
         owner_type: str,
         owner_id: UUID,
         artifact_types: tuple[str, ...] | None = None,
+        exclude_artifact_ids: tuple[UUID, ...] = (),
     ) -> int:
         """Mark available artifacts stale without deleting immutable evidence."""
 
@@ -233,6 +359,8 @@ class ArtifactService:
         )
         if artifact_types is not None:
             statement = statement.where(Artifact.artifact_type.in_(artifact_types))
+        if exclude_artifact_ids:
+            statement = statement.where(Artifact.id.not_in(exclude_artifact_ids))
         records = tuple(session.scalars(statement))
         for record in records:
             record.status = "stale"
@@ -387,6 +515,48 @@ class ArtifactService:
         )
         session.add(artifact)
         session.flush()
+        if (
+            stored.platform_object_id
+            and stored.platform_reference_id
+            and stored.platform_external_reference
+        ):
+            solution, solution_label = _repository_solution(owner_type, owner_id)
+            repository = {
+                "filename": filename,
+                "source_type": artifact_type,
+                "source_id": str(artifact.id),
+                "source_status": artifact.status,
+                "module": module_key,
+                "solution": solution,
+                "solution_label": solution_label,
+                "purpose": artifact_type,
+                "classification": stored.classification,
+                "access": {
+                    "read_action": "artifact.study.read",
+                    "write_action": "artifact.study.write",
+                },
+                "provenance": {
+                    "artifact_id": str(artifact.id),
+                    "owner_type": owner_type,
+                    "owner_id": str(owner_id),
+                    "input_fingerprint": input_fingerprint,
+                    "generator_name": generator_name,
+                    "generator_version": generator_version,
+                },
+            }
+            gateway = get_platform_objects()
+            try:
+                gateway.publish_repository_metadata(
+                    PlatformObjectRegistration(
+                        object_id=stored.platform_object_id,
+                        reference_id=stored.platform_reference_id,
+                        external_reference=stored.platform_external_reference,
+                    ),
+                    repository,
+                )
+            except ProblemException:
+                if gateway.mode == "enforced":
+                    raise
         return artifact
 
 
@@ -461,6 +631,8 @@ def store_bytes_object(
         platform_reference_id=(
             platform_registration.reference_id if platform_registration else None
         ),
+        platform_external_reference=external_reference,
+        classification=classification,
     )
 
 
@@ -489,6 +661,9 @@ async def _stream_upload(
     *,
     study_id: UUID,
     external_reference: str,
+    filename: str,
+    source_file_id: UUID,
+    artifact_id: UUID,
 ) -> StoredObject:
     """Stream one upload to a temp file, checksum, and publish its immutable bytes."""
 
@@ -520,6 +695,22 @@ async def _stream_upload(
             size=size,
             media_type=media_type,
             external_reference=external_reference,
+            repository={
+                "filename": filename,
+                "source_type": "source_file",
+                "source_id": str(source_file_id),
+                "source_status": "available",
+                "module": "raw",
+                "solution": "unassigned",
+                "solution_label": "Unassigned",
+                "purpose": "source-files",
+                "classification": "source-file",
+                "access": {
+                    "read_action": "artifact.study.read",
+                    "write_action": "artifact.study.write",
+                },
+                "provenance": {"artifact_id": str(artifact_id)},
+            },
         )
     finally:
         await upload.close()
@@ -533,6 +724,8 @@ async def _stream_upload(
         platform_reference_id=(
             platform_registration.reference_id if platform_registration else None
         ),
+        platform_external_reference=external_reference,
+        classification="source-file",
     )
 
 
@@ -546,6 +739,7 @@ def _register_platform_file(
     media_type: str,
     external_reference: str,
     classification: str = "source-file",
+    repository: dict[str, object] | None = None,
 ) -> PlatformObjectRegistration | None:
     gateway = get_platform_objects()
     if gateway.mode == "disabled":
@@ -559,6 +753,7 @@ def _register_platform_file(
             media_type=media_type,
             classification=classification,
             external_reference=external_reference,
+            repository=repository,
         )
     except ProblemException:
         if gateway.mode == "enforced":
@@ -575,6 +770,7 @@ def _build_source_file_rows(
     created_by: str,
     artifact_id: UUID | None = None,
     source_file_id: UUID | None = None,
+    repository_version_id: UUID | None = None,
 ) -> tuple[Artifact, SourceFile]:
     """Build the immutable Artifact + SourceFile metadata rows for a stored upload."""
 
@@ -595,7 +791,15 @@ def _build_source_file_rows(
         sha256=stored.sha256,
         size=stored.size,
         input_fingerprint=stored.sha256,
-        manifest={"schema_version": "1.0.0", "source": "upload"},
+        manifest={
+            "schema_version": "1.0.0",
+            "source": "repository_binding" if repository_version_id else "upload",
+            **(
+                {"repository_version_id": str(repository_version_id)}
+                if repository_version_id
+                else {}
+            ),
+        },
         generator_name="source-file-upload",
         generator_version="1.0.0",
         created_by=created_by,

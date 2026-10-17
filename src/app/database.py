@@ -3,7 +3,7 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from sqlalchemy import MetaData, create_engine
+from sqlalchemy import URL, MetaData, create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -27,7 +27,27 @@ class Base(DeclarativeBase):
 def create_database_engine(settings: Settings) -> Engine:
     """Create an engine without connecting at import time."""
 
-    return create_engine(settings.database_url, pool_pre_ping=True)
+    if settings.database_url:
+        url: str | URL = settings.database_url
+    else:
+        password = settings.database_password
+        url = URL.create(
+            "postgresql+psycopg",
+            username=settings.database_user,
+            password=password.get_secret_value() if password is not None else None,
+            host=settings.database_host,
+            port=settings.database_port,
+            database=settings.database_name,
+            query={"sslmode": settings.database_ssl_mode},
+        )
+    return create_engine(
+        url,
+        pool_pre_ping=True,
+        pool_size=settings.database_pool_size,
+        max_overflow=settings.database_max_overflow,
+        pool_recycle=settings.database_pool_recycle_seconds,
+        connect_args={"connect_timeout": settings.database_connect_timeout_seconds},
+    )
 
 
 def create_session_factory(engine: Engine) -> sessionmaker[Session]:

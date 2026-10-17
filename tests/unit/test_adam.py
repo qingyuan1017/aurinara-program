@@ -22,7 +22,6 @@ from app.adam.service import (
 from app.artifacts.storage import ObjectStorage
 from app.common.problems import ProblemException
 from app.kernel.dependencies import DependencySelectionResponse
-from app.sdtm.contracts import SdtmDerivationPlan
 
 
 def _specification() -> AdamSpecification:
@@ -264,24 +263,6 @@ def test_plan_rejects_cycles_and_raw_backend_code() -> None:
     payload["nodes"][0]["python"] = "import os"
     with pytest.raises(ValidationError):
         AdamDerivationPlan.model_validate(payload)
-
-
-def test_sdtm_and_adam_plan_envelopes_match_but_node_vocabularies_do_not() -> None:
-    # The two modules stay structurally symmetric: identical shared envelope fields,
-    # differing only by the per-domain (SDTM) vs per-dataset (ADaM) owned key.
-    sdtm_fields = set(SdtmDerivationPlan.model_fields) - {"domain"}
-    adam_fields = set(AdamDerivationPlan.model_fields) - {"dataset"}
-    assert sdtm_fields == adam_fields
-    assert "domain" in SdtmDerivationPlan.model_fields
-    assert "dataset" in AdamDerivationPlan.model_fields
-
-    adam_payload = _plan().model_dump(mode="json")
-    adam_payload["nodes"] = [
-        {"node_type": "raw_read", "id": "read_raw", "raw_dataset_code": "DEMOG"}
-    ]
-    adam_payload["edges"] = []
-    with pytest.raises(ValidationError):
-        AdamDerivationPlan.model_validate(adam_payload)
 
 
 def test_derived_dataset_requires_declared_write() -> None:

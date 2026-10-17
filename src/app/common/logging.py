@@ -16,6 +16,14 @@ class JsonFormatter(logging.Formatter):
     _reserved = frozenset(logging.makeLogRecord({}).__dict__)
 
     def format(self, record: logging.LogRecord) -> str:
+        embedded_metric = getattr(record, "embedded_metric", None)
+        if isinstance(embedded_metric, dict):
+            return json.dumps(
+                embedded_metric,
+                default=str,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
         payload: dict[str, Any] = {
             "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,

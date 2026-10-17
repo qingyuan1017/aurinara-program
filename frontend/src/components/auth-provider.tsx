@@ -14,7 +14,11 @@ import {
   signOut as cognitoSignOut,
 } from '@/lib/cognito'
 import { onAuthChange } from '@/lib/auth'
-import { clearOidcSession, restoreOidcSession } from '@/lib/oidc'
+import {
+  clearOidcSession,
+  isOidcConfigured,
+  restoreOidcSession,
+} from '@/lib/oidc'
 
 interface AuthContextValue {
   user: AuthUser | null
@@ -35,13 +39,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true
     const operation = ++authOperation.current
-    const oidcUser = restoreOidcSession()
-    if (oidcUser) {
-      setUser(oidcUser)
-      setIsLoading(false)
-      return
-    }
-    restoreSession()
+    const restore = isOidcConfigured() ? restoreOidcSession() : restoreSession()
+    restore
       .then((restored) => {
         if (active && authOperation.current === operation) setUser(restored)
       })
@@ -75,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(() => {
     authOperation.current += 1
-    if (restoreOidcSession()) clearOidcSession()
+    if (isOidcConfigured()) void clearOidcSession()
     else cognitoSignOut()
     setUser(null)
   }, [])

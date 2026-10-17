@@ -449,6 +449,85 @@
         }
       }
     },
+    "/api/v1/studies/{study_id}/source-files:bind-repository": {
+      "post": {
+        "tags": [
+          "artifacts"
+        ],
+        "summary": "Bind Repository Source File",
+        "description": "Bind an exact authorized Repository version without copying its bytes.",
+        "operationId": "bind_repository_source_file_api_v1_studies__study_id__source_files_bind_repository_post",
+        "parameters": [
+          {
+            "name": "study_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Study Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepositorySourceFileBind"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceFileResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/studies/{study_id}/source-files": {
       "post": {
         "tags": [
@@ -2435,7 +2514,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__adam__routes__PlanHeadPage"
+                  "$ref": "#/components/schemas/PlanHeadPage"
                 }
               }
             }
@@ -2503,7 +2582,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__adam__routes__PlanResponse"
+                  "$ref": "#/components/schemas/PlanResponse"
                 }
               }
             }
@@ -2595,7 +2674,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__adam__routes__PlanResponse"
+                  "$ref": "#/components/schemas/PlanResponse"
                 }
               }
             }
@@ -2733,7 +2812,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/app__adam__routes__PreviewRequest"
+                "$ref": "#/components/schemas/PreviewRequest"
               }
             }
           }
@@ -8776,404 +8855,6 @@
         }
       }
     },
-    "/api/v1/sdtms/{sdtm_id}/derivation-plans": {
-      "get": {
-        "tags": [
-          "sdtm"
-        ],
-        "summary": "List Plans",
-        "operationId": "list_plans_api_v1_sdtms__sdtm_id__derivation_plans_get",
-        "parameters": [
-          {
-            "name": "sdtm_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Sdtm Id"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 200,
-              "minimum": 1,
-              "default": 50,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "after",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "After"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/app__sdtm__routes__PlanHeadPage"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/sdtms/{sdtm_id}/domains/{domain_code}/derivation-plan": {
-      "get": {
-        "tags": [
-          "sdtm"
-        ],
-        "summary": "Get Plan",
-        "operationId": "get_plan_api_v1_sdtms__sdtm_id__domains__domain_code__derivation_plan_get",
-        "parameters": [
-          {
-            "name": "sdtm_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Sdtm Id"
-            }
-          },
-          {
-            "name": "domain_code",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Domain Code"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/app__sdtm__routes__PlanResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "sdtm"
-        ],
-        "summary": "Put Plan",
-        "operationId": "put_plan_api_v1_sdtms__sdtm_id__domains__domain_code__derivation_plan_put",
-        "parameters": [
-          {
-            "name": "sdtm_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Sdtm Id"
-            }
-          },
-          {
-            "name": "domain_code",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Domain Code"
-            }
-          },
-          {
-            "name": "If-Match",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "If-Match"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SdtmDerivationPlan"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/app__sdtm__routes__PlanResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/sdtms/{sdtm_id}/domains/{domain_code}/derivation-plan/validate": {
-      "post": {
-        "tags": [
-          "sdtm"
-        ],
-        "summary": "Validate Plan",
-        "operationId": "validate_plan_api_v1_sdtms__sdtm_id__domains__domain_code__derivation_plan_validate_post",
-        "parameters": [
-          {
-            "name": "sdtm_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Sdtm Id"
-            }
-          },
-          {
-            "name": "domain_code",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Domain Code"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Validate Plan Api V1 Sdtms  Sdtm Id  Domains  Domain Code  Derivation Plan Validate Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/sdtms/{sdtm_id}/domains/{domain_code}/derivation-plan/preview": {
-      "post": {
-        "tags": [
-          "sdtm"
-        ],
-        "summary": "Preview Plan",
-        "description": "Evaluate the aligned per-domain plan over exact Raw inputs with strict row bounds.",
-        "operationId": "preview_plan_api_v1_sdtms__sdtm_id__domains__domain_code__derivation_plan_preview_post",
-        "parameters": [
-          {
-            "name": "sdtm_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Sdtm Id"
-            }
-          },
-          {
-            "name": "domain_code",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Domain Code"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/app__sdtm__routes__PreviewRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Preview Plan Api V1 Sdtms  Sdtm Id  Domains  Domain Code  Derivation Plan Preview Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/sdtms/{sdtm_id}/lineage": {
       "get": {
         "tags": [
@@ -9448,13 +9129,13 @@
         }
       }
     },
-    "/api/v1/sdtms/{sdtm_id}/compile": {
-      "post": {
+    "/api/v1/sdtms/{sdtm_id}/domain-mappings": {
+      "get": {
         "tags": [
           "sdtm"
         ],
-        "summary": "Compile Sdtm",
-        "operationId": "compile_sdtm_api_v1_sdtms__sdtm_id__compile_post",
+        "summary": "List Domain Mappings",
+        "operationId": "list_domain_mappings_api_v1_sdtms__sdtm_id__domain_mappings_get",
         "parameters": [
           {
             "name": "sdtm_id",
@@ -9464,22 +9145,6 @@
               "type": "string",
               "format": "uuid",
               "title": "Sdtm Id"
-            }
-          },
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Idempotency-Key"
             }
           },
           {
@@ -9499,23 +9164,13 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/app__sdtm__routes__CompileRequest"
-              }
-            }
-          }
-        },
         "responses": {
-          "202": {
+          "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ArtifactBuildResponse"
+                  "$ref": "#/components/schemas/MappingHeadPage"
                 }
               }
             }
@@ -9533,14 +9188,13 @@
         }
       }
     },
-    "/api/v1/sdtms/{sdtm_id}/execute": {
-      "post": {
+    "/api/v1/sdtms/{sdtm_id}/domains/{domain}/domain-mapping": {
+      "get": {
         "tags": [
           "sdtm"
         ],
-        "summary": "Execute Sdtm",
-        "description": "Submit one exact SDTM execution through the shared immutable run service.",
-        "operationId": "execute_sdtm_api_v1_sdtms__sdtm_id__execute_post",
+        "summary": "Get Domain Mapping",
+        "operationId": "get_domain_mapping_api_v1_sdtms__sdtm_id__domains__domain__domain_mapping_get",
         "parameters": [
           {
             "name": "sdtm_id",
@@ -9550,6 +9204,725 @@
               "type": "string",
               "format": "uuid",
               "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Domain"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MappingResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Put Domain Mapping",
+        "operationId": "put_domain_mapping_api_v1_sdtms__sdtm_id__domains__domain__domain_mapping_put",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Domain"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SdtmDomainMappingWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MappingResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sdtms/{sdtm_id}/domains/{domain}/variable-mapping": {
+      "get": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Get Variable Mapping",
+        "operationId": "get_variable_mapping_api_v1_sdtms__sdtm_id__domains__domain__variable_mapping_get",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Domain"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MappingResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Put Variable Mapping",
+        "operationId": "put_variable_mapping_api_v1_sdtms__sdtm_id__domains__domain__variable_mapping_put",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Domain"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SdtmVariableMappingWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MappingResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sdtms/{sdtm_id}/code-workareas": {
+      "get": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "List Workareas",
+        "operationId": "list_workareas_api_v1_sdtms__sdtm_id__code_workareas_get",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkareaPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Create Workarea",
+        "operationId": "create_workarea_api_v1_sdtms__sdtm_id__code_workareas_post",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SdtmCodeWorkareaCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkareaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sdtms/{sdtm_id}/code-workareas/{workarea_id}": {
+      "get": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Get Workarea",
+        "operationId": "get_workarea_api_v1_sdtms__sdtm_id__code_workareas__workarea_id__get",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "workarea_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workarea Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkareaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Update Workarea",
+        "operationId": "update_workarea_api_v1_sdtms__sdtm_id__code_workareas__workarea_id__put",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "workarea_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workarea Id"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SdtmCodeWorkareaUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkareaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sdtms/{sdtm_id}/code-workareas/{workarea_id}/archive": {
+      "post": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Archive Workarea",
+        "operationId": "archive_workarea_api_v1_sdtms__sdtm_id__code_workareas__workarea_id__archive_post",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "workarea_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workarea Id"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkareaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sdtms/{sdtm_id}/code-workareas/{workarea_id}/test": {
+      "post": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Test Workarea",
+        "operationId": "test_workarea_api_v1_sdtms__sdtm_id__code_workareas__workarea_id__test_post",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "workarea_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workarea Id"
             }
           },
           {
@@ -9590,7 +9963,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SdtmExecutionRequest"
+                "$ref": "#/components/schemas/SdtmWorkareaRunCreate"
               }
             }
           }
@@ -9601,7 +9974,547 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExecutionRunResponse"
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Test Workarea Api V1 Sdtms  Sdtm Id  Code Workareas  Workarea Id  Test Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sdtms/{sdtm_id}/code-workareas/{workarea_id}/generate": {
+      "post": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Generate Workarea",
+        "operationId": "generate_workarea_api_v1_sdtms__sdtm_id__code_workareas__workarea_id__generate_post",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "workarea_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workarea Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SdtmWorkareaRunCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Generate Workarea Api V1 Sdtms  Sdtm Id  Code Workareas  Workarea Id  Generate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sdtm-code-runs/{run_id}": {
+      "get": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Get Code Run",
+        "operationId": "get_code_run_api_v1_sdtm_code_runs__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Code Run Api V1 Sdtm Code Runs  Run Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sdtms/{sdtm_id}/output-selection": {
+      "get": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Get Output Selection",
+        "operationId": "get_output_selection_api_v1_sdtms__sdtm_id__output_selection_get",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutputSelectionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Put Output Selection",
+        "operationId": "put_output_selection_api_v1_sdtms__sdtm_id__output_selection_put",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SdtmOutputSelectionWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutputSelectionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sdtms/{sdtm_id}/program-artifact-readiness": {
+      "get": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Get Program Artifact Readiness",
+        "operationId": "get_program_artifact_readiness_api_v1_sdtms__sdtm_id__program_artifact_readiness_get",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Program Artifact Readiness Api V1 Sdtms  Sdtm Id  Program Artifact Readiness Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sdtms/{sdtm_id}/domains/{domain_code}/imported-dataset": {
+      "get": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Get Imported Domain",
+        "operationId": "get_imported_domain_api_v1_sdtms__sdtm_id__domains__domain_code__imported_dataset_get",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "domain_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Domain Code"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportedDomainResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "sdtm"
+        ],
+        "summary": "Import Domain",
+        "description": "Accept one external XPT as the exact current provider for an SDTM domain.",
+        "operationId": "import_domain_api_v1_sdtms__sdtm_id__domains__domain_code__imported_dataset_post",
+        "parameters": [
+          {
+            "name": "sdtm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sdtm Id"
+            }
+          },
+          {
+            "name": "domain_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Domain Code"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SdtmImportedDomainCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportedDomainResponse"
                 }
               }
             }
@@ -18323,15 +19236,11 @@
                 },
                 {
                   "$ref": "#/components/schemas/AcrfRawVariableLink"
-                },
-                {
-                  "$ref": "#/components/schemas/AcrfPlanNodeLink"
                 }
               ],
               "discriminator": {
                 "propertyName": "target_type",
                 "mapping": {
-                  "derivation_plan_node": "#/components/schemas/AcrfPlanNodeLink",
                   "raw_variable": "#/components/schemas/AcrfRawVariableLink",
                   "sdtm_variable": "#/components/schemas/AcrfSdtmVariableLink"
                 }
@@ -18512,15 +19421,11 @@
                 },
                 {
                   "$ref": "#/components/schemas/AcrfRawVariableLink"
-                },
-                {
-                  "$ref": "#/components/schemas/AcrfPlanNodeLink"
                 }
               ],
               "discriminator": {
                 "propertyName": "target_type",
                 "mapping": {
-                  "derivation_plan_node": "#/components/schemas/AcrfPlanNodeLink",
                   "raw_variable": "#/components/schemas/AcrfRawVariableLink",
                   "sdtm_variable": "#/components/schemas/AcrfSdtmVariableLink"
                 }
@@ -18706,15 +19611,11 @@
                 },
                 {
                   "$ref": "#/components/schemas/AcrfRawVariableLink"
-                },
-                {
-                  "$ref": "#/components/schemas/AcrfPlanNodeLink"
                 }
               ],
               "discriminator": {
                 "propertyName": "target_type",
                 "mapping": {
-                  "derivation_plan_node": "#/components/schemas/AcrfPlanNodeLink",
                   "raw_variable": "#/components/schemas/AcrfRawVariableLink",
                   "sdtm_variable": "#/components/schemas/AcrfSdtmVariableLink"
                 }
@@ -18728,46 +19629,6 @@
         "additionalProperties": false,
         "type": "object",
         "title": "AcrfLinksWrite"
-      },
-      "AcrfPlanNodeLink": {
-        "properties": {
-          "target_type": {
-            "type": "string",
-            "const": "derivation_plan_node",
-            "title": "Target Type"
-          },
-          "plan_revision": {
-            "type": "integer",
-            "minimum": 1,
-            "title": "Plan Revision"
-          },
-          "node_id": {
-            "type": "string",
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Node Id"
-          },
-          "domain": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[A-Z][A-Z0-9]{1,7}$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Domain"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "target_type",
-          "plan_revision",
-          "node_id"
-        ],
-        "title": "AcrfPlanNodeLink"
       },
       "AcrfRawVariableLink": {
         "properties": {
@@ -20768,43 +21629,6 @@
         "title": "AggregateCreate",
         "description": "Minimal Phase 1 clinical aggregate shell."
       },
-      "AggregateNode": {
-        "properties": {
-          "node_type": {
-            "type": "string",
-            "const": "aggregate",
-            "title": "Node Type"
-          },
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "group_by": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Group By"
-          },
-          "aggregations": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/SdtmAggregation"
-            },
-            "type": "object",
-            "minProperties": 1,
-            "title": "Aggregations"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "node_type",
-          "id",
-          "group_by",
-          "aggregations"
-        ],
-        "title": "AggregateNode"
-      },
       "AggregateResponse": {
         "properties": {
           "id": {
@@ -21372,74 +22196,6 @@
         "title": "ArtifactResponse",
         "description": "Public artifact metadata without an object-store locator."
       },
-      "AssertNode": {
-        "properties": {
-          "node_type": {
-            "type": "string",
-            "const": "assert",
-            "title": "Node Type"
-          },
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "predicate": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/LiteralExpression"
-              },
-              {
-                "$ref": "#/components/schemas/ColumnExpression"
-              },
-              {
-                "$ref": "#/components/schemas/UnaryExpression"
-              },
-              {
-                "$ref": "#/components/schemas/BinaryExpression"
-              },
-              {
-                "$ref": "#/components/schemas/ConditionalExpression"
-              },
-              {
-                "$ref": "#/components/schemas/FunctionCallExpression"
-              },
-              {
-                "$ref": "#/components/schemas/CustomFunctionCallExpression"
-              },
-              {
-                "$ref": "#/components/schemas/ListLiteralExpression"
-              }
-            ],
-            "title": "Predicate",
-            "discriminator": {
-              "propertyName": "kind",
-              "mapping": {
-                "binary": "#/components/schemas/BinaryExpression",
-                "column": "#/components/schemas/ColumnExpression",
-                "conditional": "#/components/schemas/ConditionalExpression",
-                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
-                "function": "#/components/schemas/FunctionCallExpression",
-                "list_literal": "#/components/schemas/ListLiteralExpression",
-                "literal": "#/components/schemas/LiteralExpression",
-                "unary": "#/components/schemas/UnaryExpression"
-              }
-            }
-          },
-          "issue_code": {
-            "type": "string",
-            "title": "Issue Code"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "node_type",
-          "id",
-          "predicate",
-          "issue_code"
-        ],
-        "title": "AssertNode"
-      },
       "AuthoringResponse": {
         "properties": {
           "id": {
@@ -21653,85 +22409,6 @@
         ],
         "title": "Body_create_source_files_bulk_api_v1_studies__study_id__source_files_bulk_post"
       },
-      "CastExpression": {
-        "properties": {
-          "kind": {
-            "type": "string",
-            "const": "cast",
-            "title": "Kind"
-          },
-          "value": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/LiteralExpression"
-              },
-              {
-                "$ref": "#/components/schemas/ColumnExpression"
-              },
-              {
-                "$ref": "#/components/schemas/UnaryExpression"
-              },
-              {
-                "$ref": "#/components/schemas/BinaryExpression"
-              },
-              {
-                "$ref": "#/components/schemas/ConditionalExpression"
-              },
-              {
-                "$ref": "#/components/schemas/FunctionCallExpression"
-              },
-              {
-                "$ref": "#/components/schemas/CustomFunctionCallExpression"
-              },
-              {
-                "$ref": "#/components/schemas/ListLiteralExpression"
-              }
-            ],
-            "title": "Value",
-            "discriminator": {
-              "propertyName": "kind",
-              "mapping": {
-                "binary": "#/components/schemas/BinaryExpression",
-                "column": "#/components/schemas/ColumnExpression",
-                "conditional": "#/components/schemas/ConditionalExpression",
-                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
-                "function": "#/components/schemas/FunctionCallExpression",
-                "list_literal": "#/components/schemas/ListLiteralExpression",
-                "literal": "#/components/schemas/LiteralExpression",
-                "unary": "#/components/schemas/UnaryExpression"
-              }
-            }
-          },
-          "target_type": {
-            "type": "string",
-            "enum": [
-              "text",
-              "integer",
-              "float",
-              "boolean"
-            ],
-            "title": "Target Type"
-          },
-          "invalid": {
-            "type": "string",
-            "enum": [
-              "error",
-              "null"
-            ],
-            "title": "Invalid",
-            "default": "error"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "kind",
-          "value",
-          "target_type"
-        ],
-        "title": "CastExpression",
-        "description": "Convert one derived value to a declared scalar type."
-      },
       "CatalogIdentity": {
         "properties": {
           "id": {
@@ -21855,8 +22532,17 @@
             "title": "Kind"
           },
           "dataset": {
-            "type": "string",
-            "title": "Dataset"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset",
+            "description": "Legacy source label. Column values are always read from the row entering the current operator.",
+            "deprecated": true
           },
           "column": {
             "type": "string",
@@ -21867,7 +22553,6 @@
         "type": "object",
         "required": [
           "kind",
-          "dataset",
           "column"
         ],
         "title": "ColumnExpression"
@@ -23160,94 +23845,6 @@
         "title": "DependencySelectionResponse",
         "description": "Persisted dependency snapshot and compatibility decision."
       },
-      "DeriveNode": {
-        "properties": {
-          "node_type": {
-            "type": "string",
-            "const": "derive",
-            "title": "Node Type"
-          },
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "target_domain": {
-            "type": "string",
-            "title": "Target Domain"
-          },
-          "assignments": {
-            "additionalProperties": {
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/LiteralExpression"
-                },
-                {
-                  "$ref": "#/components/schemas/ColumnExpression"
-                },
-                {
-                  "$ref": "#/components/schemas/UnaryExpression"
-                },
-                {
-                  "$ref": "#/components/schemas/BinaryExpression"
-                },
-                {
-                  "$ref": "#/components/schemas/ConditionalExpression"
-                },
-                {
-                  "$ref": "#/components/schemas/FunctionCallExpression"
-                },
-                {
-                  "$ref": "#/components/schemas/CustomFunctionCallExpression"
-                },
-                {
-                  "$ref": "#/components/schemas/CastExpression"
-                },
-                {
-                  "$ref": "#/components/schemas/TerminologyMapExpression"
-                },
-                {
-                  "$ref": "#/components/schemas/ListLiteralExpression"
-                }
-              ],
-              "discriminator": {
-                "propertyName": "kind",
-                "mapping": {
-                  "binary": "#/components/schemas/BinaryExpression",
-                  "cast": "#/components/schemas/CastExpression",
-                  "column": "#/components/schemas/ColumnExpression",
-                  "conditional": "#/components/schemas/ConditionalExpression",
-                  "custom_function": "#/components/schemas/CustomFunctionCallExpression",
-                  "function": "#/components/schemas/FunctionCallExpression",
-                  "list_literal": "#/components/schemas/ListLiteralExpression",
-                  "literal": "#/components/schemas/LiteralExpression",
-                  "terminology_map": "#/components/schemas/TerminologyMapExpression",
-                  "unary": "#/components/schemas/UnaryExpression"
-                }
-              }
-            },
-            "type": "object",
-            "minProperties": 1,
-            "title": "Assignments"
-          },
-          "assignment_order": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Assignment Order",
-            "default": []
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "node_type",
-          "id",
-          "target_domain",
-          "assignments"
-        ],
-        "title": "DeriveNode"
-      },
       "DocumentCreate": {
         "properties": {
           "document_code": {
@@ -23466,31 +24063,6 @@
           "actions_report"
         ],
         "title": "DocumentType"
-      },
-      "DomainWriteNode": {
-        "properties": {
-          "node_type": {
-            "type": "string",
-            "const": "domain_write",
-            "title": "Node Type"
-          },
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "domain": {
-            "type": "string",
-            "title": "Domain"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "node_type",
-          "id",
-          "domain"
-        ],
-        "title": "DomainWriteNode"
       },
       "EntityEndpoint": {
         "properties": {
@@ -24691,69 +25263,6 @@
         ],
         "title": "ExternalIdentifierWrite"
       },
-      "FilterNode": {
-        "properties": {
-          "node_type": {
-            "type": "string",
-            "const": "filter",
-            "title": "Node Type"
-          },
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "predicate": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/LiteralExpression"
-              },
-              {
-                "$ref": "#/components/schemas/ColumnExpression"
-              },
-              {
-                "$ref": "#/components/schemas/UnaryExpression"
-              },
-              {
-                "$ref": "#/components/schemas/BinaryExpression"
-              },
-              {
-                "$ref": "#/components/schemas/ConditionalExpression"
-              },
-              {
-                "$ref": "#/components/schemas/FunctionCallExpression"
-              },
-              {
-                "$ref": "#/components/schemas/CustomFunctionCallExpression"
-              },
-              {
-                "$ref": "#/components/schemas/ListLiteralExpression"
-              }
-            ],
-            "title": "Predicate",
-            "discriminator": {
-              "propertyName": "kind",
-              "mapping": {
-                "binary": "#/components/schemas/BinaryExpression",
-                "column": "#/components/schemas/ColumnExpression",
-                "conditional": "#/components/schemas/ConditionalExpression",
-                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
-                "function": "#/components/schemas/FunctionCallExpression",
-                "list_literal": "#/components/schemas/ListLiteralExpression",
-                "literal": "#/components/schemas/LiteralExpression",
-                "unary": "#/components/schemas/UnaryExpression"
-              }
-            }
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "node_type",
-          "id",
-          "predicate"
-        ],
-        "title": "FilterNode"
-      },
       "FunctionCallExpression": {
         "properties": {
           "kind": {
@@ -24874,6 +25383,113 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "ImportedDomainResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "aggregate_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Aggregate Id"
+          },
+          "domain": {
+            "type": "string",
+            "title": "Domain"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "specification_revision": {
+            "type": "integer",
+            "title": "Specification Revision"
+          },
+          "source_file_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source File Id"
+          },
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Artifact Id"
+          },
+          "validation_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Validation Run Id"
+          },
+          "selected_as_source": {
+            "type": "boolean",
+            "title": "Selected As Source"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "alignment_state": {
+            "type": "string",
+            "title": "Alignment State"
+          },
+          "alignment_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Alignment Reasons"
+          },
+          "extracted_schema": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Extracted Schema"
+          },
+          "issues": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Issues"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "aggregate_id",
+          "domain",
+          "revision",
+          "specification_revision",
+          "source_file_id",
+          "artifact_id",
+          "validation_run_id",
+          "selected_as_source",
+          "state",
+          "alignment_state",
+          "alignment_reasons",
+          "extracted_schema",
+          "issues",
+          "fingerprint",
+          "created_by",
+          "created_at"
+        ],
+        "title": "ImportedDomainResponse"
       },
       "InputSelectionResponse": {
         "properties": {
@@ -25114,72 +25730,6 @@
         "title": "IssueSeverity",
         "description": "Stable issue severity levels."
       },
-      "JoinNode": {
-        "properties": {
-          "node_type": {
-            "type": "string",
-            "const": "join",
-            "title": "Node Type"
-          },
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "join_type": {
-            "type": "string",
-            "enum": [
-              "inner",
-              "left",
-              "right",
-              "full"
-            ],
-            "title": "Join Type"
-          },
-          "left_input": {
-            "type": "string",
-            "title": "Left Input"
-          },
-          "right_input": {
-            "type": "string",
-            "title": "Right Input"
-          },
-          "keys": {
-            "items": {
-              "prefixItems": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "string"
-                }
-              ],
-              "type": "array",
-              "maxItems": 2,
-              "minItems": 2
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Keys"
-          },
-          "right_suffix": {
-            "type": "string",
-            "pattern": "^_[A-Za-z0-9_]{1,16}$",
-            "title": "Right Suffix",
-            "default": "_right"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "node_type",
-          "id",
-          "join_type",
-          "left_input",
-          "right_input",
-          "keys"
-        ],
-        "title": "JoinNode"
-      },
       "ListLiteralExpression": {
         "properties": {
           "kind": {
@@ -25269,6 +25819,108 @@
         "type": "object",
         "title": "LivenessResponse",
         "description": "Process liveness response."
+      },
+      "MappingHeadPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MappingResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "MappingHeadPage"
+      },
+      "MappingResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "domain": {
+            "type": "string",
+            "title": "Domain"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "specification_revision": {
+            "type": "integer",
+            "title": "Specification Revision"
+          },
+          "input_selection_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Selection Revision"
+          },
+          "domain_mapping_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain Mapping Revision"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "alignment_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Alignment Reasons"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "domain",
+          "revision",
+          "specification_revision",
+          "state",
+          "alignment_reasons",
+          "payload",
+          "fingerprint",
+          "created_by",
+          "created_at"
+        ],
+        "title": "MappingResponse"
       },
       "ModuleCapability": {
         "type": "string",
@@ -25479,71 +26131,238 @@
         ],
         "title": "ModuleSelection"
       },
-      "PivotLongerNode": {
+      "OutputSelectionResponse": {
         "properties": {
-          "node_type": {
-            "type": "string",
-            "const": "pivot_longer",
-            "title": "Node Type"
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
           },
+          "specification_revision": {
+            "type": "integer",
+            "title": "Specification Revision"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          },
+          "updated_by": {
+            "type": "string",
+            "title": "Updated By"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "revision",
+          "specification_revision",
+          "state",
+          "payload",
+          "fingerprint",
+          "updated_by",
+          "updated_at"
+        ],
+        "title": "OutputSelectionResponse"
+      },
+      "PlanHeadPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlanHeadSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "PlanHeadPage"
+      },
+      "PlanHeadSummary": {
+        "properties": {
           "id": {
             "type": "string",
+            "format": "uuid",
             "title": "Id"
           },
-          "id_columns": {
+          "dataset": {
+            "type": "string",
+            "title": "Dataset"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "alignment_state": {
+            "type": "string",
+            "title": "Alignment State"
+          },
+          "alignment_reasons": {
             "items": {
               "type": "string"
             },
             "type": "array",
-            "title": "Id Columns"
+            "title": "Alignment Reasons"
           },
-          "value_columns": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Value Columns"
-          },
-          "name_column": {
+          "fingerprint": {
             "type": "string",
-            "title": "Name Column"
-          },
-          "value_column": {
-            "type": "string",
-            "title": "Value Column"
+            "title": "Fingerprint"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "node_type",
           "id",
-          "id_columns",
-          "value_columns",
-          "name_column",
-          "value_column"
+          "dataset",
+          "revision",
+          "alignment_state",
+          "alignment_reasons",
+          "fingerprint"
         ],
-        "title": "PivotLongerNode"
+        "title": "PlanHeadSummary"
       },
-      "PlanEdge": {
+      "PlanResponse": {
         "properties": {
-          "source_node": {
+          "id": {
             "type": "string",
-            "title": "Source Node"
+            "format": "uuid",
+            "title": "Id"
           },
-          "target_node": {
+          "aggregate_id": {
             "type": "string",
-            "title": "Target Node"
+            "format": "uuid",
+            "title": "Aggregate Id"
+          },
+          "dataset": {
+            "type": "string",
+            "title": "Dataset"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "schema_version": {
+            "type": "string",
+            "title": "Schema Version"
+          },
+          "specification_revision": {
+            "type": "integer",
+            "title": "Specification Revision"
+          },
+          "input_selection_revision": {
+            "type": "integer",
+            "title": "Input Selection Revision"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "alignment_state": {
+            "type": "string",
+            "title": "Alignment State"
+          },
+          "alignment_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Alignment Reasons"
+          },
+          "upstream_plan_pins": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Upstream Plan Pins"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "aggregate_id",
+          "dataset",
+          "revision",
+          "schema_version",
+          "specification_revision",
+          "input_selection_revision",
+          "state",
+          "alignment_state",
+          "alignment_reasons",
+          "upstream_plan_pins",
+          "payload",
+          "fingerprint",
+          "created_by",
+          "created_at"
+        ],
+        "title": "PlanResponse"
+      },
+      "PreviewRequest": {
+        "properties": {
+          "datasets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Datasets",
+            "default": []
+          },
+          "limit": {
+            "type": "integer",
+            "maximum": 200,
+            "minimum": 1,
+            "title": "Limit",
+            "default": 100
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "source_node",
-          "target_node"
-        ],
-        "title": "PlanEdge"
+        "title": "PreviewRequest"
       },
       "PreviewResponse": {
         "properties": {
@@ -26330,31 +27149,6 @@
           "total_rows"
         ],
         "title": "RawPreviewResponse"
-      },
-      "RawReadNode": {
-        "properties": {
-          "node_type": {
-            "type": "string",
-            "const": "raw_read",
-            "title": "Node Type"
-          },
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "raw_dataset_code": {
-            "type": "string",
-            "title": "Raw Dataset Code"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "node_type",
-          "id",
-          "raw_dataset_code"
-        ],
-        "title": "RawReadNode"
       },
       "RawReconcileRequest": {
         "properties": {
@@ -27366,6 +28160,28 @@
         ],
         "title": "RenderRequest"
       },
+      "RepositorySourceFileBind": {
+        "properties": {
+          "version_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Version Id"
+          },
+          "expected_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expected Sha256"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version_id",
+          "expected_sha256"
+        ],
+        "title": "RepositorySourceFileBind",
+        "description": "Explicitly bind one authorized Platform Repository version."
+      },
       "ReviewItemCreate": {
         "properties": {
           "target_module": {
@@ -27803,38 +28619,6 @@
         ],
         "title": "RuleSelection"
       },
-      "SdtmAggregation": {
-        "properties": {
-          "operation": {
-            "type": "string",
-            "enum": [
-              "count",
-              "sum",
-              "mean",
-              "min",
-              "max"
-            ],
-            "title": "Operation"
-          },
-          "column": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Column"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "operation"
-        ],
-        "title": "SdtmAggregation"
-      },
       "SdtmArtifactRequest": {
         "properties": {
           "artifact_types": {
@@ -27870,6 +28654,66 @@
           "expected_input_fingerprint"
         ],
         "title": "SdtmArtifactRequest"
+      },
+      "SdtmCodeWorkareaCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "domain": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]{1,7}$",
+            "title": "Domain"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "python",
+              "r",
+              "sas"
+            ],
+            "title": "Language"
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 1000000,
+            "title": "Source",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "domain",
+          "language"
+        ],
+        "title": "SdtmCodeWorkareaCreate"
+      },
+      "SdtmCodeWorkareaUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 1000000,
+            "title": "Source"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "source"
+        ],
+        "title": "SdtmCodeWorkareaUpdate"
       },
       "SdtmCsdrgInitialize": {
         "properties": {
@@ -28193,122 +29037,6 @@
         ],
         "title": "SdtmDefineModel"
       },
-      "SdtmDerivationPlan": {
-        "properties": {
-          "schema_version": {
-            "type": "string",
-            "const": "1.2.0",
-            "title": "Schema Version",
-            "default": "1.2.0"
-          },
-          "domain": {
-            "type": "string",
-            "pattern": "^[A-Z][A-Z0-9]{1,7}$",
-            "title": "Domain"
-          },
-          "specification_revision": {
-            "type": "integer",
-            "minimum": 1,
-            "title": "Specification Revision"
-          },
-          "input_selection_revision": {
-            "type": "integer",
-            "minimum": 1,
-            "title": "Input Selection Revision"
-          },
-          "custom_functions": {
-            "items": {
-              "$ref": "#/components/schemas/CustomFunctionDefinition"
-            },
-            "type": "array",
-            "title": "Custom Functions",
-            "default": []
-          },
-          "nodes": {
-            "items": {
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/RawReadNode"
-                },
-                {
-                  "$ref": "#/components/schemas/SdtmReadNode"
-                },
-                {
-                  "$ref": "#/components/schemas/FilterNode"
-                },
-                {
-                  "$ref": "#/components/schemas/DeriveNode"
-                },
-                {
-                  "$ref": "#/components/schemas/SelectNode"
-                },
-                {
-                  "$ref": "#/components/schemas/JoinNode"
-                },
-                {
-                  "$ref": "#/components/schemas/UnionNode"
-                },
-                {
-                  "$ref": "#/components/schemas/AggregateNode"
-                },
-                {
-                  "$ref": "#/components/schemas/PivotLongerNode"
-                },
-                {
-                  "$ref": "#/components/schemas/SequenceNode"
-                },
-                {
-                  "$ref": "#/components/schemas/SortNode"
-                },
-                {
-                  "$ref": "#/components/schemas/AssertNode"
-                },
-                {
-                  "$ref": "#/components/schemas/DomainWriteNode"
-                }
-              ],
-              "discriminator": {
-                "propertyName": "node_type",
-                "mapping": {
-                  "aggregate": "#/components/schemas/AggregateNode",
-                  "assert": "#/components/schemas/AssertNode",
-                  "derive": "#/components/schemas/DeriveNode",
-                  "domain_write": "#/components/schemas/DomainWriteNode",
-                  "filter": "#/components/schemas/FilterNode",
-                  "join": "#/components/schemas/JoinNode",
-                  "pivot_longer": "#/components/schemas/PivotLongerNode",
-                  "raw_read": "#/components/schemas/RawReadNode",
-                  "sdtm_read": "#/components/schemas/SdtmReadNode",
-                  "select": "#/components/schemas/SelectNode",
-                  "sequence": "#/components/schemas/SequenceNode",
-                  "sort": "#/components/schemas/SortNode",
-                  "union": "#/components/schemas/UnionNode"
-                }
-              }
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Nodes"
-          },
-          "edges": {
-            "items": {
-              "$ref": "#/components/schemas/PlanEdge"
-            },
-            "type": "array",
-            "title": "Edges",
-            "default": []
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "domain",
-          "specification_revision",
-          "input_selection_revision",
-          "nodes"
-        ],
-        "title": "SdtmDerivationPlan"
-      },
       "SdtmDomain": {
         "properties": {
           "code": {
@@ -28359,6 +29087,14 @@
             "minItems": 1,
             "title": "Variables"
           },
+          "value_contexts": {
+            "items": {
+              "$ref": "#/components/schemas/SdtmValueContext"
+            },
+            "type": "array",
+            "title": "Value Contexts",
+            "default": []
+          },
           "value_level_metadata": {
             "items": {
               "$ref": "#/components/schemas/SdtmValueLevelMetadata"
@@ -28382,76 +29118,61 @@
         ],
         "title": "SdtmDomain"
       },
-      "SdtmExecutionRequest": {
+      "SdtmDomainMappingWrite": {
         "properties": {
-          "language": {
+          "schema_version": {
             "type": "string",
-            "pattern": "^(python|r|sas)$",
-            "title": "Language"
+            "const": "1.0.0",
+            "title": "Schema Version",
+            "default": "1.0.0"
           },
-          "program_artifact_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Program Artifact Id"
-          },
-          "input_artifact_ids": {
+          "raw_datasets": {
             "items": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "type": "array",
-            "minItems": 1,
-            "title": "Input Artifact Ids"
+            "title": "Raw Datasets",
+            "default": []
           },
-          "validation_run_id": {
+          "upstream_domains": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Upstream Domains",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SdtmDomainMappingWrite"
+      },
+      "SdtmImportedDomainCreate": {
+        "properties": {
+          "source_file_id": {
             "type": "string",
             "format": "uuid",
-            "title": "Validation Run Id"
+            "title": "Source File Id"
           },
-          "input_selection_revision": {
-            "type": "integer",
-            "minimum": 1,
-            "title": "Input Selection Revision"
-          },
-          "source_specification_revision": {
-            "type": "integer",
-            "minimum": 1,
-            "title": "Source Specification Revision"
-          },
-          "source_plan_revision": {
-            "type": "integer",
-            "minimum": 1,
-            "title": "Source Plan Revision"
-          },
-          "compiler_fingerprint": {
+          "expected_sha256": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$",
-            "title": "Compiler Fingerprint"
+            "title": "Expected Sha256"
           },
-          "expected_input_fingerprint": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Expected Input Fingerprint"
-          },
-          "limits": {
-            "$ref": "#/components/schemas/ExecutionLimits"
+          "specification_revision": {
+            "type": "integer",
+            "minimum": 1,
+            "title": "Specification Revision"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "language",
-          "program_artifact_id",
-          "input_artifact_ids",
-          "validation_run_id",
-          "input_selection_revision",
-          "source_specification_revision",
-          "source_plan_revision",
-          "compiler_fingerprint",
-          "expected_input_fingerprint",
-          "limits"
+          "source_file_id",
+          "expected_sha256",
+          "specification_revision"
         ],
-        "title": "SdtmExecutionRequest"
+        "title": "SdtmImportedDomainCreate"
       },
       "SdtmInputSelectionWrite": {
         "properties": {
@@ -28495,6 +29216,96 @@
         ],
         "title": "SdtmInputSelectionWrite"
       },
+      "SdtmOutputSelectionItem": {
+        "properties": {
+          "domain": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]{1,7}$",
+            "title": "Domain"
+          },
+          "provider_type": {
+            "type": "string",
+            "enum": [
+              "generation",
+              "imported"
+            ],
+            "title": "Provider Type"
+          },
+          "provider_revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Provider Revision Id"
+          },
+          "xpt_artifact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Xpt Artifact Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "domain",
+          "provider_type",
+          "provider_revision_id",
+          "xpt_artifact_id"
+        ],
+        "title": "SdtmOutputSelectionItem"
+      },
+      "SdtmOutputSelectionWrite": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "1.0.0",
+            "title": "Schema Version",
+            "default": "1.0.0"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SdtmOutputSelectionItem"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "SdtmOutputSelectionWrite"
+      },
+      "SdtmQualifiedSource": {
+        "properties": {
+          "source_type": {
+            "type": "string",
+            "enum": [
+              "raw",
+              "sdtm"
+            ],
+            "title": "Source Type"
+          },
+          "dataset": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{0,31}$",
+            "title": "Dataset"
+          },
+          "variable": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{0,31}$",
+            "title": "Variable"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_type",
+          "dataset",
+          "variable"
+        ],
+        "title": "SdtmQualifiedSource"
+      },
       "SdtmReadNode": {
         "properties": {
           "node_type": {
@@ -28527,9 +29338,12 @@
         "properties": {
           "schema_version": {
             "type": "string",
-            "const": "1.0.0",
+            "enum": [
+              "1.0.0",
+              "2.0.0"
+            ],
             "title": "Schema Version",
-            "default": "1.0.0"
+            "default": "2.0.0"
           },
           "domains": {
             "items": {
@@ -28681,6 +29495,88 @@
         ],
         "title": "SdtmTerminologyBinding"
       },
+      "SdtmUpstreamArtifactSelection": {
+        "properties": {
+          "domain": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]{1,7}$",
+            "title": "Domain"
+          },
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Artifact Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "domain",
+          "artifact_id"
+        ],
+        "title": "SdtmUpstreamArtifactSelection"
+      },
+      "SdtmValueContext": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "discriminator_variable": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{0,7}$",
+            "title": "Discriminator Variable"
+          },
+          "operator": {
+            "type": "string",
+            "enum": [
+              "eq",
+              "ne",
+              "in"
+            ],
+            "title": "Operator"
+          },
+          "values": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Values"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "discriminator_variable",
+          "operator",
+          "values"
+        ],
+        "title": "SdtmValueContext",
+        "description": "Reusable reviewer-facing value-level column owned by one domain."
+      },
       "SdtmValueLevelMetadata": {
         "properties": {
           "id": {
@@ -28691,47 +29587,66 @@
             "type": "string",
             "title": "Variable"
           },
-          "condition": {
-            "oneOf": [
+          "context_id": {
+            "anyOf": [
               {
-                "$ref": "#/components/schemas/LiteralExpression"
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_-]{0,63}$"
               },
               {
-                "$ref": "#/components/schemas/ColumnExpression"
-              },
-              {
-                "$ref": "#/components/schemas/UnaryExpression"
-              },
-              {
-                "$ref": "#/components/schemas/BinaryExpression"
-              },
-              {
-                "$ref": "#/components/schemas/ConditionalExpression"
-              },
-              {
-                "$ref": "#/components/schemas/FunctionCallExpression"
-              },
-              {
-                "$ref": "#/components/schemas/CustomFunctionCallExpression"
-              },
-              {
-                "$ref": "#/components/schemas/ListLiteralExpression"
+                "type": "null"
               }
             ],
-            "title": "Condition",
-            "discriminator": {
-              "propertyName": "kind",
-              "mapping": {
-                "binary": "#/components/schemas/BinaryExpression",
-                "column": "#/components/schemas/ColumnExpression",
-                "conditional": "#/components/schemas/ConditionalExpression",
-                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
-                "function": "#/components/schemas/FunctionCallExpression",
-                "list_literal": "#/components/schemas/ListLiteralExpression",
-                "literal": "#/components/schemas/LiteralExpression",
-                "unary": "#/components/schemas/UnaryExpression"
+            "title": "Context Id"
+          },
+          "condition": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/LiteralExpression"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ColumnExpression"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UnaryExpression"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BinaryExpression"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ConditionalExpression"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FunctionCallExpression"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CustomFunctionCallExpression"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ListLiteralExpression"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "kind",
+                  "mapping": {
+                    "binary": "#/components/schemas/BinaryExpression",
+                    "column": "#/components/schemas/ColumnExpression",
+                    "conditional": "#/components/schemas/ConditionalExpression",
+                    "custom_function": "#/components/schemas/CustomFunctionCallExpression",
+                    "function": "#/components/schemas/FunctionCallExpression",
+                    "list_literal": "#/components/schemas/ListLiteralExpression",
+                    "literal": "#/components/schemas/LiteralExpression",
+                    "unary": "#/components/schemas/UnaryExpression"
+                  }
+                }
+              },
+              {
+                "type": "null"
               }
-            }
+            ],
+            "title": "Condition"
           },
           "label": {
             "type": "string",
@@ -28774,7 +29689,6 @@
         "required": [
           "id",
           "variable",
-          "condition",
           "label",
           "data_type"
         ],
@@ -28859,6 +29773,78 @@
         ],
         "title": "SdtmVariable"
       },
+      "SdtmVariableMappingCell": {
+        "properties": {
+          "target_variable": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{0,7}$",
+            "title": "Target Variable"
+          },
+          "context_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Id"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SdtmQualifiedSource"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Sources"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "target_variable",
+          "sources"
+        ],
+        "title": "SdtmVariableMappingCell"
+      },
+      "SdtmVariableMappingWrite": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "1.0.0",
+            "title": "Schema Version",
+            "default": "1.0.0"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/SdtmVariableMappingCell"
+            },
+            "type": "array",
+            "title": "Cells",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SdtmVariableMappingWrite"
+      },
+      "SdtmWorkareaRunCreate": {
+        "properties": {
+          "upstream_artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/SdtmUpstreamArtifactSelection"
+            },
+            "type": "array",
+            "title": "Upstream Artifacts",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SdtmWorkareaRunCreate"
+      },
       "SecretRotationResponse": {
         "properties": {
           "integration_id": {
@@ -28887,35 +29873,6 @@
           "signing_secret"
         ],
         "title": "SecretRotationResponse"
-      },
-      "SelectNode": {
-        "properties": {
-          "node_type": {
-            "type": "string",
-            "const": "select",
-            "title": "Node Type"
-          },
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "columns": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Columns"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "node_type",
-          "id",
-          "columns"
-        ],
-        "title": "SelectNode"
       },
       "SelectedRawArtifact": {
         "properties": {
@@ -28969,83 +29926,6 @@
           "checksum"
         ],
         "title": "SelectedSdtmArtifact"
-      },
-      "SequenceNode": {
-        "properties": {
-          "node_type": {
-            "type": "string",
-            "const": "sequence",
-            "title": "Node Type"
-          },
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "group_by": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Group By",
-            "default": []
-          },
-          "order_by": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Order By"
-          },
-          "target_column": {
-            "type": "string",
-            "title": "Target Column"
-          },
-          "start": {
-            "type": "integer",
-            "minimum": 0,
-            "title": "Start",
-            "default": 1
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "node_type",
-          "id",
-          "order_by",
-          "target_column"
-        ],
-        "title": "SequenceNode"
-      },
-      "SortNode": {
-        "properties": {
-          "node_type": {
-            "type": "string",
-            "const": "sort",
-            "title": "Node Type"
-          },
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "keys": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Keys"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "node_type",
-          "id",
-          "keys"
-        ],
-        "title": "SortNode"
       },
       "SourceFileBulkResponse": {
         "properties": {
@@ -30368,84 +31248,6 @@
         ],
         "title": "TerminologyCompatibilityResponse"
       },
-      "TerminologyMapExpression": {
-        "properties": {
-          "kind": {
-            "type": "string",
-            "const": "terminology_map",
-            "title": "Kind"
-          },
-          "value": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/LiteralExpression"
-              },
-              {
-                "$ref": "#/components/schemas/ColumnExpression"
-              },
-              {
-                "$ref": "#/components/schemas/UnaryExpression"
-              },
-              {
-                "$ref": "#/components/schemas/BinaryExpression"
-              },
-              {
-                "$ref": "#/components/schemas/ConditionalExpression"
-              },
-              {
-                "$ref": "#/components/schemas/FunctionCallExpression"
-              },
-              {
-                "$ref": "#/components/schemas/CustomFunctionCallExpression"
-              },
-              {
-                "$ref": "#/components/schemas/ListLiteralExpression"
-              }
-            ],
-            "title": "Value",
-            "discriminator": {
-              "propertyName": "kind",
-              "mapping": {
-                "binary": "#/components/schemas/BinaryExpression",
-                "column": "#/components/schemas/ColumnExpression",
-                "conditional": "#/components/schemas/ConditionalExpression",
-                "custom_function": "#/components/schemas/CustomFunctionCallExpression",
-                "function": "#/components/schemas/FunctionCallExpression",
-                "list_literal": "#/components/schemas/ListLiteralExpression",
-                "literal": "#/components/schemas/LiteralExpression",
-                "unary": "#/components/schemas/UnaryExpression"
-              }
-            }
-          },
-          "mappings": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object",
-            "minProperties": 1,
-            "title": "Mappings"
-          },
-          "unmapped": {
-            "type": "string",
-            "enum": [
-              "preserve",
-              "null",
-              "error"
-            ],
-            "title": "Unmapped",
-            "default": "error"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "kind",
-          "value",
-          "mappings"
-        ],
-        "title": "TerminologyMapExpression",
-        "description": "Apply a manually authored controlled-terminology value mapping."
-      },
       "TerminologyReleaseResponse": {
         "properties": {
           "id": {
@@ -31294,26 +32096,6 @@
         ],
         "title": "UnaryExpression"
       },
-      "UnionNode": {
-        "properties": {
-          "node_type": {
-            "type": "string",
-            "const": "union",
-            "title": "Node Type"
-          },
-          "id": {
-            "type": "string",
-            "title": "Id"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "node_type",
-          "id"
-        ],
-        "title": "UnionNode"
-      },
       "UsdmDocument": {
         "properties": {
           "schema_version": {
@@ -31787,6 +32569,117 @@
         ],
         "title": "ValidationRunResponse"
       },
+      "WorkareaPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WorkareaResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "WorkareaPage"
+      },
+      "WorkareaResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "aggregate_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Aggregate Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "domain": {
+            "type": "string",
+            "title": "Domain"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "specification_revision": {
+            "type": "integer",
+            "title": "Specification Revision"
+          },
+          "domain_mapping_revision": {
+            "type": "integer",
+            "title": "Domain Mapping Revision"
+          },
+          "variable_mapping_revision": {
+            "type": "integer",
+            "title": "Variable Mapping Revision"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          },
+          "archived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "aggregate_id",
+          "name",
+          "domain",
+          "language",
+          "revision",
+          "source",
+          "specification_revision",
+          "domain_mapping_revision",
+          "variable_mapping_revision",
+          "fingerprint",
+          "archived_at",
+          "created_by",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "WorkareaResponse"
+      },
       "app__adam__define__DefineArtifactRequest": {
         "properties": {
           "versions": {
@@ -31939,194 +32832,6 @@
         ],
         "title": "CompileRequest"
       },
-      "app__adam__routes__PlanHeadPage": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/app__adam__routes__PlanHeadSummary"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "next_cursor": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Next Cursor"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "items",
-          "next_cursor"
-        ],
-        "title": "PlanHeadPage"
-      },
-      "app__adam__routes__PlanHeadSummary": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "dataset": {
-            "type": "string",
-            "title": "Dataset"
-          },
-          "revision": {
-            "type": "integer",
-            "title": "Revision"
-          },
-          "alignment_state": {
-            "type": "string",
-            "title": "Alignment State"
-          },
-          "alignment_reasons": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Alignment Reasons"
-          },
-          "fingerprint": {
-            "type": "string",
-            "title": "Fingerprint"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "dataset",
-          "revision",
-          "alignment_state",
-          "alignment_reasons",
-          "fingerprint"
-        ],
-        "title": "PlanHeadSummary"
-      },
-      "app__adam__routes__PlanResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "aggregate_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Aggregate Id"
-          },
-          "dataset": {
-            "type": "string",
-            "title": "Dataset"
-          },
-          "revision": {
-            "type": "integer",
-            "title": "Revision"
-          },
-          "schema_version": {
-            "type": "string",
-            "title": "Schema Version"
-          },
-          "specification_revision": {
-            "type": "integer",
-            "title": "Specification Revision"
-          },
-          "input_selection_revision": {
-            "type": "integer",
-            "title": "Input Selection Revision"
-          },
-          "state": {
-            "type": "string",
-            "title": "State"
-          },
-          "alignment_state": {
-            "type": "string",
-            "title": "Alignment State"
-          },
-          "alignment_reasons": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Alignment Reasons"
-          },
-          "upstream_plan_pins": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "title": "Upstream Plan Pins"
-          },
-          "payload": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Payload"
-          },
-          "fingerprint": {
-            "type": "string",
-            "title": "Fingerprint"
-          },
-          "created_by": {
-            "type": "string",
-            "title": "Created By"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "aggregate_id",
-          "dataset",
-          "revision",
-          "schema_version",
-          "specification_revision",
-          "input_selection_revision",
-          "state",
-          "alignment_state",
-          "alignment_reasons",
-          "upstream_plan_pins",
-          "payload",
-          "fingerprint",
-          "created_by",
-          "created_at"
-        ],
-        "title": "PlanResponse"
-      },
-      "app__adam__routes__PreviewRequest": {
-        "properties": {
-          "datasets": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Datasets",
-            "default": []
-          },
-          "limit": {
-            "type": "integer",
-            "maximum": 200,
-            "minimum": 1,
-            "title": "Limit",
-            "default": 100
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "PreviewRequest"
-      },
       "app__sdtm__define__DefineArtifactRequest": {
         "properties": {
           "expected_input_fingerprint": {
@@ -32247,221 +32952,6 @@
           "created_at"
         ],
         "title": "DefineResponse"
-      },
-      "app__sdtm__routes__CompileRequest": {
-        "properties": {
-          "backend": {
-            "type": "string",
-            "pattern": "^(python|r|sas)$",
-            "title": "Backend"
-          },
-          "expected_input_fingerprint": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Expected Input Fingerprint"
-          },
-          "domain_code": {
-            "type": "string",
-            "pattern": "^[A-Z][A-Z0-9]{1,7}$",
-            "title": "Domain Code"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "backend",
-          "expected_input_fingerprint",
-          "domain_code"
-        ],
-        "title": "CompileRequest"
-      },
-      "app__sdtm__routes__PlanHeadPage": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/app__sdtm__routes__PlanHeadSummary"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "next_cursor": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Next Cursor"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "items",
-          "next_cursor"
-        ],
-        "title": "PlanHeadPage"
-      },
-      "app__sdtm__routes__PlanHeadSummary": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "domain": {
-            "type": "string",
-            "title": "Domain"
-          },
-          "revision": {
-            "type": "integer",
-            "title": "Revision"
-          },
-          "alignment_state": {
-            "type": "string",
-            "title": "Alignment State"
-          },
-          "alignment_reasons": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Alignment Reasons"
-          },
-          "fingerprint": {
-            "type": "string",
-            "title": "Fingerprint"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "domain",
-          "revision",
-          "alignment_state",
-          "alignment_reasons",
-          "fingerprint"
-        ],
-        "title": "PlanHeadSummary"
-      },
-      "app__sdtm__routes__PlanResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "aggregate_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Aggregate Id"
-          },
-          "domain": {
-            "type": "string",
-            "title": "Domain"
-          },
-          "revision": {
-            "type": "integer",
-            "title": "Revision"
-          },
-          "schema_version": {
-            "type": "string",
-            "title": "Schema Version"
-          },
-          "specification_revision": {
-            "type": "integer",
-            "title": "Specification Revision"
-          },
-          "input_selection_revision": {
-            "type": "integer",
-            "title": "Input Selection Revision"
-          },
-          "state": {
-            "type": "string",
-            "title": "State"
-          },
-          "alignment_state": {
-            "type": "string",
-            "title": "Alignment State"
-          },
-          "alignment_reasons": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Alignment Reasons"
-          },
-          "upstream_plan_pins": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "title": "Upstream Plan Pins"
-          },
-          "payload": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Payload"
-          },
-          "fingerprint": {
-            "type": "string",
-            "title": "Fingerprint"
-          },
-          "created_by": {
-            "type": "string",
-            "title": "Created By"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "aggregate_id",
-          "domain",
-          "revision",
-          "schema_version",
-          "specification_revision",
-          "input_selection_revision",
-          "state",
-          "alignment_state",
-          "alignment_reasons",
-          "upstream_plan_pins",
-          "payload",
-          "fingerprint",
-          "created_by",
-          "created_at"
-        ],
-        "title": "PlanResponse"
-      },
-      "app__sdtm__routes__PreviewRequest": {
-        "properties": {
-          "domains": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Domains",
-            "default": []
-          },
-          "limit": {
-            "type": "integer",
-            "maximum": 200,
-            "minimum": 1,
-            "title": "Limit",
-            "default": 100
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "PreviewRequest"
       },
       "app__tlf__routes__CompileRequest": {
         "properties": {

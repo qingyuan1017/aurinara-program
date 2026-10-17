@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.artifacts.models import Artifact
 
@@ -103,6 +103,15 @@ class SourceFileBulkResponse(BaseModel):
     """Atomic bulk-upload result: one source file per request part, in order."""
 
     items: tuple[SourceFileResponse, ...]
+
+
+class RepositorySourceFileBind(BaseModel):
+    """Explicitly bind one authorized Platform Repository version."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    version_id: UUID
+    expected_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class ArtifactCollection(BaseModel):

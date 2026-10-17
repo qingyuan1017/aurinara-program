@@ -48,6 +48,7 @@ from app.raw.service import (
     RAW_ARTIFACT_TYPES,
     RawCapability,
     binding_for,
+    organize_source_repository,
     resolve_bulk_sources,
     stale_raw_consumers,
 )
@@ -273,6 +274,7 @@ def create_dataset(
     session.add(dataset)
     session.flush()
     session.add(binding_for(dataset, source, created_by=principal.subject))
+    organize_source_repository(session, source)
     raw.revision += 1
     _stale(session, registry, raw)
     try:
@@ -334,12 +336,17 @@ def patch_dataset(
     values = command.model_dump(exclude_unset=True)
     source_id = values.pop("source_file_id", None)
     dataset.revision += 1
+    previous_source: SourceFile | None = None
     if source_id is not None and source_id != dataset.current_source_file_id:
+        previous_source = _source(session, dataset.current_source_file_id, dataset.study_id)
         source = _source(session, source_id, dataset.study_id)
         with storage.open(source.object_key) as stream:
             inspect_file(stream, source.filename)
         dataset.current_source_file_id = source.id
         session.add(binding_for(dataset, source, created_by=principal.subject))
+        session.flush()
+        organize_source_repository(session, source)
+        organize_source_repository(session, previous_source)
     for name, value in values.items():
         setattr(dataset, name, value)
     raw.revision += 1
@@ -362,6 +369,11 @@ def retire_dataset(
     raw = cast(RawWorkbench, session.get(RawWorkbench, dataset.raw_id))
     dataset.status = "retired"
     dataset.revision += 1
+    session.flush()
+    organize_source_repository(
+        session,
+        _source(session, dataset.current_source_file_id, dataset.study_id),
+    )
     raw.revision += 1
     _stale(session, registry, raw)
     session.commit()

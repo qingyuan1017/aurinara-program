@@ -4,9 +4,14 @@
  * Aurinara Clinical Artifact Platform
  * OpenAPI spec version: 0.1.0
  */
+import type { ColumnExpressionDataset } from './columnExpressionDataset';
 
 export interface ColumnExpression {
   kind: 'column';
-  dataset: string;
+  /**
+   * Legacy source label. Column values are always read from the row entering the current operator.
+   * @deprecated
+   */
+  dataset?: ColumnExpressionDataset;
   column: string;
 }

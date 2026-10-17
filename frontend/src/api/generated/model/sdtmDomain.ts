@@ -5,6 +5,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SdtmVariable } from './sdtmVariable';
+import type { SdtmValueContext } from './sdtmValueContext';
 import type { SdtmValueLevelMetadata } from './sdtmValueLevelMetadata';
 
 export interface SdtmDomain {
@@ -25,5 +26,6 @@ export interface SdtmDomain {
   expected_output_name: string;
   /** @minItems 1 */
   variables: SdtmVariable[];
+  value_contexts?: SdtmValueContext[];
   value_level_metadata?: SdtmValueLevelMetadata[];
 }

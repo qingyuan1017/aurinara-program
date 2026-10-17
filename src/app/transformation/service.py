@@ -65,7 +65,7 @@ def compile_dataflow(value: DataflowIR, backend: str) -> CompiledProgram:
     todo_functions = missing_custom_functions(value.custom_functions, backend)  # type: ignore[arg-type]
     return CompiledProgram(
         backend,
-        "1.7.0",
+        "1.8.0",
         source,
         digest,
         executable=not todo_functions,

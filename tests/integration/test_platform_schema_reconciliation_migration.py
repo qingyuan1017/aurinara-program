@@ -111,7 +111,9 @@ def test_platform_schema_reconciliation_round_trip(migration_db: None) -> None:
     assert "fk_submission_packages_report_artifact_id_artifacts" in package_foreign_keys
     _alembic("check")
 
-    _alembic("downgrade", "-1")
+    # Target the parent of the reconciliation migration rather than whichever
+    # unrelated revision currently happens to be the repository head.
+    _alembic("downgrade", "20261010_0014")
     artifact_columns, source_columns, _, package_foreign_keys = _schema_state()
     assert "platform_reference_id" not in artifact_columns
     assert "platform_reference_id" not in source_columns

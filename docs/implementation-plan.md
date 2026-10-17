@@ -137,21 +137,23 @@ workflow coverage.
 - Implement Dataflow IR operators for reads, selections, filters, joins, unions, casts, projections, typed derivations, reshaping, controlled-term mappings, grouping, aggregation, window operations, sequencing, sorting, assertions, and writes.
 - Implement Analysis IR procedures for explicitly declared statistical methods, options, grouping, estimators, and normalized result schemas; reuse Dataflow IR for preparation and post-processing.
 - Implement a typed expression AST and prohibit raw Python, R, SAS, SQL, or arbitrary expression strings in ordinary plan nodes. Permit raw language bodies only inside typed named custom-function declarations; compile missing language bodies as non-executable TODO artifacts and never evaluate custom code in API/preview processes.
-- Implement module-owned adapters from validated, revision-aligned SDTM and ADaM Specification/Derivation Plan pairs and from TLF ProgramPlans; Transformation must not import clinical repositories or validate clinical conformance.
+- Implement module-owned adapters from validated, revision-aligned ADaM Specification/Derivation Plan pairs and TLF ProgramPlans; Transformation must not import clinical repositories or validate clinical conformance. SDTM Code Workareas execute directly through the isolated runner and do not lower to IR.
 - Record input-selection, Specification, source-plan, normalized IR, operator/procedure, library, and compiler revisions or versions in fingerprints and manifests.
 - Add IR contract, graph property, typed-expression, adapter isolation, canonicalization, lineage, and cross-language conformance tests.
 
-### 5.3 SDTM Specification and Derivation Plan
+### 5.3 SDTM Specification, mappings, and Code Workareas
 
 - Implement an exact Raw input selection and one versioned SDTM Specification containing domains, variables, value-level metadata where applicable, shared-Terminology bindings, keys, sort order, sequencing metadata, expected outputs, and typed trace targets.
 - Add an explicit Specification initializer that resolves the exact selected SDTM implementation-guide asset, lets the user choose concrete domain names and whether to add only Required and Expected variables, adds only those missing factual structures, and preserves all existing manual edits without proposing mappings or derivations. The Specification UI lists eligible implementation-guide products and exact versions from the Standards catalog and persists the user's selection without requiring internal identifiers.
 - Keep relational tables and constraints where needed internally, but expose one aggregate Specification contract so partial domain, variable, or binding edits cannot leave metadata inconsistent.
 - Validate SDTM IG, Define-XML, terminology, Reference, and Template compatibility as one dependency set; never upgrade one selection to make another compatible.
-- Implement one atomic SDTM-owned Derivation Plan per domain in SDTM vocabulary for raw-to-domain reads, cross-domain `sdtm_read` reads resolved through the Specification, filters, joins, reshaping, derivations (including cast and terminology-mapping functions inside assignments), sequencing, assertions, and the one declared domain write, then lower each internally to Dataflow IR.
-- Align every per-domain Derivation Plan to exact Specification and input-selection revisions plus server-resolved upstream plan pins. A Specification/input change marks every affected plan misaligned, and a sibling-plan change transitively misaligns the plans that read it, without rewriting any plan; block validation, preview, compilation, and execution until an explicit plan revision restores alignment. The build/packaging orchestration also enforces that the union of per-domain plans covers every derived domain.
-- Validate acyclicity, port/schema compatibility, required target variables, terminology, sequencing, sorting, output coverage, and natural-key uniqueness.
-- Add atomic XLSX/JSON Specification import/export and bounded Derivation Plan preview against exact Raw inputs using the same lowering path as compilation.
-- Implement lineage traversal from Raw variables through stable plan nodes to SDTM variables.
+- Advance the Specification to schema `2.0.0` with reusable typed value contexts and value-level `context_id` references. Keep earlier revisions historical and require an explicit reviewed current-schema save before new execution.
+- Implement one immutable Domain Mapping per generated domain, pinned to exact Specification and Raw input-selection revisions, with many Raw and upstream-SDTM inputs and cycle/reference validation.
+- Implement one immutable sparse Variable Mapping per generated domain, pinned to its Domain Mapping, with Default and reusable value-context cells and ordered qualified multi-source values. Treat mappings as author-maintained lineage, not executable logic.
+- Implement multiple named Python, R, or SAS Code Workareas per domain. Freeze domain/language at creation and make source edits immutable revisions pinned to the current Specification and mappings.
+- Implement asynchronous full-input test and generation runs. Tests return bounded previews/logs and publish nothing. Generation validates exact variables, types, keys, sorting, XPT v5 constraints, and read-back, then atomically exposes program, CSV, XPT, log, and validation evidence.
+- Implement a revisioned exact Output Selection covering every Specification domain with one successful generation or aligned import and verify upstream XPT closure before validation, Define, ADaM context export, or packaging.
+- Remove SDTM graph persistence, routes, lowering, preview, compilation, graph lineage, generated frontend types/components, and graph-linked aCRF targets without changing ADaM/TLF behavior.
 
 ### 5.4 Compiler and runners
 
@@ -174,15 +176,15 @@ workflow coverage.
 ### 5.6 Phase exit criteria
 
 - A caller can register raw datasets, maintain dataset and variable metadata, validate physical-schema agreement, preview bounded rows, and build Raw artifacts.
-- Rebinding a raw dataset to a corrected immutable file makes every dependent SDTM input selection and Derivation Plan alignment stale and stales each validation run, artifact, preview, and execution.
+- Rebinding a raw dataset to a corrected immutable file makes every dependent SDTM input selection and mapping alignment stale and blocks new tests/generations until explicit realignment.
 - End-to-end scenario 3 passes independently with Python and R.
 - Generated SAS is deterministic and produces a valid manifest; unconfigured execution returns the typed expected result.
 - XPT round trips preserve required metadata within format constraints.
 - Define 2.0 and 2.1 pass their bundled XSDs and reconcile with selected datasets.
 - aCRF references and Define leaf/document references reconcile.
 - The complete SDTM package can be assembled and checked without database inspection.
-- A canonical SDTM Specification and Derivation Plan produce equivalent normalized results in Python and R; SAS generation uses the same IR and manifest.
-- Contract tests prove the SDTM and ADaM envelopes are structurally consistent, module-only fields cannot cross their discriminated contracts, stale alignment blocks operations, and no module plan accepts raw backend code.
+- Multiple same-domain/language workareas can generate independently, and each successful run records exact source and input provenance. No automatic cross-language result comparison is performed.
+- Contract tests prove removed SDTM graph/compile/execute routes are absent and all mapping, workarea, run, Output Selection, ETag, idempotency, and status contracts are present.
 
 ## 6. Phase 4: ADaM
 
@@ -204,7 +206,7 @@ workflow coverage.
 
 ### 6.3 ADaM Derivation Plan and execution
 
-- Implement one atomic ADaM-owned Derivation Plan per dataset using the same outer envelope and alignment lifecycle as SDTM (including transitive upstream-plan staleness), aligned to exact ADaM Specification and SDTM input-selection revisions plus server-resolved upstream plan pins; do not create overlapping separately mutable graph-step or variable-rule resources.
+- Implement one atomic ADaM-owned Derivation Plan per dataset with immutable revision alignment and transitive upstream-plan staleness, aligned to exact ADaM Specification and SDTM input-selection revisions plus server-resolved upstream plan pins; do not create overlapping separately mutable graph-step or variable-rule resources.
 - Express nodes in ADaM vocabulary with stable dataset, variable, and parameter references, then lower the validated plan internally to Dataflow IR.
 - Permit reads only from the exact SDTM input selection and explicitly declared upstream ADaM outputs; validate dataset-to-dataset acyclicity and complete output coverage.
 - Use one lowering pipeline for bounded previews, compilation, and execution; record exact input-selection, Specification, Derivation Plan, IR/operator/compiler versions.
@@ -291,7 +293,7 @@ Golden tests compare stable normalized representations where binary formats cont
 
 1. Register exact compatible Standards, Terminology, Reference revisions, and Templates; bind them explicitly to Documents; manually create a Protocol, USDM, and evidence set; review it and generate all Protocol artifacts.
 2. Link Protocol to the Statistical Analysis Plan; author or atomically import all remaining Documents types; generate the required PDF and XLSX artifacts.
-3. Bind separate Raw and SDTM dependencies and an exact Raw input selection; maintain one SDTM Specification and an aligned per-domain Derivation Plan for each produced domain (including at least one cross-domain `sdtm_read`); execute them in Python/R through shared Dataflow IR; reconcile outputs; and produce XPT, aCRF, Define, and cSDRG. Verify the all-domain deliverables reject an incomplete set (`sdtm_output_coverage_incomplete`) until every derived domain is authored and aligned.
+3. Bind separate Raw and SDTM dependencies and an exact Raw input selection; maintain an SDTM Specification, many-source Domain Mappings, Default/VLM Variable Mappings, and multiple Code Workareas; generate a domain from several Raw datasets and an upstream exact XPT; assemble a coherent mixed generated/imported Output Selection; and produce reconciled XPT, aCRF, Define, and cSDRG artifacts.
 4. Bind an ADaM dependency and exact SDTM input selection; maintain one ADaM Specification and an aligned per-dataset Derivation Plan for each produced dataset (including at least one cross-dataset `adam_read`); execute through shared Dataflow IR in Python/R; and produce reconciled XPT, Define, and ADRG.
 5. Bind TLF dependencies; author the shell, bindings, ARS, and ProgramPlan; execute through shared Analysis/Dataflow IR and render outputs while proving presentation is outside compiler IR and templates supply no analysis content.
 6. Assemble a complete study package and independently verify checksums.
@@ -330,7 +332,7 @@ Production deployment runs database migrations as a controlled step, deploys API
 | New registry versions silently alter existing work               | Require exact module-owned selections; never resolve `latest` or auto-upgrade                                                                                                        |
 | Reference or extension corrections overwrite evidence            | Create immutable revisions, require explicit refresh, and stale dependent evidence                                                                                                   |
 | Templates smuggle in clinical content or decisions               | Restrict and validate template schemas to layout, blank structure, and style                                                                                                         |
-| Shared compiler becomes a lowest-common-denominator domain model | Share consistent SDTM/ADaM envelopes and internal IR/operators/backends, while keeping module-specific Specification, Derivation Plan, ProgramPlan, and validators in owning modules |
+| Shared compiler becomes a lowest-common-denominator domain model | Keep SDTM authored programs outside IR; share IR only where ADaM/TLF typed plans require it, with module-owned contracts and validators                               |
 | Language backends implement nodes differently                    | Define language-neutral node semantics and normalized cross-language conformance fixtures                                                                                            |
 | Sponsor rule packs introduce unsafe behavior                     | Allow typed parameters over registered rules only; prohibit executable user code                                                                                                     |
 | Review or reconciliation links cross study boundaries            | Resolve every endpoint through study-scoped typed interfaces before committing                                                                                                       |
@@ -350,4 +352,4 @@ Production deployment runs database migrations as a controlled step, deploys API
 
 ## 11. Release 1 definition of done
 
-Release 1 is done when all five clinical workflows, the shared registries, review, reconciliation, internal Transformation compiler, packaging, module-extension kernel, and controlled integration boundary are available through documented `/api/v1` contracts; every enabled module registers a conflict-free typed descriptor and capabilities; every clinical aggregate owns an exact compatible dependency selection with no implicit upgrades; Reference and extension revisions refresh safely; SDTM and ADaM each expose a consistent Specification/Derivation Plan lifecycle with module-specific semantics and exact revision alignment, while TLF retains ARS/ProgramPlan; all executable plans lower through shared internal IR and backends; Python and R execute equivalent source plans in isolated environments; SAS programs and adapter manifests are generated; Define-XML 2.0/2.1 validates against pinned local schemas; all artifacts carry immutable dependency and compiler provenance with correct staleness; signed outbound events remain minimal and retryable; the ten end-to-end scenarios pass; and a complete package can be independently verified without direct database or object-store manipulation.
+Release 1 is done when all five clinical workflows, the shared registries, review, reconciliation, internal Transformation compiler, packaging, module-extension kernel, and controlled integration boundary are available through documented `/api/v1` contracts; every enabled module registers a conflict-free typed descriptor and capabilities; every clinical aggregate owns an exact compatible dependency selection with no implicit upgrades; Reference and extension revisions refresh safely; SDTM exposes its Specification, mappings, Code Workareas, exact runs, and coherent Output Selection while ADaM retains Specification/Derivation Plan and TLF retains ARS/ProgramPlan; applicable executable plans lower through shared internal IR while SDTM authored code runs only in isolation; Define-XML 2.0/2.1 validates against pinned local schemas; all artifacts carry immutable dependency and execution/compiler provenance with correct staleness; signed outbound events remain minimal and retryable; the ten end-to-end scenarios pass; and a complete package can be independently verified without direct database or object-store manipulation.

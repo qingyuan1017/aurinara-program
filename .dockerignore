@@ -18,4 +18,5 @@ docs
 examples
 frontend
 runners
+!runners/run-program.sh
 tests

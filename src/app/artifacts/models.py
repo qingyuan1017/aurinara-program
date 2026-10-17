@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Uuid
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Integer, String, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -16,6 +16,12 @@ class Artifact(UuidPrimaryKey, Base):
     """Immutable artifact metadata and internal storage locator."""
 
     __tablename__ = "artifacts"
+    __table_args__ = (
+        CheckConstraint(
+            "object_key IS NOT NULL OR platform_object_id IS NOT NULL",
+            name="ck_artifacts_storage_locator",
+        ),
+    )
 
     study_id: Mapped[UUID] = mapped_column(
         Uuid, ForeignKey("studies.id", ondelete="RESTRICT"), nullable=False, index=True
@@ -26,7 +32,7 @@ class Artifact(UuidPrimaryKey, Base):
     owner_id: Mapped[UUID] = mapped_column(Uuid, nullable=False, index=True)
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     media_type: Mapped[str] = mapped_column(String(255), nullable=False)
-    object_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    object_key: Mapped[str | None] = mapped_column(String(255))
     platform_object_id: Mapped[UUID | None] = mapped_column(Uuid, index=True)
     platform_reference_id: Mapped[UUID | None] = mapped_column(Uuid, unique=True)
     sha256: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
@@ -57,6 +63,12 @@ class SourceFile(UuidPrimaryKey, Base):
     """Immutable metadata for one uploaded source object."""
 
     __tablename__ = "source_files"
+    __table_args__ = (
+        CheckConstraint(
+            "object_key IS NOT NULL OR platform_object_id IS NOT NULL",
+            name="ck_source_files_storage_locator",
+        ),
+    )
 
     study_id: Mapped[UUID] = mapped_column(
         Uuid, ForeignKey("studies.id", ondelete="RESTRICT"), nullable=False, index=True
@@ -66,7 +78,7 @@ class SourceFile(UuidPrimaryKey, Base):
     )
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     media_type: Mapped[str] = mapped_column(String(255), nullable=False)
-    object_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    object_key: Mapped[str | None] = mapped_column(String(255))
     platform_object_id: Mapped[UUID | None] = mapped_column(Uuid, index=True)
     platform_reference_id: Mapped[UUID | None] = mapped_column(Uuid, unique=True)
     sha256: Mapped[str] = mapped_column(String(64), nullable=False, index=True)

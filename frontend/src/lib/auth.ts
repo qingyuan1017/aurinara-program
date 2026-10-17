@@ -10,7 +10,7 @@ const listeners = new Set<Listener>()
 
 export function getAuthToken(): string | null {
   try {
-    return localStorage.getItem(TOKEN_KEY)
+    return sessionStorage.getItem(TOKEN_KEY)
   } catch {
     return null
   }
@@ -18,7 +18,7 @@ export function getAuthToken(): string | null {
 
 export function setAuthToken(token: string): void {
   try {
-    localStorage.setItem(TOKEN_KEY, token)
+    sessionStorage.setItem(TOKEN_KEY, token)
   } catch (error) {
     // A sign-in is not complete unless the route guard can read the token back.
     // Surface storage failures to the login screen instead of reporting success
@@ -32,7 +32,7 @@ export function setAuthToken(token: string): void {
 
 export function clearAuthToken(): void {
   try {
-    localStorage.removeItem(TOKEN_KEY)
+    sessionStorage.removeItem(TOKEN_KEY)
   } catch {
     // ignore
   }

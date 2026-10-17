@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Aurinara Cognito managed login with self-registration and required TOTP MFA.
+
+Parameters:
+  Environment: {Type: String, AllowedValues: [staging, production]}
+  ApplicationUrl: {Type: String}
+  DomainPrefix: {Type: String}
+  DataKeyArn: {Type: String}
+  SesSourceArn: {Type: String}
+  CognitoFromAddress: {Type: String}
+
+Conditions:
+  IsProduction: !Equals [!Ref Environment, production]
+
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      UserPoolName: !Sub aurinara-${Environment}
+      UserPoolTier: ESSENTIALS
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      MfaConfiguration: 'ON'
+      EnabledMfas: [SOFTWARE_TOKEN_MFA]
+      AdminCreateUserConfig: {AllowAdminCreateUserOnly: false}
+      AccountRecoverySetting:
+        RecoveryMechanisms: [{Name: verified_email, Priority: 1}]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 14
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+          TemporaryPasswordValidityDays: 3
+      Schema:
+        - {Name: email, AttributeDataType: String, Mutable: true, Required: true}
+      UserAttributeUpdateSettings: {AttributesRequireVerificationBeforeUpdate: [email]}
+      VerificationMessageTemplate: {DefaultEmailOption: CONFIRM_WITH_CODE}
+      EmailConfiguration:
+        EmailSendingAccount: DEVELOPER
+        SourceArn: !Ref SesSourceArn
+        From: !Ref CognitoFromAddress
+      DeletionProtection: !If [IsProduction, ACTIVE, INACTIVE]
+      UserPoolTags: {'aurinara:environment': !Ref Environment}
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref DomainPrefix
+      UserPoolId: !Ref UserPool
+      ManagedLoginVersion: 2
+
+  PlatformResourceServer:
+    Type: AWS::Cognito::UserPoolResourceServer
+    Properties:
+      Identifier: aurinara-platform
+      Name: Aurinara Platform
+      UserPoolId: !Ref UserPool
+      Scopes: [{ScopeName: service, ScopeDescription: Aurinara service access}]
+
+  SpaClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub aurinara-${Environment}-spa
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      SupportedIdentityProviders: [COGNITO]
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [code]
+      AllowedOAuthScopes: [openid, email, profile]
+      CallbackURLs: [!Sub '${ApplicationUrl}/auth/callback']
+      LogoutURLs: [!Sub '${ApplicationUrl}/login']
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      AccessTokenValidity: 15
+      IdTokenValidity: 15
+      RefreshTokenValidity: 1
+      TokenValidityUnits: {AccessToken: minutes, IdToken: minutes, RefreshToken: days}
+  ManagedLoginBranding:
+    Type: AWS::Cognito::ManagedLoginBranding
+    DependsOn: UserPoolDomain
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientId: !Ref SpaClient
+      UseCognitoProvidedValues: true
+
+  ServiceClient:
+    Type: AWS::Cognito::UserPoolClient
+    DependsOn: PlatformResourceServer
+    Properties:
+      ClientName: !Sub aurinara-${Environment}-service
+      UserPoolId: !Ref UserPool
+      GenerateSecret: true
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [client_credentials]
+      AllowedOAuthScopes: [aurinara-platform/service]
+      EnableTokenRevocation: true
+      AccessTokenValidity: 15
+      TokenValidityUnits: {AccessToken: minutes}
+  ServiceClientSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub aurinara/${Environment}/cognito-service-client
+      KmsKeyId: !Ref DataKeyArn
+      SecretString: !Sub
+        - '{"client_id":"${ClientId}","client_secret":"${ClientSecret}"}'
+        - ClientId: !Ref ServiceClient
+          ClientSecret: !GetAtt ServiceClient.ClientSecret
+
+Outputs:
+  UserPoolId: {Value: !Ref UserPool}
+  SpaClientId: {Value: !Ref SpaClient}
+  ServiceClientId: {Value: !Ref ServiceClient}
+  ServiceClientSecretArn: {Value: !Ref ServiceClientSecret}
+  JwtIssuer: {Value: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}'}
+  JwtJwksUrl: {Value: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}/.well-known/jwks.json'}
+  AuthorizeUrl: {Value: !Sub 'https://${DomainPrefix}.auth.${AWS::Region}.amazoncognito.com/oauth2/authorize'}
+  TokenUrl: {Value: !Sub 'https://${DomainPrefix}.auth.${AWS::Region}.amazoncognito.com/oauth2/token'}
+  LogoutUrl: {Value: !Sub 'https://${DomainPrefix}.auth.${AWS::Region}.amazoncognito.com/logout'}

@@ -3,6 +3,7 @@ import {
   Boxes,
   Database,
   FileText,
+  FolderKanban,
   FlaskConical,
   GitCompareArrows,
   LayoutDashboard,
@@ -43,7 +44,10 @@ type NavGroup = {
 const navGroups: NavGroup[] = [
   {
     label: 'Overview',
-    items: [{ title: 'Dashboard', to: '/', icon: LayoutDashboard }],
+    items: [
+      { title: 'Dashboard', to: '/', icon: LayoutDashboard },
+      { title: 'Repository', to: '/repository', icon: FolderKanban },
+    ],
   },
   {
     label: 'Clinical modules',

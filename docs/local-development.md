@@ -1,5 +1,18 @@
 # Local Development
 
+Set `VITE_PLATFORM_API_BASE_URL` in the frontend environment to the Platform
+origin (for example `http://localhost:8002`). Platform must allow the Aurinara
+frontend origin through CORS and accept the Aurinara user-token audience.
+
+For local UI development, copy the checked-in frontend example before starting Vite:
+
+```powershell
+cd frontend
+Copy-Item .env.example .env
+npm install
+npm run dev
+```
+
 ## 1. Target local stack
 
 Local development uses Python 3.13 and Docker Compose. The completed Phase 1 Compose
@@ -21,6 +34,11 @@ PostgreSQL, MinIO, and the development-only webhook receiver through Compose. Py
 R runner images are isolated Compose profiles. The execution dispatcher is run on the host
 for local development so it can invoke Docker without mounting the privileged Docker socket
 inside an application container.
+
+The reviewed R workarea runtime uses R 4.5.1 and installs `jsonlite` and `tidyr` (including
+`tidyr`'s dependencies) from the frozen 2026-10-15 Posit Package Manager snapshot. Additions
+to this runtime are runner-image changes: pin them to a reviewed snapshot, rebuild the image,
+and extend the runner integration test instead of installing packages while a program runs.
 
 ## 2. Prerequisites
 
@@ -82,6 +100,16 @@ $env:PYTHONPATH = "src"; uv run python -m workers.job_worker
 ```
 
 `docker compose up -d ... build-worker` already runs this for you; the manual command is only needed when iterating on the API as a local process.
+
+Code Workarea tests and generations use a separate host-run dispatcher. Start it in another
+terminal before using `Run Test` or `Generate artifacts`:
+
+```powershell
+$env:PYTHONPATH = "src"; uv run python -m workers.execution_dispatcher
+```
+
+The build worker does not claim execution jobs. If a Code Workarea run remains `queued`, first
+verify that this dispatcher process is running.
 
 Run workers through their declared package entry points in `pyproject.toml`; those entry points should call the same worker code used by the container images.
 
@@ -274,6 +302,18 @@ Full workflow:
 pytest tests/e2e
 ```
 
+For SDTM mapping and Code Workarea changes, also regenerate and verify the checked-in frontend contract:
+
+```powershell
+cd frontend
+npm run api:sync
+npm run typecheck
+npm run test -- --run src/routes/_app/sdtm/-sdtm-screens.test.tsx
+npm run build
+```
+
+The API and execution worker must both be running to exercise asynchronous `Run Test` and `Generate artifacts`; otherwise run status remains queued.
+
 ### Integration tests use an isolated database
 
 The integration suites (`tests/integration/test_phase1_core.py`, `test_phase2_documents.py`,
@@ -335,7 +375,7 @@ The exact commands belong in `pyproject.toml` and CI rather than being duplicate
 
 Golden fixtures cover normalized XML, DOCX, PDF, RTF, XLSX, and generated program output. Updating a golden file is a reviewed change: record the generator/template/schema version change and inspect rendered output before accepting it.
 
-Compiler fixtures include canonical, revision-aligned SDTM and ADaM Specification/Derivation Plan pairs and TLF ARS/ProgramPlans together with their normalized internal IR, generated Python/R/SAS source, lineage, and normalized expected results. Contract fixtures verify that SDTM and ADaM share envelope fields, endpoint lifecycle, concurrency, and alignment behavior while rejecting each other's module-only content. Dataflow fixtures run through Python and R and compare schema, declared ordering, exact structural/discrete values, missing-value behavior, and assertions. Statistical fixtures use procedure-declared numeric tolerances and pinned algorithm/library versions; they never hide a different method behind a broad tolerance. Boundary fixtures prove that stale Specification or input revisions block plan operations, TLF rendering is absent from IR, raw backend code is rejected, IR is not publicly writable, and unsupported backend capabilities fail before program publication.
+SDTM fixtures cover Specification value contexts, many-source Domain Mappings, sparse Default/VLM Variable Mapping cells, multiple Code Workareas, full-input test previews, generation validation, coherent mixed generated/imported Output Selections, and staleness. SDTM Python, R, and SAS runs are independently validated; they are not automatic cross-language comparisons. ADaM and TLF compiler fixtures retain normalized IR, generated source, lineage, and cross-language expected results. Boundary fixtures prove stale SDTM mapping pins block new runs, exact Output Selection is required downstream, TLF rendering is absent from IR, IR is not publicly writable, and unsupported ADaM/TLF backend capabilities fail before publication.
 
 The runner integration suite also includes an ADaM-specific fixture that starts from one
 Specification/Derivation Plan pair, lowers it through the ADaM adapter, requires an identical IR
@@ -415,6 +455,28 @@ uv run python -m workers.execution_dispatcher
 ```
 
 Execution tests should include timeout, cancellation, memory pressure, unexpected files, oversized output, nonzero exit, malformed XPT, and attempted network access.
+
+Production sets `EXECUTOR_ADAPTER=ecs`; local development must keep
+`EXECUTOR_ADAPTER=docker`. The ECS-only settings are the cluster ARN, exact
+Python/R runner task definitions, comma-delimited runner subnet and security
+group IDs, the EFS workspace mount, and polling interval. Production runner image
+values must be immutable ECR digest references. Startup rejects local image tags,
+network-enabled runners, MinIO/path-style storage, local asset fallback, and
+loopback callbacks in production.
+
+Production object storage intentionally leaves `OBJECT_STORE_ENDPOINT`,
+`OBJECT_STORE_ACCESS_KEY`, and `OBJECT_STORE_SECRET_KEY` empty. Boto3 then uses
+the ECS task-role credential chain and virtual-host S3 addressing. Production
+database configuration uses `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`,
+`DATABASE_USER`, and the secret-injected `DATABASE_PASSWORD`; `DATABASE_URL`
+remains the local-development path. Pool size, maximum overflow, connection
+timeout, recycle lifetime, and SSL mode are independently configurable.
+
+Job claims carry a UUID lease token and monotonically increasing claim
+generation. Workers renew at less than one third of the lease interval. A stale
+worker cannot complete or publish terminal metadata after ownership changes;
+tests that directly invoke a claimed-job handler must establish the
+`claimed_job(token)` context.
 
 ## 13. Worker and job diagnosis
 

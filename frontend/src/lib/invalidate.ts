@@ -15,8 +15,11 @@ import {
   getGetInputSelectionQueryKey,
   getGetRawContextQueryKey,
   getGetSpecificationQueryKey,
-  getGetPlanQueryKey,
+  getGetDomainMappingQueryKey,
+  getGetVariableMappingQueryKey,
+  getGetImportedDomainQueryKey,
   getGetLineageQueryKey,
+  getListWorkareasQueryKey,
 } from '@/api/generated/sdtm/sdtm'
 import { getGetDefineQueryKey } from '@/api/generated/sdtm-define/sdtm-define'
 import { getGetCsdrgQueryKey } from '@/api/generated/sdtm-csdrg/sdtm-csdrg'
@@ -40,10 +43,13 @@ import { getListArtifactsQueryKey } from '@/api/generated/artifacts/artifacts'
  */
 
 /** Invalidate a set of query keys through one QueryClient. */
-function invalidateKeys(qc: QueryClient, keys: readonly (readonly unknown[])[]): void {
-  for (const queryKey of keys) {
-    void qc.invalidateQueries({ queryKey })
-  }
+function invalidateKeys(
+  qc: QueryClient,
+  keys: readonly (readonly unknown[])[],
+): Promise<void> {
+  return Promise.all(keys.map((queryKey) => qc.invalidateQueries({ queryKey }))).then(
+    () => undefined,
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -133,7 +139,9 @@ export function invalidateRawOperationArtifacts(
 export type SdtmSubResource =
   | 'input-selection'
   | 'specification'
-  | 'derivation-plan'
+  | 'domain-mapping'
+  | 'variable-mapping'
+  | 'code-workareas'
   | 'define'
   | 'csdrg'
   | 'acrf'
@@ -148,15 +156,23 @@ function sdtmSubResourceKeys(
       return [getGetInputSelectionQueryKey(sdtmId)]
     case 'specification':
       return [getGetSpecificationQueryKey(sdtmId)]
-    case 'derivation-plan':
-      // The derivation plan is per-domain. Invalidate the exact per-domain plan
-      // key when a domain is known; otherwise fall back to the bare path prefix
-      // (which TanStack Query matches against every per-domain variant).
+    case 'domain-mapping':
       return [
         domainCode === undefined
-          ? getGetPlanQueryKey(sdtmId)
-          : getGetPlanQueryKey(sdtmId, domainCode),
+          ? getGetDomainMappingQueryKey(sdtmId)
+          : getGetDomainMappingQueryKey(sdtmId, domainCode),
+        domainCode === undefined
+          ? getGetImportedDomainQueryKey(sdtmId)
+          : getGetImportedDomainQueryKey(sdtmId, domainCode),
       ]
+    case 'variable-mapping':
+      return [
+        domainCode === undefined
+          ? getGetVariableMappingQueryKey(sdtmId)
+          : getGetVariableMappingQueryKey(sdtmId, domainCode),
+      ]
+    case 'code-workareas':
+      return [getListWorkareasQueryKey(sdtmId)]
     case 'define':
       return [getGetDefineQueryKey(sdtmId)]
     case 'csdrg':
@@ -167,17 +183,17 @@ function sdtmSubResourceKeys(
 }
 
 /**
- * SDTM authoring write (input-selection / specification / derivation-plan /
- * define / csdrg / aCRF): invalidate the specific sub-resource key AND the
+ * SDTM authoring write (input-selection / specification / mappings /
+ * workareas / define / csdrg / aCRF): invalidate the specific sub-resource key AND the
  * aggregate detail (its revision/ETag is bumped server-side). When the write
  * changes inputs (input-selection), also reload the lineage and raw-context so
  * stale/alignment state reloads.
  *
  * @param withInputContext - force lineage/raw-context invalidation (defaults to
- *   true for `input-selection`, false otherwise). A derivation-plan save may set
- *   this when its graph changes lineage-affecting structure.
- * @param domainCode - for the per-domain `derivation-plan` sub-resource, the
- *   domain whose plan key should be invalidated. Omitted for every other
+ *   true for `input-selection`, false otherwise). A mapping save may set this
+ *   when its declared lineage changes.
+ * @param domainCode - for a per-domain mapping sub-resource, the domain whose
+ *   mapping key should be invalidated. Omitted for every other
  *   sub-resource.
  */
 export function invalidateSdtmSubResource(
@@ -186,7 +202,7 @@ export function invalidateSdtmSubResource(
   sdtmId: string,
   withInputContext: boolean = subResource === 'input-selection',
   domainCode?: string,
-): void {
+): Promise<void> {
   const keys: (readonly unknown[])[] = [
     ...sdtmSubResourceKeys(subResource, sdtmId, domainCode),
     getGetSdtmAggregateQueryKey(sdtmId),
@@ -194,7 +210,7 @@ export function invalidateSdtmSubResource(
   if (withInputContext) {
     keys.push(getGetLineageQueryKey(sdtmId), getGetRawContextQueryKey(sdtmId))
   }
-  invalidateKeys(qc, keys)
+  return invalidateKeys(qc, keys)
 }
 
 /**

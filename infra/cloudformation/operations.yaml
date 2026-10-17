@@ -1,0 +1,352 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Aurinara operational notifications, alarms, dashboard, trail, and budget.
+
+Parameters:
+  Environment: {Type: String, AllowedValues: [staging, production]}
+  AlarmEmail: {Type: String}
+  ClusterName: {Type: String}
+  ApiServiceName: {Type: String}
+  AlbFullName: {Type: String}
+  ApiTargetGroupFullName: {Type: String}
+  DatabaseIdentifier: {Type: String}
+  ProjectionQueueName: {Type: String}
+  ProjectionDlqName: {Type: String}
+  BackupVaultName: {Type: String}
+  DistributionId: {Type: String}
+  ArtifactBucketName: {Type: String}
+  AccessLogBucketName: {Type: String}
+
+Resources:
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub aurinara-${Environment}-alarms
+      KmsMasterKeyId: alias/aws/sns
+  AlarmSubscription:
+    Type: AWS::SNS::Subscription
+    Properties: {Protocol: email, Endpoint: !Ref AlarmEmail, TopicArn: !Ref AlarmTopic}
+
+  ApiUnhealthyTargets:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aurinara-${Environment}-api-unhealthy-targets
+      Namespace: AWS/ApplicationELB
+      MetricName: UnHealthyHostCount
+      Dimensions:
+        - {Name: LoadBalancer, Value: !Ref AlbFullName}
+        - {Name: TargetGroup, Value: !Ref ApiTargetGroupFullName}
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlarmTopic]
+  ApiFiveXx:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aurinara-${Environment}-api-5xx
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_Target_5XX_Count
+      Dimensions: [{Name: LoadBalancer, Value: !Ref AlbFullName}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+  ApiLatency:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aurinara-${Environment}-api-p95-latency
+      Namespace: AWS/ApplicationELB
+      MetricName: TargetResponseTime
+      Dimensions: [{Name: LoadBalancer, Value: !Ref AlbFullName}]
+      ExtendedStatistic: p95
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 2
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+  ApiCpu:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aurinara-${Environment}-api-cpu
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Dimensions: [{Name: ClusterName, Value: !Ref ClusterName}, {Name: ServiceName, Value: !Ref ApiServiceName}]
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlarmTopic]
+  ApiMemory:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aurinara-${Environment}-api-memory
+      Namespace: AWS/ECS
+      MetricName: MemoryUtilization
+      Dimensions: [{Name: ClusterName, Value: !Ref ClusterName}, {Name: ServiceName, Value: !Ref ApiServiceName}]
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 85
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlarmTopic]
+  DatabaseCpu:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aurinara-${Environment}-database-cpu
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Dimensions: [{Name: DBInstanceIdentifier, Value: !Ref DatabaseIdentifier}]
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlarmTopic]
+  DatabaseStorage:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aurinara-${Environment}-database-free-storage
+      Namespace: AWS/RDS
+      MetricName: FreeStorageSpace
+      Dimensions: [{Name: DBInstanceIdentifier, Value: !Ref DatabaseIdentifier}]
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 21474836480
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlarmTopic]
+  DatabaseConnections:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aurinara-${Environment}-database-connections
+      Namespace: AWS/RDS
+      MetricName: DatabaseConnections
+      Dimensions: [{Name: DBInstanceIdentifier, Value: !Ref DatabaseIdentifier}]
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 500
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlarmTopic]
+  ProjectionAge:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aurinara-${Environment}-projection-oldest-message
+      Namespace: AWS/SQS
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions: [{Name: QueueName, Value: !Ref ProjectionQueueName}]
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 5
+      Threshold: 300
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+  ProjectionDlqDepth:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aurinara-${Environment}-projection-dlq
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions: [{Name: QueueName, Value: !Ref ProjectionDlqName}]
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+  BackupFailures:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aurinara-${Environment}-backup-failures
+      Namespace: AWS/Backup
+      MetricName: NumberOfBackupJobsFailed
+      Dimensions: [{Name: BackupVaultName, Value: !Ref BackupVaultName}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+  WafBlocks:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aurinara-${Environment}-waf-block-spike
+      Namespace: AWS/WAFV2
+      MetricName: BlockedRequests
+      Dimensions: [{Name: WebACL, Value: !Sub 'aurinara-${Environment}-edge'}, {Name: Region, Value: Global}, {Name: Rule, Value: ALL}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 500
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+  JobFailures:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aurinara-${Environment}-terminal-job-failures
+      Namespace: Aurinara
+      MetricName: TerminalJobFailures
+      Dimensions: [{Name: Environment, Value: !Ref Environment}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+  ExpiredLeases:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aurinara-${Environment}-expired-leases
+      Namespace: Aurinara
+      MetricName: ExpiredLeases
+      Dimensions: [{Name: Environment, Value: !Ref Environment}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+  OldestQueuedJob:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aurinara-${Environment}-oldest-queued-job
+      Namespace: Aurinara
+      MetricName: OldestQueuedJobSeconds
+      Dimensions: [{Name: Environment, Value: !Ref Environment}]
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 300
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+  PlatformAuthorizationFailures:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aurinara-${Environment}-platform-authorization-failures
+      Namespace: Aurinara
+      MetricName: PlatformAuthorizationFailures
+      Dimensions: [{Name: Environment, Value: !Ref Environment}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+  IntegrationDeliveryFailures:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub aurinara-${Environment}-integration-delivery-failures
+      Namespace: Aurinara
+      MetricName: IntegrationDeliveryFailures
+      Dimensions: [{Name: Environment, Value: !Ref Environment}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  EcsDeploymentFailureRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub aurinara-${Environment}-ecs-deployment-failure
+      EventPattern:
+        source: [aws.ecs]
+        detail-type: [ECS Deployment State Change]
+        detail:
+          eventName: [SERVICE_DEPLOYMENT_FAILED]
+          clusterArn: [{prefix: !Sub 'arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${ClusterName}'}]
+      Targets: [{Id: alarm-topic, Arn: !Ref AlarmTopic}]
+  EventsPublishPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics: [!Ref AlarmTopic]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: events.amazonaws.com}
+            Action: sns:Publish
+            Resource: !Ref AlarmTopic
+  RdsEvents:
+    Type: AWS::RDS::EventSubscription
+    Properties:
+      SubscriptionName: !Sub aurinara-${Environment}-database-events
+      SnsTopicArn: !Ref AlarmTopic
+      SourceType: db-instance
+      SourceIds: [!Ref DatabaseIdentifier]
+      EventCategories: [availability, failover, failure, low storage, maintenance, notification]
+      Enabled: true
+
+  Dashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub aurinara-${Environment}
+      DashboardBody: !Sub |
+        {"widgets":[
+          {"type":"metric","x":0,"y":0,"width":12,"height":6,"properties":{"title":"API","region":"${AWS::Region}","metrics":[["AWS/ApplicationELB","TargetResponseTime","LoadBalancer","${AlbFullName}",{"stat":"p95"}],[".","HTTPCode_Target_5XX_Count",".",".",{"stat":"Sum","yAxis":"right"}]]}},
+          {"type":"metric","x":12,"y":0,"width":12,"height":6,"properties":{"title":"API ECS","region":"${AWS::Region}","metrics":[["AWS/ECS","CPUUtilization","ClusterName","${ClusterName}","ServiceName","${ApiServiceName}"],[".","MemoryUtilization",".",".",".","."]]}},
+          {"type":"metric","x":0,"y":6,"width":12,"height":6,"properties":{"title":"PostgreSQL","region":"${AWS::Region}","metrics":[["AWS/RDS","CPUUtilization","DBInstanceIdentifier","${DatabaseIdentifier}"],[".","DatabaseConnections",".",".",{"yAxis":"right"}],[".","FreeStorageSpace",".","."]]}},
+          {"type":"metric","x":12,"y":6,"width":12,"height":6,"properties":{"title":"Platform queue and jobs","region":"${AWS::Region}","metrics":[["AWS/SQS","ApproximateAgeOfOldestMessage","QueueName","${ProjectionQueueName}"],["Aurinara","ExpiredLeases","Environment","${Environment}"],[".","TerminalJobFailures",".","."]]}},
+          {"type":"metric","x":0,"y":12,"width":24,"height":6,"properties":{"title":"CloudFront","region":"us-east-1","metrics":[["AWS/CloudFront","5xxErrorRate","DistributionId","${DistributionId}","Region","Global",{"stat":"Average"}],[".","Requests",".",".",".",".",{"stat":"Sum","yAxis":"right"}]]}}
+        ]}
+
+  AuditTrail:
+    Type: AWS::CloudTrail::Trail
+    DependsOn: AlarmTopic
+    Properties:
+      TrailName: !Sub aurinara-${Environment}
+      S3BucketName: !Ref AccessLogBucketName
+      S3KeyPrefix: cloudtrail
+      IsLogging: true
+      IsMultiRegionTrail: true
+      IncludeGlobalServiceEvents: true
+      EnableLogFileValidation: true
+      EventSelectors:
+        - IncludeManagementEvents: true
+          ReadWriteType: All
+          DataResources:
+            - Type: AWS::S3::Object
+              Values: [!Sub 'arn:${AWS::Partition}:s3:::${ArtifactBucketName}/']
+
+  MonthlyBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: !Sub aurinara-${Environment}-monthly
+        BudgetLimit: {Amount: !If [IsProduction, 5000, 1500], Unit: USD}
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        CostFilters: {TagKeyValue: [!Sub 'user:aurinara:environment$${Environment}']}
+      NotificationsWithSubscribers:
+        - Notification: {NotificationType: FORECASTED, ComparisonOperator: GREATER_THAN, Threshold: 80, ThresholdType: PERCENTAGE}
+          Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlarmEmail}]
+
+Conditions:
+  IsProduction: !Equals [!Ref Environment, production]
+
+Outputs:
+  AlarmTopicArn: {Value: !Ref AlarmTopic}
+  DashboardName: {Value: !Ref Dashboard}

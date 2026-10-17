@@ -67,6 +67,7 @@ import {
   getGetRawContextQueryKey,
   getGetSpecificationQueryKey,
   getGetLineageQueryKey,
+  getListWorkareasQueryKey,
 } from '@/api/generated/sdtm/sdtm'
 import { getListArtifactsQueryKey } from '@/api/generated/artifacts/artifacts'
 
@@ -183,6 +184,15 @@ describe('Mutation invalidation groups the aggregate + dependent keys (Req 21.6)
       getGetSdtmAggregateQueryKey('sdtm-1'),
       getGetLineageQueryKey('sdtm-1'),
       getGetRawContextQueryKey('sdtm-1'),
+    ])
+  })
+
+  it('SDTM Code Workarea write invalidates the list and aggregate ETag source', async () => {
+    const { qc, spy } = makeClientWithSpy()
+    await invalidateSdtmSubResource(qc, 'code-workareas', 'sdtm-1')
+    expectInvalidated(spy as never, [
+      getListWorkareasQueryKey('sdtm-1'),
+      getGetSdtmAggregateQueryKey('sdtm-1'),
     ])
   })
 

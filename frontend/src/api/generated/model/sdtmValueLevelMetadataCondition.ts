@@ -4,13 +4,6 @@
  * Aurinara Clinical Artifact Platform
  * OpenAPI spec version: 0.1.0
  */
-import type { LiteralExpression } from './literalExpression';
-import type { ColumnExpression } from './columnExpression';
-import type { UnaryExpression } from './unaryExpression';
-import type { BinaryExpression } from './binaryExpression';
-import type { ConditionalExpression } from './conditionalExpression';
-import type { FunctionCallExpression } from './functionCallExpression';
-import type { CustomFunctionCallExpression } from './customFunctionCallExpression';
-import type { ListLiteralExpression } from './listLiteralExpression';
+import type { SdtmValueLevelMetadataConditionAnyOf } from './sdtmValueLevelMetadataConditionAnyOf';
 
-export type SdtmValueLevelMetadataCondition = LiteralExpression | ColumnExpression | UnaryExpression | BinaryExpression | ConditionalExpression | FunctionCallExpression | CustomFunctionCallExpression | ListLiteralExpression;
+export type SdtmValueLevelMetadataCondition = SdtmValueLevelMetadataConditionAnyOf | null;

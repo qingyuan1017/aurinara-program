@@ -1,0 +1,150 @@
+name: aws-deploy
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  security-events: write
+
+concurrency:
+  group: aws-production-delivery
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  BOOTSTRAP_STACK: aurinara-bootstrap
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: staging
+    outputs:
+      application_image: ${{ steps.images.outputs.application_image }}
+      python_image: ${{ steps.images.outputs.python_image }}
+      r_image: ${{ steps.images.outputs.r_image }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOYMENT_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - uses: docker/setup-buildx-action@v3
+      - name: Resolve immutable repository URIs
+        id: repositories
+        shell: bash
+        run: |
+          describe() { aws cloudformation describe-stacks --stack-name "$BOOTSTRAP_STACK" --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text; }
+          echo "application=$(describe ApplicationRepositoryUri)" >> "$GITHUB_OUTPUT"
+          echo "python=$(describe PythonRunnerRepositoryUri)" >> "$GITHUB_OUTPUT"
+          echo "r=$(describe RRunnerRepositoryUri)" >> "$GITHUB_OUTPUT"
+      - name: Build and publish exactly once
+        shell: bash
+        run: |
+          tag="${GITHUB_SHA}"
+          docker buildx build --platform linux/arm64 --provenance=true --sbom=true --push -t "${{ steps.repositories.outputs.application }}:${tag}" .
+          docker buildx build --platform linux/arm64 --provenance=true --sbom=true --push -f runners/python/Dockerfile -t "${{ steps.repositories.outputs.python }}:${tag}" .
+          docker buildx build --platform linux/amd64 --provenance=true --sbom=true --push -f runners/r/Dockerfile -t "${{ steps.repositories.outputs.r }}:${tag}" .
+      - name: Resolve digests
+        id: images
+        shell: bash
+        run: |
+          digest() { aws ecr describe-images --repository-name "$1" --image-ids imageTag="$GITHUB_SHA" --query 'imageDetails[0].imageDigest' --output text; }
+          echo "application_image=${{ steps.repositories.outputs.application }}@$(digest aurinara/application)" >> "$GITHUB_OUTPUT"
+          echo "python_image=${{ steps.repositories.outputs.python }}@$(digest aurinara/python-runner)" >> "$GITHUB_OUTPUT"
+          echo "r_image=${{ steps.repositories.outputs.r }}@$(digest aurinara/r-runner)" >> "$GITHUB_OUTPUT"
+      - uses: aquasecurity/trivy-action@master
+        with: {image-ref: '${{ steps.images.outputs.application_image }}', severity: 'HIGH,CRITICAL', exit-code: '1'}
+      - uses: aquasecurity/trivy-action@master
+        with: {image-ref: '${{ steps.images.outputs.python_image }}', severity: 'HIGH,CRITICAL', exit-code: '1'}
+      - uses: aquasecurity/trivy-action@master
+        with: {image-ref: '${{ steps.images.outputs.r_image }}', severity: 'HIGH,CRITICAL', exit-code: '1'}
+
+  staging:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: {role-to-assume: '${{ vars.AWS_DEPLOYMENT_ROLE_ARN }}', aws-region: '${{ env.AWS_REGION }}'}
+      - name: Package nested templates
+        shell: bash
+        run: |
+          bucket=$(aws cloudformation describe-stacks --stack-name "$BOOTSTRAP_STACK" --query "Stacks[0].Outputs[?OutputKey=='TemplateBucketName'].OutputValue" --output text)
+          aws cloudformation package --template-file infra/cloudformation/environment.yaml --s3-bucket "$bucket" --s3-prefix "templates/${GITHUB_SHA}" --output-template-file packaged.yaml
+      - name: Deploy reviewed staging change set
+        shell: bash
+        env:
+          APPLICATION_IMAGE: ${{ needs.build.outputs.application_image }}
+          PYTHON_RUNNER_IMAGE: ${{ needs.build.outputs.python_image }}
+          R_RUNNER_IMAGE: ${{ needs.build.outputs.r_image }}
+          BASE_DOMAIN: ${{ vars.BASE_DOMAIN }}
+          HOSTED_ZONE_ID: ${{ vars.HOSTED_ZONE_ID }}
+          CERTIFICATE_ARN: ${{ vars.CERTIFICATE_ARN }}
+          COGNITO_DOMAIN_PREFIX: ${{ vars.COGNITO_DOMAIN_PREFIX }}-staging
+          SES_SOURCE_ARN: ${{ vars.SES_SOURCE_ARN }}
+          COGNITO_FROM_ADDRESS: ${{ vars.COGNITO_FROM_ADDRESS }}
+          PLATFORM_PRIVATELINK_SERVICE_NAME: ${{ vars.PLATFORM_PRIVATELINK_SERVICE_NAME }}
+          PLATFORM_PRIVATE_URL: ${{ vars.PLATFORM_PRIVATE_URL }}
+          PLATFORM_AUTHORIZATION_MODE: ${{ vars.PLATFORM_AUTHORIZATION_MODE || 'shadow' }}
+          PLATFORM_PUBLIC_URL: ${{ vars.PLATFORM_PUBLIC_URL }}
+          PLATFORM_PUBLISHER_PRINCIPAL_ARN: ${{ vars.PLATFORM_PUBLISHER_PRINCIPAL_ARN }}
+          ALARM_EMAIL: ${{ vars.ALARM_EMAIL }}
+          CLOUDFORMATION_EXECUTION_ROLE_ARN: ${{ vars.CLOUDFORMATION_EXECUTION_ROLE_ARN }}
+        run: bash scripts/aws-deploy-environment.sh aurinara-staging staging 10.40.0.0/16 db.t4g.medium
+      - name: Publish SPA and smoke test
+        shell: bash
+        env:
+          VITE_PLATFORM_API_BASE_URL: ${{ vars.PLATFORM_PUBLIC_URL }}
+        run: bash scripts/aws-publish-frontend.sh aurinara-staging
+
+  production:
+    needs: [build, staging]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: {role-to-assume: '${{ vars.AWS_DEPLOYMENT_ROLE_ARN }}', aws-region: '${{ env.AWS_REGION }}'}
+      - name: Snapshot database before deployment
+        shell: bash
+        run: |
+          if aws rds describe-db-instances --db-instance-identifier aurinara-production >/dev/null 2>&1; then
+            snapshot="aurinara-production-${GITHUB_RUN_ID}"
+            aws rds create-db-snapshot --db-instance-identifier aurinara-production --db-snapshot-identifier "$snapshot"
+            aws rds wait db-snapshot-completed --db-snapshot-identifier "$snapshot"
+          fi
+      - name: Package and deploy production change set
+        shell: bash
+        env:
+          APPLICATION_IMAGE: ${{ needs.build.outputs.application_image }}
+          PYTHON_RUNNER_IMAGE: ${{ needs.build.outputs.python_image }}
+          R_RUNNER_IMAGE: ${{ needs.build.outputs.r_image }}
+          BASE_DOMAIN: ${{ vars.BASE_DOMAIN }}
+          HOSTED_ZONE_ID: ${{ vars.HOSTED_ZONE_ID }}
+          CERTIFICATE_ARN: ${{ vars.CERTIFICATE_ARN }}
+          COGNITO_DOMAIN_PREFIX: ${{ vars.COGNITO_DOMAIN_PREFIX }}
+          SES_SOURCE_ARN: ${{ vars.SES_SOURCE_ARN }}
+          COGNITO_FROM_ADDRESS: ${{ vars.COGNITO_FROM_ADDRESS }}
+          PLATFORM_PRIVATELINK_SERVICE_NAME: ${{ vars.PLATFORM_PRIVATELINK_SERVICE_NAME }}
+          PLATFORM_PRIVATE_URL: ${{ vars.PLATFORM_PRIVATE_URL }}
+          PLATFORM_AUTHORIZATION_MODE: ${{ vars.PLATFORM_AUTHORIZATION_MODE || 'shadow' }}
+          PLATFORM_PUBLIC_URL: ${{ vars.PLATFORM_PUBLIC_URL }}
+          PLATFORM_PUBLISHER_PRINCIPAL_ARN: ${{ vars.PLATFORM_PUBLISHER_PRINCIPAL_ARN }}
+          ALARM_EMAIL: ${{ vars.ALARM_EMAIL }}
+          CLOUDFORMATION_EXECUTION_ROLE_ARN: ${{ vars.CLOUDFORMATION_EXECUTION_ROLE_ARN }}
+        run: |
+          bucket=$(aws cloudformation describe-stacks --stack-name "$BOOTSTRAP_STACK" --query "Stacks[0].Outputs[?OutputKey=='TemplateBucketName'].OutputValue" --output text)
+          aws cloudformation package --template-file infra/cloudformation/environment.yaml --s3-bucket "$bucket" --s3-prefix "templates/${GITHUB_SHA}" --output-template-file packaged.yaml
+          bash scripts/aws-deploy-environment.sh aurinara-production production 10.60.0.0/16 db.m7g.large
+          aws cloudformation update-termination-protection --enable-termination-protection --stack-name aurinara-production
+      - name: Publish SPA and post-deployment checks
+        shell: bash
+        env:
+          VITE_PLATFORM_API_BASE_URL: ${{ vars.PLATFORM_PUBLIC_URL }}
+        run: bash scripts/aws-publish-frontend.sh aurinara-production

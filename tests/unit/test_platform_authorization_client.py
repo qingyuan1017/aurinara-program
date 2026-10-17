@@ -150,3 +150,26 @@ def test_service_token_requests_cognito_scope_and_resource() -> None:
     client = PlatformAuthorizationClient(settings, httpx.MockTransport(handler))
 
     assert client.service_token() == "token"
+
+
+def test_service_token_omits_nullable_oauth_audience_and_resource() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        command = dict(httpx.QueryParams(request.content.decode()))
+        assert command["scope"] == "aurinara-platform/service"
+        assert "audience" not in command
+        assert "resource" not in command
+        return httpx.Response(200, json={"access_token": "token", "expires_in": 300})
+
+    settings = Settings(
+        _env_file=None,
+        app_env="test",
+        platform_service_token_url="https://issuer.test/token",
+        platform_service_client_id="client",
+        platform_service_client_secret="secret",
+        platform_service_audience=None,
+        platform_service_resource=None,
+        platform_service_scope="aurinara-platform/service",
+    )
+    client = PlatformAuthorizationClient(settings, httpx.MockTransport(handler))
+
+    assert client.service_token() == "token"

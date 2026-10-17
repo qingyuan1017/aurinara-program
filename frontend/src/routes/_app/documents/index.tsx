@@ -16,7 +16,7 @@ import {
   useCreateDocument,
   useListDocuments,
 } from '@/api/generated/documents/documents'
-import { DocumentType } from '@/api/generated/model'
+import { DocumentType } from '@/api/generated/model/documentType'
 import type { DocumentCreate, DocumentResponse } from '@/api/generated/model'
 import { jsonRequest } from '@/lib/requests'
 

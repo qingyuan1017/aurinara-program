@@ -5,7 +5,7 @@ from collections.abc import Iterator
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request, Response, UploadFile, status
+from fastapi import APIRouter, Depends, Header, Query, Request, Response, UploadFile, status
 from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,7 @@ from app.api.dependencies import get_object_storage, get_session
 from app.artifacts.schemas import (
     ArtifactCollection,
     ArtifactResponse,
+    RepositorySourceFileBind,
     SourceFileBulkResponse,
     SourceFileCollection,
     SourceFileResponse,
@@ -34,6 +35,41 @@ def _stream_object(storage: ObjectStorage, object_key: str) -> Iterator[bytes]:
     with storage.open(object_key) as body:
         while chunk := body.read(1024 * 1024):
             yield chunk
+
+
+@router.post(
+    "/studies/{study_id}/source-files:bind-repository",
+    response_model=SourceFileResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def bind_repository_source_file(
+    study_id: UUID,
+    command: RepositorySourceFileBind,
+    response: Response,
+    session: Annotated[Session, Depends(get_session)],
+    principal: Annotated[Principal, Depends(get_principal)],
+    authorization: Annotated[str, Header(alias="Authorization")],
+) -> SourceFileResponse:
+    """Bind an exact authorized Repository version without copying its bytes."""
+
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise ProblemException(
+            status_code=401,
+            code="invalid_token",
+            title="Invalid token",
+            detail="A bearer token is required for Repository binding.",
+        )
+    source_file = service.bind_repository_source_file(
+        session,
+        study_id=study_id,
+        version_id=command.version_id,
+        expected_sha256=command.expected_sha256,
+        user_access_token=token,
+        principal=principal,
+    )
+    response.headers["Location"] = f"/api/v1/source-files/{source_file.id}"
+    return SourceFileResponse.model_validate(source_file)
 
 
 @router.post(
@@ -148,6 +184,13 @@ def download_source_file(
                 logger.warning(
                     "Shared object download unavailable in shadow mode; using legacy bytes"
                 )
+    if source_file.object_key is None:
+        raise ProblemException(
+            status_code=503,
+            code="platform_object_unavailable",
+            title="Platform object unavailable",
+            detail="This source file exists only in Platform storage.",
+        )
     return StreamingResponse(
         _stream_object(storage, source_file.object_key),
         media_type=source_file.media_type,
@@ -217,6 +260,13 @@ def download_artifact(
                 logger.warning(
                     "Shared object download unavailable in shadow mode; using legacy bytes"
                 )
+    if artifact.object_key is None:
+        raise ProblemException(
+            status_code=503,
+            code="platform_object_unavailable",
+            title="Platform object unavailable",
+            detail="This artifact exists only in Platform storage.",
+        )
     return StreamingResponse(
         _stream_object(storage, artifact.object_key),
         media_type=artifact.media_type,

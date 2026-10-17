@@ -13,8 +13,8 @@ import { CSS } from '@dnd-kit/utilities'
 import { cn } from '@/lib/utils'
 
 /**
- * Context for source-to-target transfer DnD (e.g. mapping a source SDTM variable
- * onto a target aCRF annotation, or a raw variable onto a plan node).
+ * Context for source-to-target transfer DnD (e.g. assigning datasets to a
+ * Domain Mapping or qualified source variables to Variable Mapping cells).
  *
  * The pointer drag and the explicit "add link"/select fallback both call
  * {@link TransferContextProps.onTransfer} with the same `{ sourceId, targetId }`

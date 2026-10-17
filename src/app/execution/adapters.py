@@ -152,6 +152,10 @@ class DockerExecutor:
                     )
         stdout = self._bounded(stdout_value)
         stderr = self._bounded(stderr_value)
+        result_directory = request.workspace / ".runner"
+        if result_directory.is_dir():
+            stdout = self._read_result(result_directory / "stdout")
+            stderr = self._read_result(result_directory / "stderr")
         if process.returncode != 0:
             return ExecutionResult(
                 status="failed",
@@ -169,6 +173,12 @@ class DockerExecutor:
 
     def _bounded(self, value: bytes) -> bytes:
         return value[: self.log_limit_bytes]
+
+    def _read_result(self, path: Path) -> bytes:
+        if not path.is_file():
+            return b""
+        with path.open("rb") as handle:
+            return handle.read(self.log_limit_bytes)
 
     def _remove_container(self, execution_id: UUID) -> None:
         with suppress(OSError, subprocess.TimeoutExpired):

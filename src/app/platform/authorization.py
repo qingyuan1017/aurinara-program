@@ -11,6 +11,7 @@ from uuid import UUID
 import httpx
 
 from app.api.auth import Principal
+from app.common.metrics import emit_metric
 from app.common.problems import ProblemException
 from app.config import Settings, get_settings
 
@@ -80,6 +81,11 @@ class PlatformAuthorizationClient:
             cached = self._cache.get(key)
             if cached is not None and cached[1] > time.monotonic():
                 return cached[0]
+            emit_metric(
+                "PlatformAuthorizationFailures",
+                1,
+                environment=get_settings().app_env,
+            )
             raise ProblemException(
                 status_code=503,
                 code="authorization_unavailable",
@@ -157,6 +163,11 @@ class PlatformAuthorizationClient:
                             time.monotonic() + ttl,
                         )
             except (httpx.HTTPError, KeyError, TypeError, ValueError) as error:
+                emit_metric(
+                    "PlatformAuthorizationFailures",
+                    1,
+                    environment=get_settings().app_env,
+                )
                 raise ProblemException(
                     status_code=503,
                     code="authorization_unavailable",
@@ -182,9 +193,11 @@ class PlatformAuthorizationClient:
                 "grant_type": "client_credentials",
                 "client_id": self._client_id,
                 "client_secret": self._client_secret.get_secret_value(),
-                "audience": self._audience,
-                "scope": self._scope,
             }
+            if self._audience:
+                token_command["audience"] = self._audience
+            if self._scope:
+                token_command["scope"] = self._scope
             if self._resource:
                 token_command["resource"] = self._resource
             response = self._client.post(self._token_url, data=token_command)

@@ -200,6 +200,7 @@ def _adam_flow() -> DataflowIR:
     )
     plan = AdamDerivationPlan.model_validate(
         {
+            "dataset": "ADSL",
             "specification_revision": 1,
             "input_selection_revision": 1,
             "nodes": [
@@ -260,6 +261,37 @@ def _run(tmp_path: Path, language: str, image: str) -> list[dict[str, str]]:
     assert result.status == "succeeded", result.stderr.decode(errors="replace")
     with (outputs / "DM.csv").open(encoding="utf-8-sig", newline="") as stream:
         return list(csv.DictReader(stream))
+
+
+def test_r_runner_contains_supported_workarea_packages(tmp_path: Path) -> None:
+    workspace = tmp_path / "r-packages"
+    (workspace / "inputs").mkdir(parents=True)
+    (workspace / "outputs").mkdir()
+    workspace.chmod(0o755)
+    (workspace / "inputs").chmod(0o755)
+    (workspace / "outputs").chmod(0o777)
+    (workspace / "program.R").write_text(
+        'stopifnot(requireNamespace("jsonlite", quietly=TRUE))\n'
+        'stopifnot(requireNamespace("tidyr", quietly=TRUE))\n',
+        encoding="utf-8",
+    )
+
+    result = DockerExecutor().execute(
+        ExecutionRequest(
+            execution_id=uuid4(),
+            language="r",
+            workspace=workspace,
+            image="aurinara-r-runner:local",
+            limits=ExecutionLimits(
+                cpu=1,
+                memory_mb=512,
+                runtime_seconds=30,
+                output_bytes=1_048_576,
+            ),
+        )
+    )
+
+    assert result.status == "succeeded", result.stderr.decode(errors="replace")
 
 
 def test_python_and_r_produce_equivalent_discrete_results(tmp_path: Path) -> None:

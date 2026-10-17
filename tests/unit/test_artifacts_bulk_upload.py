@@ -119,6 +119,30 @@ async def test_bulk_upload_returns_one_source_file_per_part_in_order(
 
 
 @pytest.mark.anyio
+async def test_source_upload_allows_sas_xport_media_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    study_id = uuid4()
+    service = _service(monkeypatch, study_id)
+    session = FakeSession()
+    storage = FakeStorage()
+
+    result = await service.create_source_files_bulk(
+        session,
+        storage,
+        _settings(),
+        study_id,
+        [FakeUpload("dm.xpt", "application/x-sas-xport", b"synthetic-xpt")],
+        PRINCIPAL,  # type: ignore[arg-type]
+    )
+
+    assert len(result) == 1
+    assert result[0].filename == "dm.xpt"
+    assert result[0].media_type == "application/x-sas-xport"
+    assert session.commits == 1
+
+
+@pytest.mark.anyio
 async def test_bulk_upload_rejects_disallowed_media_type_without_committing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -311,9 +311,11 @@ def _sdtm_context(
         or validation.error_count != 0
         or manifest.get("sdtm_revision") != command.sdtm_revision
         or manifest.get("dependency_fingerprint") != command.sdtm_dependency_fingerprint
-        or manifest.get("input_selection_revision") != context["input_selection_revision"]
         or manifest.get("specification_revision") != context["specification_revision"]
-        or manifest.get("plan_set_fingerprint") != context["plan_set_fingerprint"]
+        or manifest.get("output_selection_revision")
+        != context["output_selection_revision"]
+        or manifest.get("output_selection_fingerprint")
+        != context["output_selection_fingerprint"]
     ):
         raise ProblemException(
             status_code=422,

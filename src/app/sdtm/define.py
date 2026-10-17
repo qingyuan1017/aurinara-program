@@ -1,7 +1,7 @@
 """Version-neutral SDTM Define metadata authoring and non-destructive initialization."""
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Response
@@ -39,6 +39,7 @@ from app.sdtm.define_xml import define_schema_fingerprint, render_define_xml
 from app.sdtm.models import (
     SdtmAcrfAnnotation,
     SdtmDefineRevision,
+    SdtmOutputSelection,
     SdtmSpecificationRevision,
     SdtmWorkbench,
 )
@@ -165,6 +166,27 @@ def _output_artifacts(
     specification_revision: int,
     artifact_ids: tuple[UUID, ...],
 ) -> dict[str, Artifact]:
+    selection = session.scalar(
+        select(SdtmOutputSelection).where(SdtmOutputSelection.aggregate_id == workbench.id)
+    )
+    if (
+        selection is None
+        or selection.state != "current"
+        or selection.specification_revision != specification_revision
+    ):
+        raise _conflict(
+            "sdtm_output_selection_required",
+            "Save a current coherent SDTM Output Selection before authoring Define.",
+        )
+    selected_ids = {
+        UUID(str(item["xpt_artifact_id"]))
+        for item in cast(list[dict[str, object]], selection.payload.get("items", []))
+    }
+    if set(artifact_ids) != selected_ids or len(artifact_ids) != len(selected_ids):
+        raise _conflict(
+            "define_output_selection_mismatch",
+            "Define must use the complete exact current SDTM Output Selection.",
+        )
     outputs: dict[str, Artifact] = {}
     for artifact_id in artifact_ids:
         artifact = session.get(Artifact, artifact_id)

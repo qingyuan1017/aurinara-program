@@ -7,8 +7,6 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.transformation.contracts import (
-    CustomFunctionDefinition,
-    DerivationExpression,
     Expression,
     custom_function_calls,
 )
@@ -59,10 +57,32 @@ class SdtmVariable(StrictModel):
     terminology_binding: SdtmTerminologyBinding | None = None
 
 
+class SdtmValueContext(StrictModel):
+    """Reusable reviewer-facing value-level column owned by one domain."""
+
+    id: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")
+    label: str = Field(min_length=1, max_length=120)
+    discriminator_variable: str = Field(pattern=r"^[A-Z][A-Z0-9_]{0,7}$")
+    operator: Literal["eq", "ne", "in"]
+    values: tuple[str | int | float | bool, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_values(self) -> "SdtmValueContext":
+        if self.operator in {"eq", "ne"} and len(self.values) != 1:
+            raise ValueError(f"{self.operator} requires exactly one typed value")
+        serialized = [(type(item).__name__, repr(item)) for item in self.values]
+        if len(serialized) != len(set(serialized)):
+            raise ValueError("context values must be unique")
+        return self
+
+
 class SdtmValueLevelMetadata(StrictModel):
     id: str
     variable: str
-    condition: Expression
+    context_id: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_-]{0,63}$")
+    # Kept only so immutable 1.0.0 revisions remain readable. New 2.0.0
+    # Specifications must use context_id and may not author a condition here.
+    condition: Expression | None = None
     label: str
     data_type: Literal["character", "numeric"]
     length: int | None = Field(default=None, ge=1, le=200)
@@ -78,6 +98,7 @@ class SdtmDomain(StrictModel):
     sort_order: tuple[str, ...] = Field(min_length=1)
     expected_output_name: str = Field(pattern=r"^[a-z][a-z0-9_]{0,7}\.xpt$")
     variables: tuple[SdtmVariable, ...] = Field(min_length=1)
+    value_contexts: tuple[SdtmValueContext, ...] = ()
     value_level_metadata: tuple[SdtmValueLevelMetadata, ...] = ()
 
     @model_validator(mode="after")
@@ -90,12 +111,39 @@ class SdtmDomain(StrictModel):
             raise ValueError("keys and sort order must reference declared variables")
         if any(item.variable not in known for item in self.value_level_metadata):
             raise ValueError("value-level metadata must reference a declared variable")
+        context_ids = [item.id for item in self.value_contexts]
+        if len(context_ids) != len(set(context_ids)):
+            raise ValueError("value context IDs must be unique within a domain")
+        if any(item.discriminator_variable not in known for item in self.value_contexts):
+            raise ValueError("value context discriminators must reference declared variables")
+        if any(
+            item.context_id is not None and item.context_id not in set(context_ids)
+            for item in self.value_level_metadata
+        ):
+            raise ValueError("value-level metadata context_id must resolve within its domain")
         return self
 
 
 class SdtmSpecification(StrictModel):
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.0.0", "2.0.0"] = "2.0.0"
     domains: tuple[SdtmDomain, ...] = Field(min_length=1)
+
+    @model_validator(mode="before")
+    @classmethod
+    def recognize_historical_shape(cls, value: object) -> object:
+        if not isinstance(value, dict) or "schema_version" in value:
+            return value
+        domains = value.get("domains")
+        if isinstance(domains, (list, tuple)) and any(
+            isinstance(item, dict)
+            and any(
+                isinstance(vlm, dict) and vlm.get("condition") is not None
+                for vlm in item.get("value_level_metadata", [])
+            )
+            for item in domains
+        ):
+            return {**value, "schema_version": "1.0.0"}
+        return value
 
     @model_validator(mode="after")
     def unique_domains(self) -> "SdtmSpecification":
@@ -104,11 +152,114 @@ class SdtmSpecification(StrictModel):
         if len(codes) != len(set(codes)) or len(outputs) != len(set(outputs)):
             raise ValueError("domain codes and output names must be unique")
         if any(
-            custom_function_calls(item.condition)
+            item.condition is not None and custom_function_calls(item.condition)
             for domain in self.domains
             for item in domain.value_level_metadata
         ):
-            raise ValueError("custom functions may only be called from a Derivation Plan")
+            raise ValueError("custom functions are not supported in SDTM value-level conditions")
+        if self.schema_version == "2.0.0":
+            for domain in self.domains:
+                for item in domain.value_level_metadata:
+                    if item.condition is not None or item.context_id is None:
+                        raise ValueError(
+                            "2.0.0 value-level metadata must reference context_id only"
+                        )
+        return self
+
+
+class SdtmDomainMappingWrite(StrictModel):
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    raw_datasets: tuple[str, ...] = ()
+    upstream_domains: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_inputs(self) -> "SdtmDomainMappingWrite":
+        if not self.raw_datasets and not self.upstream_domains:
+            raise ValueError("a domain mapping requires at least one input")
+        for values, label in (
+            (self.raw_datasets, "Raw datasets"),
+            (self.upstream_domains, "upstream domains"),
+        ):
+            if len(values) != len(set(values)):
+                raise ValueError(f"{label} must be unique")
+        return self
+
+
+class SdtmQualifiedSource(StrictModel):
+    source_type: Literal["raw", "sdtm"]
+    dataset: str = Field(pattern=r"^[A-Z][A-Z0-9_]{0,31}$")
+    variable: str = Field(pattern=r"^[A-Z][A-Z0-9_]{0,31}$")
+
+
+class SdtmVariableMappingCell(StrictModel):
+    target_variable: str = Field(pattern=r"^[A-Z][A-Z0-9_]{0,7}$")
+    context_id: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_-]{0,63}$")
+    sources: tuple[SdtmQualifiedSource, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def unique_sources(self) -> "SdtmVariableMappingCell":
+        identities = [(item.source_type, item.dataset, item.variable) for item in self.sources]
+        if len(identities) != len(set(identities)):
+            raise ValueError("cell sources must be unique")
+        return self
+
+
+class SdtmVariableMappingWrite(StrictModel):
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    cells: tuple[SdtmVariableMappingCell, ...] = ()
+
+    @model_validator(mode="after")
+    def unique_cells(self) -> "SdtmVariableMappingWrite":
+        identities = [(item.target_variable, item.context_id) for item in self.cells]
+        if len(identities) != len(set(identities)):
+            raise ValueError("target variable/context cells must be unique")
+        return self
+
+
+class SdtmCodeWorkareaCreate(StrictModel):
+    name: str = Field(min_length=1, max_length=120)
+    domain: str = Field(pattern=r"^[A-Z][A-Z0-9]{1,7}$")
+    language: Literal["python", "r", "sas"]
+    source: str = Field(default="", max_length=1_000_000)
+
+
+class SdtmCodeWorkareaUpdate(StrictModel):
+    name: str = Field(min_length=1, max_length=120)
+    source: str = Field(max_length=1_000_000)
+
+
+class SdtmUpstreamArtifactSelection(StrictModel):
+    domain: str = Field(pattern=r"^[A-Z][A-Z0-9]{1,7}$")
+    artifact_id: UUID
+
+
+class SdtmWorkareaRunCreate(StrictModel):
+    upstream_artifacts: tuple[SdtmUpstreamArtifactSelection, ...] = ()
+
+    @model_validator(mode="after")
+    def unique_upstream_domains(self) -> "SdtmWorkareaRunCreate":
+        domains = [item.domain for item in self.upstream_artifacts]
+        if len(domains) != len(set(domains)):
+            raise ValueError("upstream artifact domains must be unique")
+        return self
+
+
+class SdtmOutputSelectionItem(StrictModel):
+    domain: str = Field(pattern=r"^[A-Z][A-Z0-9]{1,7}$")
+    provider_type: Literal["generation", "imported"]
+    provider_revision_id: UUID
+    xpt_artifact_id: UUID
+
+
+class SdtmOutputSelectionWrite(StrictModel):
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    items: tuple[SdtmOutputSelectionItem, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def unique_domains(self) -> "SdtmOutputSelectionWrite":
+        domains = [item.domain for item in self.items]
+        if len(domains) != len(set(domains)):
+            raise ValueError("output selection domains must be unique")
         return self
 
 
@@ -149,273 +300,27 @@ class SdtmSpecificationInitializationOptions(StrictModel):
     domains: tuple[SdtmStandardDomainOption, ...]
 
 
-class RawReadNode(StrictModel):
-    node_type: Literal["raw_read"]
-    id: str
-    raw_dataset_code: str
+class SdtmImportedVariable(StrictModel):
+    """Factual physical metadata extracted from an imported XPT member."""
+
+    name: str = Field(pattern=r"^[A-Z][A-Z0-9_]{0,7}$")
+    label: str | None = Field(default=None, max_length=40)
+    data_type: Literal["character", "numeric"]
+    length: int | None = Field(default=None, ge=1, le=200)
+    ordinal: int = Field(ge=1)
 
 
-class SdtmReadNode(StrictModel):
-    node_type: Literal["sdtm_read"]
-    id: str = Field(min_length=1, max_length=128)
-    dataset: str = Field(pattern=r"^[A-Z][A-Z0-9]{1,7}$")  # upstream SDTM domain code
+class SdtmImportedSchema(StrictModel):
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    domain_code: str = Field(pattern=r"^[A-Z][A-Z0-9]{1,7}$")
+    row_count: int = Field(ge=0)
+    variables: tuple[SdtmImportedVariable, ...] = Field(min_length=1)
 
 
-class FilterNode(StrictModel):
-    node_type: Literal["filter"]
-    id: str
-    predicate: Expression
-
-
-def _expression_column_references(
-    expression: DerivationExpression,
-) -> tuple[tuple[str, str], ...]:
-    """Collect typed column references without interpreting function semantics."""
-
-    if expression.kind == "column":
-        return ((expression.dataset, expression.column),)
-    if expression.kind == "unary":
-        return _expression_column_references(expression.operand)
-    if expression.kind == "binary":
-        return (
-            *_expression_column_references(expression.left),
-            *_expression_column_references(expression.right),
-        )
-    if expression.kind == "conditional":
-        references: list[tuple[str, str]] = []
-        for branch in expression.branches:
-            references.extend(_expression_column_references(branch.when))
-            references.extend(_expression_column_references(branch.then))
-        references.extend(_expression_column_references(expression.otherwise))
-        return tuple(references)
-    if expression.kind == "function":
-        references = []
-        for argument in expression.arguments:
-            if argument.kind != "list_literal":
-                references.extend(_expression_column_references(argument))
-        return tuple(references)
-    if expression.kind == "custom_function":
-        references = []
-        for argument in expression.arguments:
-            references.extend(_expression_column_references(argument))
-        return tuple(references)
-    if expression.kind == "cast":
-        return _expression_column_references(expression.value)
-    if expression.kind == "terminology_map":
-        return _expression_column_references(expression.value)
-    return ()
-
-
-class DeriveNode(StrictModel):
-    node_type: Literal["derive"]
-    id: str
-    target_domain: str
-    assignments: dict[str, DerivationExpression] = Field(min_length=1)
-    assignment_order: tuple[str, ...] = ()
-
-    @model_validator(mode="after")
-    def ordered_assignment_dependencies(self) -> "DeriveNode":
-        """Preserve recipe order independently of JSON-object key ordering."""
-
-        targets = set(self.assignments)
-        order = self.assignment_order
-        if order:
-            if len(order) != len(set(order)) or set(order) != targets:
-                raise ValueError("assignment_order must list every assignment exactly once")
-        else:
-            # Revisions saved before assignment_order existed may have had their
-            # JSON-object keys reordered by PostgreSQL JSONB. Recover a stable,
-            # dependency-safe order instead of treating that storage order as
-            # authored intent.
-            dependencies_by_target = {
-                target: {
-                    column
-                    for dataset, column in _expression_column_references(expression)
-                    if dataset == self.target_domain and column in targets
-                }
-                for target, expression in self.assignments.items()
-            }
-            resolved: list[str] = []
-            resolved_targets: set[str] = set()
-            while len(resolved) < len(targets):
-                ready = sorted(
-                    target
-                    for target in targets - resolved_targets
-                    if dependencies_by_target[target] <= resolved_targets
-                )
-                if not ready:
-                    raise ValueError("assignment dependencies must not contain a cycle")
-                resolved.extend(ready)
-                resolved_targets.update(ready)
-            order = tuple(resolved)
-            self.assignment_order = order
-
-        available: set[str] = set()
-        for target in order:
-            expression = self.assignments[target]
-            dependencies = {
-                column
-                for dataset, column in _expression_column_references(expression)
-                if dataset == self.target_domain and column in targets
-            }
-            unavailable = sorted(dependencies - available)
-            if unavailable:
-                joined = ", ".join(unavailable)
-                raise ValueError(
-                    f"assignment '{target}' references target-domain variable(s) {joined} "
-                    "before they are derived; reorder the assignments and remove cycles"
-                )
-            available.add(target)
-        self.assignments = {target: self.assignments[target] for target in order}
-        return self
-
-
-class SelectNode(StrictModel):
-    node_type: Literal["select"]
-    id: str
-    columns: tuple[str, ...] = Field(min_length=1)
-
-
-class JoinNode(StrictModel):
-    node_type: Literal["join"]
-    id: str
-    join_type: Literal["inner", "left", "right", "full"]
-    left_input: str
-    right_input: str
-    keys: tuple[tuple[str, str], ...] = Field(min_length=1)
-    right_suffix: str = Field(default="_right", pattern=r"^_[A-Za-z0-9_]{1,16}$")
-
-
-class UnionNode(StrictModel):
-    node_type: Literal["union"]
-    id: str
-
-
-class SdtmAggregation(StrictModel):
-    operation: Literal["count", "sum", "mean", "min", "max"]
-    column: str | None = None
-
-    @model_validator(mode="after")
-    def source_required(self) -> "SdtmAggregation":
-        if self.operation != "count" and self.column is None:
-            raise ValueError("numeric aggregations require a source column")
-        return self
-
-
-class AggregateNode(StrictModel):
-    node_type: Literal["aggregate"]
-    id: str
-    group_by: tuple[str, ...]
-    aggregations: dict[str, SdtmAggregation] = Field(min_length=1)
-
-
-class PivotLongerNode(StrictModel):
-    node_type: Literal["pivot_longer"]
-    id: str
-    id_columns: tuple[str, ...]
-    value_columns: tuple[str, ...] = Field(min_length=1)
-    name_column: str
-    value_column: str
-
-
-class SequenceNode(StrictModel):
-    node_type: Literal["sequence"]
-    id: str
-    group_by: tuple[str, ...] = ()
-    order_by: tuple[str, ...] = Field(min_length=1)
-    target_column: str
-    start: int = Field(default=1, ge=0)
-
-
-class SortNode(StrictModel):
-    node_type: Literal["sort"]
-    id: str
-    keys: tuple[str, ...] = Field(min_length=1)
-
-
-class AssertNode(StrictModel):
-    node_type: Literal["assert"]
-    id: str
-    predicate: Expression
-    issue_code: str
-
-
-class DomainWriteNode(StrictModel):
-    node_type: Literal["domain_write"]
-    id: str
-    domain: str
-
-
-SdtmPlanNode = Annotated[
-    RawReadNode
-    | SdtmReadNode
-    | FilterNode
-    | DeriveNode
-    | SelectNode
-    | JoinNode
-    | UnionNode
-    | AggregateNode
-    | PivotLongerNode
-    | SequenceNode
-    | SortNode
-    | AssertNode
-    | DomainWriteNode,
-    Field(discriminator="node_type"),
-]
-
-
-class PlanEdge(StrictModel):
-    source_node: str
-    target_node: str
-
-
-class SdtmDerivationPlan(StrictModel):
-    schema_version: Literal["1.2.0"] = "1.2.0"
-    domain: str = Field(pattern=r"^[A-Z][A-Z0-9]{1,7}$")
+class SdtmImportedDomainCreate(StrictModel):
+    source_file_id: UUID
+    expected_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     specification_revision: int = Field(ge=1)
-    input_selection_revision: int = Field(ge=1)
-    custom_functions: tuple[CustomFunctionDefinition, ...] = ()
-    nodes: tuple[SdtmPlanNode, ...] = Field(min_length=1)
-    edges: tuple[PlanEdge, ...] = ()
-
-    @model_validator(mode="after")
-    def valid_graph(self) -> "SdtmDerivationPlan":
-        function_ids = [item.id for item in self.custom_functions]
-        if len(function_ids) != len(set(function_ids)):
-            raise ValueError("custom function IDs must be unique")
-        ids = [node.id for node in self.nodes]
-        if len(ids) != len(set(ids)):
-            raise ValueError("plan node IDs must be unique")
-        known = set(ids)
-        indegree = dict.fromkeys(ids, 0)
-        outgoing: dict[str, list[str]] = {item: [] for item in ids}
-        for edge in self.edges:
-            if edge.source_node not in known or edge.target_node not in known:
-                raise ValueError("plan edges must resolve to known nodes")
-            indegree[edge.target_node] += 1
-            outgoing[edge.source_node].append(edge.target_node)
-        queue = [item for item, count in indegree.items() if count == 0]
-        visited = 0
-        while queue:
-            current = queue.pop()
-            visited += 1
-            for target in outgoing[current]:
-                indegree[target] -= 1
-                if indegree[target] == 0:
-                    queue.append(target)
-        if visited != len(ids):
-            raise ValueError("plan graph must be acyclic")
-        edge_pairs = {(edge.source_node, edge.target_node) for edge in self.edges}
-        for node in self.nodes:
-            if node.node_type == "join" and (
-                node.left_input == node.right_input
-                or node.left_input not in known
-                or node.right_input not in known
-                or (node.left_input, node.id) not in edge_pairs
-                or (node.right_input, node.id) not in edge_pairs
-            ):
-                raise ValueError("join inputs must be distinct declared incoming nodes")
-        return self
 
 
 class AcrfRegion(StrictModel):
@@ -446,15 +351,8 @@ class AcrfRawVariableLink(StrictModel):
     raw_variable_id: UUID
 
 
-class AcrfPlanNodeLink(StrictModel):
-    target_type: Literal["derivation_plan_node"]
-    plan_revision: int = Field(ge=1)
-    node_id: str = Field(min_length=1, max_length=128)
-    domain: str | None = Field(default=None, pattern=r"^[A-Z][A-Z0-9]{1,7}$")
-
-
 AcrfLink = Annotated[
-    AcrfSdtmVariableLink | AcrfRawVariableLink | AcrfPlanNodeLink,
+    AcrfSdtmVariableLink | AcrfRawVariableLink,
     Field(discriminator="target_type"),
 ]
 

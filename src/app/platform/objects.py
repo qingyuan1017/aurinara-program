@@ -16,6 +16,22 @@ from app.platform.authorization import PlatformAuthorizationClient, get_platform
 class PlatformObjectRegistration:
     object_id: UUID
     reference_id: UUID
+    external_reference: str
+
+
+@dataclass(frozen=True, slots=True)
+class PlatformRepositoryVersion:
+    """Authorized immutable Repository version metadata used for product binding."""
+
+    id: UUID
+    study_id: UUID
+    object_id: UUID
+    filename: str
+    media_type: str
+    sha256: str
+    size: int
+    classification: str
+    source_status: str
 
 
 class PlatformObjectClient:
@@ -44,6 +60,7 @@ class PlatformObjectClient:
             response = self._client.post(
                 f"{self._base_url}/v1/objects/{object_id}/download",
                 headers={"Authorization": f"Bearer {self._authorization.service_token()}"},
+                json={"authorization_action": "artifact.object.download"},
             )
             response.raise_for_status()
             url = str(response.json()["url"])
@@ -65,6 +82,7 @@ class PlatformObjectClient:
         media_type: str,
         classification: str,
         external_reference: str,
+        repository: dict[str, object] | None = None,
     ) -> PlatformObjectRegistration:
         """Upload one verified file and register its product reference."""
 
@@ -78,6 +96,7 @@ class PlatformObjectClient:
                 json={
                     "study_id": str(study_id),
                     "owner_product": "aurinara",
+                    "authorization_action": "artifact.object.upload",
                     "classification": classification,
                     "media_type": media_type,
                     "expected_sha256": sha256,
@@ -110,16 +129,130 @@ class PlatformObjectClient:
             referenced = self._client.post(
                 f"{self._base_url}/v1/objects/{object_id}/references",
                 headers=headers,
-                json={"product": "aurinara", "external_reference": external_reference},
+                json={
+                    "product": "aurinara",
+                    "authorization_action": "artifact.object.reference",
+                    "external_reference": external_reference,
+                    "idempotency_key": external_reference,
+                    **({"repository": repository} if repository is not None else {}),
+                },
             )
             referenced.raise_for_status()
             return PlatformObjectRegistration(
                 object_id=object_id,
                 reference_id=UUID(referenced.json()["id"]),
+                external_reference=external_reference,
             )
         except ProblemException:
             raise
         except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as error:
+            raise self._unavailable() from error
+
+    def publish_repository_metadata(
+        self,
+        registration: PlatformObjectRegistration,
+        repository: dict[str, object],
+    ) -> None:
+        """Atomically attach exact Repository metadata to an existing object reference."""
+
+        if not self._base_url:
+            raise self._unavailable()
+        try:
+            response = self._client.post(
+                f"{self._base_url}/v1/objects/{registration.object_id}/references",
+                headers={"Authorization": f"Bearer {self._authorization.service_token()}"},
+                json={
+                    "product": "aurinara",
+                    "authorization_action": "artifact.object.reference",
+                    "external_reference": registration.external_reference,
+                    "idempotency_key": registration.external_reference,
+                    "repository": repository,
+                },
+            )
+            response.raise_for_status()
+        except ProblemException:
+            raise
+        except httpx.HTTPError as error:
+            raise self._unavailable() from error
+
+    def publish_existing_repository_reference(
+        self,
+        reference_id: UUID,
+        repository: dict[str, object],
+    ) -> None:
+        """Publish reviewed metadata against an exact existing Platform reference."""
+
+        if not self._base_url:
+            raise self._unavailable()
+        try:
+            response = self._client.post(
+                f"{self._base_url}/v1/object-references/{reference_id}/repository",
+                headers={"Authorization": f"Bearer {self._authorization.service_token()}"},
+                json=repository,
+            )
+            response.raise_for_status()
+        except ProblemException:
+            raise
+        except httpx.HTTPError as error:
+            raise self._unavailable() from error
+
+    def resolve_repository_version(
+        self, version_id: UUID, user_access_token: str
+    ) -> PlatformRepositoryVersion:
+        """Resolve a version through the signed-in user's Platform authorization."""
+
+        if not self._base_url:
+            raise self._unavailable()
+        try:
+            response = self._client.get(
+                f"{self._base_url}/v1/repository/versions/{version_id}",
+                headers={"Authorization": f"Bearer {user_access_token}"},
+            )
+            response.raise_for_status()
+            payload = response.json()
+            return PlatformRepositoryVersion(
+                id=UUID(payload["id"]),
+                study_id=UUID(payload["study_id"]),
+                object_id=UUID(payload["object_id"]),
+                filename=str(payload["filename"]),
+                media_type=str(payload["media_type"]),
+                sha256=str(payload["sha256"]),
+                size=int(payload["size_bytes"]),
+                classification=str(payload["classification"]),
+                source_status=str(payload["source_status"]),
+            )
+        except ProblemException:
+            raise
+        except (httpx.HTTPError, KeyError, TypeError, ValueError) as error:
+            raise self._unavailable() from error
+
+    def bind_repository_object(
+        self, *, object_id: UUID, external_reference: str
+    ) -> PlatformObjectRegistration:
+        """Create the Aurinara reference for an explicitly selected Repository version."""
+
+        if not self._base_url:
+            raise self._unavailable()
+        try:
+            response = self._client.post(
+                f"{self._base_url}/v1/objects/{object_id}/references",
+                headers={"Authorization": f"Bearer {self._authorization.service_token()}"},
+                json={
+                    "product": "aurinara",
+                    "authorization_action": "artifact.object.reference",
+                    "external_reference": external_reference,
+                    "idempotency_key": external_reference,
+                },
+            )
+            response.raise_for_status()
+            return PlatformObjectRegistration(
+                object_id=object_id,
+                reference_id=UUID(response.json()["id"]),
+                external_reference=external_reference,
+            )
+        except ProblemException:
+            raise
+        except (httpx.HTTPError, KeyError, TypeError, ValueError) as error:
             raise self._unavailable() from error
 
     def release_reference(self, reference_id: UUID) -> None:

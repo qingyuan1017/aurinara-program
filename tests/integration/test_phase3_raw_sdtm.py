@@ -26,7 +26,9 @@ from app.execution.adapters import ExecutionRequest, ExecutionResult
 from app.execution.jobs import JobService
 from app.execution.worker import process_execution_job
 from app.main import create_app
+from app.sdtm.contracts import SdtmDomain
 from app.sdtm.define_xml import validate_define_xml
+from app.sdtm.xpt import build_xpt_v5
 from app.standards.models import StandardAsset, StandardProduct, StandardVersion
 from tests.conftest import make_test_settings
 from tests.integration.test_phase1_core import MemoryStorage, TestTokenVerifier
@@ -128,7 +130,9 @@ async def phase3_client() -> AsyncIterator[AsyncClient]:
             text(
                 "TRUNCATE execution_runs, sdtm_csdrg_revisions, sdtm_define_revisions, "
                 "sdtm_acrf_annotations, "
-                "sdtm_derivation_plan_revisions, "
+                "sdtm_output_selections, sdtm_code_revisions, sdtm_code_workareas, "
+                "sdtm_variable_mapping_revisions, sdtm_domain_mapping_revisions, "
+                "sdtm_domain_source_selections, sdtm_imported_domain_revisions, "
                 "sdtm_specification_revisions, "
                 "sdtm_input_selections, raw_variables, raw_dataset_file_bindings, raw_datasets, "
                 "protocol_evidence, protocol_usdm_documents, document_contents, "
@@ -234,6 +238,135 @@ async def test_sdtm_specification_xlsx_export_and_idempotent_import(
 
 
 @pytest.mark.anyio
+async def test_existing_sdtm_xpt_becomes_the_selected_domain_source(
+    phase3_client: AsyncClient,
+) -> None:
+    client = phase3_client
+    headers = {"Authorization": "Bearer test-token"}
+    study = await client.post(
+        "/api/v1/studies",
+        headers=headers,
+        json={"code": "P3-XPT-IN", "name": "Existing SDTM import"},
+    )
+    sdtm = await client.post(
+        f"/api/v1/studies/{study.json()['id']}/sdtms",
+        headers=headers,
+        json={"code": "SDTM", "name": "SDTM"},
+    )
+    domain = SdtmDomain.model_validate(
+        {
+            "code": "DM",
+            "label": "Demographics",
+            "domain_class": "Special Purpose",
+            "structure": "One record per subject",
+            "keys": ["USUBJID"],
+            "sort_order": ["USUBJID"],
+            "expected_output_name": "dm.xpt",
+            "variables": [
+                {
+                    "name": "USUBJID",
+                    "label": "Unique Subject Identifier",
+                    "data_type": "character",
+                    "length": 40,
+                    "role": "Identifier",
+                    "core": "Req",
+                    "origin": "Derived",
+                    "derived": True,
+                }
+            ],
+        }
+    )
+    specification = await client.put(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/specification",
+        headers={**headers, "If-Match": sdtm.headers["etag"]},
+        json={"domains": [domain.model_dump(mode="json")]},
+    )
+    assert specification.status_code == 200, specification.text
+    product = build_xpt_v5(b"USUBJID\nP3-XPT-IN-01\n", domain)
+    source = await client.post(
+        f"/api/v1/studies/{study.json()['id']}/source-files",
+        headers=headers,
+        files={"file": ("dm.xpt", product.data, "application/x-sas-xport")},
+    )
+    assert source.status_code == 201, source.text
+    current = await client.get(f"/api/v1/sdtms/{sdtm.json()['id']}", headers=headers)
+    accepted = await client.post(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/domains/DM/imported-dataset",
+        headers={
+            **headers,
+            "If-Match": current.headers["etag"],
+            "Idempotency-Key": "existing-dm-xpt-1",
+        },
+        json={
+            "source_file_id": source.json()["id"],
+            "expected_sha256": source.json()["sha256"],
+            "specification_revision": specification.json()["revision"],
+        },
+    )
+
+    assert accepted.status_code == 201, accepted.text
+    assert accepted.json()["domain"] == "DM"
+    assert accepted.json()["selected_as_source"] is True
+    assert accepted.json()["extracted_schema"]["row_count"] == 1
+    assert accepted.json()["extracted_schema"]["variables"][0]["name"] == "USUBJID"
+    loaded = await client.get(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/domains/DM/imported-dataset",
+        headers=headers,
+    )
+    assert loaded.status_code == 200, loaded.text
+    assert loaded.json()["artifact_id"] == accepted.json()["artifact_id"]
+    assert loaded.json()["selected_as_source"] is True
+
+    current = await client.get(f"/api/v1/sdtms/{sdtm.json()['id']}", headers=headers)
+    output_selection = await client.put(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/output-selection",
+        headers={**headers, "If-Match": current.headers["etag"]},
+        json={
+            "items": [
+                {
+                    "domain": "DM",
+                    "provider_type": "imported",
+                    "provider_revision_id": accepted.json()["id"],
+                    "xpt_artifact_id": accepted.json()["artifact_id"],
+                }
+            ]
+        },
+    )
+    assert output_selection.status_code == 200, output_selection.text
+
+    validation = await client.post(f"/api/v1/sdtms/{sdtm.json()['id']}/validate", headers=headers)
+    assert validation.status_code == 200, validation.text
+
+    adam = await client.post(
+        f"/api/v1/studies/{study.json()['id']}/adams",
+        headers=headers,
+        json={"code": "ADAM", "name": "ADaM"},
+    )
+    current_sdtm = await client.get(f"/api/v1/sdtms/{sdtm.json()['id']}", headers=headers)
+    dependencies = await client.get(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/dependencies", headers=headers
+    )
+    selected = await client.put(
+        f"/api/v1/adams/{adam.json()['id']}/input-selection",
+        headers={**headers, "If-Match": adam.headers["etag"]},
+        json={
+            "sdtm_id": sdtm.json()["id"],
+            "sdtm_revision": current_sdtm.json()["revision"],
+            "validation_run_id": validation.json()["id"],
+            "xpt_artifacts": [
+                {
+                    "dataset_code": "DM",
+                    "artifact_id": accepted.json()["artifact_id"],
+                    "checksum": source.json()["sha256"],
+                }
+            ],
+            "sdtm_dependency_fingerprint": dependencies.json()["fingerprint"],
+        },
+    )
+    assert selected.status_code == 200, selected.text
+
+
+@pytest.mark.anyio
 async def test_sdtm_specification_initializes_from_selected_industry_standard(
     phase3_client: AsyncClient,
 ) -> None:
@@ -277,9 +410,11 @@ async def test_sdtm_specification_initializes_from_selected_industry_standard(
     )
     assert initialized.status_code == 200, initialized.text
     assert initialized.json()["payload"]["domains"][0]["code"] == "DM"
-    assert [
-        item["name"] for item in initialized.json()["payload"]["domains"][0]["variables"]
-    ] == ["STUDYID", "USUBJID", "AGE"]
+    assert [item["name"] for item in initialized.json()["payload"]["domains"][0]["variables"]] == [
+        "STUDYID",
+        "USUBJID",
+        "AGE",
+    ]
 
     manually_edited = initialized.json()["payload"]
     manually_edited["domains"][0]["label"] = "Manual demographics label"
@@ -589,43 +724,78 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
         },
     )
     assert specification.status_code == 200, specification.text
-    plan = await client.put(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/domains/DM/derivation-plan",
-        headers={**headers, "If-Match": "*"},
+    domain_mapping = await client.put(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/domains/DM/domain-mapping",
+        headers={**headers, "If-Match": specification.headers["etag"]},
+        json={"raw_datasets": ["DEMOG"], "upstream_domains": []},
+    )
+    assert domain_mapping.status_code == 200, domain_mapping.text
+    variable_mapping = await client.put(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/domains/DM/variable-mapping",
+        headers={**headers, "If-Match": domain_mapping.headers["etag"]},
         json={
-            "domain": "DM",
-            "specification_revision": 1,
-            "input_selection_revision": 1,
-            "nodes": [
-                {"node_type": "raw_read", "id": "read", "raw_dataset_code": "DEMOG"},
+            "cells": [
                 {
-                    "node_type": "derive",
-                    "id": "derive",
-                    "target_domain": "DM",
-                    "assignments": {
-                        "STUDYID": {"kind": "literal", "value": "P3-001"},
-                        "USUBJID": {"kind": "column", "dataset": "DEMOG", "column": "SUBJID"},
-                    },
-                },
-                {"node_type": "domain_write", "id": "write", "domain": "DM"},
-            ],
-            "edges": [
-                {"source_node": "read", "target_node": "derive"},
-                {"source_node": "derive", "target_node": "write"},
-            ],
+                    "target_variable": "USUBJID",
+                    "context_id": None,
+                    "sources": [
+                        {"source_type": "raw", "dataset": "DEMOG", "variable": "SUBJID"}
+                    ],
+                }
+            ]
         },
     )
-    assert plan.status_code == 200, plan.text
-    assert plan.json()["alignment_state"] == "current"
-    plan_preview = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/domains/DM/derivation-plan/preview",
-        headers=headers,
-        json={"domains": ["DM"], "limit": 1},
+    assert variable_mapping.status_code == 200, variable_mapping.text
+    program_source = """import csv
+import os
+from pathlib import Path
+
+root = Path(os.environ["AURINARA_WORKSPACE"])
+with (root / "inputs/raw/DEMOG.csv").open(encoding="utf-8-sig", newline="") as source:
+    rows = list(csv.DictReader(source))
+with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target:
+    writer = csv.DictWriter(target, fieldnames=["STUDYID", "USUBJID"])
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({"STUDYID": "P3-001", "USUBJID": row["SUBJID"]})
+"""
+    workarea = await client.post(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/code-workareas",
+        headers={**headers, "If-Match": variable_mapping.headers["etag"]},
+        json={
+            "name": "Primary Python",
+            "domain": "DM",
+            "language": "python",
+            "source": program_source,
+        },
     )
-    assert plan_preview.status_code == 200, plan_preview.text
-    assert plan_preview.json()["outputs"]["DM"] == [
-        {"SUBJID": "01", "AGE": 42, "STUDYID": "P3-001", "USUBJID": "01"}
+    assert workarea.status_code == 201, workarea.text
+    test_run = await client.post(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/code-workareas/{workarea.json()['id']}/test",
+        headers={**headers, "Idempotency-Key": "test-dm-python-1"},
+        json={"upstream_artifacts": []},
+    )
+    assert test_run.status_code == 202, test_run.text
+    with factory.begin() as session:
+        test_job = JobService().claim(
+            session, worker_id="phase3-test-worker", lease_seconds=60, job_types=("execution",)
+        )
+        assert test_job is not None
+    process_execution_job(
+        factory,
+        application.state.module_registry,
+        application.state.object_storage,
+        HostPythonExecutor(),
+        application.state.settings,
+        test_job.id,
+    )
+    tested = await client.get(f"/api/v1/sdtm-code-runs/{test_run.json()['id']}", headers=headers)
+    assert tested.json()["status"] == "succeeded", tested.text
+    assert tested.json()["preview"] == [
+        {"STUDYID": "P3-001", "USUBJID": "01"},
+        {"STUDYID": "P3-001", "USUBJID": "02"},
     ]
+    assert tested.json()["output_artifact_ids"] == []
 
     pdf_stream = io.BytesIO()
     pdf = Canvas(pdf_stream)
@@ -637,9 +807,10 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
         files={"file": ("crf.pdf", pdf_stream.getvalue(), "application/pdf")},
     )
     raw_variable_id = initialized.json()["variables"][0]["id"]
+    current_sdtm = await client.get(f"/api/v1/sdtms/{sdtm.json()['id']}", headers=headers)
     annotation = await client.post(
         f"/api/v1/sdtms/{sdtm.json()['id']}/acrf/annotations",
-        headers={**headers, "If-Match": specification.headers["etag"]},
+        headers={**headers, "If-Match": current_sdtm.headers["etag"]},
         json={
             "source_pdf_artifact_id": crf.json()["artifact_id"],
             "page_number": 1,
@@ -657,31 +828,14 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
         },
     )
     assert annotation.status_code == 201, annotation.text
-    linked = await client.post(
-        f"/api/v1/acrf-annotations/{annotation.json()['id']}/links",
-        headers={**headers, "If-Match": annotation.headers["etag"]},
-        json={
-            "operation": "amend",
-            "links": [
-                {
-                    "target_type": "derivation_plan_node",
-                    "plan_revision": 1,
-                    "node_id": "derive",
-                    "domain": "DM",
-                }
-            ],
-        },
-    )
-    assert linked.status_code == 200, linked.text
-    assert len(linked.json()["links"]) == 3
+    linked = annotation
+    assert len(linked.json()["links"]) == 2
     coverage = await client.get(f"/api/v1/sdtms/{sdtm.json()['id']}/acrf/coverage", headers=headers)
     assert coverage.status_code == 200, coverage.text
     assert coverage.json()["annotation_count"] == 1
     assert {tuple(item.values()) for item in coverage.json()["uncovered_sdtm_variables"]} == {
         ("DM", "STUDYID")
     }
-    validation = await client.post(f"/api/v1/sdtms/{sdtm.json()['id']}/validate", headers=headers)
-    assert validation.json()["status"] == "succeeded", validation.text
     domain_validation = await client.post(
         f"/api/v1/sdtms/{sdtm.json()['id']}/domains/DM/validate", headers=headers
     )
@@ -689,9 +843,9 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
 
     metadata_artifact_types = (
         "sdtm_specification",
-        "sdtm_derivation_report",
-        "sdtm_lineage_report",
-        "sdtm_validation_report",
+        "sdtm_domain_mapping_json",
+        "sdtm_variable_mapping_json",
+        "sdtm_declared_lineage_report",
     )
     with factory() as session:
         _, _, metadata_resolved = resolve_build_input(
@@ -743,6 +897,7 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
         "Metadata",
         "Domains",
         "Variables",
+        "ValueContexts",
         "ValueLevel",
     ]
 
@@ -785,69 +940,13 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
     )
     assert len(PdfReader(io.BytesIO(acrf_download.content)).pages) == 1
 
-    with factory() as session:
-        _, _, resolved = resolve_build_input(
-            session,
-            application.state.module_registry,
-            study_id=UUID(study_id),
-            owner_type="sdtm_workbench",
-            owner_id=UUID(sdtm.json()["id"]),
-            artifact_types=("sdtm_program_python",),
-            options={"domain_code": "DM"},
-        )
-    compiled = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/compile",
-        headers={**headers, "Idempotency-Key": "compile-python-1"},
-        json={
-            "backend": "python",
-            "expected_input_fingerprint": fingerprint(resolved),
-            "domain_code": "DM",
-        },
+    generation = await client.post(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/code-workareas/{workarea.json()['id']}/generate",
+        headers={**headers, "Idempotency-Key": "generate-dm-python-1"},
+        json={"upstream_artifacts": []},
     )
-    assert compiled.status_code == 202, compiled.text
-    with factory.begin() as session:
-        job = JobService().claim(session, worker_id="phase3-worker", lease_seconds=60)
-        assert job is not None
-    _process_job(
-        factory,
-        application.state.module_registry,
-        application.state.object_storage,
-        job,
-    )
-    completed = await client.get(
-        f"/api/v1/artifact-builds/{compiled.json()['id']}", headers=headers
-    )
-    assert completed.json()["status"] == "succeeded", completed.text
-    artifact = await client.get(
-        f"/api/v1/artifacts/{completed.json()['result_artifact_ids'][0]}", headers=headers
-    )
-    assert artifact.json()["source_plan_type"] == "sdtm_derivation_plan"
-    assert artifact.json()["source_specification_revision"] == 1
-    assert artifact.json()["compiler_fingerprint"]
-    python_program = artifact.json()
-    python_execution = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/execute",
-        headers={**headers, "Idempotency-Key": "execute-python-1"},
-        json={
-            "language": "python",
-            "program_artifact_id": python_program["id"],
-            "input_artifact_ids": [source.json()["artifact_id"]],
-            "validation_run_id": domain_validation.json()["id"],
-            "input_selection_revision": 1,
-            "source_specification_revision": 1,
-            "source_plan_revision": 1,
-            "compiler_fingerprint": python_program["compiler_fingerprint"],
-            "expected_input_fingerprint": python_program["input_fingerprint"],
-            "limits": {
-                "cpu": 1,
-                "memory_mb": 512,
-                "runtime_seconds": 60,
-                "output_bytes": 1048576,
-            },
-        },
-    )
-    assert python_execution.status_code == 202, python_execution.text
-    assert python_execution.json()["status"] == "queued"
+    assert generation.status_code == 202, generation.text
+    assert generation.json()["status"] == "queued"
     with factory.begin() as session:
         execution_job = JobService().claim(
             session,
@@ -865,31 +964,23 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
         execution_job.id,
     )
     executed = await client.get(
-        f"/api/v1/execution-runs/{python_execution.json()['id']}", headers=headers
+        f"/api/v1/sdtm-code-runs/{generation.json()['id']}", headers=headers
     )
     assert executed.json()["status"] == "succeeded", executed.text
-    study_artifacts = await client.get(
-        f"/api/v1/studies/{study_id}/artifacts", headers=headers, params={"limit": 200}
-    )
-    execution_log = next(
-        item
-        for item in study_artifacts.json()["items"]
-        if item["artifact_type"] == "sdtm_execution_log"
-        and item["execution_run_id"] == python_execution.json()["id"]
-    )
-    execution_log_download = await client.get(
-        f"/api/v1/artifacts/{execution_log['id']}/download", headers=headers
-    )
-    assert execution_log_download.json()["status"] == "succeeded"
-    assert execution_log_download.json()["language"] == "python"
-    outputs = await client.get(
-        f"/api/v1/execution-runs/{python_execution.json()['id']}/outputs", headers=headers
-    )
-    assert [item["artifact_type"] for item in outputs.json()["items"]] == [
+    generated_artifacts = [
+        (await client.get(f"/api/v1/artifacts/{artifact_id}", headers=headers)).json()
+        for artifact_id in executed.json()["output_artifact_ids"]
+    ]
+    assert {
+        "sdtm_program_python",
         "sdtm_dataset_csv",
         "sdtm_dataset_xpt",
-    ]
-    xpt_artifact_id = outputs.json()["items"][1]["artifact_id"]
+        "sdtm_execution_log",
+        "sdtm_output_validation",
+    } <= {item["artifact_type"] for item in generated_artifacts}
+    xpt_artifact_id = next(
+        item["id"] for item in generated_artifacts if item["artifact_type"] == "sdtm_dataset_xpt"
+    )
     xpt_download = await client.get(
         f"/api/v1/artifacts/{xpt_artifact_id}/download", headers=headers
     )
@@ -899,6 +990,25 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
         {"STUDYID": "P3-001", "USUBJID": "01"},
         {"STUDYID": "P3-001", "USUBJID": "02"},
     ]
+
+    current_sdtm = await client.get(f"/api/v1/sdtms/{sdtm.json()['id']}", headers=headers)
+    selected_outputs = await client.put(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/output-selection",
+        headers={**headers, "If-Match": current_sdtm.headers["etag"]},
+        json={
+            "items": [
+                {
+                    "domain": "DM",
+                    "provider_type": "generation",
+                    "provider_revision_id": generation.json()["id"],
+                    "xpt_artifact_id": xpt_artifact_id,
+                }
+            ]
+        },
+    )
+    assert selected_outputs.status_code == 200, selected_outputs.text
+    validation = await client.post(f"/api/v1/sdtms/{sdtm.json()['id']}/validate", headers=headers)
+    assert validation.json()["status"] == "succeeded", validation.text
 
     current_sdtm = await client.get(f"/api/v1/sdtms/{sdtm.json()['id']}", headers=headers)
     define = await client.post(
@@ -1154,65 +1264,29 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
     )
     assert len(PdfReader(io.BytesIO(csdrg_pdf.content)).pages) >= 2
 
-    with factory() as session:
-        _, _, sas_resolved = resolve_build_input(
-            session,
-            application.state.module_registry,
-            study_id=UUID(study_id),
-            owner_type="sdtm_workbench",
-            owner_id=UUID(sdtm.json()["id"]),
-            artifact_types=("sdtm_program_sas",),
-            options={"domain_code": "DM"},
-        )
-    sas_build = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/compile",
-        headers={**headers, "Idempotency-Key": "compile-sas-1"},
+    current_sdtm = await client.get(f"/api/v1/sdtms/{sdtm.json()['id']}", headers=headers)
+    sas_workarea = await client.post(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/code-workareas",
+        headers={**headers, "If-Match": current_sdtm.headers["etag"]},
         json={
-            "backend": "sas",
-            "expected_input_fingerprint": fingerprint(sas_resolved),
-            "domain_code": "DM",
-        },
-    )
-    with factory.begin() as session:
-        sas_job = JobService().claim(session, worker_id="phase3-worker", lease_seconds=60)
-        assert sas_job is not None
-    _process_job(
-        factory,
-        application.state.module_registry,
-        application.state.object_storage,
-        sas_job,
-    )
-    sas_completed = await client.get(
-        f"/api/v1/artifact-builds/{sas_build.json()['id']}", headers=headers
-    )
-    sas_artifact = await client.get(
-        f"/api/v1/artifacts/{sas_completed.json()['result_artifact_ids'][0]}", headers=headers
-    )
-    sas_program = sas_artifact.json()
-    execution = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/execute",
-        headers={**headers, "Idempotency-Key": "execute-sas-1"},
-        json={
+            "name": "Review SAS",
+            "domain": "DM",
             "language": "sas",
-            "program_artifact_id": sas_program["id"],
-            "input_artifact_ids": [source.json()["artifact_id"]],
-            "validation_run_id": domain_validation.json()["id"],
-            "input_selection_revision": 1,
-            "source_specification_revision": 1,
-            "source_plan_revision": 1,
-            "compiler_fingerprint": sas_program["compiler_fingerprint"],
-            "expected_input_fingerprint": sas_program["input_fingerprint"],
-            "limits": {
-                "cpu": 1,
-                "memory_mb": 512,
-                "runtime_seconds": 60,
-                "output_bytes": 1048576,
-            },
+            "source": "data DM; set DEMOG; run;",
         },
+    )
+    assert sas_workarea.status_code == 201, sas_workarea.text
+    execution = await client.post(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/code-workareas/{sas_workarea.json()['id']}/generate",
+        headers={**headers, "Idempotency-Key": "generate-sas-1"},
+        json={"upstream_artifacts": []},
     )
     assert execution.status_code == 202, execution.text
-    assert execution.json()["status"] == "failed"
-    assert execution.json()["failure"]["code"] == "runner_not_configured"
+    sas_run = await client.get(
+        f"/api/v1/sdtm-code-runs/{execution.json()['id']}", headers=headers
+    )
+    assert sas_run.json()["status"] == "failed"
+    assert sas_run.json()["failure"]["code"] == "runner_not_configured"
 
     removed = await client.delete(
         f"/api/v1/acrf-annotations/{annotation.json()['id']}",
@@ -1241,9 +1315,14 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
     )
     assert stale_validation.json()["status"] == "stale"
     stale_execution = await client.get(
-        f"/api/v1/execution-runs/{python_execution.json()['id']}", headers=headers
+        f"/api/v1/execution-runs/{generation.json()['id']}", headers=headers
     )
     assert stale_execution.json()["status"] == "stale"
     blocked = await client.post(f"/api/v1/sdtms/{sdtm.json()['id']}/validate", headers=headers)
     assert blocked.status_code == 409
-    assert blocked.json()["code"] == "sdtm_plan_misaligned"
+    assert blocked.json()["code"] == "sdtm_output_selection_required"
+
+    stale_mapping = await client.get(
+        f"/api/v1/sdtms/{sdtm.json()['id']}/domains/DM/domain-mapping", headers=headers
+    )
+    assert stale_mapping.json()["state"] == "misaligned"

@@ -16,41 +16,59 @@ type Scalar = object | None
 type Row = dict[str, Scalar]
 
 
-def _problem(code: str, detail: str) -> ProblemException:
+def _problem(
+    code: str,
+    detail: str,
+    *,
+    node_id: str | None = None,
+    issue_context: Mapping[str, object] | None = None,
+) -> ProblemException:
+    issue = dict(issue_context or {})
+    if node_id is not None:
+        issue["node_id"] = node_id
     return ProblemException(
         status_code=422,
         code=code,
         title="Dataflow preview cannot be evaluated",
         detail=detail,
+        issues=[] if not issue else [issue],
     )
 
 
-def _value(expression: DerivationExpression, row: Mapping[str, Scalar]) -> Scalar:
+def _value(
+    expression: DerivationExpression,
+    row: Mapping[str, Scalar],
+    *,
+    node_id: str | None = None,
+) -> Scalar:
     if expression.kind == "literal":
         return expression.value
     if expression.kind == "column":
         if expression.column not in row:
             raise _problem(
-                "preview_column_unknown", f"Column '{expression.column}' is not available."
+                "preview_column_unknown",
+                f"Column '{expression.column}' is not available.",
+                node_id=node_id,
+                issue_context={"column": expression.column},
             )
         return row[expression.column]
     if expression.kind == "conditional":
         for branch in expression.branches:
             try:
-                condition = _value(branch.when, row)
+                condition = _value(branch.when, row, node_id=node_id)
             except ProblemException as error:
                 if error.code == "preview_column_unknown":
                     raise
                 condition = None
             if condition is not None and bool(condition):
                 try:
-                    return _value(branch.then, row)
+                    return _value(branch.then, row, node_id=node_id)
                 except ProblemException as error:
                     if error.code == "preview_column_unknown":
                         raise
                     return None
         try:
-            return _value(expression.otherwise, row)
+            return _value(expression.otherwise, row, node_id=node_id)
         except ProblemException as error:
             if error.code == "preview_column_unknown":
                 raise
@@ -58,35 +76,40 @@ def _value(expression: DerivationExpression, row: Mapping[str, Scalar]) -> Scala
     if expression.kind == "list_literal":
         return tuple(expression.values)
     if expression.kind == "function":
-        arguments = [_value(argument, row) for argument in expression.arguments]
+        arguments = [
+            _value(argument, row, node_id=node_id) for argument in expression.arguments
+        ]
         implementation = fns.REGISTRY[expression.function]
         try:
             return implementation(arguments)
         except fns.ExpressionFunctionError as error:
-            raise _problem(error.code, error.detail) from error
+            raise _problem(error.code, error.detail, node_id=node_id) from error
     if expression.kind == "custom_function":
         raise _problem(
             "preview_custom_function_unsupported",
             "Custom functions run only in an isolated execution environment; "
             "preview is unavailable.",
+            node_id=node_id,
         )
     if expression.kind == "cast":
         return _cast(
-            _value(expression.value, row),
+            _value(expression.value, row, node_id=node_id),
             expression.target_type,
             expression.invalid,
+            node_id=node_id,
         )
     if expression.kind == "terminology_map":
-        source_value = _value(expression.value, row)
+        source_value = _value(expression.value, row, node_id=node_id)
         mapped = expression.mappings.get(str(source_value)) if source_value is not None else None
         if mapped is None and expression.unmapped == "error":
             raise _problem(
                 "preview_terminology_unmapped",
                 f"Value '{source_value}' has no declared terminology mapping.",
+                node_id=node_id,
             )
         return source_value if mapped is None and expression.unmapped == "preserve" else mapped
     if expression.kind == "unary":
-        operand = _value(expression.operand, row)
+        operand = _value(expression.operand, row, node_id=node_id)
         if expression.operator == "not":
             return not bool(operand)
         if expression.operator == "is_null":
@@ -99,11 +122,13 @@ def _value(expression: DerivationExpression, row: Mapping[str, Scalar]) -> Scala
             return cast(Scalar, -operand)  # type: ignore[operator]
         except TypeError as error:
             raise _problem(
-                "preview_expression_type_invalid", "Negation requires a number."
+                "preview_expression_type_invalid",
+                "Negation requires a number.",
+                node_id=node_id,
             ) from error
 
-    left = _value(expression.left, row)
-    right = _value(expression.right, row)
+    left = _value(expression.left, row, node_id=node_id)
+    right = _value(expression.right, row, node_id=node_id)
     operator = expression.operator
     if operator == "eq":
         return left == right
@@ -134,7 +159,9 @@ def _value(expression: DerivationExpression, row: Mapping[str, Scalar]) -> Scala
             return cast(Scalar, left / right)  # type: ignore[operator]
     except (TypeError, ZeroDivisionError) as error:
         raise _problem(
-            "preview_expression_type_invalid", f"Operator '{operator}' has incompatible operands."
+            "preview_expression_type_invalid",
+            f"Operator '{operator}' has incompatible operands.",
+            node_id=node_id,
         ) from error
     raise AssertionError(f"unhandled expression operator: {operator}")
 
@@ -142,12 +169,27 @@ def _value(expression: DerivationExpression, row: Mapping[str, Scalar]) -> Scala
 def _single_input(node_id: str, incoming: Sequence[list[Row]]) -> list[Row]:
     if len(incoming) != 1:
         raise _problem(
-            "preview_graph_input_invalid", f"Node '{node_id}' requires exactly one input."
+            "preview_graph_input_invalid",
+            f"Node '{node_id}' requires exactly one input.",
+            node_id=node_id,
         )
     return incoming[0]
 
 
-def _cast(value: Scalar, target_type: str, invalid: str) -> Scalar:
+def _normalize_rows(rows: Sequence[Mapping[str, Scalar]]) -> list[Row]:
+    """Apply one tabular schema to every row, representing absent cells as null."""
+
+    columns = tuple(dict.fromkeys(column for row in rows for column in row))
+    return [{column: row.get(column) for column in columns} for row in rows]
+
+
+def _cast(
+    value: Scalar,
+    target_type: str,
+    invalid: str,
+    *,
+    node_id: str | None = None,
+) -> Scalar:
     if value is None or value == "":
         return None
     try:
@@ -169,6 +211,7 @@ def _cast(value: Scalar, target_type: str, invalid: str) -> Scalar:
         raise _problem(
             "preview_cast_invalid",
             f"Value '{value}' cannot be cast to {target_type}.",
+            node_id=node_id,
         ) from error
 
 
@@ -218,7 +261,11 @@ def _join_rows(
 
 
 def _aggregate(
-    rows: list[Row], group_by: tuple[str, ...], specs: dict[str, Aggregation]
+    rows: list[Row],
+    group_by: tuple[str, ...],
+    specs: dict[str, Aggregation],
+    *,
+    node_id: str | None = None,
 ) -> list[Row]:
     groups: dict[tuple[Scalar, ...], list[Row]] = {}
     for row in rows:
@@ -243,6 +290,7 @@ def _aggregate(
                     raise _problem(
                         "preview_aggregate_type_invalid",
                         f"Aggregation '{target}' requires numeric values.",
+                        node_id=node_id,
                     ) from error
                 if not numeric:
                     output[target] = None
@@ -263,6 +311,8 @@ def _window_rows(
     partition_by: tuple[str, ...],
     order_by: tuple[str, ...],
     operations: dict[str, WindowOperation],
+    *,
+    node_id: str | None = None,
 ) -> list[Row]:
     result = [dict(row) for row in rows]
     keys = (*partition_by, *order_by)
@@ -270,7 +320,9 @@ def _window_rows(
         result.sort(key=lambda row: tuple((row.get(key) is None, row.get(key)) for key in keys))
     except TypeError as error:
         raise _problem(
-            "preview_window_type_invalid", "Window keys contain incompatible value types."
+            "preview_window_type_invalid",
+            "Window keys contain incompatible value types.",
+            node_id=node_id,
         ) from error
     groups: dict[tuple[Scalar, ...], list[Row]] = {}
     for row in result:
@@ -303,26 +355,55 @@ def _window_rows(
                         raise _problem(
                             "preview_window_type_invalid",
                             f"Window operation '{target}' requires numeric values.",
+                            node_id=node_id,
                         ) from error
                     row[target] = running
     return result
 
 
-def evaluate_dataflow(
+def _required_node_ids(ir: DataflowIR, target_node_id: str | None) -> set[str]:
+    node_ids = {node.id for node in ir.nodes}
+    if target_node_id is None:
+        return node_ids
+    if target_node_id not in node_ids:
+        raise _problem(
+            "preview_node_unknown",
+            f"Node '{target_node_id}' does not exist in the plan.",
+            node_id=target_node_id,
+        )
+    incoming: dict[str, list[str]] = {node_id: [] for node_id in node_ids}
+    for edge in ir.edges:
+        incoming[edge.target_node].append(edge.source_node)
+    required = {target_node_id}
+    pending = [target_node_id]
+    while pending:
+        current = pending.pop()
+        for source in incoming[current]:
+            if source not in required:
+                required.add(source)
+                pending.append(source)
+    return required
+
+
+def _evaluate_dataflow(
     ir: DataflowIR,
     datasets: Mapping[str, Sequence[Mapping[str, Scalar]]],
     *,
     row_limit: int = 100,
-) -> dict[str, tuple[Row, ...]]:
-    """Evaluate normalized operators for a bounded preview, returning declared writes."""
+    target_node_id: str | None = None,
+) -> tuple[dict[str, tuple[Row, ...]], tuple[Row, ...] | None]:
+    """Evaluate all nodes, or only one target and its transitive ancestors."""
 
     if row_limit < 1 or row_limit > 200:
         raise ValueError("row_limit must be between 1 and 200")
-    nodes = {node.id: node for node in ir.nodes}
+    required_node_ids = _required_node_ids(ir, target_node_id)
+    nodes = {node.id: node for node in ir.nodes if node.id in required_node_ids}
     incoming_ids: dict[str, list[str]] = {node_id: [] for node_id in nodes}
     outgoing: dict[str, list[str]] = {node_id: [] for node_id in nodes}
     indegree = dict.fromkeys(nodes, 0)
     for edge in ir.edges:
+        if edge.source_node not in nodes or edge.target_node not in nodes:
+            continue
         incoming_ids[edge.target_node].append(edge.source_node)
         outgoing[edge.source_node].append(edge.target_node)
         indegree[edge.target_node] += 1
@@ -339,7 +420,9 @@ def evaluate_dataflow(
             source = datasets.get(node.dataset)
             if source is None:
                 raise _problem(
-                    "preview_dataset_unknown", f"Dataset '{node.dataset}' was not selected."
+                    "preview_dataset_unknown",
+                    f"Dataset '{node.dataset}' was not selected.",
+                    node_id=node.id,
                 )
             result = [dict(row) for row in source[:row_limit]]
         elif node.node_type == "select":
@@ -349,14 +432,47 @@ def evaluate_dataflow(
             ]
         elif node.node_type == "filter":
             result = [
-                row for row in _single_input(node.id, inputs) if bool(_value(node.predicate, row))
+                row
+                for row in _single_input(node.id, inputs)
+                if bool(_value(node.predicate, row, node_id=node.id))
             ]
         elif node.node_type == "derive":
             result = []
-            for source_row in _single_input(node.id, inputs):
+            source_rows = _single_input(node.id, inputs)
+            source_node_id = incoming_ids[node.id][0]
+            for row_index, source_row in enumerate(source_rows, start=1):
                 row = dict(source_row)
-                for name, expression in node.ordered_assignments():
-                    row[name] = _value(expression, row)
+                try:
+                    derived = {
+                        name: _value(expression, source_row, node_id=node.id)
+                        for name, expression in node.ordered_assignments()
+                    }
+                except ProblemException as error:
+                    if error.code != "preview_column_unknown":
+                        raise
+                    available_columns = sorted(source_row)
+                    issue = dict(error.issues[0]) if error.issues else {}
+                    issue.update(
+                        {
+                            "node_id": node.id,
+                            "source_node_id": source_node_id,
+                            "row_index": row_index,
+                            "available_columns": available_columns,
+                        }
+                    )
+                    available = ", ".join(available_columns) or "none"
+                    raise ProblemException(
+                        status_code=error.status_code,
+                        code=error.code,
+                        title=error.title,
+                        detail=(
+                            f"{error.detail.removesuffix('.')} in preview row {row_index} "
+                            f"entering node '{node.id}' from node '{source_node_id}'. "
+                            f"Available columns: {available}."
+                        ),
+                        issues=[issue],
+                    ) from error
+                row.update(derived)
                 result.append(row)
         elif node.node_type == "cast":
             result = []
@@ -367,6 +483,7 @@ def evaluate_dataflow(
                         row.get(operation.source_column),
                         operation.target_type,
                         operation.invalid,
+                        node_id=node.id,
                     )
                 result.append(row)
         elif node.node_type == "sort":
@@ -380,12 +497,20 @@ def evaluate_dataflow(
                 )
             except TypeError as error:
                 raise _problem(
-                    "preview_sort_type_invalid", "Sort keys contain incompatible value types."
+                    "preview_sort_type_invalid",
+                    "Sort keys contain incompatible value types.",
+                    node_id=node.id,
                 ) from error
         elif node.node_type == "assert":
             result = _single_input(node.id, inputs)
-            if any(not bool(_value(node.predicate, row)) for row in result):
-                raise _problem(node.issue_code, f"Assertion '{node.id}' failed in preview rows.")
+            if any(
+                not bool(_value(node.predicate, row, node_id=node.id)) for row in result
+            ):
+                raise _problem(
+                    node.issue_code,
+                    f"Assertion '{node.id}' failed in preview rows.",
+                    node_id=node.id,
+                )
         elif node.node_type == "union":
             result = [row for source in inputs for row in source]
         elif node.node_type == "join":
@@ -393,6 +518,7 @@ def evaluate_dataflow(
                 raise _problem(
                     "preview_join_inputs_invalid",
                     f"Join '{node.id}' inputs do not match its declared left and right inputs.",
+                    node_id=node.id,
                 )
             result = _join_rows(
                 values[node.left_input],
@@ -402,7 +528,12 @@ def evaluate_dataflow(
                 node.right_suffix,
             )
         elif node.node_type == "aggregate":
-            result = _aggregate(_single_input(node.id, inputs), node.group_by, node.aggregations)
+            result = _aggregate(
+                _single_input(node.id, inputs),
+                node.group_by,
+                node.aggregations,
+                node_id=node.id,
+            )
         elif node.node_type == "pivot_longer":
             result = []
             for row in _single_input(node.id, inputs):
@@ -424,6 +555,7 @@ def evaluate_dataflow(
                     raise _problem(
                         "preview_terminology_unmapped",
                         f"Value '{source_value}' has no declared terminology mapping.",
+                        node_id=node.id,
                     )
                 row[node.target_column] = (
                     source_value if mapped is None and node.unmapped == "preserve" else mapped
@@ -440,6 +572,7 @@ def evaluate_dataflow(
                 raise _problem(
                     "preview_sequence_type_invalid",
                     "Sequence keys contain incompatible value types.",
+                    node_id=node.id,
                 ) from error
             counters: dict[tuple[Scalar, ...], int] = {}
             for row in source_rows:
@@ -454,15 +587,50 @@ def evaluate_dataflow(
                 node.partition_by,
                 node.order_by,
                 node.operations,
+                node_id=node.id,
             )
         elif node.node_type == "write":
             result = _single_input(node.id, inputs)
             outputs[node.dataset] = tuple(result[:row_limit])
         else:
             raise AssertionError(f"unhandled node type: {node.node_type}")
-        values[node.id] = result[:row_limit]
+        values[node.id] = _normalize_rows(result[:row_limit])
+        if node.id == target_node_id:
+            return outputs, tuple(values[node.id])
         for target in outgoing[node_id]:
             indegree[target] -= 1
             if indegree[target] == 0:
                 queue.append(target)
+    return outputs, None
+
+
+def evaluate_dataflow(
+    ir: DataflowIR,
+    datasets: Mapping[str, Sequence[Mapping[str, Scalar]]],
+    *,
+    row_limit: int = 100,
+) -> dict[str, tuple[Row, ...]]:
+    """Evaluate normalized operators for a bounded preview, returning declared writes."""
+
+    outputs, _ = _evaluate_dataflow(ir, datasets, row_limit=row_limit)
     return outputs
+
+
+def evaluate_dataflow_node(
+    ir: DataflowIR,
+    datasets: Mapping[str, Sequence[Mapping[str, Scalar]]],
+    node_id: str,
+    *,
+    row_limit: int = 100,
+) -> tuple[Row, ...]:
+    """Preview one node after evaluating only its transitive input closure."""
+
+    _, rows = _evaluate_dataflow(
+        ir,
+        datasets,
+        row_limit=row_limit,
+        target_node_id=node_id,
+    )
+    if rows is None:  # pragma: no cover - a validated DAG always reaches its target
+        raise AssertionError(f"target node was not evaluated: {node_id}")
+    return rows

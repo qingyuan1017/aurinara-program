@@ -4,6 +4,7 @@ import signal
 import time
 from types import FrameType
 
+from app.common.logging import configure_logging
 from app.composition import build_module_registry
 from app.config import get_settings
 from app.database import create_database_engine, create_session_factory
@@ -21,6 +22,7 @@ def main() -> None:
     """Schedule and deliver committed public events with bounded retries."""
 
     settings = get_settings()
+    configure_logging(settings.app_log_level)
     factory = create_session_factory(create_database_engine(settings))
     service = DeliveryService(build_module_registry())
     signal.signal(signal.SIGTERM, _request_stop)

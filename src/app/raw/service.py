@@ -652,6 +652,39 @@ def binding_for(
     )
 
 
+def organize_source_repository(session: Session, source: SourceFile) -> None:
+    """Organize a source under its current Raw workbench or shared-source folder."""
+
+    workbenches = list(
+        session.scalars(
+            select(RawWorkbench)
+            .join(RawDataset, RawDataset.raw_id == RawWorkbench.id)
+            .where(
+                RawDataset.current_source_file_id == source.id,
+                RawDataset.status != "retired",
+            )
+            .distinct()
+            .order_by(RawWorkbench.code, RawWorkbench.id)
+        )
+    )
+    if len(workbenches) == 1:
+        workbench = workbenches[0]
+        solution = f"raw-workbench:{workbench.id}"
+        solution_label = f"{workbench.code} · {workbench.name}"
+    elif workbenches:
+        solution = "shared-sources"
+        solution_label = "Shared Sources"
+    else:
+        solution = "unassigned"
+        solution_label = "Unassigned"
+    ArtifactService().organize_source_file_repository(
+        session,
+        source,
+        solution=solution,
+        solution_label=solution_label,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class ResolvedSource:
     """Plain value describing one resolved, study-owned source file.

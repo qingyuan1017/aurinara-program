@@ -30,7 +30,7 @@ export function synchronizeCustomFunctionCalls(
           !next.parameters.includes(previous.parameters[nextIndex])
         return renamedInPlace && nextIndex < arguments_.length
           ? synchronizeCustomFunctionCalls(arguments_[nextIndex], previous, next)
-          : { kind: 'column', dataset: '', column: '' }
+          : { kind: 'column', column: '' }
       }),
     }
   }

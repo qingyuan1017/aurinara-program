@@ -7,7 +7,7 @@ import pytest
 
 from app.common.problems import ProblemException
 from app.sdtm.contracts import SdtmDomain
-from app.sdtm.xpt import build_xpt_v5
+from app.sdtm.xpt import build_xpt_v5, inspect_xpt_v5
 
 
 def _domain() -> SdtmDomain:
@@ -67,6 +67,60 @@ def test_xpt_v5_is_deterministic_and_reads_back_metadata() -> None:
     assert frame.to_dict(orient="records") == [
         {"STUDYID": "SYN-001", "USUBJID": "SYN-001-01", "AGE": 42.0}
     ]
+
+
+def test_import_inspection_extracts_only_physical_xpt_metadata() -> None:
+    product = build_xpt_v5(
+        (b"STUDYID,USUBJID,AGE\nSYN-001,SYN-001-01,42\nSYN-001,SYN-001-02,38\n"),
+        _domain(),
+    )
+
+    extracted = inspect_xpt_v5(product.data, "DM")
+
+    assert extracted.domain_code == "DM"
+    assert extracted.row_count == 2
+    assert [variable.model_dump() for variable in extracted.variables] == [
+        {
+            "name": "STUDYID",
+            "label": "Study Identifier",
+            "data_type": "character",
+            "length": 20,
+            "ordinal": 1,
+        },
+        {
+            "name": "USUBJID",
+            "label": "Unique Subject Identifier",
+            "data_type": "character",
+            "length": 40,
+            "ordinal": 2,
+        },
+        {
+            "name": "AGE",
+            "label": "Age",
+            "data_type": "numeric",
+            "length": None,
+            "ordinal": 3,
+        },
+    ]
+
+
+def test_import_inspection_rejects_wrong_domain_member() -> None:
+    product = build_xpt_v5(b"STUDYID,USUBJID,AGE\n", _domain())
+
+    with pytest.raises(ProblemException) as captured:
+        inspect_xpt_v5(product.data, "SE")
+
+    assert captured.value.code == "sdtm_import_domain_mismatch"
+
+
+def test_import_inspection_rejects_xport_v8_header() -> None:
+    product = build_xpt_v5(b"STUDYID,USUBJID,AGE\n", _domain())
+    version_eight_header = product.data.replace(b"MEMBER  HEADER", b"MEMBV8  HEADER", 1)
+
+    with pytest.raises(ProblemException) as captured:
+        inspect_xpt_v5(version_eight_header, "DM")
+
+    assert captured.value.code == "sdtm_import_xpt_version_unsupported"
 
 
 def test_xpt_rejects_character_value_beyond_declared_length() -> None:

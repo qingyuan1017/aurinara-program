@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import io
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -361,7 +361,9 @@ class FakeJob:
         self.cancellation_requested_at = cancellation
         self.completed_at: datetime | None = None
         self.lease_owner: str | None = "worker"
-        self.lease_expires_at: datetime | None = None
+        self.lease_token = uuid4()
+        self.claim_generation = 1
+        self.lease_expires_at: datetime | None = datetime.now(UTC) + timedelta(minutes=5)
         self.available_at = datetime.now()
 
 
@@ -429,13 +431,16 @@ def test_worker_content_failure_completes_job_not_fail() -> None:
     store: dict[UUID, object] = {job.id: job, record.id: record, raw.id: raw}
     factory = WorkerFactory(store)
 
-    job_worker._handle_raw_dataset_import(
-        factory,  # type: ignore[arg-type]
-        FakeRegistry(),  # type: ignore[arg-type]
-        _FakeStorageNeverOpened(),  # type: ignore[arg-type]
-        _worker_settings(),
-        job.id,
-    )
+    from app.execution.jobs import claimed_job
+
+    with claimed_job(job.lease_token):
+        job_worker._handle_raw_dataset_import(
+            factory,  # type: ignore[arg-type]
+            FakeRegistry(),  # type: ignore[arg-type]
+            _FakeStorageNeverOpened(),  # type: ignore[arg-type]
+            _worker_settings(),
+            job.id,
+        )
 
     # The source id does not resolve -> business failure recorded, job completed.
     assert record.status == "failed"
@@ -467,13 +472,16 @@ def test_worker_terminal_state_guard_is_noop() -> None:
     store: dict[UUID, object] = {job.id: job, record.id: record, raw.id: raw}
     factory = WorkerFactory(store)
 
-    job_worker._handle_raw_dataset_import(
-        factory,  # type: ignore[arg-type]
-        FakeRegistry(),  # type: ignore[arg-type]
-        _FakeStorageNeverOpened(),  # type: ignore[arg-type]
-        _worker_settings(),
-        job.id,
-    )
+    from app.execution.jobs import claimed_job
+
+    with claimed_job(job.lease_token):
+        job_worker._handle_raw_dataset_import(
+            factory,  # type: ignore[arg-type]
+            FakeRegistry(),  # type: ignore[arg-type]
+            _FakeStorageNeverOpened(),  # type: ignore[arg-type]
+            _worker_settings(),
+            job.id,
+        )
 
     assert record.status == "succeeded"
     assert record.result_dataset_ids == ["x"]
@@ -571,13 +579,16 @@ def test_worker_inspects_shared_source_once(monkeypatch: pytest.MonkeyPatch) -> 
     factory = _SharedSourceFactory(store, source)
     storage = _CountingStorage(data)
 
-    job_worker._handle_raw_dataset_import(
-        factory,  # type: ignore[arg-type]
-        FakeRegistry(),  # type: ignore[arg-type]
-        storage,  # type: ignore[arg-type]
-        _worker_settings(),
-        job.id,
-    )
+    from app.execution.jobs import claimed_job
+
+    with claimed_job(job.lease_token):
+        job_worker._handle_raw_dataset_import(
+            factory,  # type: ignore[arg-type]
+            FakeRegistry(),  # type: ignore[arg-type]
+            storage,  # type: ignore[arg-type]
+            _worker_settings(),
+            job.id,
+        )
 
     assert record.status == "succeeded"
     # Two reads happen for the single file (checksum pass + inspect pass), but

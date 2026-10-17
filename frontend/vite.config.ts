@@ -11,6 +11,10 @@ const dirname = path.dirname(fileURLToPath(import.meta.url))
 // Backend API base used by the Vite dev proxy. The app itself always calls
 // the relative "/api/v1" prefix, so switching environments only changes this.
 const API_TARGET = process.env.VITE_API_PROXY_TARGET ?? 'http://127.0.0.1:18000'
+// Repository calls use the Platform's /v1 API directly. Keeping a dedicated
+// development proxy makes the screen work even when an older local .env does
+// not yet declare VITE_PLATFORM_API_BASE_URL.
+const PLATFORM_TARGET = process.env.VITE_PLATFORM_PROXY_TARGET ?? 'http://localhost:8002'
 
 // Vitest transforms source files through this same Vite config. The router
 // plugin's auto code splitting moves a route's `component` into a separate
@@ -40,6 +44,10 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: API_TARGET,
+        changeOrigin: true,
+      },
+      '/v1': {
+        target: PLATFORM_TARGET,
         changeOrigin: true,
       },
     },
