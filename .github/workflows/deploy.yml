@@ -58,10 +58,13 @@ jobs:
           echo "python_image=${{ steps.repositories.outputs.python }}@$(digest aurinara/python-runner)" >> "$GITHUB_OUTPUT"
           echo "r_image=${{ steps.repositories.outputs.r }}@$(digest aurinara/r-runner)" >> "$GITHUB_OUTPUT"
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env: {TRIVY_PLATFORM: linux/arm64}
         with: {image-ref: '${{ steps.images.outputs.application_image }}', severity: 'HIGH,CRITICAL', exit-code: '1'}
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env: {TRIVY_PLATFORM: linux/arm64}
         with: {image-ref: '${{ steps.images.outputs.python_image }}', severity: 'HIGH,CRITICAL', exit-code: '1'}
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env: {TRIVY_PLATFORM: linux/amd64}
         with: {image-ref: '${{ steps.images.outputs.r_image }}', severity: 'HIGH,CRITICAL', exit-code: '1'}
 
   staging:
