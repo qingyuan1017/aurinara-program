@@ -7,7 +7,6 @@ Parameters:
   DatabaseSecurityGroupId: {Type: AWS::EC2::SecurityGroup::Id}
   EfsSecurityGroupId: {Type: AWS::EC2::SecurityGroup::Id}
   DatabaseInstanceClass: {Type: String}
-  PlatformPublisherPrincipalArn: {Type: String}
 
 Conditions:
   IsProduction: !Equals [!Ref Environment, production]
@@ -272,9 +271,9 @@ Resources:
             Principal: {AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root'}
             Action: kms:*
             Resource: '*'
-          - Sid: PlatformPublisherEncryption
+          - Sid: EventBridgeEncryption
             Effect: Allow
-            Principal: {AWS: !Ref PlatformPublisherPrincipalArn}
+            Principal: {Service: events.amazonaws.com}
             Action: [kms:Decrypt, kms:GenerateDataKey]
             Resource: '*'
   QueueKeyAlias:

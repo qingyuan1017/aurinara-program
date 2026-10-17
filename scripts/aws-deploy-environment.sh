@@ -14,13 +14,7 @@ hosted_zone_id=${HOSTED_ZONE_ID:-}
 : "${R_RUNNER_IMAGE:?}"
 : "${BASE_DOMAIN:?}"
 : "${CERTIFICATE_ARN:?}"
-: "${COGNITO_DOMAIN_PREFIX:?}"
-: "${SES_SOURCE_ARN:?}"
-: "${COGNITO_FROM_ADDRESS:?}"
-: "${PLATFORM_PRIVATELINK_SERVICE_NAME:?}"
-: "${PLATFORM_PRIVATE_URL:?}"
-: "${PLATFORM_PUBLIC_URL:?}"
-: "${PLATFORM_PUBLISHER_PRINCIPAL_ARN:?}"
+: "${PLATFORM_STACK_NAME:?}"
 : "${ALARM_EMAIL:?}"
 : "${CLOUDFORMATION_EXECUTION_ROLE_ARN:?}"
 
@@ -37,6 +31,23 @@ case "$dns_provider" in
     exit 1
     ;;
 esac
+
+platform_output() {
+  aws cloudformation describe-stacks --stack-name "$PLATFORM_STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text
+}
+platform_privatelink_service_name=$(platform_output PlatformPrivateLinkServiceName)
+platform_private_url=$(platform_output PlatformPrivateUrl)
+platform_public_url=$(platform_output PlatformUrl)
+platform_event_bus_name=$(platform_output EventBusName)
+shared_identity_key_arn=$(platform_output SharedIdentityKeyArn)
+user_pool_id=$(platform_output UserPoolId)
+spa_client_id=$(platform_output AurinaraSpaClientId)
+jwt_issuer=$(platform_output JwtIssuer)
+jwt_jwks_url=$(platform_output JwtJwksUrl)
+service_client_id=$(platform_output AurinaraServiceClientId)
+service_client_secret_arn=$(platform_output AurinaraServiceClientSecretArn)
+service_token_url=$(platform_output TokenUrl)
+oidc_end_session_url=$(platform_output LogoutUrl)
 
 current_image=$APPLICATION_IMAGE
 activate_services=false
@@ -65,19 +76,25 @@ deploy() {
       DnsProvider="$dns_provider" \
       HostedZoneId="$hosted_zone_id" \
       CertificateArn="$CERTIFICATE_ARN" \
-      CognitoDomainPrefix="$COGNITO_DOMAIN_PREFIX" \
-      SesSourceArn="$SES_SOURCE_ARN" \
-      CognitoFromAddress="$COGNITO_FROM_ADDRESS" \
       ApplicationImage="$service_image" \
       MigrationApplicationImage="$migration_image" \
       ActivateServices="$active" \
       PythonRunnerImage="$PYTHON_RUNNER_IMAGE" \
       RRunnerImage="$R_RUNNER_IMAGE" \
-      PlatformPrivateLinkServiceName="$PLATFORM_PRIVATELINK_SERVICE_NAME" \
-      PlatformPrivateUrl="$PLATFORM_PRIVATE_URL" \
+      PlatformPrivateLinkServiceName="$platform_privatelink_service_name" \
+      PlatformPrivateUrl="$platform_private_url" \
       PlatformAuthorizationMode="$platform_authorization_mode" \
-      PlatformPublicUrl="$PLATFORM_PUBLIC_URL" \
-      PlatformPublisherPrincipalArn="$PLATFORM_PUBLISHER_PRINCIPAL_ARN" \
+      PlatformPublicUrl="$platform_public_url" \
+      PlatformEventBusName="$platform_event_bus_name" \
+      SharedIdentityKeyArn="$shared_identity_key_arn" \
+      UserPoolId="$user_pool_id" \
+      SpaClientId="$spa_client_id" \
+      JwtIssuer="$jwt_issuer" \
+      JwtJwksUrl="$jwt_jwks_url" \
+      ServiceClientId="$service_client_id" \
+      ServiceClientSecretArn="$service_client_secret_arn" \
+      ServiceTokenUrl="$service_token_url" \
+      OidcEndSessionUrl="$oidc_end_session_url" \
       AlarmEmail="$ALARM_EMAIL" \
       DatabaseInstanceClass="$database_class"
 }

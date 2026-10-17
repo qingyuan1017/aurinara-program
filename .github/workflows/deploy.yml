@@ -89,14 +89,8 @@ jobs:
           DNS_PROVIDER: ${{ vars.DNS_PROVIDER || 'cloudflare' }}
           HOSTED_ZONE_ID: ${{ vars.HOSTED_ZONE_ID }}
           CERTIFICATE_ARN: ${{ vars.CERTIFICATE_ARN }}
-          COGNITO_DOMAIN_PREFIX: ${{ vars.COGNITO_DOMAIN_PREFIX }}-staging
-          SES_SOURCE_ARN: ${{ vars.SES_SOURCE_ARN }}
-          COGNITO_FROM_ADDRESS: ${{ vars.COGNITO_FROM_ADDRESS }}
-          PLATFORM_PRIVATELINK_SERVICE_NAME: ${{ vars.PLATFORM_PRIVATELINK_SERVICE_NAME }}
-          PLATFORM_PRIVATE_URL: ${{ vars.PLATFORM_PRIVATE_URL }}
+          PLATFORM_STACK_NAME: aurinara-platform-staging
           PLATFORM_AUTHORIZATION_MODE: ${{ vars.PLATFORM_AUTHORIZATION_MODE || 'shadow' }}
-          PLATFORM_PUBLIC_URL: ${{ vars.PLATFORM_PUBLIC_URL }}
-          PLATFORM_PUBLISHER_PRINCIPAL_ARN: ${{ vars.PLATFORM_PUBLISHER_PRINCIPAL_ARN }}
           ALARM_EMAIL: ${{ vars.ALARM_EMAIL }}
           CLOUDFORMATION_EXECUTION_ROLE_ARN: ${{ vars.CLOUDFORMATION_EXECUTION_ROLE_ARN }}
         run: bash scripts/aws-deploy-environment.sh aurinara-staging staging 10.40.0.0/16 db.t4g.medium
@@ -109,9 +103,9 @@ jobs:
         run: bash scripts/cloudflare-upsert-dns.sh aurinara-staging
       - name: Publish SPA and smoke test
         shell: bash
-        env:
-          VITE_PLATFORM_API_BASE_URL: ${{ vars.PLATFORM_PUBLIC_URL }}
-        run: bash scripts/aws-publish-frontend.sh aurinara-staging
+        run: |
+          export VITE_PLATFORM_API_BASE_URL=$(aws cloudformation describe-stacks --stack-name aurinara-platform-staging --query "Stacks[0].Outputs[?OutputKey=='PlatformUrl'].OutputValue" --output text)
+          bash scripts/aws-publish-frontend.sh aurinara-staging
 
   production:
     needs: [build, staging]
@@ -141,14 +135,8 @@ jobs:
           DNS_PROVIDER: ${{ vars.DNS_PROVIDER || 'cloudflare' }}
           HOSTED_ZONE_ID: ${{ vars.HOSTED_ZONE_ID }}
           CERTIFICATE_ARN: ${{ vars.CERTIFICATE_ARN }}
-          COGNITO_DOMAIN_PREFIX: ${{ vars.COGNITO_DOMAIN_PREFIX }}
-          SES_SOURCE_ARN: ${{ vars.SES_SOURCE_ARN }}
-          COGNITO_FROM_ADDRESS: ${{ vars.COGNITO_FROM_ADDRESS }}
-          PLATFORM_PRIVATELINK_SERVICE_NAME: ${{ vars.PLATFORM_PRIVATELINK_SERVICE_NAME }}
-          PLATFORM_PRIVATE_URL: ${{ vars.PLATFORM_PRIVATE_URL }}
+          PLATFORM_STACK_NAME: aurinara-platform-production
           PLATFORM_AUTHORIZATION_MODE: ${{ vars.PLATFORM_AUTHORIZATION_MODE || 'shadow' }}
-          PLATFORM_PUBLIC_URL: ${{ vars.PLATFORM_PUBLIC_URL }}
-          PLATFORM_PUBLISHER_PRINCIPAL_ARN: ${{ vars.PLATFORM_PUBLISHER_PRINCIPAL_ARN }}
           ALARM_EMAIL: ${{ vars.ALARM_EMAIL }}
           CLOUDFORMATION_EXECUTION_ROLE_ARN: ${{ vars.CLOUDFORMATION_EXECUTION_ROLE_ARN }}
         run: |
@@ -165,6 +153,6 @@ jobs:
         run: bash scripts/cloudflare-upsert-dns.sh aurinara-production
       - name: Publish SPA and post-deployment checks
         shell: bash
-        env:
-          VITE_PLATFORM_API_BASE_URL: ${{ vars.PLATFORM_PUBLIC_URL }}
-        run: bash scripts/aws-publish-frontend.sh aurinara-production
+        run: |
+          export VITE_PLATFORM_API_BASE_URL=$(aws cloudformation describe-stacks --stack-name aurinara-platform-production --query "Stacks[0].Outputs[?OutputKey=='PlatformUrl'].OutputValue" --output text)
+          bash scripts/aws-publish-frontend.sh aurinara-production

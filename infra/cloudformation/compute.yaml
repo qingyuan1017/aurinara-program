@@ -15,6 +15,7 @@ Parameters:
   ArtifactBucketName: {Type: String}
   AccessLogBucketName: {Type: String}
   DataKeyArn: {Type: String}
+  SharedIdentityKeyArn: {Type: String}
   DatabaseEndpoint: {Type: String}
   DatabaseSecretArn: {Type: String}
   ApplicationSecretArn: {Type: String}
@@ -88,7 +89,7 @@ Resources:
                 Resource: [!Ref DatabaseSecretArn, !Ref ApplicationSecretArn, !Ref ServiceClientSecretArn]
               - Effect: Allow
                 Action: [kms:Decrypt]
-                Resource: !Ref DataKeyArn
+                Resource: [!Ref DataKeyArn, !Ref SharedIdentityKeyArn]
 
   ApplicationTaskRole:
     Type: AWS::IAM::Role

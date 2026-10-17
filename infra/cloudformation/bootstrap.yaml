@@ -9,15 +9,10 @@ Parameters:
   DeploymentBranch:
     Type: String
     Default: master
+  GitHubOidcProviderArn:
+    Type: String
 
 Resources:
-  GitHubOidcProvider:
-    Type: AWS::IAM::OIDCProvider
-    Properties:
-      Url: https://token.actions.githubusercontent.com
-      ClientIdList: [sts.amazonaws.com]
-      ThumbprintList: [6938fd4d98bab03faadb97b34396831e3780aea1]
-
   DeploymentRole:
     Type: AWS::IAM::Role
     Properties:
@@ -28,7 +23,7 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Federated: !Ref GitHubOidcProvider
+              Federated: !Ref GitHubOidcProviderArn
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringEquals:

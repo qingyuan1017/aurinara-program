@@ -158,6 +158,9 @@ Resources:
         - {IpProtocol: tcp, FromPort: 443, ToPort: 443, SourceSecurityGroupId: !Ref WorkerSecurityGroup}
         - {IpProtocol: tcp, FromPort: 443, ToPort: 443, SourceSecurityGroupId: !Ref IntegrationSecurityGroup}
         - {IpProtocol: tcp, FromPort: 443, ToPort: 443, SourceSecurityGroupId: !Ref RunnerSecurityGroup}
+        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, SourceSecurityGroupId: !Ref ApiSecurityGroup}
+        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, SourceSecurityGroupId: !Ref WorkerSecurityGroup}
+        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, SourceSecurityGroupId: !Ref IntegrationSecurityGroup}
   DatabaseSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -195,9 +198,9 @@ Resources:
       ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
       VpcEndpointType: Gateway
       RouteTableIds: [!Ref AppRouteTableA, !Ref AppRouteTableB, !Ref RunnerRouteTable]
-  EcrApiEndpoint: {Type: AWS::EC2::VPCEndpoint, Properties: {VpcId: !Ref Vpc, ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ecr.api', VpcEndpointType: Interface, PrivateDnsEnabled: true, SubnetIds: [!Ref AppSubnetA, !Ref AppSubnetB, !Ref RunnerSubnetA, !Ref RunnerSubnetB], SecurityGroupIds: [!Ref EndpointSecurityGroup]}}
-  EcrDkrEndpoint: {Type: AWS::EC2::VPCEndpoint, Properties: {VpcId: !Ref Vpc, ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ecr.dkr', VpcEndpointType: Interface, PrivateDnsEnabled: true, SubnetIds: [!Ref AppSubnetA, !Ref AppSubnetB, !Ref RunnerSubnetA, !Ref RunnerSubnetB], SecurityGroupIds: [!Ref EndpointSecurityGroup]}}
-  LogsEndpoint: {Type: AWS::EC2::VPCEndpoint, Properties: {VpcId: !Ref Vpc, ServiceName: !Sub 'com.amazonaws.${AWS::Region}.logs', VpcEndpointType: Interface, PrivateDnsEnabled: true, SubnetIds: [!Ref AppSubnetA, !Ref AppSubnetB, !Ref RunnerSubnetA, !Ref RunnerSubnetB], SecurityGroupIds: [!Ref EndpointSecurityGroup]}}
+  EcrApiEndpoint: {Type: AWS::EC2::VPCEndpoint, Properties: {VpcId: !Ref Vpc, ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ecr.api', VpcEndpointType: Interface, PrivateDnsEnabled: true, SubnetIds: [!Ref AppSubnetA, !Ref AppSubnetB], SecurityGroupIds: [!Ref EndpointSecurityGroup]}}
+  EcrDkrEndpoint: {Type: AWS::EC2::VPCEndpoint, Properties: {VpcId: !Ref Vpc, ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ecr.dkr', VpcEndpointType: Interface, PrivateDnsEnabled: true, SubnetIds: [!Ref AppSubnetA, !Ref AppSubnetB], SecurityGroupIds: [!Ref EndpointSecurityGroup]}}
+  LogsEndpoint: {Type: AWS::EC2::VPCEndpoint, Properties: {VpcId: !Ref Vpc, ServiceName: !Sub 'com.amazonaws.${AWS::Region}.logs', VpcEndpointType: Interface, PrivateDnsEnabled: true, SubnetIds: [!Ref AppSubnetA, !Ref AppSubnetB], SecurityGroupIds: [!Ref EndpointSecurityGroup]}}
   SecretsEndpoint: {Type: AWS::EC2::VPCEndpoint, Properties: {VpcId: !Ref Vpc, ServiceName: !Sub 'com.amazonaws.${AWS::Region}.secretsmanager', VpcEndpointType: Interface, PrivateDnsEnabled: true, SubnetIds: [!Ref AppSubnetA, !Ref AppSubnetB], SecurityGroupIds: [!Ref EndpointSecurityGroup]}}
   SqsEndpoint: {Type: AWS::EC2::VPCEndpoint, Properties: {VpcId: !Ref Vpc, ServiceName: !Sub 'com.amazonaws.${AWS::Region}.sqs', VpcEndpointType: Interface, PrivateDnsEnabled: true, SubnetIds: [!Ref AppSubnetA, !Ref AppSubnetB], SecurityGroupIds: [!Ref EndpointSecurityGroup]}}
   EcsEndpoint: {Type: AWS::EC2::VPCEndpoint, Properties: {VpcId: !Ref Vpc, ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ecs', VpcEndpointType: Interface, PrivateDnsEnabled: true, SubnetIds: [!Ref AppSubnetA, !Ref AppSubnetB], SecurityGroupIds: [!Ref EndpointSecurityGroup]}}

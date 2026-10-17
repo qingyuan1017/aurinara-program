@@ -8,10 +8,12 @@ for coded or pseudonymized clinical data under the organization's reviewed AWS
 controls; it does not claim regulatory certification, a formal audit trail,
 electronic signatures, PHI authorization, or regional disaster recovery.
 
-The account bootstrap is `infra/cloudformation/bootstrap.yaml`. Each environment
-uses `infra/cloudformation/environment.yaml`, which packages the network, data,
-identity, compute, edge, and operations nested templates. Never deploy the parent
-template without `aws cloudformation package`.
+`aurinara-platform` owns the account GitHub OIDC provider, shared Cognito user
+pool/product clients, Platform event bus, and Platform PrivateLink service.
+Aurinara's bootstrap consumes that OIDC provider, while each Aurinara environment
+uses `infra/cloudformation/environment.yaml` for its isolated network, data,
+compute, edge, and operations stacks. Never deploy the parent template without
+`aws cloudformation package`.
 
 ## Required inputs
 
@@ -23,9 +25,9 @@ operator parameter file. Do not commit secrets.
   optional DNS provider.
 - Exact GitHub owner, repository, deployment branch, and protected `staging` and
   `production` environments.
-- Cognito domain prefix, verified SES source ARN/from address, and notification email.
-- External platform public URL, private URL, PrivateLink endpoint-service name,
-  and environment-specific SQS publisher principal.
+- Matching `aurinara-platform-<environment>` stack and notification email. The
+  deploy script reads shared Cognito, event-bus, public/private URL, service
+  client secret, and PrivateLink outputs directly from that stack.
 - Digest-pinned application, Python-runner, and R-runner ECR image references.
 
 For Cloudflare, set the GitHub environment variable `DNS_PROVIDER=cloudflare`,
@@ -41,14 +43,15 @@ wait for the certificate to be issued before deployment. The certificate must
 cover `staging.<base-domain>` and `production.<base-domain>` (a wildcard at that
 level is acceptable).
 
-The platform endpoint service must enable private DNS and accept the environment
-VPC endpoint. Its OAuth trust must accept the Cognito service client and custom
-`aurinara-platform/service` scope. Platform event delivery is at least once, so
+The Platform endpoint service private DNS must be verified before this consumer
+is deployed. Its shared Cognito pool includes the Aurinara browser and service
+clients with the `aurinara-platform/service` scope. Platform event delivery is at least once, so
 the projection consumer remains idempotent by event ID and aggregate sequence.
 
 ## Bootstrap
 
-Deploy the bootstrap once from an administrative session:
+Deploy the Platform bootstrap first and read its `GitHubOidcProviderArn`. Then
+deploy this consumer bootstrap once from an administrative session:
 
 ```powershell
 aws cloudformation deploy `
@@ -59,7 +62,8 @@ aws cloudformation deploy `
   --parameter-overrides `
     GitHubOwner=<owner> `
     GitHubRepository=<repository> `
-    DeploymentBranch=master
+    DeploymentBranch=master `
+    GitHubOidcProviderArn=<platform-bootstrap-output>
 ```
 
 Record the deployment-role ARN, CloudFormation execution-role ARN, template

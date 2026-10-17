@@ -19,12 +19,6 @@ Parameters:
     Default: ''
   CertificateArn:
     Type: String
-  CognitoDomainPrefix:
-    Type: String
-  SesSourceArn:
-    Type: String
-  CognitoFromAddress:
-    Type: String
   ApplicationImage:
     Type: String
     AllowedPattern: '^.+@sha256:[a-f0-9]{64}$'
@@ -51,7 +45,25 @@ Parameters:
     Default: shadow
   PlatformPublicUrl:
     Type: String
-  PlatformPublisherPrincipalArn:
+  PlatformEventBusName:
+    Type: String
+  SharedIdentityKeyArn:
+    Type: String
+  UserPoolId:
+    Type: String
+  SpaClientId:
+    Type: String
+  JwtIssuer:
+    Type: String
+  JwtJwksUrl:
+    Type: String
+  ServiceClientId:
+    Type: String
+  ServiceClientSecretArn:
+    Type: String
+  ServiceTokenUrl:
+    Type: String
+  OidcEndSessionUrl:
     Type: String
   AlarmEmail:
     Type: String
@@ -87,24 +99,10 @@ Resources:
         DatabaseSecurityGroupId: !GetAtt Network.Outputs.DatabaseSecurityGroupId
         EfsSecurityGroupId: !GetAtt Network.Outputs.EfsSecurityGroupId
         DatabaseInstanceClass: !Ref DatabaseInstanceClass
-        PlatformPublisherPrincipalArn: !Ref PlatformPublisherPrincipalArn
-
-  Identity:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: Data
-    Properties:
-      TemplateURL: identity.yaml
-      Parameters:
-        Environment: !Ref Environment
-        ApplicationUrl: !Sub https://${Environment}.${BaseDomain}
-        DomainPrefix: !Ref CognitoDomainPrefix
-        DataKeyArn: !GetAtt Data.Outputs.DataKeyArn
-        SesSourceArn: !Ref SesSourceArn
-        CognitoFromAddress: !Ref CognitoFromAddress
 
   Compute:
     Type: AWS::CloudFormation::Stack
-    DependsOn: [Network, Data, Identity]
+    DependsOn: [Network, Data]
     Properties:
       TemplateURL: compute.yaml
       Parameters:
@@ -121,6 +119,7 @@ Resources:
         ArtifactBucketName: !GetAtt Data.Outputs.ArtifactBucketName
         AccessLogBucketName: !GetAtt Data.Outputs.AccessLogBucketName
         DataKeyArn: !GetAtt Data.Outputs.DataKeyArn
+        SharedIdentityKeyArn: !Ref SharedIdentityKeyArn
         DatabaseEndpoint: !GetAtt Data.Outputs.DatabaseEndpoint
         DatabaseSecretArn: !GetAtt Data.Outputs.DatabaseSecretArn
         ApplicationSecretArn: !GetAtt Data.Outputs.ApplicationSecretArn
@@ -134,12 +133,12 @@ Resources:
         ActivateServices: !Ref ActivateServices
         PythonRunnerImage: !Ref PythonRunnerImage
         RRunnerImage: !Ref RRunnerImage
-        UserPoolClientId: !GetAtt Identity.Outputs.SpaClientId
-        JwtIssuer: !GetAtt Identity.Outputs.JwtIssuer
-        JwtJwksUrl: !GetAtt Identity.Outputs.JwtJwksUrl
-        ServiceClientId: !GetAtt Identity.Outputs.ServiceClientId
-        ServiceClientSecretArn: !GetAtt Identity.Outputs.ServiceClientSecretArn
-        ServiceTokenUrl: !GetAtt Identity.Outputs.TokenUrl
+        UserPoolClientId: !Ref SpaClientId
+        JwtIssuer: !Ref JwtIssuer
+        JwtJwksUrl: !Ref JwtJwksUrl
+        ServiceClientId: !Ref ServiceClientId
+        ServiceClientSecretArn: !Ref ServiceClientSecretArn
+        ServiceTokenUrl: !Ref ServiceTokenUrl
         PlatformPrivateUrl: !Ref PlatformPrivateUrl
         PlatformAuthorizationMode: !Ref PlatformAuthorizationMode
         ApplicationOrigin: !Sub https://${Environment}.${BaseDomain}
@@ -181,6 +180,15 @@ Resources:
         ArtifactBucketName: !GetAtt Data.Outputs.ArtifactBucketName
         AccessLogBucketName: !GetAtt Data.Outputs.AccessLogBucketName
 
+  PlatformEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub aurinara-${Environment}-platform-events
+      EventBusName: !Ref PlatformEventBusName
+      State: ENABLED
+      EventPattern: {source: [aurinara.platform]}
+      Targets: [{Id: aurinara-projection, Arn: !GetAtt Data.Outputs.ProjectionQueueArn}]
+
   ProjectionQueuePolicy:
     Type: AWS::SQS::QueuePolicy
     Properties:
@@ -190,26 +198,25 @@ Resources:
         Statement:
           - Sid: PlatformPublish
             Effect: Allow
-            Principal: {AWS: !Ref PlatformPublisherPrincipalArn}
+            Principal: {Service: events.amazonaws.com}
             Action: sqs:SendMessage
             Resource: !GetAtt Data.Outputs.ProjectionQueueArn
-          - Sid: DenyUnapprovedPublishers
+            Condition: {ArnEquals: {'aws:SourceArn': !GetAtt PlatformEventRule.Arn}}
+          - Sid: DenyInsecureTransport
             Effect: Deny
             Principal: '*'
-            Action: sqs:SendMessage
+            Action: sqs:*
             Resource: !GetAtt Data.Outputs.ProjectionQueueArn
-            Condition:
-              ArnNotEquals:
-                aws:PrincipalArn: !Ref PlatformPublisherPrincipalArn
+            Condition: {Bool: {'aws:SecureTransport': false}}
 
 Outputs:
   ApplicationUrl: {Value: !Sub 'https://${Environment}.${BaseDomain}'}
   PlatformPublicUrl: {Value: !Ref PlatformPublicUrl}
-  UserPoolId: {Value: !GetAtt Identity.Outputs.UserPoolId}
-  SpaClientId: {Value: !GetAtt Identity.Outputs.SpaClientId}
-  OidcAuthority: {Value: !GetAtt Identity.Outputs.JwtIssuer}
+  UserPoolId: {Value: !Ref UserPoolId}
+  SpaClientId: {Value: !Ref SpaClientId}
+  OidcAuthority: {Value: !Ref JwtIssuer}
   OidcLogoutUrl: {Value: !Sub 'https://${Environment}.${BaseDomain}/login'}
-  OidcEndSessionUrl: {Value: !GetAtt Identity.Outputs.LogoutUrl}
+  OidcEndSessionUrl: {Value: !Ref OidcEndSessionUrl}
   FrontendBucketName: {Value: !GetAtt Data.Outputs.FrontendBucketName}
   CloudFrontDistributionId: {Value: !GetAtt Edge.Outputs.DistributionId}
   CloudFrontDistributionDomainName: {Value: !GetAtt Edge.Outputs.DistributionDomainName}
