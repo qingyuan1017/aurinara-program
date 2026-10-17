@@ -3,7 +3,10 @@ FROM python:3.13.5-slim-bookworm@sha256:4c2cf9917bd1cbacc5e9b07320025bdb7cdf2df7
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
-RUN pip install --no-cache-dir uv==0.11.29 \
+RUN apt-get update \
+    && apt-get upgrade --yes \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir uv==0.11.29 \
     && groupadd --system runner \
     && useradd --system --gid runner --uid 10001 runner
 WORKDIR /runner
