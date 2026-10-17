@@ -43,8 +43,6 @@ Parameters:
   RRunnerImage:
     Type: String
     AllowedPattern: '^.+@sha256:[a-f0-9]{64}$'
-  PlatformPrivateLinkServiceName:
-    Type: String
   PlatformPrivateUrl:
     Type: String
   PlatformAuthorizationMode:
@@ -99,7 +97,6 @@ Resources:
         AppSubnetIds: !Join [',', !Ref AppSubnetIds]
         RunnerSubnetIds: !Join [',', !Ref RunnerSubnetIds]
         DataSubnetIds: !Join [',', !Ref DataSubnetIds]
-        PlatformPrivateLinkServiceName: !Ref PlatformPrivateLinkServiceName
 
   Data:
     Type: AWS::CloudFormation::Stack

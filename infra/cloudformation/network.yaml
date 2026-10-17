@@ -8,7 +8,6 @@ Parameters:
   AppSubnetIds: {Type: CommaDelimitedList}
   RunnerSubnetIds: {Type: CommaDelimitedList}
   DataSubnetIds: {Type: CommaDelimitedList}
-  PlatformPrivateLinkServiceName: {Type: String}
 
 Resources:
   AlbSecurityGroup:
@@ -89,25 +88,6 @@ Resources:
   RunnerToEfs:
     Type: AWS::EC2::SecurityGroupEgress
     Properties: {GroupId: !Ref RunnerSecurityGroup, IpProtocol: tcp, FromPort: 2049, ToPort: 2049, DestinationSecurityGroupId: !Ref EfsSecurityGroup}
-  PlatformEndpointSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Aurinara access to the platform PrivateLink endpoint
-      VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, SourceSecurityGroupId: !Ref ApiSecurityGroup}
-        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, SourceSecurityGroupId: !Ref WorkerSecurityGroup}
-        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, SourceSecurityGroupId: !Ref IntegrationSecurityGroup}
-  PlatformEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcId: !Ref VpcId
-      ServiceName: !Ref PlatformPrivateLinkServiceName
-      VpcEndpointType: Interface
-      PrivateDnsEnabled: true
-      SubnetIds: !Ref AppSubnetIds
-      SecurityGroupIds: [!Ref PlatformEndpointSecurityGroup]
-
 Outputs:
   VpcId: {Value: !Ref VpcId}
   VpcCidr: {Value: !Ref VpcCidr}

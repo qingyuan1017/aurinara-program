@@ -35,7 +35,6 @@ esac
 platform_output() {
   aws cloudformation describe-stacks --stack-name "$PLATFORM_STACK_NAME" --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text
 }
-platform_privatelink_service_name=$(platform_output PlatformPrivateLinkServiceName)
 vpc_id=$(platform_output VpcId)
 vpc_cidr=$(platform_output VpcCidr)
 app_subnet_ids=$(platform_output AppSubnetIds)
@@ -94,7 +93,6 @@ deploy() {
       ActivateServices="$active" \
       PythonRunnerImage="$PYTHON_RUNNER_IMAGE" \
       RRunnerImage="$R_RUNNER_IMAGE" \
-      PlatformPrivateLinkServiceName="$platform_privatelink_service_name" \
       PlatformPrivateUrl="$platform_private_url" \
       PlatformAuthorizationMode="$platform_authorization_mode" \
       PlatformPublicUrl="$platform_public_url" \
