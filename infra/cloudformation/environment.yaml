@@ -187,8 +187,6 @@ Resources:
         ProjectionDlqName: !GetAtt Data.Outputs.ProjectionDlqName
         BackupVaultName: !GetAtt Data.Outputs.BackupVaultName
         DistributionId: !GetAtt Edge.Outputs.DistributionId
-        ArtifactBucketName: !GetAtt Data.Outputs.ArtifactBucketName
-        AccessLogBucketName: !GetAtt Data.Outputs.AccessLogBucketName
 
   PlatformEventRule:
     Type: AWS::Events::Rule

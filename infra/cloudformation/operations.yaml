@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Aurinara operational notifications, alarms, dashboard, trail, and budget.
+Description: Aurinara operational notifications, alarms, dashboard, and budget.
 
 Parameters:
   Environment: {Type: String, AllowedValues: [staging, production]}
@@ -13,8 +13,6 @@ Parameters:
   ProjectionDlqName: {Type: String}
   BackupVaultName: {Type: String}
   DistributionId: {Type: String}
-  ArtifactBucketName: {Type: String}
-  AccessLogBucketName: {Type: String}
 
 Conditions:
   IsProduction: !Equals [!Ref Environment, production]
@@ -317,24 +315,6 @@ Resources:
           {"type":"metric","x":12,"y":6,"width":12,"height":6,"properties":{"title":"Platform queue and jobs","region":"${AWS::Region}","metrics":[["AWS/SQS","ApproximateAgeOfOldestMessage","QueueName","${ProjectionQueueName}"],["Aurinara","ExpiredLeases","Environment","${Environment}"],[".","TerminalJobFailures",".","."]]}},
           {"type":"metric","x":0,"y":12,"width":24,"height":6,"properties":{"title":"CloudFront","region":"us-east-1","metrics":[["AWS/CloudFront","5xxErrorRate","DistributionId","${DistributionId}","Region","Global",{"stat":"Average"}],[".","Requests",".",".",".",".",{"stat":"Sum","yAxis":"right"}]]}}
         ]}
-
-  AuditTrail:
-    Type: AWS::CloudTrail::Trail
-    DependsOn: AlarmTopic
-    Properties:
-      TrailName: !Sub aurinara-${Environment}
-      S3BucketName: !Ref AccessLogBucketName
-      S3KeyPrefix: cloudtrail
-      IsLogging: true
-      IsMultiRegionTrail: true
-      IncludeGlobalServiceEvents: true
-      EnableLogFileValidation: true
-      EventSelectors:
-        - IncludeManagementEvents: true
-          ReadWriteType: All
-          DataResources:
-            - Type: AWS::S3::Object
-              Values: [!Sub 'arn:${AWS::Partition}:s3:::${ArtifactBucketName}/']
 
   MonthlyBudget:
     Type: AWS::Budgets::Budget

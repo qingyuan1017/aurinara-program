@@ -17,6 +17,10 @@ data, compute, edge, and operations stacks. Never deploy the parent template wit
 first uploading and rewriting its nested template URLs with
 `scripts/aws-package-nested-templates.sh`.
 
+The Platform production trail provides the suite-wide management and S3 object
+data-event record. Aurinara consumer stacks do not create CloudTrail trails;
+their artifact-bucket events are selected by the Platform-owned trail.
+
 ## Required inputs
 
 Supply these values through reviewed GitHub environment variables or an approved
