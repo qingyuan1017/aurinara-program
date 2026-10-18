@@ -162,6 +162,9 @@ retains seven days. Artifact S3 has versioning, retained CloudFormation deletion
 semantics, noncurrent-version lifecycle rules, and a daily AWS Backup selection.
 Backup vault names use the unique nested-stack name so a retained vault from a
 replaced or rolled-back stack cannot block a clean environment deployment.
+Retained application and runner log groups use CloudFormation-generated names
+for the same reason; resolve their names from the compute stack rather than
+constructing fixed paths.
 The operational target is automated AZ failover, an approximately five-minute
 database RPO within the backup window, and an operator-led four-hour restore RTO.
 

@@ -60,7 +60,6 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      LogGroupName: !Sub /aurinara/${Environment}/application
       RetentionInDays: !If [IsProduction, 365, 30]
       KmsKeyId: !Ref DataKeyArn
   RunnerLogGroup:
@@ -68,7 +67,6 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      LogGroupName: !Sub /aurinara/${Environment}/runner-lifecycle
       RetentionInDays: !If [IsProduction, 90, 14]
       KmsKeyId: !Ref DataKeyArn
 
