@@ -134,6 +134,10 @@ deploy() {
       DatabaseInstanceClass="$database_class"
 }
 
+if [[ "$deployment_profile" != "$current_profile" ]]; then
+  activate_services=false
+fi
+
 if [[ "$deployment_profile" == budget && "$current_profile" != budget ]]; then
   existing_alb=$(aws elbv2 describe-load-balancers \
     --names "aurinara-${environment}-internal" \
