@@ -4,6 +4,12 @@ on:
   push:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      deploy_staging:
+        description: Deploy the temporary staging environment before production
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -65,6 +71,7 @@ jobs:
 
   staging:
     needs: build
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_staging }}
     runs-on: ubuntu-latest
     environment: staging
     concurrency:
@@ -95,7 +102,8 @@ jobs:
           PLATFORM_AUTHORIZATION_MODE: ${{ vars.PLATFORM_AUTHORIZATION_MODE || 'shadow' }}
           ALARM_EMAIL: ${{ vars.ALARM_EMAIL }}
           CLOUDFORMATION_EXECUTION_ROLE_ARN: ${{ vars.CLOUDFORMATION_EXECUTION_ROLE_ARN || 'arn:aws:iam::730335504220:role/aurinara-cloudformation-execution' }}
-        run: bash scripts/aws-deploy-environment.sh aurinara-staging staging 10.40.0.0/16 db.t4g.medium
+          DEPLOYMENT_PROFILE: ${{ vars.DEPLOYMENT_PROFILE || 'budget' }}
+        run: bash scripts/aws-deploy-environment.sh aurinara-staging staging 10.40.0.0/16 db.t4g.small
       - name: Configure Cloudflare DNS-only CNAME
         if: ${{ vars.DNS_PROVIDER != 'route53' }}
         shell: bash
@@ -111,6 +119,7 @@ jobs:
 
   production:
     needs: [build, staging]
+    if: ${{ always() && needs.build.result == 'success' && (needs.staging.result == 'success' || needs.staging.result == 'skipped') }}
     runs-on: ubuntu-latest
     environment: production
     concurrency:
@@ -144,10 +153,11 @@ jobs:
           PLATFORM_AUTHORIZATION_MODE: ${{ vars.PLATFORM_AUTHORIZATION_MODE || 'shadow' }}
           ALARM_EMAIL: ${{ vars.ALARM_EMAIL }}
           CLOUDFORMATION_EXECUTION_ROLE_ARN: ${{ vars.CLOUDFORMATION_EXECUTION_ROLE_ARN || 'arn:aws:iam::730335504220:role/aurinara-cloudformation-execution' }}
+          DEPLOYMENT_PROFILE: ${{ vars.DEPLOYMENT_PROFILE || 'budget' }}
         run: |
           bucket=$(aws cloudformation describe-stacks --stack-name "$BOOTSTRAP_STACK" --query "Stacks[0].Outputs[?OutputKey=='TemplateBucketName'].OutputValue" --output text)
           bash scripts/aws-package-nested-templates.sh infra/cloudformation/environment.yaml "$bucket" "templates/${GITHUB_SHA}" packaged.yaml
-          bash scripts/aws-deploy-environment.sh aurinara-production production 10.60.0.0/16 db.m7g.large
+          bash scripts/aws-deploy-environment.sh aurinara-production production 10.60.0.0/16 db.t4g.small
           aws cloudformation update-termination-protection --enable-termination-protection --stack-name aurinara-production
       - name: Configure Cloudflare DNS-only CNAME
         if: ${{ vars.DNS_PROVIDER != 'route53' }}

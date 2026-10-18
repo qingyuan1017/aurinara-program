@@ -3,6 +3,7 @@ Description: Aurinara ECS services, internal load balancer, roles, and disposabl
 
 Parameters:
   Environment: {Type: String, AllowedValues: [staging, production]}
+  DeploymentProfile: {Type: String, AllowedValues: [standard, budget], Default: standard}
   VpcId: {Type: AWS::EC2::VPC::Id}
   AppSubnetIds: {Type: List<AWS::EC2::Subnet::Id>}
   RunnerSubnetIds: {Type: List<AWS::EC2::Subnet::Id>}
@@ -38,10 +39,21 @@ Parameters:
   PlatformPrivateUrl: {Type: String}
   PlatformAuthorizationMode: {Type: String, AllowedValues: [shadow, enforced]}
   ApplicationOrigin: {Type: String}
+  SharedAlbArn: {Type: String}
+  SharedAlbDnsName: {Type: String}
+  SharedAlbFullName: {Type: String}
+  SharedAlbListenerArn: {Type: String}
 
 Conditions:
   IsProduction: !Equals [!Ref Environment, production]
+  IsBudget: !Equals [!Ref DeploymentProfile, budget]
+  IsStandard: !Not [!Condition IsBudget]
   ServicesActive: !Equals [!Ref ActivateServices, 'true']
+  ApplicationImageReady: !Equals [!Ref ApplicationImage, !Ref MigrationApplicationImage]
+  BudgetWorkersActive: !And
+    - !Condition IsBudget
+    - !Condition ServicesActive
+    - !Condition ApplicationImageReady
 
 Resources:
   Cluster:
@@ -51,7 +63,7 @@ Resources:
       CapacityProviders: [FARGATE, FARGATE_SPOT]
       DefaultCapacityProviderStrategy:
         - {CapacityProvider: FARGATE, Weight: 1}
-      ClusterSettings: [{Name: containerInsights, Value: enhanced}]
+      ClusterSettings: [{Name: containerInsights, Value: !If [IsBudget, disabled, enhanced]}]
       Configuration:
         ExecuteCommandConfiguration: {Logging: NONE}
 
@@ -60,14 +72,14 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      RetentionInDays: !If [IsProduction, 365, 30]
+      RetentionInDays: !If [IsBudget, 30, !If [IsProduction, 365, 30]]
       KmsKeyId: !Ref DataKeyArn
   RunnerLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      RetentionInDays: !If [IsProduction, 90, 14]
+      RetentionInDays: !If [IsBudget, 14, !If [IsProduction, 90, 14]]
       KmsKeyId: !Ref DataKeyArn
 
   TaskExecutionRole:
@@ -162,6 +174,7 @@ Resources:
 
   InternalLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Condition: IsStandard
     Properties:
       Name: !Sub aurinara-${Environment}-internal
       Scheme: internal
@@ -193,18 +206,30 @@ Resources:
         - {Key: deregistration_delay.timeout_seconds, Value: '30'}
   ApiListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: IsStandard
     Properties:
       LoadBalancerArn: !Ref InternalLoadBalancer
       Port: 80
       Protocol: HTTP
-      DefaultActions: [{Type: forward, TargetGroupArn: !Ref ApiTargetGroup}]
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig: {StatusCode: '404', ContentType: text/plain, MessageBody: Not found}
+  ApiRoutingRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !If [IsBudget, !Ref SharedAlbListenerArn, !Ref ApiListener]
+      Priority: 100
+      Conditions:
+        - Field: http-header
+          HttpHeaderConfig: {HttpHeaderName: X-Aurinara-Product, Values: [aurinara]}
+      Actions: [{Type: forward, TargetGroupArn: !Ref ApiTargetGroup}]
 
   ApiTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
       Family: !Sub aurinara-${Environment}-api
-      Cpu: '1024'
-      Memory: '2048'
+      Cpu: !If [IsBudget, '512', '1024']
+      Memory: !If [IsBudget, '1024', '2048']
       NetworkMode: awsvpc
       RequiresCompatibilities: [FARGATE]
       ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
@@ -267,12 +292,12 @@ Resources:
 
   ApiService:
     Type: AWS::ECS::Service
-    DependsOn: ApiListener
+    DependsOn: ApiRoutingRule
     Properties:
       ServiceName: api
       Cluster: !Ref Cluster
       TaskDefinition: !Ref ApiTaskDefinition
-      DesiredCount: !If [ServicesActive, !If [IsProduction, 2, 1], 0]
+      DesiredCount: !If [ServicesActive, !If [IsBudget, 1, !If [IsProduction, 2, 1]], 0]
       LaunchType: FARGATE
       EnableExecuteCommand: false
       DeploymentConfiguration:
@@ -308,7 +333,7 @@ Resources:
           MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
         - Name: worker
           Image: !Ref ApplicationImage
-          Command: [python, -m, workers.job_worker]
+          Command: !If [IsBudget, [python, -m, workers.job_worker, --drain], [python, -m, workers.job_worker]]
           DependsOn: [{ContainerName: scratch-init, Condition: SUCCESS}]
           Essential: true
           ReadonlyRootFilesystem: true
@@ -353,7 +378,7 @@ Resources:
       ServiceName: build-worker
       Cluster: !Ref Cluster
       TaskDefinition: !Ref BuildTaskDefinition
-      DesiredCount: !If [ServicesActive, !If [IsProduction, 2, 1], 0]
+      DesiredCount: !If [ServicesActive, !If [IsBudget, 0, !If [IsProduction, 2, 1]], 0]
       LaunchType: FARGATE
       DeploymentConfiguration: {DeploymentCircuitBreaker: {Enable: true, Rollback: true}, MinimumHealthyPercent: 50, MaximumPercent: 200}
       NetworkConfiguration:
@@ -482,7 +507,7 @@ Resources:
           MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
         - Name: dispatcher
           Image: !Ref ApplicationImage
-          Command: [python, -m, workers.execution_dispatcher]
+          Command: !If [IsBudget, [python, -m, workers.execution_dispatcher, --drain], [python, -m, workers.execution_dispatcher]]
           DependsOn: [{ContainerName: scratch-init, Condition: SUCCESS}]
           Essential: true
           ReadonlyRootFilesystem: true
@@ -534,7 +559,7 @@ Resources:
       ServiceName: execution-dispatcher
       Cluster: !Ref Cluster
       TaskDefinition: !Ref ExecutionDispatcherTaskDefinition
-      DesiredCount: !If [ServicesActive, 1, 0]
+      DesiredCount: !If [ServicesActive, !If [IsBudget, 0, 1], 0]
       LaunchType: FARGATE
       DeploymentConfiguration: {DeploymentCircuitBreaker: {Enable: true, Rollback: true}, MinimumHealthyPercent: 0, MaximumPercent: 200}
       NetworkConfiguration:
@@ -544,8 +569,8 @@ Resources:
     Type: AWS::ECS::TaskDefinition
     Properties:
       Family: !Sub aurinara-${Environment}-integration-dispatcher
-      Cpu: '512'
-      Memory: '1024'
+      Cpu: !If [IsBudget, '256', '512']
+      Memory: !If [IsBudget, '512', '1024']
       NetworkMode: awsvpc
       RequiresCompatibilities: [FARGATE]
       ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
@@ -562,7 +587,7 @@ Resources:
           MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
         - Name: integration
           Image: !Ref ApplicationImage
-          Command: [python, -m, workers.integration_dispatcher]
+          Command: !If [IsBudget, [python, -m, workers.integration_dispatcher, --drain], [python, -m, workers.integration_dispatcher]]
           DependsOn: [{ContainerName: scratch-init, Condition: SUCCESS}]
           Essential: true
           ReadonlyRootFilesystem: true
@@ -579,7 +604,7 @@ Resources:
       ServiceName: integration-dispatcher
       Cluster: !Ref Cluster
       TaskDefinition: !Ref IntegrationTaskDefinition
-      DesiredCount: !If [ServicesActive, 1, 0]
+      DesiredCount: !If [ServicesActive, !If [IsBudget, 0, 1], 0]
       LaunchType: FARGATE
       DeploymentConfiguration: {DeploymentCircuitBreaker: {Enable: true, Rollback: true}, MinimumHealthyPercent: 0, MaximumPercent: 100}
       NetworkConfiguration:
@@ -589,8 +614,8 @@ Resources:
     Type: AWS::ECS::TaskDefinition
     Properties:
       Family: !Sub aurinara-${Environment}-projection-worker
-      Cpu: '512'
-      Memory: '1024'
+      Cpu: !If [IsBudget, '256', '512']
+      Memory: !If [IsBudget, '512', '1024']
       NetworkMode: awsvpc
       RequiresCompatibilities: [FARGATE]
       ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
@@ -607,7 +632,7 @@ Resources:
           MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
         - Name: projection
           Image: !Ref ApplicationImage
-          Command: [python, -m, workers.platform_projection_worker]
+          Command: !If [IsBudget, [python, -m, workers.platform_projection_worker, --drain], [python, -m, workers.platform_projection_worker]]
           DependsOn: [{ContainerName: scratch-init, Condition: SUCCESS}]
           Essential: true
           ReadonlyRootFilesystem: true
@@ -651,11 +676,109 @@ Resources:
       ServiceName: projection-worker
       Cluster: !Ref Cluster
       TaskDefinition: !Ref ProjectionTaskDefinition
-      DesiredCount: !If [ServicesActive, !If [IsProduction, 2, 1], 0]
+      DesiredCount: !If [ServicesActive, !If [IsBudget, 0, !If [IsProduction, 2, 1]], 0]
       LaunchType: FARGATE
       DeploymentConfiguration: {DeploymentCircuitBreaker: {Enable: true, Rollback: true}, MinimumHealthyPercent: 50, MaximumPercent: 200}
       NetworkConfiguration:
         AwsvpcConfiguration: {AssignPublicIp: DISABLED, SecurityGroups: [!Ref WorkerSecurityGroupId], Subnets: !Ref AppSubnetIds}
+
+  ScheduledWorkerRole:
+    Type: AWS::IAM::Role
+    Condition: IsBudget
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{Effect: Allow, Principal: {Service: events.amazonaws.com}, Action: 'sts:AssumeRole'}]
+      Policies:
+        - PolicyName: RunBudgetWorkers
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ecs:RunTask
+                Resource: '*'
+                Condition: {ArnEquals: {'ecs:cluster': !GetAtt Cluster.Arn}}
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource:
+                  - !GetAtt TaskExecutionRole.Arn
+                  - !GetAtt ApplicationTaskRole.Arn
+                  - !GetAtt ExecutionDispatcherTaskRole.Arn
+                  - !GetAtt ProjectionTaskRole.Arn
+                Condition: {StringEquals: {'iam:PassedToService': ecs-tasks.amazonaws.com}}
+
+  BuildWorkerSchedule:
+    Type: AWS::Events::Rule
+    Condition: BudgetWorkersActive
+    Properties:
+      Description: Drain queued build work without an always-on worker
+      ScheduleExpression: rate(5 minutes)
+      State: ENABLED
+      Targets:
+        - Id: build-worker
+          Arn: !GetAtt Cluster.Arn
+          RoleArn: !GetAtt ScheduledWorkerRole.Arn
+          EcsParameters:
+            TaskDefinitionArn: !Ref BuildTaskDefinition
+            TaskCount: 1
+            CapacityProviderStrategy: [{CapacityProvider: FARGATE_SPOT, Weight: 1}]
+            PlatformVersion: LATEST
+            NetworkConfiguration:
+              AwsVpcConfiguration: {AssignPublicIp: DISABLED, SecurityGroups: [!Ref WorkerSecurityGroupId], Subnets: !Ref AppSubnetIds}
+  ExecutionWorkerSchedule:
+    Type: AWS::Events::Rule
+    Condition: BudgetWorkersActive
+    Properties:
+      Description: Drain queued execution work without an always-on dispatcher
+      ScheduleExpression: rate(5 minutes)
+      State: ENABLED
+      Targets:
+        - Id: execution-worker
+          Arn: !GetAtt Cluster.Arn
+          RoleArn: !GetAtt ScheduledWorkerRole.Arn
+          EcsParameters:
+            TaskDefinitionArn: !Ref ExecutionDispatcherTaskDefinition
+            TaskCount: 1
+            CapacityProviderStrategy: [{CapacityProvider: FARGATE_SPOT, Weight: 1}]
+            PlatformVersion: LATEST
+            NetworkConfiguration:
+              AwsVpcConfiguration: {AssignPublicIp: DISABLED, SecurityGroups: [!Ref WorkerSecurityGroupId], Subnets: !Ref AppSubnetIds}
+  IntegrationWorkerSchedule:
+    Type: AWS::Events::Rule
+    Condition: BudgetWorkersActive
+    Properties:
+      Description: Drain outbound integration work without an always-on dispatcher
+      ScheduleExpression: rate(5 minutes)
+      State: ENABLED
+      Targets:
+        - Id: integration-worker
+          Arn: !GetAtt Cluster.Arn
+          RoleArn: !GetAtt ScheduledWorkerRole.Arn
+          EcsParameters:
+            TaskDefinitionArn: !Ref IntegrationTaskDefinition
+            TaskCount: 1
+            CapacityProviderStrategy: [{CapacityProvider: FARGATE_SPOT, Weight: 1}]
+            PlatformVersion: LATEST
+            NetworkConfiguration:
+              AwsVpcConfiguration: {AssignPublicIp: DISABLED, SecurityGroups: [!Ref IntegrationSecurityGroupId], Subnets: !Ref AppSubnetIds}
+  ProjectionWorkerSchedule:
+    Type: AWS::Events::Rule
+    Condition: BudgetWorkersActive
+    Properties:
+      Description: Drain Platform events with bounded latency
+      ScheduleExpression: rate(1 minute)
+      State: ENABLED
+      Targets:
+        - Id: projection-worker
+          Arn: !GetAtt Cluster.Arn
+          RoleArn: !GetAtt ScheduledWorkerRole.Arn
+          EcsParameters:
+            TaskDefinitionArn: !Ref ProjectionTaskDefinition
+            TaskCount: 1
+            CapacityProviderStrategy: [{CapacityProvider: FARGATE_SPOT, Weight: 1}]
+            PlatformVersion: LATEST
+            NetworkConfiguration:
+              AwsVpcConfiguration: {AssignPublicIp: DISABLED, SecurityGroups: [!Ref WorkerSecurityGroupId], Subnets: !Ref AppSubnetIds}
 
   MigrationTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -693,6 +816,7 @@ Resources:
 
   BuildScalableTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Condition: IsStandard
     Properties:
       MinCapacity: !If [ServicesActive, !If [IsProduction, 2, 1], 0]
       MaxCapacity: 10
@@ -702,6 +826,7 @@ Resources:
       ServiceNamespace: ecs
   BuildCpuScaling:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: IsStandard
     Properties:
       PolicyName: build-worker-cpu
       PolicyType: TargetTrackingScaling
@@ -713,6 +838,7 @@ Resources:
         ScaleOutCooldown: 60
   BuildQueueScaling:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: IsStandard
     Properties:
       PolicyName: build-worker-queue
       PolicyType: TargetTrackingScaling
@@ -732,6 +858,7 @@ Resources:
 
   ExecutionScalableTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Condition: IsStandard
     Properties:
       MinCapacity: !If [ServicesActive, 1, 0]
       MaxCapacity: 10
@@ -741,6 +868,7 @@ Resources:
       ServiceNamespace: ecs
   ExecutionCpuScaling:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: IsStandard
     Properties:
       PolicyName: execution-dispatcher-cpu
       PolicyType: TargetTrackingScaling
@@ -752,6 +880,7 @@ Resources:
         ScaleOutCooldown: 60
   ExecutionQueueScaling:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: IsStandard
     Properties:
       PolicyName: execution-dispatcher-queue
       PolicyType: TargetTrackingScaling
@@ -773,9 +902,9 @@ Outputs:
   ClusterName: {Value: !Ref Cluster}
   ClusterArn: {Value: !GetAtt Cluster.Arn}
   ApiServiceName: {Value: !GetAtt ApiService.Name}
-  AlbArn: {Value: !Ref InternalLoadBalancer}
-  AlbDnsName: {Value: !GetAtt InternalLoadBalancer.DNSName}
-  AlbFullName: {Value: !GetAtt InternalLoadBalancer.LoadBalancerFullName}
+  AlbArn: {Value: !If [IsBudget, !Ref SharedAlbArn, !Ref InternalLoadBalancer]}
+  AlbDnsName: {Value: !If [IsBudget, !Ref SharedAlbDnsName, !GetAtt InternalLoadBalancer.DNSName]}
+  AlbFullName: {Value: !If [IsBudget, !Ref SharedAlbFullName, !GetAtt InternalLoadBalancer.LoadBalancerFullName]}
   ApiTargetGroupFullName: {Value: !GetAtt ApiTargetGroup.TargetGroupFullName}
   MigrationTaskDefinitionArn: {Value: !Ref MigrationTaskDefinition}
   PythonRunnerTaskDefinitionArn: {Value: !Ref PythonRunnerTaskDefinition}

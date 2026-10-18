@@ -46,6 +46,7 @@ Resources:
                   - cloudformation:CreateChangeSet
                   - cloudformation:CreateStack
                   - cloudformation:DeleteChangeSet
+                  - cloudformation:DeleteStack
                   - cloudformation:Describe*
                   - cloudformation:Detect*
                   - cloudformation:ExecuteChangeSet
@@ -105,6 +106,11 @@ Resources:
                 Resource: '*'
               - Effect: Allow
                 Action: [rds:CreateDBSnapshot, rds:DescribeDBSnapshots]
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - elasticloadbalancing:DescribeLoadBalancers
+                  - elasticloadbalancing:ModifyLoadBalancerAttributes
                 Resource: '*'
 
   CloudFormationExecutionRole:

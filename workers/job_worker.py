@@ -1,5 +1,6 @@
 """Durable build and reconciliation worker process."""
 
+import argparse
 import hashlib
 import logging
 import os
@@ -764,6 +765,13 @@ def _process_job(
 def main() -> None:
     """Claim jobs briefly and process registered handlers outside the claim lock."""
 
+    parser = argparse.ArgumentParser(description="Process durable Aurinara build jobs")
+    parser.add_argument(
+        "--drain",
+        action="store_true",
+        help="Process queued jobs and exit when the queue is empty",
+    )
+    arguments = parser.parse_args()
     settings: Settings = get_settings()
     configure_logging(settings.app_log_level)
     factory = create_session_factory(create_database_engine(settings))
@@ -788,6 +796,8 @@ def main() -> None:
                 ),
             )
         if job is None:
+            if arguments.drain:
+                return
             time.sleep(1)
             continue
         if job.lease_token is None:

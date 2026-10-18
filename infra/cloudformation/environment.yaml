@@ -5,6 +5,10 @@ Parameters:
   Environment:
     Type: String
     AllowedValues: [staging, production]
+  DeploymentProfile:
+    Type: String
+    AllowedValues: [standard, budget]
+    Default: standard
   VpcCidr:
     Type: String
     Default: 10.40.0.0/16
@@ -71,12 +75,22 @@ Parameters:
     Type: String
   OidcEndSessionUrl:
     Type: String
+  SharedAlbArn: {Type: String}
+  SharedAlbDnsName: {Type: String}
+  SharedAlbFullName: {Type: String}
+  SharedAlbListenerArn: {Type: String}
+  SharedAlbSecurityGroupId: {Type: AWS::EC2::SecurityGroup::Id}
+  SharedWebAclArn: {Type: String}
+  SharedVpcOriginId: {Type: String}
   AlarmEmail:
     Type: String
     Default: ''
   DatabaseInstanceClass:
     Type: String
     Default: db.m7g.large
+
+Conditions:
+  IsBudget: !Equals [!Ref DeploymentProfile, budget]
 
 Rules:
   Route53HostedZoneRequired:
@@ -97,6 +111,8 @@ Resources:
         AppSubnetIds: !Join [',', !Ref AppSubnetIds]
         RunnerSubnetIds: !Join [',', !Ref RunnerSubnetIds]
         DataSubnetIds: !Join [',', !Ref DataSubnetIds]
+        DeploymentProfile: !Ref DeploymentProfile
+        SharedAlbSecurityGroupId: !Ref SharedAlbSecurityGroupId
 
   Data:
     Type: AWS::CloudFormation::Stack
@@ -109,6 +125,7 @@ Resources:
         DatabaseSecurityGroupId: !GetAtt Network.Outputs.DatabaseSecurityGroupId
         EfsSecurityGroupId: !GetAtt Network.Outputs.EfsSecurityGroupId
         DatabaseInstanceClass: !Ref DatabaseInstanceClass
+        DeploymentProfile: !Ref DeploymentProfile
 
   Compute:
     Type: AWS::CloudFormation::Stack
@@ -117,6 +134,7 @@ Resources:
       TemplateURL: compute.yaml
       Parameters:
         Environment: !Ref Environment
+        DeploymentProfile: !Ref DeploymentProfile
         VpcId: !GetAtt Network.Outputs.VpcId
         AppSubnetIds: !GetAtt Network.Outputs.AppSubnetIds
         RunnerSubnetIds: !GetAtt Network.Outputs.RunnerSubnetIds
@@ -152,6 +170,10 @@ Resources:
         PlatformPrivateUrl: !Ref PlatformPrivateUrl
         PlatformAuthorizationMode: !Ref PlatformAuthorizationMode
         ApplicationOrigin: !Sub https://${Environment}.${BaseDomain}
+        SharedAlbArn: !Ref SharedAlbArn
+        SharedAlbDnsName: !Ref SharedAlbDnsName
+        SharedAlbFullName: !Ref SharedAlbFullName
+        SharedAlbListenerArn: !Ref SharedAlbListenerArn
 
   Edge:
     Type: AWS::CloudFormation::Stack
@@ -169,6 +191,9 @@ Resources:
         AccessLogBucketDomainName: !GetAtt Data.Outputs.AccessLogBucketDomainName
         AlbArn: !GetAtt Compute.Outputs.AlbArn
         AlbDnsName: !GetAtt Compute.Outputs.AlbDnsName
+        SharedWebAclArn: !If [IsBudget, !Ref SharedWebAclArn, '']
+        SharedVpcOriginId: !If [IsBudget, !Ref SharedVpcOriginId, '']
+        OriginRoutingValue: aurinara
 
   Operations:
     Type: AWS::CloudFormation::Stack
@@ -177,6 +202,7 @@ Resources:
       TemplateURL: operations.yaml
       Parameters:
         Environment: !Ref Environment
+        DeploymentProfile: !Ref DeploymentProfile
         AlarmEmail: !Ref AlarmEmail
         ClusterName: !GetAtt Compute.Outputs.ClusterName
         ApiServiceName: !GetAtt Compute.Outputs.ApiServiceName
@@ -220,6 +246,7 @@ Resources:
 Outputs:
   ApplicationUrl: {Value: !Sub 'https://${Environment}.${BaseDomain}'}
   PlatformPublicUrl: {Value: !Ref PlatformPublicUrl}
+  DeploymentProfile: {Value: !Ref DeploymentProfile}
   UserPoolId: {Value: !Ref UserPoolId}
   SpaClientId: {Value: !Ref SpaClientId}
   OidcAuthority: {Value: !Ref JwtIssuer}

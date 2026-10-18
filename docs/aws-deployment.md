@@ -9,7 +9,7 @@ controls; it does not claim regulatory certification, a formal audit trail,
 electronic signatures, PHI authorization, or regional disaster recovery.
 
 `aurinara-platform` owns the account GitHub OIDC provider, shared Cognito user
-pool/product clients, Platform event bus, and Platform PrivateLink service.
+pool/product clients, Platform event bus, and shared production edge.
 Aurinara's bootstrap consumes that OIDC provider. Each Aurinara environment
 uses the matching Platform VPC and private subnets, and
 `infra/cloudformation/environment.yaml` creates application-specific security,
@@ -20,6 +20,13 @@ first uploading and rewriting its nested template URLs with
 The Platform production trail provides the suite-wide management and S3 object
 data-event record. Aurinara consumer stacks do not create CloudTrail trails;
 their artifact-bucket events are selected by the Platform-owned trail.
+
+Production uses the suite `budget` profile: one shared Platform ALB and WAF,
+one NAT gateway, a separate Single-AZ Aurinara database, one API task, and
+scheduled drain-to-empty workers on Fargate Spot. Staging is deployed only when
+explicitly selected in a manual workflow. The authoritative cross-repository
+design, cost envelope, cutover order, and rollback procedure are in
+`aurinara-platform/docs/budget-deployment-profile.md`.
 
 ## Required inputs
 
@@ -35,7 +42,7 @@ operator parameter file. Do not commit secrets.
   optional; when omitted, alarms and dashboards are created without email or
   budget subscriptions. The
   deploy script reads shared network, Cognito, event-bus, public/private URL,
-  service client secret, and PrivateLink outputs directly from that stack.
+  service client secret, and shared edge outputs directly from that stack.
 - Digest-pinned application, Python-runner, and R-runner ECR image references.
 
 For Cloudflare, set the GitHub environment variable `DNS_PROVIDER=cloudflare`,
@@ -51,8 +58,9 @@ wait for the certificate to be issued before deployment. The certificate must
 cover `staging.<base-domain>` and `production.<base-domain>` (a wildcard at that
 level is acceptable).
 
-The Platform endpoint service private DNS must be verified before this consumer
-is deployed. Its shared Cognito pool includes the Aurinara browser and service
+In the standard profile, the Platform endpoint service private DNS must be
+verified before this consumer is deployed. The budget profile calls Platform
+through the shared internal ALB. Its shared Cognito pool includes the Aurinara browser and service
 clients with the `aurinara-platform/service` scope. Platform event delivery is at least once, so
 the projection consumer remains idempotent by event ID and aggregate sequence.
 
@@ -104,13 +112,21 @@ parameter or application secret.
 ## Environment deployment
 
 `.github/workflows/deploy.yml` is the authoritative release path. It packages
-the nested templates, deploys staging, runs the one-off migration/catalog task,
+the nested templates, optionally deploys staging on a manual run, runs the one-off migration/catalog task,
 updates the Cloudflare DNS-only CNAME, publishes the SPA, and performs a
 readiness check. The production job is guarded by GitHub Environment approval,
 takes an RDS snapshot, applies the reviewed CloudFormation change set with
 rolling-update circuit breakers, runs only backward-compatible migrations,
 updates its Cloudflare CNAME, publishes the SPA, enables parent-stack termination
-protection, and runs the same readiness check.
+protection, and runs the same readiness check. Push deployments proceed directly
+to the protected production job and do not recreate staging.
+
+The first budget conversion can restart RDS while the instance class and
+Multi-AZ setting change. Schedule a maintenance window and deploy Platform,
+Aurinara, then EDC. After production verification, the **Remove staging
+environment** workflow removes the staging stack; remove consumer staging stacks
+before Platform. Retained buckets, snapshots, and recovery points are not
+deleted.
 
 The SPA publish script resolves `ApplicationUrl` from the target stack and sets
 `VITE_API_BASE_URL` to that origin before building. This keeps browser API calls
@@ -162,16 +178,18 @@ the private URL; only browser Repository calls use `VITE_PLATFORM_API_BASE_URL`.
 
 ## Backups and restore exercises
 
-Production RDS retains 35 days of automated backups and is Multi-AZ. Staging
-retains seven days. Artifact S3 has versioning, retained CloudFormation deletion
+Standard production RDS retains 35 days of automated backups and is Multi-AZ.
+Budget production retains 14 days and is Single-AZ; staging follows the selected
+profile. Artifact S3 has versioning, retained CloudFormation deletion
 semantics, noncurrent-version lifecycle rules, and a daily AWS Backup selection.
 Backup vault names use the unique nested-stack name so a retained vault from a
 replaced or rolled-back stack cannot block a clean environment deployment.
 Retained application and runner log groups use CloudFormation-generated names
 for the same reason; resolve their names from the compute stack rather than
-constructing fixed paths.
-The operational target is automated AZ failover, an approximately five-minute
-database RPO within the backup window, and an operator-led four-hour restore RTO.
+constructing fixed paths. Automated AZ failover applies only to `standard`;
+`budget` accepts database downtime during an AZ or instance event. Both profiles
+target an approximately five-minute database RPO within the backup window and an
+operator-led four-hour restore RTO.
 
 Before launch and quarterly thereafter:
 
@@ -245,6 +263,6 @@ exposure. A token with account-wide permissions or permissions beyond DNS read
 and edit for the selected zone is not accepted operational practice.
 
 Drift detection, production termination protection, clean staging replacement,
-RDS/S3 restore evidence, platform PrivateLink acceptance, SES verification, alert
-subscription confirmation, budget ownership, and the full staging acceptance
-suite are launch gates—not post-launch cleanup.
+RDS/S3 restore evidence, verification of the selected Platform private path,
+SES verification, alert subscription confirmation, budget ownership, and the
+full staging acceptance suite are launch gates—not post-launch cleanup.

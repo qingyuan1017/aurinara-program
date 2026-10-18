@@ -12,13 +12,19 @@ Parameters:
   AccessLogBucketDomainName: {Type: String}
   AlbArn: {Type: String}
   AlbDnsName: {Type: String}
+  SharedWebAclArn: {Type: String, Default: ''}
+  SharedVpcOriginId: {Type: String, Default: ''}
+  OriginRoutingValue: {Type: String, Default: aurinara}
 
 Conditions:
   ManageRoute53Dns: !Equals [!Ref DnsProvider, route53]
+  CreateWebAcl: !Equals [!Ref SharedWebAclArn, '']
+  CreateVpcOrigin: !Equals [!Ref SharedVpcOriginId, '']
 
 Resources:
   WebAcl:
     Type: AWS::WAFv2::WebACL
+    Condition: CreateWebAcl
     Properties:
       Name: !Sub aurinara-${Environment}-edge
       Scope: CLOUDFRONT
@@ -65,6 +71,7 @@ Resources:
 
   ApiVpcOrigin:
     Type: AWS::CloudFront::VpcOrigin
+    Condition: CreateVpcOrigin
     Properties:
       VpcOriginEndpointConfig:
         Name: !Sub aurinara-${Environment}-api
@@ -99,7 +106,7 @@ Resources:
         IPV6Enabled: true
         PriceClass: PriceClass_100
         DefaultRootObject: index.html
-        WebACLId: !GetAtt WebAcl.Arn
+        WebACLId: !If [CreateWebAcl, !GetAtt WebAcl.Arn, !Ref SharedWebAclArn]
         ViewerCertificate:
           AcmCertificateArn: !Ref CertificateArn
           MinimumProtocolVersion: TLSv1.2_2021
@@ -115,7 +122,10 @@ Resources:
             S3OriginConfig: {OriginAccessIdentity: ''}
           - Id: api
             DomainName: !Ref AlbDnsName
-            VpcOriginConfig: {VpcOriginId: !GetAtt ApiVpcOrigin.Id}
+            VpcOriginConfig:
+              VpcOriginId: !If [CreateVpcOrigin, !GetAtt ApiVpcOrigin.Id, !Ref SharedVpcOriginId]
+            OriginCustomHeaders:
+              - {HeaderName: X-Aurinara-Product, HeaderValue: !Ref OriginRoutingValue}
         DefaultCacheBehavior:
           TargetOriginId: spa
           ViewerProtocolPolicy: redirect-to-https
@@ -187,4 +197,4 @@ Resources:
 Outputs:
   DistributionId: {Value: !Ref Distribution}
   DistributionDomainName: {Value: !GetAtt Distribution.DomainName}
-  WebAclArn: {Value: !GetAtt WebAcl.Arn}
+  WebAclArn: {Value: !If [CreateWebAcl, !GetAtt WebAcl.Arn, !Ref SharedWebAclArn]}

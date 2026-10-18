@@ -3,6 +3,7 @@ Description: Aurinara operational notifications, alarms, dashboard, and budget.
 
 Parameters:
   Environment: {Type: String, AllowedValues: [staging, production]}
+  DeploymentProfile: {Type: String, AllowedValues: [standard, budget], Default: standard}
   AlarmEmail: {Type: String, Default: ''}
   ClusterName: {Type: String}
   ApiServiceName: {Type: String}
@@ -17,6 +18,8 @@ Parameters:
 Conditions:
   IsProduction: !Equals [!Ref Environment, production]
   HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, '']]
+  IsBudget: !Equals [!Ref DeploymentProfile, budget]
+  IsStandard: !Not [!Condition IsBudget]
 
 Resources:
   AlarmTopic:
@@ -318,6 +321,7 @@ Resources:
 
   MonthlyBudget:
     Type: AWS::Budgets::Budget
+    Condition: IsStandard
     Properties:
       Budget:
         BudgetName: !Sub aurinara-${Environment}-monthly

@@ -8,10 +8,17 @@ Parameters:
   AppSubnetIds: {Type: CommaDelimitedList}
   RunnerSubnetIds: {Type: CommaDelimitedList}
   DataSubnetIds: {Type: CommaDelimitedList}
+  DeploymentProfile: {Type: String, AllowedValues: [standard, budget], Default: standard}
+  SharedAlbSecurityGroupId: {Type: AWS::EC2::SecurityGroup::Id}
+
+Conditions:
+  IsBudget: !Equals [!Ref DeploymentProfile, budget]
+  IsStandard: !Not [!Condition IsBudget]
 
 Resources:
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
+    Condition: IsStandard
     Properties:
       GroupDescription: CloudFront VPC origin to the Aurinara internal ALB
       VpcId: !Ref VpcId
@@ -20,6 +27,7 @@ Resources:
         - {IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: !Ref VpcCidr}
   CloudFrontAlbIngress:
     Type: AWS::EC2::SecurityGroupIngress
+    Condition: IsStandard
     Properties:
       GroupId: !Ref AlbSecurityGroup
       IpProtocol: tcp
@@ -33,7 +41,10 @@ Resources:
       GroupDescription: Aurinara API
       VpcId: !Ref VpcId
       SecurityGroupIngress:
-        - {IpProtocol: tcp, FromPort: 8000, ToPort: 8000, SourceSecurityGroupId: !Ref AlbSecurityGroup}
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          SourceSecurityGroupId: !If [IsBudget, !Ref SharedAlbSecurityGroupId, !Ref AlbSecurityGroup]
   WorkerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties: {GroupDescription: Aurinara workers, VpcId: !Ref VpcId}
@@ -95,7 +106,7 @@ Outputs:
   RunnerSubnetIds: {Value: !Join [',', !Ref RunnerSubnetIds]}
   DataSubnetIds: {Value: !Join [',', !Ref DataSubnetIds]}
   PublicSubnetIds: {Value: !Join [',', !Ref AppSubnetIds]}
-  AlbSecurityGroupId: {Value: !Ref AlbSecurityGroup}
+  AlbSecurityGroupId: {Value: !If [IsBudget, !Ref SharedAlbSecurityGroupId, !Ref AlbSecurityGroup]}
   ApiSecurityGroupId: {Value: !Ref ApiSecurityGroup}
   WorkerSecurityGroupId: {Value: !Ref WorkerSecurityGroup}
   RunnerSecurityGroupId: {Value: !Ref RunnerSecurityGroup}

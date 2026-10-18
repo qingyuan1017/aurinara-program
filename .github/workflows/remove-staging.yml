@@ -1,0 +1,19 @@
+name: Remove temporary staging
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_stack_name:
+        description: Type aurinara-staging to confirm
+        required: true
+        type: string
+permissions: {contents: read, id-token: write}
+jobs:
+  remove:
+    if: ${{ inputs.confirm_stack_name == 'aurinara-staging' }}
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: {role-to-assume: "${{ vars.AWS_DEPLOYMENT_ROLE_ARN || 'arn:aws:iam::730335504220:role/aurinara-github-deployment' }}", aws-region: us-east-1}
+      - run: bash scripts/aws-delete-staging.sh aurinara-staging

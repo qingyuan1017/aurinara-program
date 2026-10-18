@@ -1,5 +1,6 @@
 """Isolated Python/R execution dispatcher process."""
 
+import argparse
 import logging
 import os
 import signal
@@ -29,6 +30,13 @@ def _request_stop(_signal: int, _frame: FrameType | None) -> None:
 def main() -> None:
     """Claim only execution jobs and dispatch each through the configured adapter."""
 
+    parser = argparse.ArgumentParser(description="Dispatch isolated execution jobs")
+    parser.add_argument(
+        "--drain",
+        action="store_true",
+        help="Process queued executions and exit when the queue is empty",
+    )
+    arguments = parser.parse_args()
     settings = get_settings()
     configure_logging(settings.app_log_level)
     factory = create_session_factory(create_database_engine(settings))
@@ -56,6 +64,8 @@ def main() -> None:
                 job_types=("execution",),
             )
         if job is None:
+            if arguments.drain:
+                return
             time.sleep(1)
             continue
         if job.lease_token is None:

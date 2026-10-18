@@ -1,5 +1,6 @@
 """Outbound integration dispatcher process boundary."""
 
+import argparse
 import signal
 import time
 from types import FrameType
@@ -21,6 +22,13 @@ def _request_stop(_signal: int, _frame: FrameType | None) -> None:
 def main() -> None:
     """Schedule and deliver committed public events with bounded retries."""
 
+    parser = argparse.ArgumentParser(description="Deliver outbound integration events")
+    parser.add_argument(
+        "--drain",
+        action="store_true",
+        help="Deliver available events and exit when no work remains",
+    )
+    arguments = parser.parse_args()
     settings = get_settings()
     configure_logging(settings.app_log_level)
     factory = create_session_factory(create_database_engine(settings))
@@ -33,6 +41,8 @@ def main() -> None:
         with factory.begin() as session:
             delivered = service.deliver_one(session, settings)
         if not scheduled and not delivered:
+            if arguments.drain:
+                return
             time.sleep(1)
 
 

@@ -66,23 +66,30 @@ The API accepts commands and queries, performs synchronous content validation wh
 
 ### AWS production topology
 
-The production deployment is a single-region, two-AZ deployment in `us-east-1`.
+The production deployment is a single-region deployment in `us-east-1`. The
+network spans two availability zones. The supported `standard` profile uses
+redundant NAT and Multi-AZ PostgreSQL; the low-traffic `budget` profile uses one
+NAT and a Single-AZ database while preserving the same private subnet boundary.
 CloudFront is the only public application edge. It reads the React bundle from a
 private S3 origin through origin access control and forwards uncached `/api/*`
-and `/health/*` requests through a CloudFront VPC origin to an internal ALB.
-The ALB targets the Fargate API service. Build, execution, integration, and
-platform-projection workers are independent Fargate services and share no public
-listener.
+and `/health/*` requests through a CloudFront VPC origin to an internal ALB. In
+the budget profile, the Platform-owned ALB and WAF are shared by the three
+product CloudFront distributions, with origin-only product headers selecting
+the owning target group. The ALB targets the Fargate API service. Standard build,
+execution, integration, and platform-projection workers are independent Fargate
+services and share no public listener. Budget workers are EventBridge-scheduled,
+drain-to-empty Fargate Spot tasks backed by the same durable queues.
 
 PostgreSQL 16, artifact S3, execution EFS, Secrets Manager, KMS, and the platform
 projection SQS queue are application-owned resources. Staging and production use
 separate Platform-owned VPCs; Aurinara and EDC consume the matching environment's
 private subnets while retaining separate security groups, keys, buckets,
-databases, queues, and secrets. Production RDS is Multi-AZ; regional disaster
-recovery is deferred.
-Backend platform calls traverse an interface endpoint to the external
-`aurinara-platform` PrivateLink service. Browser Repository calls use only the
-platform's public authenticated edge.
+databases, queues, and secrets. Product databases remain separate in both
+profiles. Regional disaster recovery is deferred.
+Standard backend platform calls traverse an interface endpoint to the external
+`aurinara-platform` PrivateLink service. Budget calls use the shared internal
+ALB URL inside the Platform VPC. Browser Repository calls use only the platform's
+public authenticated edge.
 
 The production executor adapter stages a UUID workspace on an EFS access point
 that enforces UID/GID `10001`, starts a digest-pinned language runner as a
