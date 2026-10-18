@@ -136,7 +136,9 @@ jobs:
         run: |
           if aws rds describe-db-instances --db-instance-identifier aurinara-production >/dev/null 2>&1; then
             snapshot="aurinara-production-${GITHUB_RUN_ID}"
-            aws rds create-db-snapshot --db-instance-identifier aurinara-production --db-snapshot-identifier "$snapshot"
+            if ! aws rds describe-db-snapshots --db-snapshot-identifier "$snapshot" >/dev/null 2>&1; then
+              aws rds create-db-snapshot --db-instance-identifier aurinara-production --db-snapshot-identifier "$snapshot"
+            fi
             aws rds wait db-snapshot-completed --db-snapshot-identifier "$snapshot"
           fi
       - name: Package and deploy production change set
@@ -171,3 +173,4 @@ jobs:
         run: |
           export VITE_PLATFORM_API_BASE_URL=$(aws cloudformation describe-stacks --stack-name aurinara-platform-production --query "Stacks[0].Outputs[?OutputKey=='PlatformUrl'].OutputValue" --output text)
           bash scripts/aws-publish-frontend.sh aurinara-production
+
