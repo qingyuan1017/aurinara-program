@@ -160,6 +160,8 @@ the private URL; only browser Repository calls use `VITE_PLATFORM_API_BASE_URL`.
 Production RDS retains 35 days of automated backups and is Multi-AZ. Staging
 retains seven days. Artifact S3 has versioning, retained CloudFormation deletion
 semantics, noncurrent-version lifecycle rules, and a daily AWS Backup selection.
+Backup vault names use the unique nested-stack name so a retained vault from a
+replaced or rolled-back stack cannot block a clean environment deployment.
 The operational target is automated AZ failover, an approximately five-minute
 database RPO within the backup window, and an operator-led four-hour restore RTO.
 

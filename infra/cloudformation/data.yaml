@@ -285,7 +285,7 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      BackupVaultName: !Sub aurinara-${Environment}
+      BackupVaultName: !Ref AWS::StackName
       EncryptionKeyArn: !GetAtt DataKey.Arn
   BackupPlan:
     Type: AWS::Backup::BackupPlan
