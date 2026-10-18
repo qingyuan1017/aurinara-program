@@ -16,6 +16,7 @@ export VITE_OIDC_REDIRECT_URI="$(output ApplicationUrl)/auth/callback"
 export VITE_OIDC_LOGOUT_URI="$(output ApplicationUrl)/login"
 export VITE_OIDC_END_SESSION_ENDPOINT=$(output OidcEndSessionUrl)
 export VITE_OIDC_SCOPES="openid profile email"
+export VITE_API_BASE_URL=$(output ApplicationUrl)
 
 npm ci --prefix frontend
 npm run build --prefix frontend

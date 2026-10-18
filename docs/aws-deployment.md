@@ -112,6 +112,11 @@ rolling-update circuit breakers, runs only backward-compatible migrations,
 updates its Cloudflare CNAME, publishes the SPA, enables parent-stack termination
 protection, and runs the same readiness check.
 
+The SPA publish script resolves `ApplicationUrl` from the target stack and sets
+`VITE_API_BASE_URL` to that origin before building. This keeps browser API calls
+on the environment's CloudFront `/api/*` behavior and prevents a developer's
+local `.env` loopback URL from being embedded in staging or production assets.
+
 Database changes use expand/contract sequencing. Application rollback means
 restoring the prior image digests and redeploying the stack. It never means an
 automatic database restore. If a migration needs repair, ship a forward repair
