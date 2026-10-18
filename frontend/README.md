@@ -63,6 +63,11 @@ Release 1 relies on an external identity provider (Amazon Cognito in
 production, the dev JWT issuer locally). The frontend only stores and attaches
 the token — it does not mint it. Set a token for local testing:
 
+Production uses the managed OIDC authorization-code flow with PKCE. The direct
+Cognito password SDK is initialized only when that local fallback is used, so
+production builds do not require `VITE_COGNITO_USER_POOL_ID` or
+`VITE_COGNITO_CLIENT_ID` in addition to the `VITE_OIDC_*` settings.
+
 ```js
 // in the browser console
 localStorage.setItem('aurinara.auth.token', '<jwt>')

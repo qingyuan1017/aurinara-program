@@ -24,19 +24,6 @@ const region = import.meta.env.VITE_COGNITO_REGION
 const userPoolId = import.meta.env.VITE_COGNITO_USER_POOL_ID
 const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID
 
-if (!userPoolId || !clientId) {
-  // Surfaced early during development so misconfiguration is obvious.
-  console.warn(
-    'Cognito is not configured. Set VITE_COGNITO_USER_POOL_ID and ' +
-      'VITE_COGNITO_CLIENT_ID in your .env.',
-  )
-}
-
-export const userPool = new CognitoUserPool({
-  UserPoolId: userPoolId ?? '',
-  ClientId: clientId ?? '',
-})
-
 export const cognitoRegion = region ?? 'us-east-1'
 
 export interface AuthUser {
@@ -45,8 +32,40 @@ export interface AuthUser {
   sub?: string
 }
 
+export class AuthError extends Error {
+  code: string
+  constructor(code: string, message: string) {
+    super(message)
+    this.name = 'AuthError'
+    this.code = code
+  }
+}
+
+let userPool: CognitoUserPool | undefined
+
+/**
+ * Return the direct-SDK user pool used by the local authentication fallback.
+ *
+ * Production uses managed OIDC login and intentionally omits these legacy
+ * variables. Constructing the pool lazily prevents the unused fallback from
+ * crashing the production bundle during module initialization.
+ */
+export function getCognitoUserPool(): CognitoUserPool {
+  if (!userPoolId || !clientId) {
+    throw new AuthError(
+      'CognitoNotConfigured',
+      'Direct Cognito login is not configured. Use managed sign in or set VITE_COGNITO_USER_POOL_ID and VITE_COGNITO_CLIENT_ID for local development.',
+    )
+  }
+  userPool ??= new CognitoUserPool({
+    UserPoolId: userPoolId,
+    ClientId: clientId,
+  })
+  return userPool
+}
+
 function cognitoUser(username: string): CognitoUser {
-  return new CognitoUser({ Username: username, Pool: userPool })
+  return new CognitoUser({ Username: username, Pool: getCognitoUserPool() })
 }
 
 function userFromSession(
@@ -105,17 +124,23 @@ export function signUp(
   ]
 
   return new Promise((resolve, reject) => {
-    userPool.signUp(email, password, attributes, [], (err, result) => {
-      if (err || !result) {
-        reject(normalizeError(err))
-        return
-      }
-      const signUpResult = result as ISignUpResult
-      resolve({
-        userConfirmed: signUpResult.userConfirmed,
-        username: signUpResult.user.getUsername(),
-      })
-    })
+    getCognitoUserPool().signUp(
+      email,
+      password,
+      attributes,
+      [],
+      (err, result) => {
+        if (err || !result) {
+          reject(normalizeError(err))
+          return
+        }
+        const signUpResult = result as ISignUpResult
+        resolve({
+          userConfirmed: signUpResult.userConfirmed,
+          username: signUpResult.user.getUsername(),
+        })
+      },
+    )
   })
 }
 
@@ -152,7 +177,7 @@ export function resendConfirmationCode(username: string): Promise<void> {
 
 /** Sign out the current user and clear the stored token. */
 export function signOut(): void {
-  const current = userPool.getCurrentUser()
+  const current = getCognitoUserPool().getCurrentUser()
   current?.signOut()
   clearAuthToken()
 }
@@ -162,7 +187,7 @@ export function signOut(): void {
  * token when possible and re-stores it. Resolves to null when not signed in.
  */
 export function restoreSession(): Promise<AuthUser | null> {
-  const current = userPool.getCurrentUser()
+  const current = getCognitoUserPool().getCurrentUser()
   if (!current) {
     return Promise.resolve(null)
   }
@@ -183,15 +208,6 @@ export function restoreSession(): Promise<AuthUser | null> {
       },
     )
   })
-}
-
-export class AuthError extends Error {
-  code: string
-  constructor(code: string, message: string) {
-    super(message)
-    this.name = 'AuthError'
-    this.code = code
-  }
 }
 
 function normalizeError(err: unknown): AuthError {

@@ -4,7 +4,7 @@ import type { CognitoUser, CognitoUserSession } from 'amazon-cognito-identity-js
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getAuthToken, setAuthToken } from './auth'
-import { restoreSession, userPool } from './cognito'
+import { getCognitoUserPool, restoreSession } from './cognito'
 
 type SessionCallback = (
   error: Error | null,
@@ -25,7 +25,7 @@ describe('Cognito session restoration', () => {
       },
       getUsername: () => 'old-user',
     } as unknown as CognitoUser
-    vi.spyOn(userPool, 'getCurrentUser').mockReturnValue(oldUser)
+    vi.spyOn(getCognitoUserPool(), 'getCurrentUser').mockReturnValue(oldUser)
     setAuthToken('old-token')
 
     const restoration = restoreSession()
@@ -51,7 +51,7 @@ describe('Cognito session restoration', () => {
         decodePayload: () => ({ sub: 'old-subject' }),
       }),
     } as unknown as CognitoUserSession
-    vi.spyOn(userPool, 'getCurrentUser').mockReturnValue(oldUser)
+    vi.spyOn(getCognitoUserPool(), 'getCurrentUser').mockReturnValue(oldUser)
     setAuthToken('old-token')
 
     const restoration = restoreSession()
