@@ -192,7 +192,10 @@ Resources:
   ApiTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub aurinara-${Environment}-api
+      Name: !If
+        - IsBudget
+        - !Sub aurinara-${Environment}-api-budget
+        - !Sub aurinara-${Environment}-api
       VpcId: !Ref VpcId
       Port: 8000
       Protocol: HTTP
@@ -909,3 +912,4 @@ Outputs:
   MigrationTaskDefinitionArn: {Value: !Ref MigrationTaskDefinition}
   PythonRunnerTaskDefinitionArn: {Value: !Ref PythonRunnerTaskDefinition}
   RRunnerTaskDefinitionArn: {Value: !Ref RRunnerTaskDefinition}
+
