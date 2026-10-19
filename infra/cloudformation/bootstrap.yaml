@@ -105,7 +105,7 @@ Resources:
                 Action: [cloudfront:CreateInvalidation]
                 Resource: '*'
               - Effect: Allow
-                Action: [rds:CreateDBSnapshot, rds:DescribeDBSnapshots]
+                Action: [rds:CreateDBSnapshot, rds:DescribeDBSnapshots, rds:AddTagsToResource]
                 Resource: '*'
               - Effect: Allow
                 Action:
