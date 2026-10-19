@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -7,6 +8,11 @@ import pytest
 from app.api.auth import Principal
 from app.common.problems import ProblemException
 from app.config import Settings
+from app.platform.access_catalog import (
+    AURINARA_STUDY_OWNER_ROLE_ID,
+    permission_catalog,
+    role_catalog,
+)
 from app.platform.authorization import PlatformAuthorizationClient
 
 
@@ -173,3 +179,51 @@ def test_service_token_omits_nullable_oauth_audience_and_resource() -> None:
     client = PlatformAuthorizationClient(settings, httpx.MockTransport(handler))
 
     assert client.service_token() == "token"
+
+
+def test_reviewed_access_catalog_synchronizes_with_stable_role_identity() -> None:
+    seen_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_paths.append(request.url.path)
+        payload = json.loads(request.content)
+        if request.url.path.endswith("/permissions"):
+            return httpx.Response(
+                200,
+                json=[{"code": item["code"]} for item in payload["permissions"]],
+            )
+        role = payload["roles"][0]
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "id": role["source_role_id"],
+                    "source_role_id": role["source_role_id"],
+                    "name": role["name"],
+                    "scope_level": role["scope_level"],
+                }
+            ],
+        )
+
+    settings = Settings(
+        _env_file=None,
+        app_env="test",
+        platform_control_plane_url="https://platform.test",
+        platform_authorization_mode="enforced",
+        platform_service_token_url="https://issuer.test/token",
+        platform_service_client_id="client",
+        platform_service_client_secret="secret",
+    )
+    client = PlatformAuthorizationClient(settings, httpx.MockTransport(handler))
+    client._token = ("service-token", float("inf"))
+
+    assert set(client.sync_permissions(permission_catalog())) == {
+        str(item["code"]) for item in permission_catalog()
+    }
+    roles = client.sync_roles(role_catalog())
+    assert roles[0].id == AURINARA_STUDY_OWNER_ROLE_ID
+    assert roles[0].source_role_id == AURINARA_STUDY_OWNER_ROLE_ID
+    assert seen_paths == [
+        "/v1/products/aurinara/permissions",
+        "/v1/products/aurinara/roles",
+    ]

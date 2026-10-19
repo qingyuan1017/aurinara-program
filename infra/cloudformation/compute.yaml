@@ -805,7 +805,7 @@ Resources:
           MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
         - Name: migration
           Image: !Ref MigrationApplicationImage
-          Command: [sh, -c, 'alembic upgrade head && python -m app.catalog_seed && python -m app.cdisc_registry publish-assets --verify-existing']
+          Command: [sh, -c, 'alembic upgrade head && python -m app.catalog_seed && python -m app.cdisc_registry publish-assets --verify-existing && python -m app.platform.sync_access']
           DependsOn: [{ContainerName: scratch-init, Condition: SUCCESS}]
           Essential: true
           ReadonlyRootFilesystem: true

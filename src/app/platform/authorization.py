@@ -27,6 +27,14 @@ class Decision:
     reason_code: str
 
 
+@dataclass(frozen=True, slots=True)
+class PlatformRegisteredRole:
+    id: UUID
+    source_role_id: UUID
+    name: str
+    scope_level: str
+
+
 class PlatformAuthorizationClient:
     def __init__(self, settings: Settings, transport: httpx.BaseTransport | None = None) -> None:
         self.mode = settings.platform_authorization_mode
@@ -215,6 +223,52 @@ class PlatformAuthorizationClient:
         with self._lock:
             self._token = (token, time.monotonic() + expires_in - 15)
         return token
+
+    def sync_permissions(self, permissions: list[dict[str, object]]) -> tuple[str, ...]:
+        """Register Aurinara's reviewed permission vocabulary."""
+
+        try:
+            response = self._client.put(
+                f"{self._base_url}/v1/products/aurinara/permissions",
+                headers={"Authorization": f"Bearer {self.service_token()}"},
+                json={"permissions": permissions},
+            )
+            response.raise_for_status()
+            return tuple(str(item["code"]) for item in response.json())
+        except (httpx.HTTPError, KeyError, TypeError, ValueError) as error:
+            raise ProblemException(
+                status_code=503,
+                code="authorization_unavailable",
+                title="Authorization unavailable",
+                detail="Platform permission registration is temporarily unavailable.",
+            ) from error
+
+    def sync_roles(self, roles: list[dict[str, object]]) -> tuple[PlatformRegisteredRole, ...]:
+        """Register stable reviewed Aurinara roles."""
+
+        try:
+            response = self._client.put(
+                f"{self._base_url}/v1/products/aurinara/roles",
+                headers={"Authorization": f"Bearer {self.service_token()}"},
+                json={"roles": roles},
+            )
+            response.raise_for_status()
+            return tuple(
+                PlatformRegisteredRole(
+                    id=UUID(item["id"]),
+                    source_role_id=UUID(item["source_role_id"]),
+                    name=str(item["name"]),
+                    scope_level=str(item["scope_level"]),
+                )
+                for item in response.json()
+            )
+        except (httpx.HTTPError, KeyError, TypeError, ValueError) as error:
+            raise ProblemException(
+                status_code=503,
+                code="authorization_unavailable",
+                title="Authorization unavailable",
+                detail="Platform role registration is temporarily unavailable.",
+            ) from error
 
     def invalidate(self, *, study_id: UUID | None = None) -> None:
         """Invalidate cached allows after a membership, policy, or user event."""

@@ -21,10 +21,16 @@ memberships, authorization decisions, and the opaque object catalog.
 - Artifact and source-file rows with `platform_object_id` download through a short-lived
   gateway URL. Shadow mode can dual-read legacy bytes; enforced mode cannot fall back.
 
+Confirmed human identities receive only the Platform `platform.study.create`
+capability. The Aurinara migration task synchronizes the stable `Aurinara Study Owner`
+role and its explicit permission list. When that person creates a canonical study in
+Platform, Platform assigns this role at that study scope in the same transaction as
+the study and membership events. The assignment does not expose any other study, and
+direct Aurinara study creation remains disabled in enforced mode.
+
 The API service uses an OIDC client-credentials identity with the
-`platform.authorization.decide` permission plus the applicable
-`aurinara.object.download`, `aurinara.object.upload`, and
-`aurinara.object.reference` permissions. Browser clients never receive these
+`platform.authorization.decide` permission plus the applicable `artifact.*`
+object and catalog-synchronization permissions. Browser clients never receive these
 credentials or object-store keys.
 
 ## Migration
