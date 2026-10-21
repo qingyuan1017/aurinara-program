@@ -10,7 +10,7 @@ import type { ResourceColumn } from '@/components/data/resource-table'
 import { EmptyState, ErrorState } from '@/components/data/states'
 import { StatusBadge } from '@/components/data/status-badge'
 import { IssueList } from '@/components/data/issue-list'
-import { useCurrentStudy } from '@/components/study-provider'
+import { useCurrentStudy } from '@/components/study-context'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -75,10 +75,7 @@ function PackageDetail({ packageId }: { packageId: string }) {
     <Card>
       <CardHeader>
         <CardTitle>{item.name}</CardTitle>
-        <CardDescription>
-          Package <code>{item.id}</code> · input fingerprint{' '}
-          <code className="break-all">{item.input_fingerprint}</code>
-        </CardDescription>
+        <CardDescription>Immutable submission package assembled from the selected artifacts.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <dl className="grid gap-3 text-sm sm:grid-cols-3">
@@ -86,6 +83,7 @@ function PackageDetail({ packageId }: { packageId: string }) {
           <div><dt className="text-muted-foreground">Artifacts</dt><dd>{item.artifact_ids.length}</dd></div>
           <div><dt className="text-muted-foreground">Completed</dt><dd>{item.completed_at ? formatDate(item.completed_at) : '—'}</dd></div>
         </dl>
+        <details className="rounded-md border p-3 text-xs"><summary className="cursor-pointer font-medium">Technical details</summary><dl className="mt-3 grid gap-2"><div><dt className="text-muted-foreground">Internal package reference</dt><dd><code>{item.id}</code></dd></div><div><dt className="text-muted-foreground">Input fingerprint</dt><dd><code className="break-all">{item.input_fingerprint}</code></dd></div></dl></details>
         {item.issues.length > 0 && <IssueList issues={item.issues} />}
         {Object.keys(item.manifest).length > 0 && (
           <pre className="max-h-80 overflow-auto rounded-md bg-muted p-4 text-xs">
@@ -117,7 +115,6 @@ function PackagingPage() {
   })
   const [name, setName] = React.useState('')
   const [expectedFingerprint, setExpectedFingerprint] = React.useState('')
-  const [reconciliationIds, setReconciliationIds] = React.useState('')
   const [selected, setSelected] = React.useState<ReadonlySet<string>>(() => new Set())
   const [selectedPackageId, setSelectedPackageId] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
@@ -139,7 +136,7 @@ function PackagingPage() {
       name,
       module_selections: moduleSelections,
       artifact_ids: [],
-      reconciliation_run_ids: reconciliationIds.split(',').map((value) => value.trim()).filter(Boolean),
+      reconciliation_run_ids: [],
       expected_study_fingerprint: expectedFingerprint,
     }
     try {
@@ -177,9 +174,8 @@ function PackagingPage() {
             <CardContent className="flex flex-col gap-5">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2"><Label htmlFor="package-name">Name</Label><Input id="package-name" value={name} onChange={(event) => setName(event.target.value)} /></div>
-                <div className="flex flex-col gap-2"><Label htmlFor="package-fingerprint">Expected study fingerprint</Label><Input id="package-fingerprint" value={expectedFingerprint} onChange={(event) => setExpectedFingerprint(event.target.value)} /></div>
+                <details className="rounded-md border p-3"><summary className="cursor-pointer text-sm font-medium">Advanced package verification</summary><div className="mt-3 flex flex-col gap-2"><Label htmlFor="package-fingerprint">Resolved study fingerprint</Label><Input id="package-fingerprint" value={expectedFingerprint} onChange={(event) => setExpectedFingerprint(event.target.value)} placeholder="Paste the fingerprint from the validated study manifest" /><p className="text-xs text-muted-foreground">This expert safeguard pins the exact validated study state used for the package.</p></div></details>
               </div>
-              <div className="flex flex-col gap-2"><Label htmlFor="package-reconciliations">Reconciliation run IDs</Label><Input id="package-reconciliations" value={reconciliationIds} onChange={(event) => setReconciliationIds(event.target.value)} placeholder="Comma-separated UUIDs" /></div>
               <div className="flex flex-col gap-2">
                 <Label>Available immutable artifacts</Label>
                 {available.length === 0 ? <p className="text-muted-foreground text-sm">No available artifacts are eligible for selection.</p> : (
@@ -187,7 +183,7 @@ function PackagingPage() {
                     {available.map((artifact) => (
                       <label key={artifact.id} className="flex cursor-pointer items-start gap-3 border-b px-4 py-3 last:border-b-0">
                         <input type="checkbox" className="mt-1" checked={selected.has(artifact.id)} onChange={() => toggleArtifact(artifact.id)} />
-                        <span className="min-w-0 text-sm"><span className="font-medium">{artifact.filename}</span><span className="text-muted-foreground block">{artifact.module} · {artifact.artifact_type} · <code>{artifact.sha256.slice(0, 12)}…</code></span></span>
+                        <span className="min-w-0 text-sm"><span className="font-medium">{artifact.filename}</span><span className="text-muted-foreground block">{artifact.module} · {artifact.artifact_type.replaceAll('_', ' ')}</span></span>
                       </label>
                     ))}
                   </div>

@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
-import { useCurrentStudy } from '@/components/study-provider'
+import { useCurrentStudy } from '@/components/study-context'
 import {
   WorkbenchDetailShell,
   type WorkbenchTab,

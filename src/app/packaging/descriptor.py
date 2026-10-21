@@ -28,7 +28,7 @@ DESCRIPTOR = ModuleDescriptor(
     content_schema_versions=("1.0.0",),
     entity_types=("submission_package",),
     artifact_types=("submission_package_zip", "submission_package_validation_report"),
-    authorization_scopes=("packaging:read", "packaging:write"),
+    authorization_scopes=("aurinara.packaging.read", "aurinara.packaging.run"),
     capabilities=frozenset({ModuleCapability.ENTITY_RESOLUTION}),
 )
 HANDLER = PackagingCapability()

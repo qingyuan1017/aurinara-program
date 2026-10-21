@@ -5,7 +5,7 @@ import { EmptyState, ErrorState } from '@/components/data/states'
 import { StatusBadge } from '@/components/data/status-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useCurrentStudy } from '@/components/study-provider'
+import { useCurrentStudy } from '@/components/study-context'
 import { ifMatchRequest } from '@/lib/requests'
 import type { AggregateResponse } from '@/api/generated/model'
 import {

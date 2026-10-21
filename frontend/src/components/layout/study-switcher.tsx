@@ -6,7 +6,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useCurrentStudy } from '@/components/study-provider'
+import { useCurrentStudy } from '@/components/study-context'
 import { useAuth } from '@/components/auth-provider'
 
 export function StudySwitcher() {

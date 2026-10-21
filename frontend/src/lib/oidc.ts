@@ -84,6 +84,15 @@ function toAuthUser(user: User): AuthUser {
         : user.profile.sub,
     email: typeof user.profile.email === 'string' ? user.profile.email : undefined,
     sub: user.profile.sub,
+    firstName:
+      typeof user.profile.given_name === 'string'
+        ? user.profile.given_name
+        : undefined,
+    lastName:
+      typeof user.profile.family_name === 'string'
+        ? user.profile.family_name
+        : undefined,
+    name: typeof user.profile.name === 'string' ? user.profile.name : undefined,
   }
 }
 

@@ -65,7 +65,7 @@ class ArtifactService:
             session,
             study_id,
             principal,
-            action="artifact.object.upload",
+            action="aurinara.artifacts.write",
         )
         allowed = frozenset(settings.source_file_allowed_media_types.split(","))
         filename, media_type = _validate_upload_metadata(upload, allowed)
@@ -116,7 +116,7 @@ class ArtifactService:
             session,
             study_id,
             principal,
-            action="artifact.object.upload",
+            action="aurinara.artifacts.write",
         )
         if not uploads:
             raise ProblemException(
@@ -208,8 +208,8 @@ class ArtifactService:
                     "purpose": "source-files",
                     "classification": "source-file",
                     "access": {
-                        "read_action": "artifact.study.read",
-                        "write_action": "artifact.study.write",
+                        "read_action": "aurinara.artifacts.read",
+                        "write_action": "aurinara.artifacts.write",
                     },
                     "provenance": {"artifact_id": str(artifact.id)},
                 },
@@ -243,7 +243,9 @@ class ArtifactService:
     ) -> SourceFile:
         """Create a new immutable source record for an exact Repository version."""
 
-        self._studies.require_access(session, study_id, principal, action="artifact.object.upload")
+        self._studies.require_access(
+            session, study_id, principal, action="aurinara.artifacts.write"
+        )
         gateway = get_platform_objects()
         version = gateway.resolve_repository_version(version_id, user_access_token)
         if version.study_id != study_id:
@@ -302,7 +304,7 @@ class ArtifactService:
         source_file_id: UUID,
         principal: Principal,
         *,
-        action: str = "artifact.study.read",
+        action: str = "aurinara.artifacts.read",
     ) -> SourceFile:
         """Resolve an upload after enforcing its study boundary."""
 
@@ -318,7 +320,7 @@ class ArtifactService:
         artifact_id: UUID,
         principal: Principal,
         *,
-        action: str = "artifact.study.read",
+        action: str = "aurinara.artifacts.read",
     ) -> Artifact:
         """Resolve an artifact after enforcing its study boundary."""
 
@@ -532,8 +534,8 @@ class ArtifactService:
                 "purpose": artifact_type,
                 "classification": stored.classification,
                 "access": {
-                    "read_action": "artifact.study.read",
-                    "write_action": "artifact.study.write",
+                    "read_action": "aurinara.artifacts.read",
+                    "write_action": "aurinara.artifacts.write",
                 },
                 "provenance": {
                     "artifact_id": str(artifact.id),
@@ -706,8 +708,8 @@ async def _stream_upload(
                 "purpose": "source-files",
                 "classification": "source-file",
                 "access": {
-                    "read_action": "artifact.study.read",
-                    "write_action": "artifact.study.write",
+                    "read_action": "aurinara.artifacts.read",
+                    "write_action": "aurinara.artifacts.write",
                 },
                 "provenance": {"artifact_id": str(artifact_id)},
             },

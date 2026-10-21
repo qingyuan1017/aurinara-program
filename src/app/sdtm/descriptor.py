@@ -30,7 +30,7 @@ DESCRIPTOR = ModuleDescriptor(
     artifact_types=SDTM_ARTIFACT_TYPES,
     source_plan_types=("sdtm_code_revision", "sdtm_imported_domain"),
     reconciliation_types=("sdtm_define_outputs",),
-    authorization_scopes=("sdtm:read", "sdtm:write"),
+    authorization_scopes=("aurinara.sdtm.read", "aurinara.sdtm.write"),
     capabilities=frozenset(
         {
             ModuleCapability.DEPENDENCIES,

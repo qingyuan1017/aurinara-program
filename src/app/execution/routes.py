@@ -289,7 +289,7 @@ def create_execution_run(
         session,
         command.study_id,
         principal,
-        action="artifact.execution.run",
+        action="aurinara.execution.run",
     )
     if not idempotency_key:
         raise _problem(

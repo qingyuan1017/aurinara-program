@@ -30,6 +30,9 @@ export interface AuthUser {
   username: string
   email?: string
   sub?: string
+  firstName?: string
+  lastName?: string
+  name?: string
 }
 
 export class AuthError extends Error {
@@ -77,6 +80,11 @@ function userFromSession(
     username,
     email: typeof payload.email === 'string' ? payload.email : undefined,
     sub: typeof payload.sub === 'string' ? payload.sub : undefined,
+    firstName:
+      typeof payload.given_name === 'string' ? payload.given_name : undefined,
+    lastName:
+      typeof payload.family_name === 'string' ? payload.family_name : undefined,
+    name: typeof payload.name === 'string' ? payload.name : undefined,
   }
 }
 

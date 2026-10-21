@@ -8,7 +8,7 @@ DESCRIPTOR = ModuleDescriptor(
     module_version="0.1.0",
     api_prefix="/api/v1/integrations",
     event_types=("studies.created",),
-    authorization_scopes=("integration:read", "integration:write"),
+    authorization_scopes=("aurinara.integration.read", "aurinara.integration.manage"),
     capabilities=frozenset({ModuleCapability.OUTBOUND_EVENTS}),
 )
 REGISTRATION = ModuleRegistration(

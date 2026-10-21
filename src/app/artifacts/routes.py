@@ -168,7 +168,7 @@ def download_source_file(
         session,
         source_file_id,
         principal,
-        action="artifact.object.download",
+        action="aurinara.artifacts.read",
     )
     if source_file.platform_object_id is not None:
         gateway = get_platform_objects()
@@ -244,7 +244,7 @@ def download_artifact(
         session,
         artifact_id,
         principal,
-        action="artifact.object.download",
+        action="aurinara.artifacts.read",
     )
     if artifact.platform_object_id is not None:
         gateway = get_platform_objects()

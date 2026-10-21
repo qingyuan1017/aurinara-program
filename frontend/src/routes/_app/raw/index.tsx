@@ -13,7 +13,7 @@ import {
   ResourceFormDialog,
   type FieldDescriptor,
 } from '@/components/forms/resource-form-dialog'
-import { useCurrentStudy } from '@/components/study-provider'
+import { useCurrentStudy } from '@/components/study-context'
 import { useCursorList } from '@/hooks/use-cursor-list'
 import {
   getListRawAggregatesQueryKey,
@@ -119,7 +119,11 @@ function RawListPage() {
         error={error}
         resourceLabel="raw workbenches"
         onRowClick={(row) =>
-          navigate({ to: '/raw/$rawId', params: { rawId: row.id } })
+          navigate({
+            to: '/raw/$rawId',
+            params: { rawId: row.id },
+            search: { tab: 'datasets' },
+          })
         }
         emptyState={
           noStudy ? (

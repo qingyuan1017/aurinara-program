@@ -8,11 +8,7 @@ import pytest
 from app.api.auth import Principal
 from app.common.problems import ProblemException
 from app.config import Settings
-from app.platform.access_catalog import (
-    AURINARA_STUDY_OWNER_ROLE_ID,
-    permission_catalog,
-    role_catalog,
-)
+from app.platform.access_catalog import permission_catalog
 from app.platform.authorization import PlatformAuthorizationClient
 
 
@@ -47,8 +43,8 @@ def test_positive_decision_is_cached_within_revocation_window() -> None:
     principal = Principal("subject", frozenset(), "https://issuer.test")
     study_id = uuid4()
 
-    assert client.decide(principal, "artifact.study.read", study_id).allowed is True
-    assert client.decide(principal, "artifact.study.read", study_id).allowed is True
+    assert client.decide(principal, "aurinara.study.read", study_id).allowed is True
+    assert client.decide(principal, "aurinara.study.read", study_id).allowed is True
     assert requests == 1
 
 
@@ -70,7 +66,7 @@ def test_uncached_outage_fails_closed() -> None:
     with pytest.raises(ProblemException) as caught:
         client.decide(
             Principal("subject", frozenset(), "https://issuer.test"),
-            "artifact.study.read",
+            "aurinara.study.read",
             uuid4(),
         )
     assert caught.value.status_code == 503
@@ -98,9 +94,9 @@ def test_membership_event_invalidation_evicts_study_decisions() -> None:
     principal = Principal("subject", frozenset(), "https://issuer.test")
     study_id = uuid4()
 
-    client.decide(principal, "artifact.study.read", study_id)
+    client.decide(principal, "aurinara.study.read", study_id)
     client.invalidate(study_id=study_id)
-    client.decide(principal, "artifact.study.read", study_id)
+    client.decide(principal, "aurinara.study.read", study_id)
 
     assert requests == 2
 
@@ -130,7 +126,7 @@ def test_batch_decision_uses_one_request_for_study_collection() -> None:
 
     decisions = client.decide_batch(
         Principal("subject", frozenset(), "https://issuer.test"),
-        "artifact.study.read",
+        "aurinara.study.read",
         study_ids,
     )
 
@@ -181,28 +177,15 @@ def test_service_token_omits_nullable_oauth_audience_and_resource() -> None:
     assert client.service_token() == "token"
 
 
-def test_reviewed_access_catalog_synchronizes_with_stable_role_identity() -> None:
+def test_product_synchronizes_permissions_only() -> None:
     seen_paths: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen_paths.append(request.url.path)
         payload = json.loads(request.content)
-        if request.url.path.endswith("/permissions"):
-            return httpx.Response(
-                200,
-                json=[{"code": item["code"]} for item in payload["permissions"]],
-            )
-        role = payload["roles"][0]
         return httpx.Response(
             200,
-            json=[
-                {
-                    "id": role["source_role_id"],
-                    "source_role_id": role["source_role_id"],
-                    "name": role["name"],
-                    "scope_level": role["scope_level"],
-                }
-            ],
+            json=[{"code": item["code"]} for item in payload["permissions"]],
         )
 
     settings = Settings(
@@ -220,10 +203,41 @@ def test_reviewed_access_catalog_synchronizes_with_stable_role_identity() -> Non
     assert set(client.sync_permissions(permission_catalog())) == {
         str(item["code"]) for item in permission_catalog()
     }
-    roles = client.sync_roles(role_catalog())
-    assert roles[0].id == AURINARA_STUDY_OWNER_ROLE_ID
-    assert roles[0].source_role_id == AURINARA_STUDY_OWNER_ROLE_ID
-    assert seen_paths == [
-        "/v1/products/aurinara/permissions",
-        "/v1/products/aurinara/roles",
-    ]
+    assert not hasattr(client, "sync_roles")
+    assert seen_paths == ["/v1/products/aurinara/permissions"]
+
+
+def test_permission_catalog_covers_every_aurinara_module() -> None:
+    catalog = permission_catalog()
+    by_module = {
+        str(item["module"]): {
+            str(candidate["code"])
+            for candidate in catalog
+            if candidate["module"] == item["module"]
+        }
+        for item in catalog
+    }
+
+    assert set(by_module) == {
+        "study",
+        "raw",
+        "documents",
+        "standards",
+        "terminology",
+        "reference",
+        "templates",
+        "sdtm",
+        "adam",
+        "tlf",
+        "review",
+        "validation",
+        "reconciliation",
+        "execution",
+        "artifacts",
+        "packaging",
+        "integration",
+    }
+    assert all(f"aurinara.{module}.read" in codes for module, codes in by_module.items())
+    assert "aurinara.sdtm.write" in by_module["sdtm"]
+    assert "aurinara.adam.write" in by_module["adam"]
+    assert "aurinara.tlf.write" in by_module["tlf"]

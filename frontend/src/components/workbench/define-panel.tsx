@@ -57,6 +57,7 @@ import {
   useGetReconciliation,
 } from '@/api/generated/reconciliation/reconciliation'
 import { useGetArtifactBuild } from '@/api/generated/artifact-builds/artifact-builds'
+import { useListArtifacts } from '@/api/generated/artifacts/artifacts'
 import type {
   ArtifactBuildResponse,
   AppSdtmDefineDefineArtifactRequestVersionsItem as DefineArtifactRequestVersionsItem,
@@ -396,17 +397,34 @@ function InitializeCard({
   onInitialized,
   onStale,
 }: InitializeCardProps) {
-  // The pool of available XPT artifact ids. There is no typed list endpoint for
-  // "candidate XPT artifacts" in the Define surface, so the user enters/pastes
-  // the exact XPT artifact ids (the same ids the backend validates). Any model
-  // already carrying outputs seeds the pool so they can be re-selected.
-  const [pool, setPool] = React.useState<string[]>(
-    () => define?.output_artifact_ids ?? [],
+  const { studyId } = useWorkbench()
+  const artifacts = useListArtifacts(studyId, { limit: 200 })
+  const xptArtifacts = React.useMemo(
+    () =>
+      (artifacts.data?.items ?? []).filter(
+        (artifact) =>
+          artifact.artifact_type === 'sdtm_dataset_xpt' &&
+          artifact.status === 'available',
+      ),
+    [artifacts.data?.items],
+  )
+  const artifactLabels = React.useMemo(
+    () => new Map(xptArtifacts.map((artifact) => [artifact.id, artifact.filename])),
+    [xptArtifacts],
+  )
+  const pool = React.useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...xptArtifacts.map((artifact) => artifact.id),
+          ...(define?.output_artifact_ids ?? []),
+        ]),
+      ),
+    [define?.output_artifact_ids, xptArtifacts],
   )
   const [selected, setSelected] = React.useState<ReadonlySet<string>>(
     () => new Set(define?.output_artifact_ids ?? []),
   )
-  const [candidate, setCandidate] = React.useState('')
 
   // Metadata fields the backend requires when no current model exists. When a
   // model exists the backend reuses its values, so these are only needed for a
@@ -426,13 +444,6 @@ function InitializeCard({
       },
     },
   })
-
-  function addCandidate() {
-    const id = candidate.trim()
-    if (!id) return
-    setPool((prev) => (prev.includes(id) ? prev : [...prev, id]))
-    setCandidate('')
-  }
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -525,33 +536,14 @@ function InitializeCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {/* Add candidate XPT artifact ids to the pool. */}
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="define-xpt-id">XPT artifact id</Label>
-            <Input
-              id="define-xpt-id"
-              value={candidate}
-              onChange={(event) => setCandidate(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  addCandidate()
-                }
-              }}
-              placeholder="Paste an XPT artifact id"
-              className="w-80"
-            />
-          </div>
-          <Button type="button" variant="outline" onClick={addCandidate}>
-            Add
-          </Button>
-        </div>
-
-        {pool.length === 0 ? (
+        {artifacts.isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : artifacts.isError ? (
+          <ErrorState error={artifacts.error} resourceLabel="SDTM XPT artifacts" />
+        ) : pool.length === 0 ? (
           <EmptyState
             title="No XPT artifacts"
-            description="Add the exact SDTM XPT artifact ids to select from."
+            description="Build an SDTM XPT artifact first, then return here to select it."
           />
         ) : (
           <TransferContext onTransfer={handleTransfer}>
@@ -576,14 +568,16 @@ function InitializeCard({
                             className="size-4"
                             checked={false}
                             onChange={() => toggle(id)}
-                            aria-label={`Select ${id}`}
+                            aria-label={`Select ${artifactLabels.get(id) ?? 'XPT artifact'}`}
                           />
                           <DraggableItem
                             id={id}
-                            ariaLabel={`XPT artifact ${id}, drag to select`}
+                            ariaLabel={`${artifactLabels.get(id) ?? 'XPT artifact'}, drag to select`}
                             className="max-w-full"
                           >
-                            <span className="truncate">{id}</span>
+                            <span className="truncate">
+                              {artifactLabels.get(id) ?? 'Previously selected artifact'}
+                            </span>
                           </DraggableItem>
                         </div>
                       ))
@@ -614,14 +608,16 @@ function InitializeCard({
                             className="size-4"
                             checked
                             onChange={() => toggle(id)}
-                            aria-label={`Deselect ${id}`}
+                            aria-label={`Deselect ${artifactLabels.get(id) ?? 'XPT artifact'}`}
                           />
                           <DraggableItem
                             id={id}
-                            ariaLabel={`XPT artifact ${id}, drag to deselect`}
+                            ariaLabel={`${artifactLabels.get(id) ?? 'XPT artifact'}, drag to deselect`}
                             className="max-w-full"
                           >
-                            <span className="truncate">{id}</span>
+                            <span className="truncate">
+                              {artifactLabels.get(id) ?? 'Previously selected artifact'}
+                            </span>
                           </DraggableItem>
                         </div>
                       ))

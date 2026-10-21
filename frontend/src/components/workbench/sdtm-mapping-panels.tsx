@@ -983,7 +983,7 @@ export function CodeWorkareasPanel({ sdtmId }: { sdtmId: string }) {
                         <SelectContent>
                           {candidates.map((artifact) => (
                             <SelectItem key={artifact.id} value={artifact.id}>
-                              {artifact.filename} · {artifact.id.slice(0, 8)} ·{" "}
+                              {artifact.filename} ·{' '}
                               {new Date(artifact.created_at).toLocaleString()}
                             </SelectItem>
                           ))}

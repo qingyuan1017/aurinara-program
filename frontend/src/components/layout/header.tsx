@@ -1,30 +1,31 @@
-import { Search } from 'lucide-react'
+import { useRouterState } from '@tanstack/react-router'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
-import { Input } from '@/components/ui/input'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { UserNav } from '@/components/layout/user-nav'
-import { StudySwitcher } from '@/components/layout/study-switcher'
+
+const routeTitles: readonly [string, string][] = [
+  ['/repository', 'Repository'], ['/studies', 'Studies'], ['/reference', 'Reference'],
+  ['/raw', 'Raw datasets'], ['/documents', 'Documents'], ['/sdtm', 'SDTM'],
+  ['/adam', 'ADaM'], ['/tlf', 'TLF'], ['/standards', 'Standards'],
+  ['/terminology', 'Terminology'], ['/validation', 'Validation'],
+  ['/reconciliation', 'Reconciliation'], ['/review', 'Review'],
+  ['/packaging', 'Packaging'], ['/integrations', 'Integrations'],
+]
 
 export function Header() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const pageTitle = pathname === '/' ? 'Dashboard' : routeTitles.find(([prefix]) => pathname.startsWith(prefix))?.[1] ?? 'Workspace'
+
   return (
-    <header className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b backdrop-blur">
-      <div className="flex w-full items-center gap-2 px-4">
-        <SidebarTrigger className="-ml-1" />
-        <Separator orientation="vertical" className="mr-2 h-4" />
-        <div className="relative hidden w-full max-w-sm md:block">
-          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-          <Input
-            type="search"
-            placeholder="Search studies, artifacts..."
-            className="pl-8"
-          />
-        </div>
-        <StudySwitcher />
-        <div className="ml-auto flex items-center gap-2">
-          <ThemeToggle />
-          <UserNav />
-        </div>
+    <header className="bg-background/85 sticky top-0 z-50 flex h-16 shrink-0 items-center gap-3 border-b p-4 backdrop-blur-xl sm:gap-4">
+      <SidebarTrigger variant="outline" className="max-md:scale-125" />
+      <Separator orientation="vertical" className="h-6" />
+      <div className="min-w-0 flex-1 leading-tight">
+        <span className="text-muted-foreground block truncate text-[10px] font-semibold uppercase tracking-[0.14em]">Clinical artifacts</span>
+        <span className="block truncate text-sm font-semibold text-foreground">{pageTitle}</span>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <ThemeToggle />
       </div>
     </header>
   )

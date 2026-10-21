@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import Principal
 from app.common.etag import require_matching_etag
-from app.common.logging import request_method_context
+from app.common.logging import request_method_context, request_path_context
 from app.common.outbox import OutboxEvent
 from app.common.problems import ProblemException
 from app.platform.authorization import get_platform_authorization
@@ -17,6 +17,24 @@ from app.studies.models import Study, StudyMembership
 from app.studies.schemas import StudyCreate, StudyPatch
 
 logger = logging.getLogger(__name__)
+
+_PATH_MODULES = {
+    "raw": "raw",
+    "documents": "documents",
+    "sdtms": "sdtm",
+    "adams": "adam",
+    "tlfs": "tlf",
+    "terminology": "terminology",
+    "reference": "reference",
+    "review": "review",
+    "reconciliations": "reconciliation",
+    "executions": "execution",
+    "validation": "validation",
+    "artifacts": "artifacts",
+    "packages": "packaging",
+    "integrations": "integration",
+}
+_MANAGE_MODULES = {"standards", "terminology", "reference", "templates", "integration"}
 
 
 class StudyService:
@@ -82,11 +100,22 @@ class StudyService:
 
         if action is None:
             method = request_method_context.get()
-            action = (
-                "artifact.study.read"
-                if method in {None, "GET", "HEAD", "OPTIONS"}
-                else "artifact.study.write"
+            path_segments = (request_path_context.get() or "").strip("/").split("/")
+            module = next(
+                (_PATH_MODULES[segment] for segment in path_segments if segment in _PATH_MODULES),
+                "study",
             )
+            if method in {None, "GET", "HEAD", "OPTIONS"}:
+                verb = "read"
+            else:
+                verb = (
+                    "run"
+                    if module in {"validation", "reconciliation", "packaging"}
+                    else "manage"
+                    if module in _MANAGE_MODULES or module in {"study", "execution"}
+                    else "write"
+                )
+            action = f"aurinara.{module}.{verb}"
         study = session.get(Study, study_id)
         local_allowed = (
             session.scalar(
@@ -182,13 +211,11 @@ class StudyService:
             records = all_records
         decisions = gateway.decide_batch(
             principal,
-            "artifact.study.read",
+            "aurinara.study.read",
             tuple(study.id for study in records),
         )
         centrally_allowed = tuple(
-            study
-            for study, decision in zip(records, decisions, strict=True)
-            if decision.allowed
+            study for study, decision in zip(records, decisions, strict=True) if decision.allowed
         )
         if gateway.mode == "shadow":
             visible_ids = {study.id for study in (*local_records, *centrally_allowed)}

@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
-import { useCurrentStudy } from '@/components/study-provider'
+import { useCurrentStudy } from '@/components/study-context'
 import { WorkbenchDetailShell, type WorkbenchTab } from '@/components/workbench/workbench-detail-shell'
 import { AdamAdrgPanel, AdamContextPanel, AdamDefinePanel, AdamDependenciesPanel, AdamInputSelectionPanel, AdamOperationsPanel, AdamPlanPanel, AdamSpecificationPanel, AdamValidationPanel } from '@/components/workbench/adam-panels'
 import { useGetAdamAggregate } from '@/api/generated/adam/adam'

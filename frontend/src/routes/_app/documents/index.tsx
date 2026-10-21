@@ -10,7 +10,7 @@ import { EmptyState } from '@/components/data/states'
 import { StatusBadge } from '@/components/data/status-badge'
 import { Button } from '@/components/ui/button'
 import { ResourceFormDialog, type FieldDescriptor } from '@/components/forms/resource-form-dialog'
-import { useCurrentStudy } from '@/components/study-provider'
+import { useCurrentStudy } from '@/components/study-context'
 import {
   getListDocumentsQueryKey,
   useCreateDocument,
@@ -19,6 +19,7 @@ import {
 import { DocumentType } from '@/api/generated/model/documentType'
 import type { DocumentCreate, DocumentResponse } from '@/api/generated/model'
 import { jsonRequest } from '@/lib/requests'
+import { useListSourceFiles } from '@/api/generated/artifacts/artifacts'
 
 export const Route = createFileRoute('/_app/documents/')({ component: DocumentsPage })
 
@@ -31,21 +32,42 @@ const columns: ResourceColumn<DocumentResponse>[] = [
   { key: 'updated_at', header: 'Updated', cell: (row) => formatDate(row.updated_at) },
 ]
 
-const fields: FieldDescriptor<DocumentCreate>[] = [
+const baseFields: FieldDescriptor<DocumentCreate>[] = [
   { name: 'document_code', label: 'Code', control: 'text', required: true },
   { name: 'name', label: 'Name', control: 'text', required: true },
   {
     name: 'document_type', label: 'Document type', control: 'select', required: true,
     options: Object.values(DocumentType).map((value) => ({ label: value.replaceAll('_', ' '), value })),
   },
-  { name: 'source_pdf_file_id', label: 'Protocol source PDF file ID', control: 'text' },
-  { name: 'related_document_ids', label: 'Related document IDs', control: 'tags' },
 ]
 
 function DocumentsPage() {
   const qc = useQueryClient(); const navigate = useNavigate()
   const { currentStudyId, isLoading: studiesLoading } = useCurrentStudy()
   const query = useListDocuments(currentStudyId ?? '', { query: { enabled: !!currentStudyId } })
+  const sourceFiles = useListSourceFiles(currentStudyId ?? '', { limit: 200 }, { query: { enabled: !!currentStudyId } })
+  const fields = React.useMemo<FieldDescriptor<DocumentCreate>[]>(() => [
+    ...baseFields,
+    {
+      name: 'source_pdf_file_id',
+      label: 'Protocol source PDF',
+      control: 'select',
+      placeholder: sourceFiles.isLoading ? 'Loading source files…' : 'Select a PDF',
+      options: (sourceFiles.data?.items ?? [])
+        .filter((file) => file.media_type === 'application/pdf')
+        .map((file) => ({ value: file.id, label: file.filename })),
+    },
+    {
+      name: 'related_document_ids',
+      label: 'Related documents',
+      control: 'multiselect',
+      options: (query.data ?? []).map((document) => ({
+        value: document.id,
+        label: `${document.document_code} · ${document.name}`,
+      })),
+      helpText: 'Choose any existing documents that provide context for this one.',
+    },
+  ], [query.data, sourceFiles.data, sourceFiles.isLoading])
   const [open, setOpen] = React.useState(false)
   const create = useCreateDocument({
     mutation: { onSuccess: () => qc.invalidateQueries({ queryKey: getListDocumentsQueryKey(currentStudyId ?? undefined) }) },

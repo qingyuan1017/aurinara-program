@@ -10,7 +10,7 @@ memberships, authorization decisions, and the opaque object catalog.
 - `PLATFORM_AUTHORIZATION_MODE=disabled` uses existing local memberships.
 - `shadow` calls the platform, logs decision mismatches, and preserves local behavior.
 - In shadow mode, a projected canonical study with no legacy local membership becomes
-  visible only after an explicit positive `artifact.study.read` decision. Legacy studies
+  visible only after an explicit positive `aurinara.study.read` decision. Legacy studies
   continue to use their local memberships until cutover.
 - `enforced` treats the platform decision as authoritative and fails closed with `503`
   when neither the platform nor an unexpired positive cache entry is available.
@@ -22,16 +22,16 @@ memberships, authorization decisions, and the opaque object catalog.
   gateway URL. Shadow mode can dual-read legacy bytes; enforced mode cannot fall back.
 
 Confirmed human identities receive only the Platform `platform.study.create`
-capability. The Aurinara migration task synchronizes the stable `Aurinara Study Owner`
-role and its explicit permission list. When that person creates a canonical study in
-Platform, Platform assigns this role at that study scope in the same transaction as
-the study and membership events. The assignment does not expose any other study, and
-direct Aurinara study creation remains disabled in enforced mode.
+capability. Aurinara publishes its `aurinara.<module>.<action>` permission catalog and
+does not define roles. When a person creates a canonical study, Platform assigns its
+built-in cross-product Study Administrator role at that study scope. The assignment
+does not expose any other study, and direct Aurinara study creation remains disabled
+in enforced mode.
 
 The API service uses an OIDC client-credentials identity with the
-`platform.authorization.decide` permission plus the applicable `artifact.*`
-object and catalog-synchronization permissions. Browser clients never receive these
-credentials or object-store keys.
+`platform.authorization.decide` permission plus `aurinara.artifacts.read`,
+`aurinara.artifacts.write`, and `aurinara.permission.sync`. Browser clients never
+receive these credentials or object-store keys.
 
 ## Migration
 

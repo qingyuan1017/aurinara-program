@@ -8,7 +8,7 @@ DESCRIPTOR = ModuleDescriptor(
     module_version="0.1.0",
     api_prefix="/api/v1/terminology",
     event_types=("terminology.extension_revised",),
-    authorization_scopes=("terminology:read", "terminology:write"),
+    authorization_scopes=("aurinara.terminology.read", "aurinara.terminology.manage"),
     capabilities=frozenset({ModuleCapability.OUTBOUND_EVENTS}),
 )
 REGISTRATION = ModuleRegistration(

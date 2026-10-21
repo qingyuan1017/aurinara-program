@@ -6,7 +6,7 @@ import type { ResourceColumn } from '@/components/data/resource-table'
 import { EmptyState } from '@/components/data/states'
 import { StatusBadge } from '@/components/data/status-badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useCurrentStudy } from '@/components/study-provider'
+import { useCurrentStudy } from '@/components/study-context'
 import {
   useListPlatformRulePacks,
   useListRules,

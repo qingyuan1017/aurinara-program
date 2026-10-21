@@ -249,6 +249,30 @@ vi.mock('@/api/generated/artifact-builds/artifact-builds', () => ({
   useGetArtifactBuild: makeScriptedGet('build'),
 }))
 
+vi.mock('@/api/generated/artifacts/artifacts', () => ({
+  useListArtifacts: () => ({
+    data: {
+      items: [
+        {
+          id: 'xpt-dm',
+          filename: 'dm.xpt',
+          artifact_type: 'sdtm_dataset_xpt',
+          status: 'available',
+        },
+        {
+          id: 'xpt-ae',
+          filename: 'ae.xpt',
+          artifact_type: 'sdtm_dataset_xpt',
+          status: 'available',
+        },
+      ],
+    },
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
+}))
+
 function makeScriptedGet(kind: 'reconcile' | 'build') {
   return (
     _id: string,
@@ -609,7 +633,7 @@ describe('DefinePanel initialize (Req 18.2)', () => {
     renderPanel(makeAggregate({ revision: 7 }))
 
     // Deselect xpt-ae via its checkbox so only xpt-dm remains selected.
-    fireEvent.click(screen.getByRole('checkbox', { name: /deselect xpt-ae/i }))
+    fireEvent.click(screen.getByRole('checkbox', { name: /deselect ae\.xpt/i }))
 
     fireEvent.click(screen.getByRole('button', { name: /initialize define/i }))
 
@@ -625,7 +649,7 @@ describe('DefinePanel initialize (Req 18.2)', () => {
   })
 
   it('drag-select and checkbox fallback issue the IDENTICAL initialize body', async () => {
-    // First init (no model): add two candidate ids, fill the required metadata.
+    // First init (no model): select from the artifact catalog and fill metadata.
     const seedModel = () => {
       defineApi.getDefine = {
         data: undefined,
@@ -636,13 +660,6 @@ describe('DefinePanel initialize (Req 18.2)', () => {
     }
 
     function fillFirstInit() {
-      // Add two XPT candidate ids to the pool.
-      for (const id of ['xpt-dm', 'xpt-ae']) {
-        fireEvent.change(screen.getByLabelText(/xpt artifact id/i), {
-          target: { value: id },
-        })
-        fireEvent.click(screen.getByRole('button', { name: /^add$/i }))
-      }
       // Required first-model metadata.
       fireEvent.change(screen.getByLabelText(/study oid/i), {
         target: { value: 'STUDY1' },
@@ -665,8 +682,8 @@ describe('DefinePanel initialize (Req 18.2)', () => {
     seedModel()
     const first = renderPanel()
     fillFirstInit()
-    // Added ids start unselected; check xpt-dm.
-    fireEvent.click(screen.getByRole('checkbox', { name: /select xpt-dm/i }))
+    // Catalog artifacts start unselected; check dm.xpt.
+    fireEvent.click(screen.getByRole('checkbox', { name: /select dm\.xpt/i }))
     fireEvent.click(screen.getByRole('button', { name: /initialize define/i }))
     await waitFor(() => expect(defineApi.initializeVars.length).toBe(1))
     const checkboxBody = defineApi.initializeVars[0].data

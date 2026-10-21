@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Link,
   createFileRoute,
@@ -30,13 +30,19 @@ export const Route = createFileRoute('/login')({
 function LoginPage() {
   const navigate = useNavigate()
   const { redirect } = useSearch({ from: '/login' })
-  const { signIn } = useAuth()
+  const { isAuthenticated, isLoading, signIn } = useAuth()
   const oidcConfigured = isOidcConfigured()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      void navigate({ to: redirect ?? '/', replace: true })
+    }
+  }, [isAuthenticated, isLoading, navigate, redirect])
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -74,8 +80,15 @@ function LoginPage() {
         </CardHeader>
         <CardContent>
           {oidcConfigured && (
-            <Button type="button" className="mb-5 w-full" disabled={submitting} onClick={onSso}>
-              {submitting && <Loader2 className="size-4 animate-spin" />}
+            <Button
+              type="button"
+              className="mb-5 w-full"
+              disabled={isLoading || isAuthenticated || submitting}
+              onClick={onSso}
+            >
+              {(isLoading || isAuthenticated || submitting) && (
+                <Loader2 className="size-4 animate-spin" />
+              )}
               Continue with single sign-on
             </Button>
           )}

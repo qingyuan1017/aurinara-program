@@ -4,7 +4,7 @@ import { Download, File, Folder, RefreshCw, Search, Share2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useCurrentStudy } from '@/components/study-provider'
+import { useCurrentStudy } from '@/components/study-context'
 import { getAuthToken } from '@/lib/auth'
 import { AXIOS_INSTANCE } from '@/api/axios-instance'
 
