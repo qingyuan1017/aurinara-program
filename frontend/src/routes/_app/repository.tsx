@@ -1,114 +1,531 @@
-import { useCallback, useEffect, useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
-import { Download, File, Folder, RefreshCw, Search, Share2 } from 'lucide-react'
-import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useCurrentStudy } from '@/components/study-context'
-import { getAuthToken } from '@/lib/auth'
-import { AXIOS_INSTANCE } from '@/api/axios-instance'
+import {
+  type ChangeEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import {
+  Archive,
+  Download,
+  Eye,
+  File,
+  Folder,
+  FolderPlus,
+  RefreshCw,
+  Search,
+  Share2,
+  Upload,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { RepositoryPreview } from "@/components/repository-preview";
+import { useCurrentStudy } from "@/components/study-context";
+import { AXIOS_INSTANCE } from "@/api/axios-instance";
+import {
+  repositoryApi,
+  uploadRepositoryFile,
+  waitForRepositoryJob,
+  type RepositoryNode,
+  type RepositoryVersion,
+  type UploadProgress,
+} from "@/lib/repository-client";
 
-type Node = {
-  id: string
-  parent_id: string | null
-  kind: 'folder' | 'file'
-  display_name: string
-  source_product: string
-  module: string | null
-  source_status: string
-  classification: string
-  current_version_number: number | null
-  updated_at: string
-}
-
-type Version = {
-  id: string
-  version_number: number
-  sha256: string
-  size_bytes: number
-  media_type: string
-  created_at: string
-}
-
-const platformBase = (import.meta.env.VITE_PLATFORM_API_BASE_URL ?? '').replace(/\/$/, '')
-
-async function platform<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${platformBase}${path}`, {
-    ...init,
-    headers: { Authorization: `Bearer ${getAuthToken()}`, 'Content-Type': 'application/json', ...init?.headers },
-  })
-  if (!response.ok) throw new Error(`Repository request failed (${response.status})`)
-  const contentType = response.headers.get('content-type') ?? ''
-  if (!contentType.toLowerCase().includes('application/json')) {
-    throw new Error('Repository API returned a non-JSON response. Verify that Platform is running on port 8002 and restart the Aurinara frontend.')
-  }
-  return response.json() as Promise<T>
-}
-
-export const Route = createFileRoute('/_app/repository')({ component: RepositoryPage })
+export const Route = createFileRoute("/_app/repository")({
+  component: RepositoryPage,
+});
 
 function RepositoryPage() {
-  const { currentStudyId } = useCurrentStudy()
-  const [query, setQuery] = useState('')
-  const [view, setView] = useState('folder')
-  const [path, setPath] = useState<Node[]>([])
-  const [items, setItems] = useState<Node[]>([])
-  const [selected, setSelected] = useState<Node | null>(null)
-  const [versions, setVersions] = useState<Version[]>([])
-  const [loading, setLoading] = useState(false)
-  const currentFolder = path.at(-1) ?? null
+  const { currentStudyId } = useCurrentStudy();
+  const [query, setQuery] = useState("");
+  const [view, setView] = useState("folder");
+  const [path, setPath] = useState<RepositoryNode[]>([]);
+  const [items, setItems] = useState<RepositoryNode[]>([]);
+  const [folders, setFolders] = useState<RepositoryNode[]>([]);
+  const [selected, setSelected] = useState<RepositoryNode | null>(null);
+  const [versions, setVersions] = useState<RepositoryVersion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [preview, setPreview] = useState(false);
+  const [caps, setCaps] = useState({
+    can_upload: false,
+    can_create_folder: false,
+  });
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const abort = useRef<AbortController>();
+  const deepNodeId = useRef<string | null>(null);
+  const currentFolder = path.at(-1) ?? null;
 
   const load = useCallback(async () => {
-    if (!currentStudyId) return
-    setLoading(true)
+    if (!currentStudyId) return;
+    setLoading(true);
     try {
-      const params = new URLSearchParams({ view, limit: '100' })
-      if (view === 'folder' && currentFolder) params.set('parent_id', currentFolder.id)
-      if (query.trim()) params.set('q', query.trim())
-      const result = await platform<{ items: Node[] }>(`/v1/studies/${currentStudyId}/repository?${params}`)
-      setItems(result.items)
-      setSelected((value) => result.items.find((item) => item.id === value?.id) ?? null)
-    } catch (error) { toast.error(error instanceof Error ? error.message : 'Repository unavailable') }
-    finally { setLoading(false) }
-  }, [currentStudyId, currentFolder, query, view])
+      const params = new URLSearchParams({ view, limit: "100" });
+      if (view === "folder" && currentFolder)
+        params.set("parent_id", currentFolder.id);
+      if (query.trim()) params.set("q", query.trim());
+      const [page, all] = await Promise.all([
+        repositoryApi.browse(currentStudyId, params),
+        repositoryApi.browse(
+          currentStudyId,
+          new URLSearchParams({ view: "all", limit: "100" }),
+        ),
+      ]);
+      setItems(page.items);
+      setCaps(page.capabilities);
+      setFolders(
+        all.items.filter(
+          (item) =>
+            item.kind === "folder" && item.lifecycle_status === "active",
+        ),
+      );
+      setSelected(
+        (value) =>
+          page.items.find((item) => item.id === value?.id) ??
+          (value?.id === deepNodeId.current ? value : null),
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Repository unavailable",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [currentStudyId, currentFolder, query, view]);
 
-  useEffect(() => { setPath([]); setSelected(null) }, [currentStudyId])
-
-  useEffect(() => { void load() }, [load])
   useEffect(() => {
-    if (!selected || selected.kind !== 'file') { setVersions([]); return }
-    void platform<Version[]>(`/v1/repository/nodes/${selected.id}/versions`).then(setVersions).catch(() => setVersions([]))
-  }, [selected])
+    setPath([]);
+    setSelected(null);
+  }, [currentStudyId]);
+  useEffect(() => {
+    const parameters = new URLSearchParams(location.search);
+    const linkedVersion = parameters.get("version");
+    const linkedStudy = parameters.get("study");
+    if (!linkedVersion || !currentStudyId) return;
+    setView("all");
+    void repositoryApi
+      .version(linkedVersion)
+      .then(async (binding) => {
+        if (
+          binding.study_id !== currentStudyId ||
+          (linkedStudy && linkedStudy !== currentStudyId)
+        )
+          throw new Error("The deep link belongs to another study");
+        deepNodeId.current = binding.node_id;
+        setSelected(await repositoryApi.node(binding.node_id));
+        setPreview(true);
+      })
+      .catch((error) =>
+        toast.error(
+          error instanceof Error ? error.message : "Deep link unavailable",
+        ),
+      );
+  }, [currentStudyId]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  useEffect(() => {
+    if (!selected || selected.kind !== "file") {
+      setVersions([]);
+      return;
+    }
+    void repositoryApi
+      .versions(selected.id)
+      .then((values) => {
+        setVersions(values);
+        const linked = new URLSearchParams(location.search).get("version");
+        if (linked && !values.some((value) => value.id === linked))
+          toast.error(
+            "The linked Repository version is unavailable or unauthorized",
+          );
+      })
+      .catch((error) =>
+        toast.error(
+          error instanceof Error ? error.message : "Version unavailable",
+        ),
+      );
+  }, [selected]);
 
-  const download = async () => {
-    if (!versions[0]) return
-    const result = await platform<{ url: string }>(`/v1/repository/versions/${versions[0].id}/download`, { method: 'POST' })
-    window.open(result.url, '_blank', 'noopener,noreferrer')
-  }
+  const destinations = useMemo(
+    () =>
+      folders.filter(
+        (folder) =>
+          selected &&
+          folder.id !== selected.id &&
+          folder.source_product === selected.source_product &&
+          folder.required_read_action === selected.required_read_action &&
+          folder.required_write_action === selected.required_write_action &&
+          folder.site_id === selected.site_id,
+      ),
+    [folders, selected],
+  );
+  const download = async (version = versions[0]) => {
+    if (!version) return;
+    const result = await repositoryApi.download(version.id);
+    window.open(result.url, "_blank", "noopener,noreferrer");
+  };
   const addToAurinara = async () => {
-    if (!currentStudyId || !versions[0]) return
+    if (!currentStudyId || !versions[0]) return;
     try {
-      await AXIOS_INSTANCE.post(`/api/v1/studies/${currentStudyId}/source-files:bind-repository`, { version_id: versions[0].id, expected_sha256: versions[0].sha256 })
-      toast.success('Repository version added as a new Aurinara source file')
-    } catch { toast.error('Could not bind this Repository version') }
-  }
-  const openFolder = (folder: Node) => {
-    setPath((value) => [...value, folder])
-    setView('folder')
-    setQuery('')
-    setSelected(null)
-  }
+      await AXIOS_INSTANCE.post(
+        `/api/v1/studies/${currentStudyId}/source-files:bind-repository`,
+        { version_id: versions[0].id, expected_sha256: versions[0].sha256 },
+      );
+      toast.success("Repository version added as a new Aurinara source file");
+    } catch {
+      toast.error("Could not bind this Repository version");
+    }
+  };
+  const createFolder = async () => {
+    const name = prompt("Folder name")?.trim();
+    if (!name || !currentStudyId) return;
+    try {
+      await repositoryApi.folder(
+        currentStudyId,
+        name,
+        currentFolder?.id || null,
+      );
+      await load();
+    } catch (error) {
+      toast.error(String(error));
+    }
+  };
+  const changeName = async () => {
+    if (!selected) return;
+    const name = prompt("New name", selected.display_name)?.trim();
+    if (!name) return;
+    try {
+      setSelected(await repositoryApi.patch(selected, { name }));
+      await load();
+    } catch (error) {
+      toast.error(String(error));
+    }
+  };
+  const move = async (parentId: string) => {
+    if (!selected) return;
+    try {
+      setSelected(
+        await repositoryApi.patch(selected, { parent_id: parentId || null }),
+      );
+      await load();
+    } catch (error) {
+      toast.error(String(error));
+    }
+  };
+  const archive = async () => {
+    if (!selected) return;
+    try {
+      setSelected(
+        selected.lifecycle_status === "archived"
+          ? await repositoryApi.restore(selected)
+          : await repositoryApi.archive(selected),
+      );
+      await load();
+    } catch (error) {
+      toast.error(String(error));
+    }
+  };
+  const upload = async (
+    event: ChangeEvent<HTMLInputElement>,
+    replacement: RepositoryNode | null = null,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file || !currentStudyId) return;
+    abort.current = new AbortController();
+    try {
+      await uploadRepositoryFile(
+        currentStudyId,
+        file,
+        currentFolder?.id || null,
+        replacement,
+        setProgress,
+        abort.current.signal,
+      );
+      toast.success(
+        replacement ? "New immutable version added" : "File uploaded",
+      );
+      await load();
+      if (replacement)
+        setVersions(await repositoryApi.versions(replacement.id));
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError"))
+        toast.error(error instanceof Error ? error.message : "Upload failed");
+    } finally {
+      setProgress(null);
+      event.target.value = "";
+    }
+  };
+  const convert = async (target: "csv" | "parquet") => {
+    if (!selected || !versions[0]) return;
+    const filename = prompt(
+      "Output filename",
+      `${selected.display_name.replace(/\.[^.]+$/, "")}.${target}`,
+    )?.trim();
+    if (!filename) return;
+    try {
+      const job = await repositoryApi.convert(versions[0].id, target, filename);
+      toast.info("Conversion queued");
+      await waitForRepositoryJob(job);
+      toast.success("Conversion completed");
+      await load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Conversion failed");
+    }
+  };
+  if (!currentStudyId)
+    return (
+      <p className="text-sm text-muted-foreground">
+        Select a study to use Repository.
+      </p>
+    );
 
-  return <div className="space-y-4">
-    <div><h1 className="font-display text-2xl font-medium">Repository</h1><p className="text-muted-foreground text-sm">One authorized view of Platform, Aurinara, and EDC files.</p></div>
-    <div className="flex flex-wrap gap-2">
-      <div className="relative min-w-64 flex-1"><Search className="text-muted-foreground absolute top-2.5 left-3 size-4"/><input className="border-input bg-background h-9 w-full rounded-md border pl-9 text-sm" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search files" /></div>
-      <select className="border-input bg-background h-9 rounded-md border px-3 text-sm" value={view} onChange={(event) => { setView(event.target.value); setSelected(null) }}><option value="folder">Folders</option><option value="all">All files</option><option value="recent">Recent</option><option value="aurinara">Aurinara</option><option value="aurinara-edc">EDC</option><option value="platform">Neutral</option><option value="archived">Archived</option></select>
-      <Button variant="outline" size="icon" onClick={() => void load()}><RefreshCw className={loading ? 'animate-spin' : ''}/></Button>
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="font-display text-2xl font-medium">Repository</h1>
+        <p className="text-muted-foreground text-sm">
+          One authorized file experience across Platform, Aurinara, and EDC.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <div className="relative min-w-64 flex-1">
+          <Search className="text-muted-foreground absolute top-2.5 left-3 size-4" />
+          <input
+            className="border-input bg-background h-9 w-full rounded-md border pl-9 text-sm"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search files"
+          />
+        </div>
+        <select
+          className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+          value={view}
+          onChange={(event) => {
+            setView(event.target.value);
+            setSelected(null);
+          }}
+        >
+          <option value="folder">Folders</option>
+          <option value="all">All files</option>
+          <option value="recent">Recent</option>
+          <option value="aurinara">Aurinara</option>
+          <option value="aurinara-edc">EDC</option>
+          <option value="platform">Neutral</option>
+          <option value="archived">Archived</option>
+        </select>
+        <Button
+          variant="outline"
+          disabled={!caps.can_create_folder}
+          onClick={() => void createFolder()}
+        >
+          <FolderPlus />
+          Folder
+        </Button>
+        <Button
+          disabled={!caps.can_upload}
+          onClick={() => input.current?.click()}
+        >
+          <Upload />
+          Upload
+        </Button>
+        <input
+          ref={input}
+          hidden
+          type="file"
+          onChange={(event) => void upload(event)}
+        />
+        <Button variant="outline" size="icon" onClick={() => void load()}>
+          <RefreshCw className={loading ? "animate-spin" : ""} />
+        </Button>
+        {progress && (
+          <span className="self-center text-xs">
+            {progress.phase}{" "}
+            {Math.round((progress.loaded / Math.max(1, progress.total)) * 100)}%{" "}
+            <button
+              className="underline"
+              onClick={() => abort.current?.abort()}
+            >
+              Cancel
+            </button>
+          </span>
+        )}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
+        <Card className="gap-0 py-0">
+          <div className="flex items-center gap-1 border-b px-4 py-3 text-sm">
+            <button
+              className="text-primary"
+              onClick={() => {
+                setPath([]);
+                setView("folder");
+              }}
+            >
+              Repository
+            </button>
+            {path.map((folder, index) => (
+              <span key={folder.id}>
+                {" "}
+                /{" "}
+                <button
+                  className="text-primary"
+                  onClick={() => setPath(path.slice(0, index + 1))}
+                >
+                  {folder.display_name}
+                </button>
+              </span>
+            ))}
+          </div>
+          {items.map((item) => (
+            <button
+              key={item.id}
+              className={`grid w-full grid-cols-[1fr_110px_100px] items-center border-b px-4 py-3 text-left text-sm hover:bg-muted/50 ${selected?.id === item.id ? "bg-muted" : ""}`}
+              onClick={() => setSelected(item)}
+              onDoubleClick={() =>
+                item.kind === "folder" &&
+                (setPath([...path, item]), setView("folder"), setSelected(null))
+              }
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                {item.kind === "folder" ? (
+                  <Folder className="size-4 text-amber-600" />
+                ) : (
+                  <File className="text-primary size-4" />
+                )}
+                <span className="truncate">{item.display_name}</span>
+              </span>
+              <span className="truncate text-xs text-muted-foreground">
+                {item.source_product}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {item.lifecycle_status === "archived"
+                  ? "archived"
+                  : item.source_status}
+              </span>
+            </button>
+          ))}
+          {!loading && !items.length && (
+            <p className="p-12 text-center text-sm text-muted-foreground">
+              No authorized entries found.
+            </p>
+          )}
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>{selected?.display_name ?? "File details"}</CardTitle>
+            <CardDescription>
+              {selected
+                ? `${selected.source_product} · ${selected.classification}`
+                : "Select a file"}
+            </CardDescription>
+          </CardHeader>
+          {selected && (
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {selected.capabilities.can_manage && (
+                  <Button variant="outline" onClick={() => void changeName()}>
+                    Rename
+                  </Button>
+                )}
+                {selected.kind === "file" && (
+                  <Button variant="outline" onClick={() => void download()}>
+                    <Download />
+                    Download
+                  </Button>
+                )}
+                {selected.capabilities.can_preview && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setPreview((value) => !value)}
+                  >
+                    <Eye />
+                    Preview
+                  </Button>
+                )}
+                {selected.kind === "file" && (
+                  <Button onClick={() => void addToAurinara()}>
+                    <Share2 />
+                    Use in Aurinara
+                  </Button>
+                )}
+                {selected.capabilities.can_manage && (
+                  <Button variant="outline" onClick={() => void archive()}>
+                    <Archive />
+                    {selected.lifecycle_status === "archived"
+                      ? "Restore"
+                      : "Archive"}
+                  </Button>
+                )}
+              </div>
+              {selected.capabilities.can_manage && (
+                <select
+                  className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+                  value={selected.parent_id || ""}
+                  onChange={(event) => void move(event.target.value)}
+                >
+                  <option value="">Repository root</option>
+                  {destinations.map((folder) => (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.display_name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {selected.kind === "file" && selected.capabilities.can_manage && (
+                <label className="block cursor-pointer rounded-md border p-2 text-center text-sm">
+                  <Upload className="mr-2 inline size-4" />
+                  New version
+                  <input
+                    hidden
+                    type="file"
+                    onChange={(event) => void upload(event, selected)}
+                  />
+                </label>
+              )}
+              {versions[0]?.capabilities.conversion_targets.map((target) => (
+                <Button
+                  key={target}
+                  variant="outline"
+                  onClick={() => void convert(target)}
+                >
+                  Convert to {target.toUpperCase()}
+                </Button>
+              ))}
+              {preview && selected.kind === "file" && versions[0] && (
+                <RepositoryPreview
+                  node={selected}
+                  version={versions[0]}
+                  changed={() => void load()}
+                />
+              )}
+              <div className="space-y-2">
+                {versions.map((version) => (
+                  <button
+                    key={version.id}
+                    className="block w-full rounded-md bg-muted p-3 text-left text-xs"
+                    onClick={() => void download(version)}
+                  >
+                    <strong>v{version.version_number}</strong>
+                    <div className="text-muted-foreground">
+                      {version.profile?.file_kind || version.media_type} ·{" "}
+                      {version.profile?.processing_status || "pending"} ·{" "}
+                      {(version.size_bytes / 1024).toFixed(1)} KB
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      </div>
     </div>
-    <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-      <Card className="gap-0 py-0"><div className="flex items-center gap-1 border-b px-4 py-3 text-sm"><button className="text-primary" onClick={() => { setPath([]); setView('folder') }}>Repository</button>{path.map((folder, index) => <span key={folder.id} className="flex items-center gap-1"><span className="text-muted-foreground">/</span><button className="text-primary" onClick={() => setPath(path.slice(0, index + 1))}>{folder.display_name}</button></span>)}</div><div className="text-muted-foreground grid grid-cols-[1fr_110px_100px] border-b px-4 py-3 text-[11px] font-semibold uppercase"><span>Name</span><span>Source</span><span>Status</span></div>{items.map((item) => <button key={item.id} className={`grid w-full grid-cols-[1fr_110px_100px] items-center border-b px-4 py-3 text-left text-sm hover:bg-muted/50 ${selected?.id === item.id ? 'bg-muted' : ''}`} onClick={() => item.kind === 'folder' ? openFolder(item) : setSelected(item)}><span className="flex min-w-0 items-center gap-2">{item.kind === 'folder' ? <Folder className="text-amber-600 size-4"/> : <File className="text-primary size-4"/>}<span className="truncate">{item.display_name}</span></span><span className="text-muted-foreground truncate text-xs">{item.kind === 'folder' ? 'Folder' : item.source_product === 'platform' ? 'Neutral' : item.source_product}</span><span className="text-muted-foreground text-xs">{item.source_status}</span></button>)}{!loading && items.length === 0 && <div className="text-muted-foreground p-12 text-center text-sm">No authorized entries found.</div>}</Card>
-      <Card><CardHeader><CardTitle>{selected?.display_name ?? 'File details'}</CardTitle><CardDescription>{selected ? `${selected.source_product} · ${selected.classification}` : 'Select a file'}</CardDescription></CardHeader>{selected?.kind === 'file' && <CardContent className="space-y-4"><div className="flex gap-2"><Button variant="outline" onClick={() => void download()}><Download/>Download</Button><Button onClick={() => void addToAurinara()}><Share2/>Use in Aurinara</Button></div><div className="space-y-2"><h3 className="text-sm font-medium">Versions</h3>{versions.map((version) => <div key={version.id} className="bg-muted rounded-md p-3 text-xs"><strong>v{version.version_number}</strong><div className="text-muted-foreground mt-1">{(version.size_bytes / 1024).toFixed(1)} KB · {new Date(version.created_at).toLocaleString()}</div></div>)}</div></CardContent>}</Card>
-    </div>
-  </div>
+  );
 }
