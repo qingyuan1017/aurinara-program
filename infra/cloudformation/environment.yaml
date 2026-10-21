@@ -90,6 +90,7 @@ Parameters:
     Default: db.m7g.large
 
 Conditions:
+  IsProduction: !Equals [!Ref Environment, production]
   IsBudget: !Equals [!Ref DeploymentProfile, budget]
 
 Rules:
@@ -169,7 +170,9 @@ Resources:
         ServiceTokenUrl: !Ref ServiceTokenUrl
         PlatformPrivateUrl: !Ref PlatformPrivateUrl
         PlatformAuthorizationMode: !Ref PlatformAuthorizationMode
-        ApplicationOrigin: !Sub https://${Environment}.${BaseDomain}
+        ApplicationOrigin: !Sub
+          - https://${Host}.${BaseDomain}
+          - Host: !If [IsProduction, nara, staging]
         SharedAlbArn: !Ref SharedAlbArn
         SharedAlbDnsName: !Ref SharedAlbDnsName
         SharedAlbFullName: !Ref SharedAlbFullName
@@ -182,7 +185,9 @@ Resources:
       TemplateURL: edge.yaml
       Parameters:
         Environment: !Ref Environment
-        ApplicationDomain: !Sub ${Environment}.${BaseDomain}
+        ApplicationDomain: !Sub
+          - ${Host}.${BaseDomain}
+          - Host: !If [IsProduction, nara, staging]
         DnsProvider: !Ref DnsProvider
         HostedZoneId: !Ref HostedZoneId
         CertificateArn: !Ref CertificateArn
@@ -244,13 +249,19 @@ Resources:
             Condition: {Bool: {'aws:SecureTransport': false}}
 
 Outputs:
-  ApplicationUrl: {Value: !Sub 'https://${Environment}.${BaseDomain}'}
+  ApplicationUrl:
+    Value: !Sub
+      - 'https://${Host}.${BaseDomain}'
+      - Host: !If [IsProduction, nara, staging]
   PlatformPublicUrl: {Value: !Ref PlatformPublicUrl}
   DeploymentProfile: {Value: !Ref DeploymentProfile}
   UserPoolId: {Value: !Ref UserPoolId}
   SpaClientId: {Value: !Ref SpaClientId}
   OidcAuthority: {Value: !Ref JwtIssuer}
-  OidcLogoutUrl: {Value: !Sub 'https://${Environment}.${BaseDomain}/login'}
+  OidcLogoutUrl:
+    Value: !Sub
+      - 'https://${Host}.${BaseDomain}/login'
+      - Host: !If [IsProduction, nara, staging]
   OidcEndSessionUrl: {Value: !Ref OidcEndSessionUrl}
   FrontendBucketName: {Value: !GetAtt Data.Outputs.FrontendBucketName}
   CloudFrontDistributionId: {Value: !GetAtt Edge.Outputs.DistributionId}

@@ -55,8 +55,8 @@ mode. Route 53 deployments instead set `DNS_PROVIDER=route53` and provide
 Request or import the viewer certificate in ACM in `us-east-1`. When using DNS
 validation, add the ACM validation CNAME in Cloudflare with proxying disabled and
 wait for the certificate to be issued before deployment. The certificate must
-cover `staging.<base-domain>` and `production.<base-domain>` (a wildcard at that
-level is acceptable).
+cover `staging.<base-domain>` and `nara.<base-domain>` (a wildcard at that level
+is acceptable).
 
 In the standard profile, the Platform endpoint service private DNS must be
 verified before this consumer is deployed. The budget profile calls Platform
@@ -98,7 +98,7 @@ CloudFormation creates CloudFront and exports
 `CloudFrontDistributionDomainName`; it does not create Route 53 records when
 `DNS_PROVIDER=cloudflare`. After each environment stack update, the delivery
 workflow calls `scripts/cloudflare-upsert-dns.sh` to create or update the exact
-environment CNAME (`staging.<base-domain>` or `production.<base-domain>`). The
+environment CNAME (`staging.<base-domain>` or `nara.<base-domain>`). The
 record always has `proxied=false` and targets the stack's CloudFront hostname.
 
 Keep these application records DNS-only (gray cloud). CloudFront and AWS WAF are
