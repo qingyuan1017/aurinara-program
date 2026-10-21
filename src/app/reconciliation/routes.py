@@ -84,7 +84,7 @@ def create_reconciliation(
         session,
         command.study_id,
         principal,
-        action="artifact.reconciliation.run",
+        action="aurinara.reconciliation.run",
     )
     for item in command.inputs:
         if item.artifact_id is not None:

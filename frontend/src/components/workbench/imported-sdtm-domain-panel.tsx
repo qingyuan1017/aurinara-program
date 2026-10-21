@@ -135,7 +135,7 @@ export function ImportedSdtmDomainPanel({
           <div className="text-muted-foreground grid gap-2 rounded-md border p-3 text-sm sm:grid-cols-3">
             <div><span className="font-medium text-foreground">Rows:</span> {schema?.row_count ?? '—'}</div>
             <div><span className="font-medium text-foreground">Variables:</span> {schema?.variables?.length ?? '—'}</div>
-            <div><span className="font-medium text-foreground">Artifact:</span> <code>{imported.data.artifact_id.slice(0, 8)}</code></div>
+            <div><span className="font-medium text-foreground">Source:</span> Imported XPT dataset</div>
             {schema?.variables && schema.variables.length > 0 && (
               <div className="sm:col-span-3">
                 <span className="font-medium text-foreground">Schema:</span>{' '}

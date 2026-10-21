@@ -12,9 +12,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/sonner'
-import { useCurrentStudy } from '@/components/study-provider'
+import { useCurrentStudy } from '@/components/study-context'
 import {
   DocumentBuildPanel,
   DocumentContentPanel,
@@ -28,8 +27,10 @@ import type { DocumentResponse } from '@/api/generated/model'
 import {
   getGetDocumentQueryKey,
   useGetDocument,
+  useListDocuments,
   usePatchDocument,
 } from '@/api/generated/documents/documents'
+import { useListSourceFiles } from '@/api/generated/artifacts/artifacts'
 import { ifMatchRequest } from '@/lib/requests'
 import { parseProblem, stalenessAlert } from '@/lib/problems'
 
@@ -57,22 +58,23 @@ export const Route = createFileRoute('/_app/documents/$documentId')({
 
 function DocumentMetadataPanel({ document }: { document: DocumentResponse }) {
   const qc = useQueryClient()
+  const { currentStudyId } = useCurrentStudy()
+  const documents = useListDocuments(currentStudyId ?? '', { query: { enabled: !!currentStudyId } })
+  const sourceFiles = useListSourceFiles(currentStudyId ?? '', { limit: 200 }, { query: { enabled: !!currentStudyId } })
   const patch = usePatchDocument({ request: ifMatchRequest(document.revision) })
   const [name, setName] = React.useState(document.name)
   const [status, setStatus] = React.useState(document.status)
   const [sourcePdfFileId, setSourcePdfFileId] = React.useState(
     document.source_pdf_file_id ?? '',
   )
-  const [relatedIds, setRelatedIds] = React.useState(
-    document.related_document_ids.join('\n'),
-  )
+  const [relatedIds, setRelatedIds] = React.useState<string[]>(document.related_document_ids)
   const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     setName(document.name)
     setStatus(document.status)
     setSourcePdfFileId(document.source_pdf_file_id ?? '')
-    setRelatedIds(document.related_document_ids.join('\n'))
+    setRelatedIds(document.related_document_ids)
   }, [document])
 
   async function save() {
@@ -83,10 +85,7 @@ function DocumentMetadataPanel({ document }: { document: DocumentResponse }) {
           name,
           status,
           source_pdf_file_id: sourcePdfFileId.trim() || null,
-          related_document_ids: relatedIds
-            .split(/[\n,]/)
-            .map((value) => value.trim())
-            .filter(Boolean),
+          related_document_ids: relatedIds,
         },
       })
       await qc.invalidateQueries({ queryKey: getGetDocumentQueryKey(document.id) })
@@ -117,15 +116,15 @@ function DocumentMetadataPanel({ document }: { document: DocumentResponse }) {
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="document-status">Status</Label>
-          <Input id="document-status" value={status} onChange={(event) => setStatus(event.target.value)} />
+          <select id="document-status" value={status} onChange={(event) => setStatus(event.target.value)} className="h-9 rounded-md border bg-background px-3 text-sm"><option value="draft">Draft</option><option value="in_review">In review</option><option value="approved">Approved</option><option value="retired">Retired</option></select>
         </div>
         <div className="flex flex-col gap-2 md:col-span-2">
-          <Label htmlFor="source-pdf">Source PDF file ID</Label>
-          <Input id="source-pdf" value={sourcePdfFileId} onChange={(event) => setSourcePdfFileId(event.target.value)} />
+          <Label htmlFor="source-pdf">Source PDF</Label>
+          <select id="source-pdf" value={sourcePdfFileId} onChange={(event) => setSourcePdfFileId(event.target.value)} className="h-9 rounded-md border bg-background px-3 text-sm"><option value="">No source PDF</option>{(sourceFiles.data?.items ?? []).filter((file) => file.media_type === 'application/pdf').map((file) => <option key={file.id} value={file.id}>{file.filename}</option>)}</select>
         </div>
         <div className="flex flex-col gap-2 md:col-span-2">
-          <Label htmlFor="related-documents">Related document IDs</Label>
-          <Textarea id="related-documents" rows={5} value={relatedIds} onChange={(event) => setRelatedIds(event.target.value)} placeholder="One UUID per line" />
+          <Label>Related documents</Label>
+          <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">{(documents.data ?? []).filter((item) => item.id !== document.id).map((item) => <label key={item.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"><input type="checkbox" checked={relatedIds.includes(item.id)} onChange={(event) => setRelatedIds((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} /><span>{item.document_code} · {item.name}</span></label>)}{!documents.isLoading && (documents.data?.length ?? 0) <= 1 ? <p className="px-2 py-1 text-sm text-muted-foreground">No other documents are available.</p> : null}</div>
         </div>
         {error && <p className="text-destructive text-sm md:col-span-2" role="alert">{error}</p>}
         <div className="flex justify-end md:col-span-2">

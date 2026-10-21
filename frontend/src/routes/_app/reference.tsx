@@ -13,7 +13,7 @@ import {
   type FieldDescriptor,
 } from '@/components/forms/resource-form-dialog'
 import { ConfirmDialog } from '@/components/forms/confirm-dialog'
-import { useCurrentStudy } from '@/components/study-provider'
+import { useCurrentStudy } from '@/components/study-context'
 import {
   getGetReferenceQueryKey,
   getListReferencesQueryKey,

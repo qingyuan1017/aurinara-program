@@ -8,7 +8,7 @@ from uuid import uuid4
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from app.common.logging import request_id_context, request_method_context
+from app.common.logging import request_id_context, request_method_context, request_path_context
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,7 @@ class RequestContextMiddleware:
         status_code = 500
         token = request_id_context.set(request_id)
         method_token = request_method_context.set(str(scope.get("method", "GET")).upper())
+        path_token = request_path_context.set(str(scope.get("path", "")))
 
         async def send_with_request_id(message: Message) -> None:
             nonlocal status_code
@@ -59,3 +60,4 @@ class RequestContextMiddleware:
             )
             request_id_context.reset(token)
             request_method_context.reset(method_token)
+            request_path_context.reset(path_token)

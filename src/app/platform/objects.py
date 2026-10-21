@@ -60,7 +60,7 @@ class PlatformObjectClient:
             response = self._client.post(
                 f"{self._base_url}/v1/objects/{object_id}/download",
                 headers={"Authorization": f"Bearer {self._authorization.service_token()}"},
-                json={"authorization_action": "artifact.object.download"},
+                json={"authorization_action": "aurinara.artifacts.read"},
             )
             response.raise_for_status()
             url = str(response.json()["url"])
@@ -96,7 +96,7 @@ class PlatformObjectClient:
                 json={
                     "study_id": str(study_id),
                     "owner_product": "aurinara",
-                    "authorization_action": "artifact.object.upload",
+                    "authorization_action": "aurinara.artifacts.write",
                     "classification": classification,
                     "media_type": media_type,
                     "expected_sha256": sha256,
@@ -131,7 +131,7 @@ class PlatformObjectClient:
                 headers=headers,
                 json={
                     "product": "aurinara",
-                    "authorization_action": "artifact.object.reference",
+                    "authorization_action": "aurinara.artifacts.write",
                     "external_reference": external_reference,
                     "idempotency_key": external_reference,
                     **({"repository": repository} if repository is not None else {}),
@@ -163,7 +163,7 @@ class PlatformObjectClient:
                 headers={"Authorization": f"Bearer {self._authorization.service_token()}"},
                 json={
                     "product": "aurinara",
-                    "authorization_action": "artifact.object.reference",
+                    "authorization_action": "aurinara.artifacts.write",
                     "external_reference": registration.external_reference,
                     "idempotency_key": registration.external_reference,
                     "repository": repository,
@@ -239,7 +239,7 @@ class PlatformObjectClient:
                 headers={"Authorization": f"Bearer {self._authorization.service_token()}"},
                 json={
                     "product": "aurinara",
-                    "authorization_action": "artifact.object.reference",
+                    "authorization_action": "aurinara.artifacts.write",
                     "external_reference": external_reference,
                     "idempotency_key": external_reference,
                 },

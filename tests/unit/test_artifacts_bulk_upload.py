@@ -72,10 +72,10 @@ def _service(monkeypatch: pytest.MonkeyPatch, study_id: UUID) -> ArtifactService
         requested: UUID,
         principal: Principal,
         *,
-        action: str = "artifact.study.read",
+        action: str = "aurinara.artifacts.read",
     ) -> object:
         assert requested == study_id
-        assert action == "artifact.object.upload"
+        assert action == "aurinara.artifacts.write"
         return object()
 
     monkeypatch.setattr(service._studies, "require_access", _allow)

@@ -29,7 +29,7 @@ import {
 import { toast } from '@/components/ui/sonner'
 import { mapProblemToFieldErrors, stalenessAlert } from '@/lib/problems'
 
-export type FieldControl = 'text' | 'textarea' | 'select' | 'tags' | 'number'
+export type FieldControl = 'text' | 'textarea' | 'select' | 'multiselect' | 'tags' | 'number'
 
 export interface FieldDescriptor<TBody> {
   name: keyof TBody & string
@@ -70,7 +70,7 @@ function toFormState<TBody>(
   const state: FormState = {}
   for (const field of fields) {
     const raw = (initial as Record<string, unknown>)[field.name]
-    if (field.control === 'tags') {
+    if (field.control === 'tags' || field.control === 'multiselect') {
       state[field.name] = Array.isArray(raw) ? (raw as string[]) : []
     } else if (field.control === 'number') {
       state[field.name] = typeof raw === 'number' ? raw : undefined
@@ -190,7 +190,7 @@ export function ResourceFormDialog<TBody extends object>({
       const value = values[field.name]
       // Drop empty optionals so PATCH stays sparse (exclude_unset on backend).
       if (!field.required && isEmpty(value)) continue
-      if (field.control === 'tags') {
+      if (field.control === 'tags' || field.control === 'multiselect') {
         body[field.name] = Array.isArray(value) ? value : []
       } else if (field.control === 'number') {
         body[field.name] = value
@@ -301,6 +301,27 @@ export function ResourceFormDialog<TBody extends object>({
                           ))}
                         </SelectContent>
                       </Select>
+                    ) : field.control === 'multiselect' ? (
+                      <div id={id} className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2" aria-invalid={!!error}>
+                        {field.options?.length ? field.options.map((option) => {
+                          const selected = Array.isArray(value) && value.includes(option.value)
+                          return (
+                            <label key={option.value} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted">
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={(event) => {
+                                  const current = Array.isArray(value) ? value : []
+                                  setFieldValue(field.name, event.target.checked
+                                    ? [...current, option.value]
+                                    : current.filter((item) => item !== option.value))
+                                }}
+                              />
+                              <span>{option.label}</span>
+                            </label>
+                          )
+                        }) : <p className="px-2 py-1 text-sm text-muted-foreground">No options available.</p>}
+                      </div>
                     ) : field.control === 'tags' ? (
                       <Input
                         id={id}

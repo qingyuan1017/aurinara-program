@@ -5,7 +5,7 @@ import {
   type WorkbenchTab,
 } from "@/components/workbench/workbench-detail-shell";
 import { InputSelectionPanel } from "@/components/workbench/input-selection-panel";
-import { useCurrentStudy } from "@/components/study-provider";
+import { useCurrentStudy } from "@/components/study-context";
 import { SpecificationPanel } from "@/components/workbench/specification-panel";
 import { SdtmValidationPanel } from "@/components/workbench/sdtm-validation-panel";
 import { DefinePanel } from "@/components/workbench/define-panel";

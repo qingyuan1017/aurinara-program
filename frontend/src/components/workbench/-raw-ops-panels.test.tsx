@@ -619,47 +619,11 @@ describe('RawValidationPanel synchronous validate (Req 6.1, 6.3)', () => {
   })
 })
 
-describe('RawValidationPanel open-by-id (Req 6.5)', () => {
-  it('renders the referenced run when the lookup resolves', () => {
-    rawApi.validationRun = {
-      data: makeRun({ id: 'vr-99', status: 'passed', warning_count: 1 }),
-      error: null,
-      isLoading: false,
-      isError: false,
-    }
-
+describe('RawValidationPanel run selection', () => {
+  it('does not ask users to enter an internal validation run id', () => {
     renderWithClient(<RawValidationPanel rawId="raw-1" />)
-    fireEvent.change(screen.getByLabelText(/validation run id/i), {
-      target: { value: 'vr-99' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /^open$/i }))
-
-    // The looked-up run renders its own ValidationRunView.
-    expect(screen.getAllByText('Validation run').length).toBeGreaterThan(0)
-    expect(screen.getByText('Warning: 1')).toBeTruthy()
-  })
-
-  it('shows a not-found notice and NO stale content on a 404', () => {
-    rawApi.validationRun = {
-      data: undefined,
-      error: problemError(404, { title: 'Not Found' }),
-      isLoading: false,
-      isError: true,
-    }
-
-    renderWithClient(<RawValidationPanel rawId="raw-1" />)
-    fireEvent.change(screen.getByLabelText(/validation run id/i), {
-      target: { value: 'missing-id' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /^open$/i }))
-
-    // Not-found notice is shown…
-    expect(screen.getByText('Validation run not found')).toBeTruthy()
-    expect(
-      screen.getByText('The referenced validation run is unavailable.'),
-    ).toBeTruthy()
-    // …and NO stale run content: no "Validation run" card from the lookup.
-    expect(screen.queryByText('Validation run')).toBeNull()
+    expect(screen.queryByLabelText(/validation run id/i)).toBeNull()
+    expect(screen.getByRole('button', { name: /run validation/i })).toBeTruthy()
   })
 })
 

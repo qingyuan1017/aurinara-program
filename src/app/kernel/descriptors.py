@@ -25,7 +25,10 @@ def dependency_consumer_descriptor(
         content_schema_versions=("1.0.0",),
         entity_types=(entity_type,),
         artifact_types=(f"{module_key}_dependency_manifest",),
-        authorization_scopes=(f"{module_key}:read", f"{module_key}:write"),
+        authorization_scopes=(
+            f"aurinara.{module_key}.read",
+            f"aurinara.{module_key}.write",
+        ),
         capabilities=frozenset(
             {
                 ModuleCapability.DEPENDENCIES,

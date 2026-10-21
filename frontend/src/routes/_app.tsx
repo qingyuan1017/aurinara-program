@@ -4,6 +4,7 @@ import { AppSidebar } from '@/components/layout/app-sidebar'
 import { Header } from '@/components/layout/header'
 import { StudyProvider } from '@/components/study-provider'
 import { getAuthToken } from '@/lib/auth'
+import { isOidcConfigured, restoreOidcSession } from '@/lib/oidc'
 
 export const Route = createFileRoute('/_app')({
   // Auth guard: every authenticated-layout route requires a stored bearer
@@ -12,7 +13,14 @@ export const Route = createFileRoute('/_app')({
   // flow returns the user there afterwards (login.tsx reads `redirect`). A 401
   // on a token that the server rejects is handled centrally in the axios
   // interceptor, which clears the token and sends the user back to /login.
-  beforeLoad: ({ location }) => {
+  beforeLoad: async ({ location }) => {
+    // The router starts before AuthProvider's effects run. Give oidc-client a
+    // chance to restore its persisted user before deciding that the visitor is
+    // unauthenticated; otherwise a refresh or a new route load briefly renders
+    // the app and then bounces an already signed-in user back to /login.
+    if (getAuthToken() === null && isOidcConfigured()) {
+      await restoreOidcSession()
+    }
     if (getAuthToken() === null) {
       throw redirect({
         to: '/login',
@@ -30,9 +38,9 @@ function AppLayout() {
         <AppSidebar />
         <SidebarInset>
           <Header />
-          <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
+          <main className="flex w-full min-w-0 flex-1 flex-col gap-5 px-4 py-6">
             <Outlet />
-          </div>
+          </main>
         </SidebarInset>
       </SidebarProvider>
     </StudyProvider>

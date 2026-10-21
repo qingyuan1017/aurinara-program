@@ -34,7 +34,7 @@ DESCRIPTOR = ModuleDescriptor(
     artifact_types=ADAM_ARTIFACT_TYPES,
     source_plan_types=("adam_derivation_plan",),
     reconciliation_types=("adam_define_outputs",),
-    authorization_scopes=("adam:read", "adam:write"),
+    authorization_scopes=("aurinara.adam.read", "aurinara.adam.write"),
     capabilities=frozenset(
         {
             ModuleCapability.DEPENDENCIES,

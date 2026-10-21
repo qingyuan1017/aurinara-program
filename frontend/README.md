@@ -22,7 +22,7 @@ npm install
 npm run dev
 ```
 
-The dev server runs on <http://localhost:5173> and proxies `/api` to the
+The dev server runs on <http://localhost:5175> and proxies `/api` to the
 backend at `http://127.0.0.1:18000` (override with `VITE_API_PROXY_TARGET`).
 Start the backend first (see `../docs/local-development.md`).
 

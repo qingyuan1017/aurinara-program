@@ -8,6 +8,7 @@ from typing import Any
 
 request_id_context: ContextVar[str | None] = ContextVar("request_id", default=None)
 request_method_context: ContextVar[str | None] = ContextVar("request_method", default=None)
+request_path_context: ContextVar[str | None] = ContextVar("request_path", default=None)
 
 
 class JsonFormatter(logging.Formatter):

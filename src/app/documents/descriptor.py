@@ -31,7 +31,7 @@ DESCRIPTOR = ModuleDescriptor(
     ),
     relationship_types=("supports", "addresses", "analyzes", "references", "depends_on"),
     artifact_types=DOCUMENT_ARTIFACT_TYPES,
-    authorization_scopes=("documents:read", "documents:write"),
+    authorization_scopes=("aurinara.documents.read", "aurinara.documents.write"),
     capabilities=frozenset(
         {
             ModuleCapability.DEPENDENCIES,

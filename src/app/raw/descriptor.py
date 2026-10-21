@@ -18,7 +18,7 @@ DESCRIPTOR = ModuleDescriptor(
     relationship_types=("contains", "maps_to", "derived_from"),
     artifact_types=RAW_ARTIFACT_TYPES,
     reconciliation_types=("raw_source_schema",),
-    authorization_scopes=("raw:read", "raw:write"),
+    authorization_scopes=("aurinara.raw.read", "aurinara.raw.write"),
     capabilities=frozenset(
         {
             ModuleCapability.DEPENDENCIES,

@@ -13,7 +13,7 @@ import {
   ResourceFormDialog,
   type FieldDescriptor,
 } from '@/components/forms/resource-form-dialog'
-import { useCurrentStudy } from '@/components/study-provider'
+import { useCurrentStudy } from '@/components/study-context'
 import { useListReleases } from '@/api/generated/provider-catalogs/provider-catalogs'
 import {
   getGetExtensionQueryKey,
@@ -88,7 +88,6 @@ const extensionFields: FieldDescriptor<ExtensionCreate>[] = [
     },
   },
   { name: 'name', label: 'Name', control: 'text', required: true, maxLength: 255 },
-  { name: 'base_release_id', label: 'Base release id', control: 'text', required: true },
   {
     name: 'codelist_code',
     label: 'Codelist code',
@@ -267,6 +266,24 @@ function ExtensionsTab() {
     currentStudyId ?? '',
     { query: { enabled: !!currentStudyId } },
   )
+  const releases = useListReleases()
+  const createFields = React.useMemo<FieldDescriptor<ExtensionCreate>[]>(() => [
+    ...extensionFields.slice(0, 2),
+    {
+      name: 'base_release_id',
+      label: 'Base terminology release',
+      control: 'select',
+      required: true,
+      placeholder: releases.isLoading ? 'Loading releases…' : 'Select a release',
+      options: (releases.data ?? [])
+        .filter((release) => release.lifecycle === 'published')
+        .map((release) => ({
+          value: release.id,
+          label: `${release.product} ${release.version} · ${release.provider}`,
+        })),
+    },
+    ...extensionFields.slice(2),
+  ], [releases.data, releases.isLoading])
 
   const [createOpen, setCreateOpen] = React.useState(false)
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
@@ -332,7 +349,7 @@ function ExtensionsTab() {
         onOpenChange={setCreateOpen}
         title="New extension"
         description="Create a study terminology extension."
-        fields={extensionFields}
+        fields={createFields}
         initialValues={{}}
         submitLabel="Create extension"
         successMessage="Extension created."

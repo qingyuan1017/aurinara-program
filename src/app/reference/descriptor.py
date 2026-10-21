@@ -8,7 +8,7 @@ DESCRIPTOR = ModuleDescriptor(
     module_version="0.1.0",
     api_prefix="/api/v1/references",
     event_types=("references.revised",),
-    authorization_scopes=("reference:read", "reference:write"),
+    authorization_scopes=("aurinara.reference.read", "aurinara.reference.manage"),
     capabilities=frozenset({ModuleCapability.OUTBOUND_EVENTS}),
 )
 REGISTRATION = ModuleRegistration(

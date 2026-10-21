@@ -1,6 +1,6 @@
 import * as React from 'react'
 import type { AxiosError } from 'axios'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { Pencil } from 'lucide-react'
 import { PageHeader } from '@/components/layout/page-header'
@@ -22,8 +22,16 @@ import { useGetRawAggregate, usePatchRaw } from '@/api/generated/raw/raw'
 import type { AggregateResponse, PatchRawBody } from '@/api/generated/model'
 import { ifMatchRequest } from '@/lib/requests'
 import { invalidateRawAggregate } from '@/lib/invalidate'
+import { RAW_TABS, type RawTab } from '@/lib/clinical-navigation'
 
 export const Route = createFileRoute('/_app/raw/$rawId')({
+  validateSearch: (search: Record<string, unknown>): { tab: RawTab } => ({
+    tab:
+      typeof search.tab === 'string' &&
+      RAW_TABS.some((tab) => tab.value === search.tab)
+        ? (search.tab as RawTab)
+        : 'datasets',
+  }),
   component: RawDetailPage,
 })
 
@@ -39,6 +47,8 @@ const editFields: FieldDescriptor<PatchRawBody>[] = [
 
 function RawDetailPage() {
   const { rawId } = Route.useParams()
+  const { tab } = Route.useSearch()
+  const navigate = useNavigate()
   const qc = useQueryClient()
 
   // The shell gates presentation on the selected study; this query is the
@@ -141,6 +151,16 @@ function RawDetailPage() {
         query={query}
         resourceLabel="raw workbench"
         tabs={tabs}
+        activeTab={tab}
+        defaultTab="datasets"
+        onTabChange={(value) =>
+          navigate({
+            to: '/raw/$rawId',
+            params: { rawId },
+            search: { tab: value as RawTab },
+            replace: true,
+          })
+        }
       />
 
       <ResourceFormDialog<PatchRawBody>

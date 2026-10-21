@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 type Theme = 'dark' | 'light' | 'system'
 
@@ -10,11 +10,13 @@ type ThemeProviderProps = {
 
 type ThemeProviderState = {
   theme: Theme
+  resolvedTheme: Exclude<Theme, 'system'>
   setTheme: (theme: Theme) => void
 }
 
 const initialState: ThemeProviderState = {
   theme: 'system',
+  resolvedTheme: 'light',
   setTheme: () => null,
 }
 
@@ -26,33 +28,40 @@ export function ThemeProvider({
   storageKey = 'aurinara.ui.theme',
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme,
-  )
+  const [theme, setTheme] = useState<Theme>(() => {
+    try {
+      const stored = localStorage.getItem(storageKey)
+      return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : defaultTheme
+    } catch {
+      return defaultTheme
+    }
+  })
+  const [systemDark, setSystemDark] = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false)
+  const resolvedTheme = theme === 'system' ? (systemDark ? 'dark' : 'light') : theme
+
+  useEffect(() => {
+    const query = window.matchMedia?.('(prefers-color-scheme: dark)')
+    const update = () => setSystemDark(query?.matches ?? false)
+    query?.addEventListener?.('change', update)
+    return () => query?.removeEventListener?.('change', update)
+  }, [])
 
   useEffect(() => {
     const root = window.document.documentElement
-    root.classList.remove('light', 'dark')
+    root.classList.toggle('light', resolvedTheme === 'light')
+    root.classList.toggle('dark', resolvedTheme === 'dark')
+    root.dataset.theme = resolvedTheme
+    root.dataset.themeMode = theme
+  }, [resolvedTheme, theme])
 
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)')
-        .matches
-        ? 'dark'
-        : 'light'
-      root.classList.add(systemTheme)
-      return
-    }
-
-    root.classList.add(theme)
-  }, [theme])
-
-  const value = {
+  const value = useMemo(() => ({
     theme,
+    resolvedTheme,
     setTheme: (next: Theme) => {
-      localStorage.setItem(storageKey, next)
+      try { localStorage.setItem(storageKey, next) } catch { /* storage is optional */ }
       setTheme(next)
     },
-  }
+  }), [resolvedTheme, storageKey, theme])
 
   return (
     <ThemeProviderContext.Provider {...props} value={value}>

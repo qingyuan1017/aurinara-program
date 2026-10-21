@@ -14,7 +14,7 @@ DESCRIPTOR = ModuleDescriptor(
     api_prefix="/api/v1/reconciliation-runs",
     artifact_types=("reconciliation_report_json",),
     reconciliation_types=("dependency_snapshot",),
-    authorization_scopes=("reconciliation:read", "reconciliation:write"),
+    authorization_scopes=("aurinara.reconciliation.read", "aurinara.reconciliation.run"),
     capabilities=frozenset({ModuleCapability.ARTIFACTS, ModuleCapability.RECONCILIATION}),
 )
 REGISTRATION = ModuleRegistration(

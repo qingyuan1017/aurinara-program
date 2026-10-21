@@ -50,12 +50,14 @@ beforeAll(() => {
 // ---------------------------------------------------------------------------
 const navigateSpy = vi.fn()
 const routeParams: { rawId: string } = { rawId: 'raw-1' }
+const routeSearch: { tab: string } = { tab: 'datasets' }
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@tanstack/react-router')>()
   const createFileRoute = () => (opts: { component: unknown }) => ({
     ...opts,
     useParams: () => routeParams,
+    useSearch: () => routeSearch,
   })
   const Link = ({ children, ...rest }: { children?: ReactNode }) => (
     <a {...rest}>{children}</a>
@@ -75,7 +77,7 @@ const currentStudyState: { currentStudyId: string | null; isLoading: boolean } =
   currentStudyId: 'study-1',
   isLoading: false,
 }
-vi.mock('@/components/study-provider', () => ({
+vi.mock('@/components/study-context', () => ({
   useCurrentStudy: () => currentStudyState,
 }))
 

@@ -54,7 +54,7 @@ const currentStudyState: { currentStudyId: string | null; isLoading: boolean } =
   isLoading: false,
 }
 
-vi.mock('@/components/study-provider', () => ({
+vi.mock('@/components/study-context', () => ({
   useCurrentStudy: () => currentStudyState,
 }))
 

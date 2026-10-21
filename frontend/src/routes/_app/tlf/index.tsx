@@ -12,7 +12,7 @@ import {
   ResourceFormDialog,
   type FieldDescriptor,
 } from '@/components/forms/resource-form-dialog'
-import { useCurrentStudy } from '@/components/study-provider'
+import { useCurrentStudy } from '@/components/study-context'
 import {
   getListTlfAggregatesQueryKey,
   useCreateTlfAggregate,

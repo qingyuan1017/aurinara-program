@@ -1,47 +1,55 @@
-"""Reviewed Aurinara permissions and the default study-owner role."""
+"""Aurinara-owned permission vocabulary.
+
+Role definitions intentionally do not live in this product. The shared
+Platform composes these permissions into built-in and custom roles.
+"""
 
 from __future__ import annotations
 
-from uuid import NAMESPACE_URL, UUID, uuid5
+_MODULE_ACTIONS: dict[str, tuple[str, ...]] = {
+    "study": ("read", "manage"),
+    "raw": ("read", "write"),
+    "documents": ("read", "write"),
+    "standards": ("read", "manage"),
+    "terminology": ("read", "manage"),
+    "reference": ("read", "manage"),
+    "templates": ("read", "manage"),
+    "sdtm": ("read", "write"),
+    "adam": ("read", "write"),
+    "tlf": ("read", "write"),
+    "review": ("read", "write"),
+    "validation": ("read", "run"),
+    "reconciliation": ("read", "run"),
+    "execution": ("read", "run", "manage"),
+    "artifacts": ("read", "write"),
+    "packaging": ("read", "run"),
+    "integration": ("read", "manage"),
+}
 
-AURINARA_STUDY_OWNER_ROLE_ID: UUID = uuid5(NAMESPACE_URL, "aurinara:role:Aurinara Study Owner")
+_SYSTEM_AND_STUDY_MODULES = frozenset(
+    {"standards", "terminology", "reference", "templates", "integration"}
+)
 
-AURINARA_STUDY_PERMISSIONS = (
-    "artifact.study.read",
-    "artifact.study.write",
-    "artifact.object.upload",
-    "artifact.object.download",
-    "artifact.object.reference",
-    "artifact.execution.run",
-    "artifact.validation.run",
-    "artifact.reconciliation.run",
-    "artifact.package.build",
+AURINARA_PERMISSION_CODES = tuple(
+    f"aurinara.{module}.{action}"
+    for module, actions in _MODULE_ACTIONS.items()
+    for action in actions
 )
 
 
 def permission_catalog() -> list[dict[str, object]]:
-    """Return the explicit study-scoped capability catalog owned by Aurinara."""
+    """Return the complete, canonical Aurinara permission catalog."""
 
-    return [
-        {
-            "code": code,
-            "description": code.replace(".", " · "),
-            "module": "aurinara",
-            "allowed_scope_levels": ["system", "study"],
-        }
-        for code in AURINARA_STUDY_PERMISSIONS
-    ]
-
-
-def role_catalog() -> list[dict[str, object]]:
-    """Return the stable role assigned to a canonical study creator."""
-
-    return [
-        {
-            "source_role_id": str(AURINARA_STUDY_OWNER_ROLE_ID),
-            "name": "Aurinara Study Owner",
-            "description": "Full Aurinara authoring access within one assigned study",
-            "scope_level": "study",
-            "permissions": list(AURINARA_STUDY_PERMISSIONS),
-        }
-    ]
+    catalog: list[dict[str, object]] = []
+    for module, actions in _MODULE_ACTIONS.items():
+        scopes = ["system", "study"] if module in _SYSTEM_AND_STUDY_MODULES else ["study"]
+        for action in actions:
+            catalog.append(
+                {
+                    "code": f"aurinara.{module}.{action}",
+                    "description": f"{action.title()} Aurinara {module} resources",
+                    "module": module,
+                    "allowed_scope_levels": scopes,
+                }
+            )
+    return catalog

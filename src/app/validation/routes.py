@@ -275,7 +275,7 @@ def validate_artifact(
         session,
         artifact.study_id,
         principal,
-        action="artifact.validation.run",
+        action="aurinara.validation.run",
     )
     input_manifest = {
         "schema_version": "1.0.0",

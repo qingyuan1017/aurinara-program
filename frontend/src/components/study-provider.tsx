@@ -1,14 +1,15 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
 } from 'react'
 import { useListStudies } from '@/api/generated/studies/studies'
-import type { StudyResponse } from '@/api/generated/model'
 import { useAuth } from '@/components/auth-provider'
+import {
+  CurrentStudyContext,
+  type CurrentStudyContextValue,
+} from '@/components/study-context'
 
 const STUDY_KEY = 'aurinara.currentStudy'
 
@@ -27,19 +28,6 @@ function writeStoredStudyId(id: string): void {
     // ignore storage failures (private mode, etc.)
   }
 }
-
-interface CurrentStudyContextValue {
-  studies: StudyResponse[]
-  currentStudy: StudyResponse | null
-  currentStudyId: string | null
-  setCurrentStudyId: (id: string) => void
-  isLoading: boolean
-  isError: boolean
-}
-
-const CurrentStudyContext = createContext<CurrentStudyContextValue | undefined>(
-  undefined,
-)
 
 export function StudyProvider({ children }: { children: React.ReactNode }) {
   // Gate the query on the REACTIVE auth state (not a one-shot localStorage
@@ -100,13 +88,4 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
       {children}
     </CurrentStudyContext.Provider>
   )
-}
-
-// eslint-disable-next-line react-refresh/only-export-components
-export function useCurrentStudy() {
-  const context = useContext(CurrentStudyContext)
-  if (context === undefined) {
-    throw new Error('useCurrentStudy must be used within a StudyProvider')
-  }
-  return context
 }

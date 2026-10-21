@@ -1,8 +1,11 @@
 # Local Development
 
-Set `VITE_PLATFORM_API_BASE_URL` in the frontend environment to the Platform
-origin (for example `http://localhost:8002`). Platform must allow the Aurinara
-frontend origin through CORS and accept the Aurinara user-token audience.
+The Aurinara Vite frontend uses `http://localhost:5175`. Set
+`VITE_PLATFORM_API_BASE_URL` in the frontend environment to the Platform origin
+(for example `http://localhost:8002`). Platform must allow
+`http://localhost:5175` through CORS and accept the Aurinara user-token audience.
+The managed-login client must register `http://localhost:5175/auth/callback`
+and `http://localhost:5175/login` as its callback and logout URLs.
 
 For local UI development, copy the checked-in frontend example before starting Vite:
 

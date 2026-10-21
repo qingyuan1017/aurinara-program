@@ -22,7 +22,7 @@ DESCRIPTOR = ModuleDescriptor(
     entity_types=("tlf_workbench", "tlf_output"),
     artifact_types=TLF_ARTIFACT_TYPES,
     source_plan_types=("tlf_program_plan",),
-    authorization_scopes=("tlf:read", "tlf:write"),
+    authorization_scopes=("aurinara.tlf.read", "aurinara.tlf.write"),
     capabilities=frozenset(
         {
             ModuleCapability.DEPENDENCIES,
