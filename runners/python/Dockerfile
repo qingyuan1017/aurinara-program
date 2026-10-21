@@ -6,7 +6,7 @@ ENV UV_COMPILE_BYTECODE=1 \
 RUN apt-get update \
     && apt-get upgrade --yes \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir uv==0.11.29 \
+    && pip install --no-cache-dir uv==0.13.4 \
     && groupadd --system runner \
     && useradd --system --gid runner --uid 10001 runner
 WORKDIR /runner
