@@ -9,7 +9,7 @@ RUN apt-get update \
     && apt-get upgrade --yes \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system aurinara && useradd --system --gid aurinara --create-home aurinara \
-    && pip install --no-cache-dir uv==0.11.29
+    && pip install --no-cache-dir uv==0.13.4
 
 WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
