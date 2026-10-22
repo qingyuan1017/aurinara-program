@@ -70,9 +70,18 @@ describe("Repository Platform client", () => {
       version_id: "version-1",
       page_number: 1,
       geometry: { x: 0.1, y: 0.1, width: 0.2, height: 0.2 },
+      selected_text: null,
       comment: "Review",
       category: "comment",
       status: "open",
+      style: {
+        font_family: "Helvetica",
+        font_size: 10,
+        text_color: "#1f2937",
+        fill_color: "#facc15",
+        border_color: "#d97706",
+        opacity: 0.32,
+      },
       revision: 3,
     } satisfies PdfAnnotation;
 
@@ -84,6 +93,50 @@ describe("Repository Platform client", () => {
       expect.objectContaining({
         method: "DELETE",
         headers: expect.objectContaining({ "If-Match": '"3"' }),
+      }),
+    );
+  });
+
+  it("sends annotation appearance updates with optimistic concurrency", async () => {
+    const annotation = {
+      id: "annotation-1",
+      version_id: "version-1",
+      page_number: 1,
+      geometry: { x: 0.1, y: 0.1, width: 0.2, height: 0.2 },
+      selected_text: "Source text",
+      comment: "Review",
+      category: "comment",
+      status: "open",
+      style: {
+        font_family: "Helvetica",
+        font_size: 10,
+        text_color: "#1f2937",
+        fill_color: "#facc15",
+        border_color: "#d97706",
+        opacity: 0.32,
+      },
+      revision: 3,
+    } satisfies PdfAnnotation;
+    const updated = {
+      ...annotation,
+      style: { ...annotation.style, font_family: "Courier" as const, font_size: 16 },
+      revision: 4,
+    };
+
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify(updated), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    await repositoryApi.patchAnnotation(annotation, { style: updated.style });
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringMatching(/\/v1\/repository\/annotations\/annotation-1$/),
+      expect.objectContaining({
+        method: "PATCH",
+        headers: expect.objectContaining({ "If-Match": '"3"' }),
+        body: JSON.stringify({ style: updated.style }),
       }),
     );
   });

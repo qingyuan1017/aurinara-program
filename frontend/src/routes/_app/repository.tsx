@@ -18,6 +18,7 @@ import {
   Search,
   Share2,
   Upload,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,20 @@ function RepositoryPage() {
   const abort = useRef<AbortController>();
   const deepNodeId = useRef<string | null>(null);
   const currentFolder = path.at(-1) ?? null;
+
+  useEffect(() => {
+    if (!preview) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPreview(false);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [preview]);
 
   const load = useCallback(async () => {
     if (!currentStudyId) return;
@@ -444,10 +459,10 @@ function RepositoryPage() {
                 {selected.capabilities.can_preview && (
                   <Button
                     variant="outline"
-                    onClick={() => setPreview((value) => !value)}
+                    onClick={() => setPreview(true)}
                   >
                     <Eye />
-                    Preview
+                    Open preview
                   </Button>
                 )}
                 {selected.kind === "file" && (
@@ -499,13 +514,6 @@ function RepositoryPage() {
                   Convert to {target.toUpperCase()}
                 </Button>
               ))}
-              {preview && selected.kind === "file" && versions[0] && (
-                <RepositoryPreview
-                  node={selected}
-                  version={versions[0]}
-                  changed={() => void load()}
-                />
-              )}
               <div className="space-y-2">
                 {versions.map((version) => (
                   <button
@@ -526,6 +534,56 @@ function RepositoryPage() {
           )}
         </Card>
       </div>
+      {preview && selected?.kind === "file" && versions[0] && (
+        <div
+          className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/75 p-3 backdrop-blur-sm md:p-8"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setPreview(false);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Preview ${selected.display_name}`}
+            className="grid h-full w-full max-w-[1600px] grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-2xl border bg-background shadow-2xl"
+          >
+            <header className="flex items-center justify-between gap-4 border-b bg-card px-4 py-3 md:px-6">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                  <File className="size-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                    {versions[0].profile?.file_kind || "file"} · Version {versions[0].version_number}
+                  </p>
+                  <h2 className="truncate text-base font-semibold md:text-lg">
+                    {selected.display_name}
+                  </h2>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="hidden rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 sm:inline">
+                  {versions[0].profile?.processing_status || "pending"}
+                </span>
+                <Button variant="outline" onClick={() => void download(versions[0])}>
+                  <Download />
+                  <span className="hidden sm:inline">Download</span>
+                </Button>
+                <Button variant="outline" size="icon" aria-label="Close preview" onClick={() => setPreview(false)}>
+                  <X />
+                </Button>
+              </div>
+            </header>
+            <div className="min-h-0 overflow-auto bg-muted/30 p-3 md:p-5">
+              <RepositoryPreview
+                node={selected}
+                version={versions[0]}
+                changed={() => void load()}
+              />
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

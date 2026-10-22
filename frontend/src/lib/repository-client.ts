@@ -62,10 +62,20 @@ export type PdfAnnotation = {
   version_id: string;
   page_number: number;
   geometry: { x: number; y: number; width: number; height: number };
+  selected_text: string | null;
   comment: string | null;
   category: string;
   status: string;
+  style: PdfAnnotationStyle;
   revision: number;
+};
+export type PdfAnnotationStyle = {
+  font_family: "Helvetica" | "Times-Roman" | "Courier";
+  font_size: number;
+  text_color: string;
+  fill_color: string;
+  border_color: string;
+  opacity: number;
 };
 export type RepositoryJob = {
   id: string;
@@ -157,6 +167,12 @@ export const repositoryApi = {
       `/v1/repository/versions/${versionId}/annotations`,
       { method: "POST", body: JSON.stringify(body) },
     ),
+  patchAnnotation: (value: PdfAnnotation, body: object) =>
+    repositoryRequest<PdfAnnotation>(`/v1/repository/annotations/${value.id}`, {
+      method: "PATCH",
+      headers: { "If-Match": `"${value.revision}"` },
+      body: JSON.stringify(body),
+    }),
   deleteAnnotation: (value: PdfAnnotation) =>
     repositoryRequest<void>(`/v1/repository/annotations/${value.id}`, {
       method: "DELETE",
