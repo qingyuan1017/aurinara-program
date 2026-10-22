@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useState, type AnchorHTMLAttributes, type ReactN
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import {
   BookMarked,
+  Bot,
   Boxes,
   Check,
   ChevronsUpDown,
@@ -77,6 +78,7 @@ type NavItem = {
     | '/review'
     | '/packaging'
     | '/integrations'
+    | '/playground'
   icon: LucideIcon
 }
 
@@ -104,6 +106,7 @@ const portfolioNavGroups: readonly NavGroup[] = [
       { title: 'Review', to: '/review', icon: MessageSquareText },
       { title: 'Packaging', to: '/packaging', icon: Package },
       { title: 'Integrations', to: '/integrations', icon: Plug },
+      { title: 'Playground', to: '/playground', icon: Bot },
     ],
   },
 ]

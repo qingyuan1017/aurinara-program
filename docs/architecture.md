@@ -742,4 +742,6 @@ Local development uses Docker Compose and MinIO. Production uses managed Postgre
 
 ## 16. Deferred capabilities
 
-The following are outside Release 1: legacy migration, microservices, runtime installation or hot loading of untrusted module/plugin code, fine-grained RBAC beyond module scopes and study membership, electronic signatures, formal audit trails, document comparison, AI assistance, automated mapping, commercial validator parity, regulatory gateway submission, and built-in SAS execution.
+The following are outside Release 1: legacy migration, microservices, runtime installation or hot loading of untrusted module/plugin code, fine-grained RBAC beyond module scopes and study membership, electronic signatures, formal audit trails, document comparison, product-local AI services, automated mapping, commercial validator parity, regulatory gateway submission, and built-in SAS execution.
+
+The product shell may expose the shared Aurinara Platform Playground. Platform owns the approved agent catalog, durable conversation metadata, AgentCore invocation, AgentCore Memory-backed history and recall, and approve-once mutation prompts. Aurinara's API remains the authority for artifact reads and writes through authenticated MCP tools; Playground approval never bypasses module authorization, validation, or ownership.
