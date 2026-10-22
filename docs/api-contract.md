@@ -4,7 +4,7 @@
 
 All public application routes are rooted at `/api/v1`. Operational health routes remain at `/health`, and the interactive API documentation remains at `/docs`. JSON request and response bodies use UTF-8, `snake_case` field names, UUID identifiers, and RFC 3339 UTC timestamps. OpenAPI generated from the FastAPI application is the normative transport contract; this document defines the conventions, resources, and operations it must expose.
 
-The API edits persisted objects directly. There is no proposal, recommendation, confidence-score, or AI-assistance resource.
+The API edits persisted objects directly. There is no product-local proposal, recommendation, confidence-score, or AI-assistance resource. The frontend's `/playground` route calls Aurinara Platform directly with the signed-in user's bearer token; agents can change Aurinara state only through the existing authenticated module API/MCP contracts.
 
 ### Platform Repository binding
 

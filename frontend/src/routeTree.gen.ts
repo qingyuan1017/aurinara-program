@@ -18,6 +18,7 @@ import { Route as AppAdamRouteImport } from './routes/_app/adam'
 import { Route as AppDocumentsRouteImport } from './routes/_app/documents'
 import { Route as AppIntegrationsRouteImport } from './routes/_app/integrations'
 import { Route as AppPackagingRouteImport } from './routes/_app/packaging'
+import { Route as AppPlaygroundRouteImport } from './routes/_app/playground'
 import { Route as AppRawRouteImport } from './routes/_app/raw'
 import { Route as AppReconciliationRouteImport } from './routes/_app/reconciliation'
 import { Route as AppReferenceRouteImport } from './routes/_app/reference'
@@ -88,6 +89,11 @@ const AppIntegrationsRoute = AppIntegrationsRouteImport.update({
 const AppPackagingRoute = AppPackagingRouteImport.update({
   id: '/packaging',
   path: '/packaging',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPlaygroundRoute = AppPlaygroundRouteImport.update({
+  id: '/playground',
+  path: '/playground',
   getParentRoute: () => AppRoute,
 } as any)
 const AppRawRoute = AppRawRouteImport.update({
@@ -240,6 +246,7 @@ export interface FileRoutesByFullPath {
   '/documents': typeof AppDocumentsRouteWithChildren
   '/integrations': typeof AppIntegrationsRoute
   '/packaging': typeof AppPackagingRoute
+  '/playground': typeof AppPlaygroundRoute
   '/raw': typeof AppRawRouteWithChildren
   '/reconciliation': typeof AppReconciliationRoute
   '/reference': typeof AppReferenceRoute
@@ -274,6 +281,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/integrations': typeof AppIntegrationsRoute
   '/packaging': typeof AppPackagingRoute
+  '/playground': typeof AppPlaygroundRoute
   '/reconciliation': typeof AppReconciliationRoute
   '/reference': typeof AppReferenceRoute
   '/repository': typeof AppRepositoryRoute
@@ -310,6 +318,7 @@ export interface FileRoutesById {
   '/_app/documents': typeof AppDocumentsRouteWithChildren
   '/_app/integrations': typeof AppIntegrationsRoute
   '/_app/packaging': typeof AppPackagingRoute
+  '/_app/playground': typeof AppPlaygroundRoute
   '/_app/raw': typeof AppRawRouteWithChildren
   '/_app/reconciliation': typeof AppReconciliationRoute
   '/_app/reference': typeof AppReferenceRoute
@@ -350,6 +359,7 @@ export interface FileRouteTypes {
     | '/documents'
     | '/integrations'
     | '/packaging'
+    | '/playground'
     | '/raw'
     | '/reconciliation'
     | '/reference'
@@ -384,6 +394,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/integrations'
     | '/packaging'
+    | '/playground'
     | '/reconciliation'
     | '/reference'
     | '/repository'
@@ -419,6 +430,7 @@ export interface FileRouteTypes {
     | '/_app/documents'
     | '/_app/integrations'
     | '/_app/packaging'
+    | '/_app/playground'
     | '/_app/raw'
     | '/_app/reconciliation'
     | '/_app/reference'
@@ -520,6 +532,13 @@ declare module '@tanstack/react-router' {
       path: '/packaging'
       fullPath: '/packaging'
       preLoaderRoute: typeof AppPackagingRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/playground': {
+      id: '/_app/playground'
+      path: '/playground'
+      fullPath: '/playground'
+      preLoaderRoute: typeof AppPlaygroundRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/raw': {
@@ -794,6 +813,7 @@ interface AppRouteChildren {
   AppDocumentsRoute: typeof AppDocumentsRouteWithChildren
   AppIntegrationsRoute: typeof AppIntegrationsRoute
   AppPackagingRoute: typeof AppPackagingRoute
+  AppPlaygroundRoute: typeof AppPlaygroundRoute
   AppRawRoute: typeof AppRawRouteWithChildren
   AppReconciliationRoute: typeof AppReconciliationRoute
   AppReferenceRoute: typeof AppReferenceRoute
@@ -814,6 +834,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppDocumentsRoute: AppDocumentsRouteWithChildren,
   AppIntegrationsRoute: AppIntegrationsRoute,
   AppPackagingRoute: AppPackagingRoute,
+  AppPlaygroundRoute: AppPlaygroundRoute,
   AppRawRoute: AppRawRouteWithChildren,
   AppReconciliationRoute: AppReconciliationRoute,
   AppReferenceRoute: AppReferenceRoute,
