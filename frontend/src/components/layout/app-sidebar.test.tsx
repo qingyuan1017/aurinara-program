@@ -81,6 +81,7 @@ describe('AppSidebar navigation hierarchy', () => {
     const navigation = screen.getByRole('navigation', { name: 'Portfolio navigation' })
     expect(navigation.textContent).toContain('Dashboard')
     expect(navigation.textContent).toContain('Repository')
+    expect(navigation.textContent).toContain('Workspace')
     expect(navigation.textContent).toContain('Standards')
     expect(navigation.textContent).toContain('Integrations')
     expect(navigation.textContent).not.toContain('SDTM')

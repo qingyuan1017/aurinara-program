@@ -21,6 +21,7 @@ import {
   PanelsTopLeft,
   Plug,
   ShieldCheck,
+  SquareTerminal,
   Table2,
   type LucideIcon,
 } from 'lucide-react'
@@ -79,6 +80,7 @@ type NavItem = {
     | '/packaging'
     | '/integrations'
     | '/playground'
+    | '/workspace'
   icon: LucideIcon
 }
 
@@ -107,6 +109,7 @@ const portfolioNavGroups: readonly NavGroup[] = [
       { title: 'Packaging', to: '/packaging', icon: Package },
       { title: 'Integrations', to: '/integrations', icon: Plug },
       { title: 'Playground', to: '/playground', icon: Bot },
+      { title: 'Workspace', to: '/workspace', icon: SquareTerminal },
     ],
   },
 ]

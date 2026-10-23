@@ -11,6 +11,7 @@ const routeTitles: readonly [string, string][] = [
   ['/reconciliation', 'Reconciliation'], ['/review', 'Review'],
   ['/packaging', 'Packaging'], ['/integrations', 'Integrations'],
   ['/playground', 'Playground'],
+  ['/workspace', 'Workspace'],
 ]
 
 export function Header() {

@@ -29,6 +29,7 @@ import { Route as AppStudiesRouteImport } from './routes/_app/studies'
 import { Route as AppTerminologyRouteImport } from './routes/_app/terminology'
 import { Route as AppTlfRouteImport } from './routes/_app/tlf'
 import { Route as AppValidationRouteImport } from './routes/_app/validation'
+import { Route as AppWorkspaceRouteImport } from './routes/_app/workspace'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AppAdamIndexRouteImport } from './routes/_app/adam/index'
 import { Route as AppAdamAdamIdRouteImport } from './routes/_app/adam/$adamId'
@@ -146,6 +147,11 @@ const AppValidationRoute = AppValidationRouteImport.update({
   path: '/validation',
   getParentRoute: () => AppRoute,
 } as any)
+const AppWorkspaceRoute = AppWorkspaceRouteImport.update({
+  id: '/workspace',
+  path: '/workspace',
+  getParentRoute: () => AppRoute,
+} as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
@@ -257,6 +263,7 @@ export interface FileRoutesByFullPath {
   '/terminology': typeof AppTerminologyRoute
   '/tlf': typeof AppTlfRouteWithChildren
   '/validation': typeof AppValidationRoute
+  '/workspace': typeof AppWorkspaceRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/adam/$adamId': typeof AppAdamAdamIdRoute
   '/documents/$documentId': typeof AppDocumentsDocumentIdRoute
@@ -289,6 +296,7 @@ export interface FileRoutesByTo {
   '/studies': typeof AppStudiesRoute
   '/terminology': typeof AppTerminologyRoute
   '/validation': typeof AppValidationRoute
+  '/workspace': typeof AppWorkspaceRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/': typeof AppIndexRoute
   '/adam/$adamId': typeof AppAdamAdamIdRoute
@@ -329,6 +337,7 @@ export interface FileRoutesById {
   '/_app/terminology': typeof AppTerminologyRoute
   '/_app/tlf': typeof AppTlfRouteWithChildren
   '/_app/validation': typeof AppValidationRoute
+  '/_app/workspace': typeof AppWorkspaceRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/_app/': typeof AppIndexRoute
   '/_app/adam/$adamId': typeof AppAdamAdamIdRoute
@@ -370,6 +379,7 @@ export interface FileRouteTypes {
     | '/terminology'
     | '/tlf'
     | '/validation'
+    | '/workspace'
     | '/auth/callback'
     | '/adam/$adamId'
     | '/documents/$documentId'
@@ -402,6 +412,7 @@ export interface FileRouteTypes {
     | '/studies'
     | '/terminology'
     | '/validation'
+    | '/workspace'
     | '/auth/callback'
     | '/'
     | '/adam/$adamId'
@@ -441,6 +452,7 @@ export interface FileRouteTypes {
     | '/_app/terminology'
     | '/_app/tlf'
     | '/_app/validation'
+    | '/_app/workspace'
     | '/auth/callback'
     | '/_app/'
     | '/_app/adam/$adamId'
@@ -609,6 +621,13 @@ declare module '@tanstack/react-router' {
       path: '/validation'
       fullPath: '/validation'
       preLoaderRoute: typeof AppValidationRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/workspace': {
+      id: '/_app/workspace'
+      path: '/workspace'
+      fullPath: '/workspace'
+      preLoaderRoute: typeof AppWorkspaceRouteImport
       parentRoute: typeof AppRoute
     }
     '/auth/callback': {
@@ -824,6 +843,7 @@ interface AppRouteChildren {
   AppTerminologyRoute: typeof AppTerminologyRoute
   AppTlfRoute: typeof AppTlfRouteWithChildren
   AppValidationRoute: typeof AppValidationRoute
+  AppWorkspaceRoute: typeof AppWorkspaceRoute
   AppIndexRoute: typeof AppIndexRoute
   AppSdtmSdtmIdRoute: typeof AppSdtmSdtmIdRoute
   AppSdtmIndexRoute: typeof AppSdtmIndexRoute
@@ -845,6 +865,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTerminologyRoute: AppTerminologyRoute,
   AppTlfRoute: AppTlfRouteWithChildren,
   AppValidationRoute: AppValidationRoute,
+  AppWorkspaceRoute: AppWorkspaceRoute,
   AppIndexRoute: AppIndexRoute,
   AppSdtmSdtmIdRoute: AppSdtmSdtmIdRoute,
   AppSdtmIndexRoute: AppSdtmIndexRoute,
