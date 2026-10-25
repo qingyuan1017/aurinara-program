@@ -100,7 +100,7 @@ export function Workspace() {
       <CardHeader>
         <div className="flex items-start gap-3">
           <div className="rounded-xl bg-primary/10 p-3 text-primary"><SquareTerminal className="size-6" /></div>
-          <div><CardTitle>Your Aurinara workspace</CardTitle><CardDescription className="mt-1">Python, R, Node.js, Git, and VS Code in the browser. Files persist automatically.</CardDescription></div>
+          <div><CardTitle>Your Aurinara workspace</CardTitle><CardDescription className="mt-1">Work with your authorized S3/MinIO Repository files in VS Code. Existing file edits are saved as new Repository versions.</CardDescription></div>
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
