@@ -41,8 +41,11 @@ import {
 import {
   applyDomainMappingTransfer,
   applyVariableMappingTransfer,
+  domainsFrom,
   outputArtifactSelections,
+  parseSources,
   resolveSelectedWorkarea,
+  type SpecDomain,
 } from "@/components/workbench/sdtm-mapping-utils";
 import {
   createWorkarea,
@@ -68,35 +71,6 @@ import type {
 } from "@/api/generated/model";
 import { parseProblem } from "@/lib/problems";
 import { invalidateSdtmSubResource } from "@/lib/invalidate";
-
-interface SpecVariable {
-  name: string;
-  label?: string;
-}
-
-interface ValueContext {
-  id: string;
-  label: string;
-  discriminator_variable: string;
-  operator: "eq" | "ne" | "in";
-  values: Array<string | number | boolean>;
-}
-
-interface SpecDomain {
-  code: string;
-  label?: string;
-  expected_output_name?: string;
-  variables: SpecVariable[];
-  value_contexts?: ValueContext[];
-}
-
-export function domainsFrom(
-  payload: Record<string, unknown> | undefined,
-): SpecDomain[] {
-  return Array.isArray(payload?.domains)
-    ? (payload.domains as SpecDomain[])
-    : [];
-}
 
 function DomainPicker({
   domains,
@@ -359,31 +333,6 @@ export function DomainMappingPanel({ sdtmId }: { sdtmId: string }) {
 
 function sourceText(source: SdtmQualifiedSource): string {
   return `${source.source_type}:${source.dataset}.${source.variable}`;
-}
-
-export function parseSources(value: string): SdtmQualifiedSource[] {
-  return value
-    .split(",")
-    .map((token) => token.trim())
-    .filter(Boolean)
-    .map((token) => {
-      const [sourceType, qualified = ""] = token.split(":");
-      const [dataset, variable] = qualified.split(".");
-      if (
-        (sourceType !== "raw" && sourceType !== "sdtm") ||
-        !dataset ||
-        !variable
-      ) {
-        throw new Error(
-          `Invalid source "${token}". Use raw:DATASET.VAR or sdtm:DOMAIN.VAR.`,
-        );
-      }
-      return {
-        source_type: sourceType,
-        dataset: dataset.toUpperCase(),
-        variable: variable.toUpperCase(),
-      };
-    });
 }
 
 export function VariableMappingPanel({ sdtmId }: { sdtmId: string }) {

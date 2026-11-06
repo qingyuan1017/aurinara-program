@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { domainsFrom, parseSources } from "./sdtm-mapping-panels";
+import { domainsFrom, parseSources } from "./sdtm-mapping-utils";
 import {
   appendUniqueCsvToken,
   applyDomainMappingTransfer,

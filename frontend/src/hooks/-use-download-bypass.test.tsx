@@ -40,6 +40,7 @@ beforeEach(() => {
   captured = null
   AXIOS_INSTANCE.defaults.adapter = captureAdapter
   setAuthToken('test-bearer-token')
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
   if (!URL.createObjectURL) {
     URL.createObjectURL = vi.fn(() => 'blob:mock')
   } else {

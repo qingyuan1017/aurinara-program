@@ -36,6 +36,12 @@ import { ArtifactList } from '@/components/workbench/artifact-list'
 import type { ArtifactListItem } from '@/components/workbench/artifact-list'
 import { AcrfPdfViewer } from '@/components/workbench/acrf-pdf-viewer'
 import {
+  RECT_FIELD_LABEL,
+  type RectInput,
+  type RectValidationError,
+  validateRect,
+} from '@/components/workbench/acrf-geometry'
+import {
   TransferContext,
   DraggableItem,
   DropTarget,
@@ -90,91 +96,6 @@ import { parseProblem, stalenessAlert } from '@/lib/problems'
  *   (`If-Match: "revision-{N}"` for the annotation's own `revision`,
  *   Requirement 17.4, 17.5).
  */
-
-// ---------------------------------------------------------------------------
-// Pure rectangle-bounds validation (exported for task 15.2's unit tests)
-// ---------------------------------------------------------------------------
-
-/** A normalized top-left rectangle plus the 1-based page number to validate. */
-export interface RectInput {
-  x: number
-  y: number
-  width: number
-  height: number
-  page: number
-}
-
-/** The field a {@link validateRect} failure refers to. */
-export type RectField = 'x' | 'y' | 'width' | 'height' | 'page'
-
-export interface RectValidationError {
-  /** The single offending field. */
-  field: RectField
-  /** A human-readable message naming the out-of-range field (Requirement 17.3). */
-  message: string
-}
-
-/**
- * Validate an aCRF annotation rectangle and page number (Requirement 17.3),
- * as a pure function with no side effects so it can gate submission AND be
- * unit-tested in isolation (task 15.2).
- *
- * Rules (checked in a stable field order so the first offending field is
- * reported deterministically):
- * - `page` must be an integer `>= 1`.
- * - each of `x`, `y`, `width`, `height` must be a finite number within the
- *   inclusive range `0..1`.
- * - the rectangle must not overflow the page: `x + width <= 1` and
- *   `y + height <= 1` (reported against `width` / `height` respectively).
- *
- * Returns `null` when the rectangle is valid, otherwise the first offending
- * field with a message. The create request is only issued when this returns
- * `null`.
- */
-export function validateRect(input: RectInput): RectValidationError | null {
-  const { x, y, width, height, page } = input
-
-  if (!Number.isInteger(page) || page < 1) {
-    return { field: 'page', message: 'Page number must be an integer of 1 or greater.' }
-  }
-
-  const unit: { field: Exclude<RectField, 'page'>; value: number }[] = [
-    { field: 'x', value: x },
-    { field: 'y', value: y },
-    { field: 'width', value: width },
-    { field: 'height', value: height },
-  ]
-  for (const { field, value } of unit) {
-    if (!Number.isFinite(value) || value < 0 || value > 1) {
-      return {
-        field,
-        message: `${RECT_FIELD_LABEL[field]} must be a decimal between 0 and 1 inclusive.`,
-      }
-    }
-  }
-
-  if (x + width > 1) {
-    return {
-      field: 'width',
-      message: 'The rectangle overflows the page: x + width must not exceed 1.',
-    }
-  }
-  if (y + height > 1) {
-    return {
-      field: 'height',
-      message: 'The rectangle overflows the page: y + height must not exceed 1.',
-    }
-  }
-
-  return null
-}
-
-const RECT_FIELD_LABEL: Record<Exclude<RectField, 'page'>, string> = {
-  x: 'X',
-  y: 'Y',
-  width: 'Width',
-  height: 'Height',
-}
 
 // ---------------------------------------------------------------------------
 // Panel

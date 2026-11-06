@@ -32,8 +32,10 @@ import {
   type AggregateQueryResult,
 } from './workbench-detail-shell'
 import { OperationRunner } from './operation-runner'
-import { StalenessBanner, isStale } from './staleness-banner'
-import { AlignmentBanner, isMisaligned } from './alignment-banner'
+import { StalenessBanner } from './staleness-banner'
+import { isStale } from './staleness-state'
+import { AlignmentBanner } from './alignment-banner'
+import { isMisaligned } from './alignment-state'
 import type {
   OperationQueryOpts,
   OperationQueryState,

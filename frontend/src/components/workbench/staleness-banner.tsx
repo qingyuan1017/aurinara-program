@@ -1,4 +1,8 @@
 import { AlertTriangle } from 'lucide-react'
+import {
+  type StalenessState,
+  isStale,
+} from '@/components/workbench/staleness-state'
 import { cn } from '@/lib/utils'
 
 /**
@@ -7,10 +11,6 @@ import { cn } from '@/lib/utils'
  * operations the banner guards (validation, build, execution, reconciliation,
  * dependent SDTM work) are blocked until the user refreshes the selection.
  */
-export type StalenessState =
-  | 'dependency_refresh_required'
-  | 'input_refresh_required'
-
 const STALENESS_COPY: Record<StalenessState, { title: string; detail: string }> =
   {
     dependency_refresh_required: {
@@ -31,10 +31,6 @@ const STALENESS_COPY: Record<StalenessState, { title: string; detail: string }> 
  * pass to {@link StalenessBanner}, so the notice and the disabled controls can
  * never drift apart.
  */
-export function isStale(state: StalenessState | null | undefined): boolean {
-  return state === 'dependency_refresh_required' || state === 'input_refresh_required'
-}
-
 export interface StalenessBannerProps {
   /**
    * The current staleness state. The banner renders a persistent notice while

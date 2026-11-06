@@ -238,7 +238,8 @@ vi.mock('@/api/generated/raw/raw', () => {
 // Import AFTER the mocks so the panels bind to the stubs.
 // ---------------------------------------------------------------------------
 import { VariablesPanel } from './variables-panel'
-import { PreviewPanel, DEFAULT_PREVIEW_LIMIT } from './preview-panel'
+import { PreviewPanel } from './preview-panel'
+import { DEFAULT_PREVIEW_LIMIT } from './preview-pagination'
 
 function renderWithClient(ui: ReactNode) {
   const qc = new QueryClient({

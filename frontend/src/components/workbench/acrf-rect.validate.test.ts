@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { type RectInput, validateRect } from './acrf-panel'
+import { type RectInput, validateRect } from './acrf-geometry'
 
 /**
  * Unit tests for the pure rectangle-bounds validation helper (Task 15.2).

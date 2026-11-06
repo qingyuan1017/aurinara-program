@@ -2,22 +2,25 @@ export { FileDropzone } from './file-dropzone'
 export type { FileDropzoneProps } from './file-dropzone'
 export {
   PreviewPanel,
+} from './preview-panel'
+export {
   clampLimit,
   clampOffset,
   MIN_PREVIEW_LIMIT,
   MAX_PREVIEW_LIMIT,
   DEFAULT_PREVIEW_LIMIT,
-} from './preview-panel'
+} from './preview-pagination'
 export type { PreviewPanelProps } from './preview-panel'
 export { SortableList } from './sortable-list'
 export type { SortableListProps } from './sortable-list'
-export { AcrfPanel, validateRect } from './acrf-panel'
+export { AcrfPanel } from './acrf-panel'
+export type { AcrfPanelProps } from './acrf-panel'
+export { validateRect } from './acrf-geometry'
 export type {
-  AcrfPanelProps,
   RectInput,
   RectField,
   RectValidationError,
-} from './acrf-panel'
+} from './acrf-geometry'
 export {
   TransferContext,
   DraggableItem,

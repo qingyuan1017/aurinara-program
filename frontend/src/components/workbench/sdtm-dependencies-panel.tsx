@@ -12,11 +12,11 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/sonner'
+import { StalenessBanner } from '@/components/workbench/staleness-banner'
 import {
-  StalenessBanner,
   isStale,
   type StalenessState,
-} from '@/components/workbench/staleness-banner'
+} from '@/components/workbench/staleness-state'
 import { useWorkbench } from '@/components/workbench/workbench-context'
 import {
   useGetSdtmDependencies,

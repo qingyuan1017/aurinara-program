@@ -26,42 +26,11 @@ import type {
 } from '@/api/generated/model'
 import { jsonRequest } from '@/lib/requests'
 import { parseProblem } from '@/lib/problems'
-
-/** Minimum rows the backend accepts for a preview `limit`. */
-export const MIN_PREVIEW_LIMIT = 1
-/** Maximum rows the backend accepts for a preview `limit`. */
-export const MAX_PREVIEW_LIMIT = 200
-/** Default preview page size requested when the field is empty/invalid. */
-export const DEFAULT_PREVIEW_LIMIT = 50
-
-/**
- * Clamp a requested preview `limit` into the backend-accepted 1-200 window
- * before the request is sent (Requirement 5.2, 5.3).
- *
- * Below the floor clamps up to {@link MIN_PREVIEW_LIMIT}; above the ceiling
- * clamps down to {@link MAX_PREVIEW_LIMIT}; an in-range value is floored and
- * passed through unchanged. A `NaN`/undefined value falls back to the default.
- */
-export function clampLimit(limit: number | undefined): number {
-  if (limit === undefined || Number.isNaN(limit)) {
-    return DEFAULT_PREVIEW_LIMIT
-  }
-  const floored = Math.floor(limit)
-  return Math.min(Math.max(floored, MIN_PREVIEW_LIMIT), MAX_PREVIEW_LIMIT)
-}
-
-/**
- * Clamp a requested preview `offset` to a non-negative integer before the
- * request is sent (Requirement 5.2). A negative value clamps up to 0; a
- * `NaN`/undefined value falls back to 0.
- */
-export function clampOffset(offset: number | undefined): number {
-  if (offset === undefined || Number.isNaN(offset)) {
-    return 0
-  }
-  const floored = Math.floor(offset)
-  return Math.max(floored, 0)
-}
+import {
+  DEFAULT_PREVIEW_LIMIT,
+  clampLimit,
+  clampOffset,
+} from '@/components/workbench/preview-pagination'
 
 export interface PreviewPanelProps {
   /** The dataset whose rows are previewed (path parameter for the POST). */

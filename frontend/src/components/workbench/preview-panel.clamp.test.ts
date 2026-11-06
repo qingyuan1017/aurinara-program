@@ -6,7 +6,7 @@ import {
   MIN_PREVIEW_LIMIT,
   clampLimit,
   clampOffset,
-} from './preview-panel'
+} from './preview-pagination'
 
 /**
  * Unit tests for the preview clamping helpers (Task 7.3).

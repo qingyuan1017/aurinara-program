@@ -1,22 +1,9 @@
 import { AlertTriangle } from 'lucide-react'
+import {
+  type AlignmentState,
+  isMisaligned,
+} from '@/components/workbench/alignment-state'
 import { cn } from '@/lib/utils'
-
-/**
- * Server-computed alignment of a Derivation Plan against its pinned Specification
- * and Input Selection revisions (Requirement 12.4).
- */
-export type AlignmentState = 'aligned' | 'misaligned'
-
-/**
- * Returns true when the saved plan is misaligned. Downstream operations remain
- * blocked until a new aligned revision is saved; the authoring panel may still
- * open a separate editable alignment draft.
- */
-export function isMisaligned(
-  state: AlignmentState | null | undefined,
-): boolean {
-  return state === 'misaligned'
-}
 
 export interface AlignmentBannerProps {
   /**
