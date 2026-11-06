@@ -14,5 +14,10 @@ build/
 .idea/
 .vscode/
 *.log
+.agents/
+.kiro/
+frontend/.agents/
+frontend/openapi.json
+frontend/src/api/generated/
 schemas/cdisc-library/*
 terminology/cdisc-library/*

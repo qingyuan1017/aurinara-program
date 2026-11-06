@@ -1,6 +1,5 @@
 """Authorized source-file and artifact HTTP routes."""
 
-import logging
 from collections.abc import Iterator
 from typing import Annotated
 from uuid import UUID
@@ -28,9 +27,6 @@ from app.platform.objects import get_platform_objects
 
 router = APIRouter(tags=["artifacts"])
 service = ArtifactService()
-logger = logging.getLogger(__name__)
-
-
 def _stream_object(storage: ObjectStorage, object_key: str) -> Iterator[bytes]:
     with storage.open(object_key) as body:
         while chunk := body.read(1024 * 1024):
@@ -170,26 +166,25 @@ def download_source_file(
         principal,
         action="aurinara.artifacts.read",
     )
-    if source_file.platform_object_id is not None:
-        gateway = get_platform_objects()
-        if gateway.mode != "disabled":
-            try:
-                return RedirectResponse(
-                    gateway.authorize_download(source_file.platform_object_id),
-                    status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-                )
-            except ProblemException:
-                if gateway.mode == "enforced":
-                    raise
-                logger.warning(
-                    "Shared object download unavailable in shadow mode; using legacy bytes"
-                )
+    gateway = get_platform_objects()
+    if gateway.mode == "enforced":
+        if source_file.platform_object_id is None:
+            raise ProblemException(
+                status_code=503,
+                code="platform_object_unavailable",
+                title="Platform object unavailable",
+                detail="This source file has no Platform object reference.",
+            )
+        return RedirectResponse(
+            gateway.authorize_download(source_file.platform_object_id),
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+        )
     if source_file.object_key is None:
         raise ProblemException(
             status_code=503,
-            code="platform_object_unavailable",
-            title="Platform object unavailable",
-            detail="This source file exists only in Platform storage.",
+            code="local_object_unavailable",
+            title="Local object unavailable",
+            detail="This source file has no application-owned object reference.",
         )
     return StreamingResponse(
         _stream_object(storage, source_file.object_key),
@@ -246,26 +241,25 @@ def download_artifact(
         principal,
         action="aurinara.artifacts.read",
     )
-    if artifact.platform_object_id is not None:
-        gateway = get_platform_objects()
-        if gateway.mode != "disabled":
-            try:
-                return RedirectResponse(
-                    gateway.authorize_download(artifact.platform_object_id),
-                    status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-                )
-            except ProblemException:
-                if gateway.mode == "enforced":
-                    raise
-                logger.warning(
-                    "Shared object download unavailable in shadow mode; using legacy bytes"
-                )
+    gateway = get_platform_objects()
+    if gateway.mode == "enforced":
+        if artifact.platform_object_id is None:
+            raise ProblemException(
+                status_code=503,
+                code="platform_object_unavailable",
+                title="Platform object unavailable",
+                detail="This artifact has no Platform object reference.",
+            )
+        return RedirectResponse(
+            gateway.authorize_download(artifact.platform_object_id),
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+        )
     if artifact.object_key is None:
         raise ProblemException(
             status_code=503,
-            code="platform_object_unavailable",
-            title="Platform object unavailable",
-            detail="This artifact exists only in Platform storage.",
+            code="local_object_unavailable",
+            title="Local object unavailable",
+            detail="This artifact has no application-owned object reference.",
         )
     return StreamingResponse(
         _stream_object(storage, artifact.object_key),

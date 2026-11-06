@@ -51,8 +51,7 @@ Parameters:
     Type: String
   PlatformAuthorizationMode:
     Type: String
-    AllowedValues: [shadow, enforced]
-    Default: shadow
+    AllowedValues: [disabled, enforced]
   PlatformPublicUrl:
     Type: String
   PlatformEventBusName:

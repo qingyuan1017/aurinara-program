@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import Principal, get_principal
 from app.api.dependencies import get_module_registry, get_object_storage, get_session
+from app.artifacts.access import open_stored_object
 from app.artifacts.service import ArtifactService, store_bytes_object
 from app.artifacts.storage import ObjectStorage
 from app.common.canonical import fingerprint
@@ -375,14 +376,11 @@ def import_domain(
             title="Imported SDTM source changed",
             detail="The selected immutable source checksum does not match the request.",
         )
-    if source_file.object_key is None:
-        raise ProblemException(
-            status_code=503,
-            code="sdtm_import_source_unavailable",
-            title="Imported SDTM source is unavailable",
-            detail="Server-side import currently requires locally readable immutable bytes.",
-        )
-    with storage.open(source_file.object_key) as stream:
+    with open_stored_object(
+        storage,
+        object_key=source_file.object_key,
+        platform_object_id=source_file.platform_object_id,
+    ) as stream:
         data = stream.read()
     if hashlib.sha256(data).hexdigest() != source_file.sha256:
         raise ProblemException(

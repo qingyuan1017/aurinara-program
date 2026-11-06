@@ -45,7 +45,8 @@ The credential is read through the settings secret type and is never placed in a
 
 Verified bytes are published from an ephemeral staging workspace to checksum-addressed object storage before the registry transaction begins. The transaction records the selected href, acquisition time, Library update metadata, resource count, group checksum, and individual assets. Temporary files are destroyed at command completion. Standard Library resources remain individually queryable assets. Each selected terminology package is normalized into immutable codelists and terms while its source responses remain available as assets.
 
-The legacy complete-snapshot commands remain available only to register already-existing repository snapshots. They are not the acquisition path for new deployments.
+Complete-repository snapshots and their migration-only commands are not supported. The
+registry retains only exact on-demand selections and their immutable source responses.
 
 ## Ingestion boundary
 

@@ -36,6 +36,7 @@ def _resolved(study_id: UUID) -> ResolvedSource:
         id=sid,
         artifact_id=uuid4(),
         object_key=f"sha256/{sid}",
+        platform_object_id=None,
         sha256="0" * 64,
         filename="data.csv",
         study_id=study_id,

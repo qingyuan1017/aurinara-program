@@ -32,6 +32,10 @@ implemented. The runnable system provides:
   receiver, and isolated runner process boundaries; and
 - unit, contract, and service-backed integration tests for those boundaries.
 
+This repository is a pre-compatibility baseline. Earlier prototype APIs, commands,
+development databases, imports, generated clients, and internal contracts are not
+preserved. Recreate development databases from the single baseline migration.
+
 Phase 2 adds immutable type-specific content revisions for all listed document types,
 Protocol source-PDF/USDM/evidence workflows, read-only Protocol context for SAP, atomic
 JSON/XLSX imports, common validation issues, dependency-aware staleness, and deterministic

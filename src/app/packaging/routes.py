@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import Principal, get_principal
 from app.api.dependencies import get_module_registry, get_object_storage, get_session
+from app.artifacts.access import open_stored_object
 from app.artifacts.models import Artifact
 from app.artifacts.storage import ObjectStorage
 from app.common.canonical import fingerprint
@@ -239,10 +240,12 @@ def download_submission_package(
             title="Submission package is unavailable",
             detail="Only a successfully completed package can be downloaded.",
         )
-    object_key = artifact.object_key
-
     def body() -> Iterator[bytes]:
-        with storage.open(object_key) as source:
+        with open_stored_object(
+            storage,
+            object_key=artifact.object_key,
+            platform_object_id=artifact.platform_object_id,
+        ) as source:
             while chunk := source.read(1024 * 1024):
                 yield chunk
 

@@ -1,4 +1,4 @@
-"""Register immutable CDISC Library snapshots in provider catalogs."""
+"""Register exact immutable CDISC Library selections in provider catalogs."""
 
 import json
 import re
@@ -13,11 +13,9 @@ from sqlalchemy.orm import Session
 from app.artifacts.storage import ObjectStorage
 from app.common.asset_content import publish_verified_asset
 from app.common.canonical import canonical_json, sha256_hex
-from app.common.repository_assets import verify_repository_asset
-from app.standards.library_snapshot import (
+from app.standards.library_selection import (
     CdiscLibrarySelectionManifest,
-    CdiscLibrarySnapshotManifest,
-    CdiscLibrarySnapshotResource,
+    CdiscLibrarySelectionResource,
     FetchedCdiscLibrarySelection,
 )
 from app.standards.models import StandardAsset, StandardProduct, StandardVersion
@@ -79,7 +77,7 @@ def _purposes(product: str) -> list[str]:
 
 
 def _standard_group(
-    resource: CdiscLibrarySnapshotResource, overall: str
+    resource: CdiscLibrarySelectionResource, overall: str
 ) -> tuple[str, str, str, str, str, str]:
     match = VERSIONED_STANDARD.match(resource.canonical_href)
     if match:
@@ -121,7 +119,7 @@ def _standard_group(
 
 
 def _terminology_group(
-    resource: CdiscLibrarySnapshotResource, overall: str
+    resource: CdiscLibrarySelectionResource, overall: str
 ) -> tuple[str, str, str]:
     match = TERMINOLOGY_PACKAGE.match(resource.canonical_href)
     if not match:
@@ -132,30 +130,7 @@ def _terminology_group(
     return _identifier(f"{product}_CT"), product, _bounded(package)
 
 
-def load_library_snapshot(
-    manifest_path: Path, repository_root: Path
-) -> CdiscLibrarySnapshotManifest:
-    """Validate the manifest inventory and every snapshotted resource checksum."""
-
-    relative_manifest = manifest_path.resolve().relative_to(repository_root.resolve()).as_posix()
-    verify_repository_asset(repository_root, relative_manifest, allowed_root="schemas")
-    manifest = CdiscLibrarySnapshotManifest.model_validate_json(
-        manifest_path.read_text(encoding="utf-8")
-    )
-    if manifest.resource_count != len(manifest.resources):
-        raise ValueError("CDISC Library snapshot resource count does not match its inventory")
-    hrefs = [item.canonical_href for item in manifest.resources]
-    if len(hrefs) != len(set(hrefs)):
-        raise ValueError("CDISC Library snapshot contains duplicate canonical hrefs")
-    for item in manifest.resources:
-        allowed_root = "terminology" if item.category == "terminology" else "schemas"
-        verify_repository_asset(
-            repository_root, item.asset_path, item.sha256, allowed_root=allowed_root
-        )
-    return manifest
-
-
-def _group_checksum(resources: list[CdiscLibrarySnapshotResource]) -> str:
+def _group_checksum(resources: list[CdiscLibrarySelectionResource]) -> str:
     return sha256_hex(
         canonical_json(
             [
@@ -167,7 +142,7 @@ def _group_checksum(resources: list[CdiscLibrarySnapshotResource]) -> str:
 
 
 def _resource_content(
-    resource: CdiscLibrarySnapshotResource,
+    resource: CdiscLibrarySelectionResource,
     repository_root: Path,
     local_files: dict[str, Path] | None = None,
 ) -> dict[str, object]:
@@ -178,7 +153,7 @@ def _resource_content(
     )
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
-        raise ValueError(f"snapshotted resource is not an object: {resource.canonical_href}")
+        raise ValueError(f"selected resource is not an object: {resource.canonical_href}")
     return payload
 
 
@@ -197,7 +172,7 @@ def _register_standard_group(
     session: Session,
     *,
     identity: tuple[str, str, str, str, str, str],
-    resources: list[CdiscLibrarySnapshotResource],
+    resources: list[CdiscLibrarySelectionResource],
     provenance: dict[str, object],
 ) -> None:
     code, name, family, product_type, scope, version = identity
@@ -262,7 +237,7 @@ def _register_terminology_group(
     session: Session,
     *,
     identity: tuple[str, str, str],
-    resources: list[CdiscLibrarySnapshotResource],
+    resources: list[CdiscLibrarySelectionResource],
     repository_root: Path,
     provenance: dict[str, object] | None = None,
     local_files: dict[str, Path] | None = None,
@@ -410,72 +385,6 @@ def _register_terminology_group(
         session.execute(insert(TerminologyTerm), term_rows[offset : offset + batch_size])
 
 
-def load_and_publish_library_snapshot(
-    storage: ObjectStorage, manifest_path: Path, repository_root: Path
-) -> CdiscLibrarySnapshotManifest:
-    """Verify the snapshot and publish each real per-asset file before any DB write.
-
-    Only objects whose checksum is a real file sha256 (one per snapshotted resource)
-    are published. The synthetic group digest stored on a version/release is never a
-    publishable file object and is not uploaded here.
-    """
-
-    manifest = load_library_snapshot(manifest_path, repository_root)
-    for item in manifest.resources:
-        publish_verified_asset(
-            storage,
-            repository_root / item.asset_path,
-            item.sha256,
-            item.media_type,
-        )
-    return manifest
-
-
-def register_library_snapshot_rows(
-    session: Session,
-    manifest: CdiscLibrarySnapshotManifest,
-    manifest_path: Path,
-    repository_root: Path,
-) -> None:
-    """Insert catalog rows for a snapshot the publish pass already validated."""
-
-    overall = manifest.library_updated["overall"]
-    provenance: dict[str, object] = {
-        "source": "CDISC Library",
-        "acquisition_mode": "complete_repository_snapshot",
-        "library_base_url": manifest.library_base_url,
-        "library_updated": manifest.library_updated,
-        "captured_at": manifest.captured_at.isoformat(),
-        "resource_count": manifest.resource_count,
-    }
-    standard_groups: defaultdict[
-        tuple[str, str, str, str, str, str], list[CdiscLibrarySnapshotResource]
-    ] = defaultdict(list)
-    terminology_groups: defaultdict[tuple[str, str, str], list[CdiscLibrarySnapshotResource]] = (
-        defaultdict(list)
-    )
-    for resource in manifest.resources:
-        if resource.category == "terminology":
-            terminology_groups[_terminology_group(resource, overall)].append(resource)
-        else:
-            standard_groups[_standard_group(resource, overall)].append(resource)
-    for standard_identity, resources in standard_groups.items():
-        _register_standard_group(
-            session,
-            identity=standard_identity,
-            resources=resources,
-            provenance=provenance,
-        )
-    for terminology_identity, resources in terminology_groups.items():
-        _register_terminology_group(
-            session,
-            identity=terminology_identity,
-            resources=resources,
-            repository_root=repository_root,
-            provenance=provenance,
-        )
-
-
 def publish_library_selection(
     storage: ObjectStorage, selection: FetchedCdiscLibrarySelection
 ) -> None:
@@ -524,7 +433,7 @@ def register_library_selection_rows(
     if len(categories) != 1:
         raise ValueError("one CDISC Library selection cannot mix standards and terminology")
     if categories == {"terminology"}:
-        groups: defaultdict[tuple[str, str, str], list[CdiscLibrarySnapshotResource]] = (
+        groups: defaultdict[tuple[str, str, str], list[CdiscLibrarySelectionResource]] = (
             defaultdict(list)
         )
         for resource in selection.resources:
@@ -545,7 +454,7 @@ def register_library_selection_rows(
         return
 
     standard_groups: defaultdict[
-        tuple[str, str, str, str, str, str], list[CdiscLibrarySnapshotResource]
+        tuple[str, str, str, str, str, str], list[CdiscLibrarySelectionResource]
     ] = defaultdict(list)
     for resource in selection.resources:
         standard_groups[_standard_group(resource, overall)].append(resource)
@@ -560,17 +469,3 @@ def register_library_selection_rows(
         resources=standard_resources,
         provenance=provenance,
     )
-
-
-def register_library_snapshot(
-    session: Session, manifest_path: Path, repository_root: Path
-) -> CdiscLibrarySnapshotManifest:
-    """Register every standard and terminology resource in one caller transaction.
-
-    Thin wrapper preserving the single-transaction verify+insert behavior for callers
-    that are not using the publish-before-transaction split.
-    """
-
-    manifest = load_library_snapshot(manifest_path, repository_root)
-    register_library_snapshot_rows(session, manifest, manifest_path, repository_root)
-    return manifest

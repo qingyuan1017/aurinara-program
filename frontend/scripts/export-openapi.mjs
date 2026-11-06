@@ -21,6 +21,7 @@ const outFile = path.resolve(dirname, '..', 'openapi.json')
 const pyCode = [
   'import json, os',
   "os.environ.setdefault('APP_ENV', 'test')",
+  "os.environ['PLATFORM_AUTHORIZATION_MODE'] = 'disabled'",
   'from app.main import create_app',
   'app = create_app()',
   'print(json.dumps(app.openapi()))',

@@ -20,6 +20,7 @@ export default defineConfig({
       schemas: './src/api/generated/model',
       client: 'react-query',
       httpClient: 'axios',
+      tsconfig: './tsconfig.app.json',
       clean: true,
       prettier: false,
       override: {

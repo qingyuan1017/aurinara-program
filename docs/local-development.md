@@ -170,6 +170,11 @@ The application must refuse production mode with development credentials, wildca
 
 ## 5. Database workflow
 
+The repository uses one pre-production baseline migration. Earlier development databases
+and their contents are unsupported; discard and recreate them instead of attempting an
+upgrade. The baseline must upgrade an empty PostgreSQL database, downgrade back to empty,
+and reapply cleanly.
+
 Create migrations from deliberate model changes:
 
 ```powershell
@@ -305,15 +310,17 @@ Full workflow:
 pytest tests/e2e
 ```
 
-For SDTM mapping and Code Workarea changes, also regenerate and verify the checked-in frontend contract:
+For SDTM mapping and Code Workarea changes, generate the frontend contract from the current
+backend and verify the complete frontend workflow:
 
 ```powershell
 cd frontend
-npm run api:sync
-npm run typecheck
-npm run test -- --run src/routes/_app/sdtm/-sdtm-screens.test.tsx
+npm run check
 npm run build
 ```
+
+OpenAPI JSON and the Orval client are ignored build outputs. Both commands generate them
+from the FastAPI application, so a clean checkout does not require committed generated code.
 
 The API and execution worker must both be running to exercise asynchronous `Run Test` and `Generate artifacts`; otherwise run status remains queued.
 
@@ -403,8 +410,6 @@ Remove-Item Env:CDISC_LIBRARY_API_KEY
 ```
 
 The command rejects catalogs and mutable `/mdr/root/` aliases, follows only the selected root and its descendants, canonicalizes each JSON response, and verifies and uploads every resource before opening the registry transaction. It records the exact selected href, Library update metadata, acquisition time, checksums, and resource count. Ephemeral staging files are deleted when the command ends. Re-running an identical selection is idempotent; changed bytes under an existing release identity are rejected. Review applicable CDISC access and license terms before retaining or distributing content.
-
-The earlier `snapshot-all` and `register-snapshot` commands remain only for migration of existing complete repository snapshots. Do not use them for new installations.
 
 ### Registering approved CDISC packages
 

@@ -37,7 +37,7 @@ Parameters:
   ServiceClientSecretArn: {Type: String}
   ServiceTokenUrl: {Type: String}
   PlatformPrivateUrl: {Type: String}
-  PlatformAuthorizationMode: {Type: String, AllowedValues: [shadow, enforced]}
+  PlatformAuthorizationMode: {Type: String, AllowedValues: [disabled, enforced]}
   ApplicationOrigin: {Type: String}
   SharedAlbArn: {Type: String}
   SharedAlbDnsName: {Type: String}

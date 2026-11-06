@@ -10,6 +10,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.artifacts.access import open_stored_object
 from app.artifacts.models import Artifact
 from app.artifacts.service import ArtifactService, StoredObject, store_bytes_object
 from app.artifacts.storage import ObjectStorage
@@ -31,7 +32,8 @@ from app.validation.models import ValidationRun
 class ResolvedPackageFile:
     artifact_id: UUID
     archive_path: str
-    object_key: str
+    object_key: str | None
+    platform_object_id: UUID | None
     expected_sha256: str
     size: int
     media_type: str
@@ -209,6 +211,7 @@ def resolve_package(
                 artifact_id=artifact.id,
                 archive_path=path,
                 object_key=artifact.object_key,
+                platform_object_id=artifact.platform_object_id,
                 expected_sha256=artifact.sha256,
                 size=artifact.size,
                 media_type=artifact.media_type,
@@ -259,7 +262,11 @@ def build_package(resolved: ResolvedPackage, storage: ObjectStorage) -> BuiltPac
     content: list[tuple[str, bytes, str]] = []
     issues: list[dict[str, object]] = []
     for item in resolved.files:
-        with storage.open(item.object_key) as body:
+        with open_stored_object(
+            storage,
+            object_key=item.object_key,
+            platform_object_id=item.platform_object_id,
+        ) as body:
             data = body.read()
         observed = hashlib.sha256(data).hexdigest()
         if observed != item.expected_sha256 or len(data) != item.size:

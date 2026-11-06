@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import Principal, get_principal
 from app.api.dependencies import get_module_registry, get_object_storage, get_session
+from app.artifacts.access import open_stored_object
 from app.artifacts.builds import (
     ArtifactBuildCreate,
     ArtifactBuildResponse,
@@ -261,7 +262,9 @@ def create_dataset(
 ) -> RawDatasetResponse:
     raw = _raw(session, registry, raw_id, principal)
     source = _source(session, command.source_file_id, raw.study_id)
-    with storage.open(source.object_key) as stream:
+    with open_stored_object(
+        storage, object_key=source.object_key, platform_object_id=source.platform_object_id
+    ) as stream:
         inspect_file(stream, source.filename)
     dataset = RawDataset(
         raw_id=raw.id,
@@ -340,7 +343,9 @@ def patch_dataset(
     if source_id is not None and source_id != dataset.current_source_file_id:
         previous_source = _source(session, dataset.current_source_file_id, dataset.study_id)
         source = _source(session, source_id, dataset.study_id)
-        with storage.open(source.object_key) as stream:
+        with open_stored_object(
+            storage, object_key=source.object_key, platform_object_id=source.platform_object_id
+        ) as stream:
             inspect_file(stream, source.filename)
         dataset.current_source_file_id = source.id
         session.add(binding_for(dataset, source, created_by=principal.subject))
@@ -502,7 +507,9 @@ def initialize_variables(
 ) -> RawInitializeResponse:
     dataset = _dataset(session, dataset_id, principal)
     source = _source(session, dataset.current_source_file_id, dataset.study_id)
-    with storage.open(source.object_key) as stream:
+    with open_stored_object(
+        storage, object_key=source.object_key, platform_object_id=source.platform_object_id
+    ) as stream:
         physical = inspect_file(stream, source.filename)
     existing = {
         item.name: item
@@ -572,7 +579,9 @@ def preview_dataset(
 ) -> RawPreviewResponse:
     dataset = _dataset(session, dataset_id, principal)
     source = _source(session, dataset.current_source_file_id, dataset.study_id)
-    with storage.open(source.object_key) as stream:
+    with open_stored_object(
+        storage, object_key=source.object_key, platform_object_id=source.platform_object_id
+    ) as stream:
         columns, rows, total = preview_rows(
             stream, source.filename, command.columns, command.offset, command.limit
         )
@@ -634,7 +643,9 @@ def validate_raw(
     for dataset in datasets:
         source = _source(session, dataset.current_source_file_id, dataset.study_id)
         digest = hashlib.sha256()
-        with storage.open(source.object_key) as stream:
+        with open_stored_object(
+            storage, object_key=source.object_key, platform_object_id=source.platform_object_id
+        ) as stream:
             while chunk := stream.read(1024 * 1024):
                 digest.update(chunk)
         if digest.hexdigest() != source.sha256:
@@ -648,7 +659,11 @@ def validate_raw(
             )
             continue
         try:
-            with storage.open(source.object_key) as stream:
+            with open_stored_object(
+                storage,
+                object_key=source.object_key,
+                platform_object_id=source.platform_object_id,
+            ) as stream:
                 physical = inspect_file(stream, source.filename)
         except ProblemException as error:
             issues.append(_issue(error.code, error.detail, raw.id, dataset=dataset.code))

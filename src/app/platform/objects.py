@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from typing import BinaryIO
 from uuid import UUID
 
 import httpx
@@ -70,6 +71,19 @@ class PlatformObjectClient:
         except ProblemException:
             raise
         except (httpx.HTTPError, KeyError, TypeError, ValueError) as error:
+            raise self._unavailable() from error
+
+    def download_to(self, object_id: UUID, target: BinaryIO) -> None:
+        """Stream one authorized object into a caller-owned binary file."""
+
+        try:
+            with self._client.stream("GET", self.authorize_download(object_id)) as response:
+                response.raise_for_status()
+                for chunk in response.iter_bytes():
+                    target.write(chunk)
+        except ProblemException:
+            raise
+        except httpx.HTTPError as error:
             raise self._unavailable() from error
 
     def register_file(

@@ -31,11 +31,14 @@ class PlatformEvent:
         data = payload.get("data")
         if not isinstance(data, dict):
             raise ValueError("platform event data must be an object")
+        sequence = payload.get("sequence")
+        if not isinstance(sequence, int) or isinstance(sequence, bool):
+            raise ValueError("platform event sequence must be an integer")
         return cls(
             id=UUID(str(payload["id"])),
             type=str(payload["type"]),
             aggregate_id=UUID(str(payload["aggregate_id"])),
-            sequence=int(payload["sequence"]),
+            sequence=sequence,
             data=data,
         )
 

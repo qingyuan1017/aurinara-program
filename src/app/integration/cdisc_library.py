@@ -1,4 +1,4 @@
-"""Authenticated, read-only connector for offline CDISC Library snapshots."""
+"""Authenticated, read-only connector for on-demand CDISC Library selections."""
 
 import time
 from collections.abc import Iterator

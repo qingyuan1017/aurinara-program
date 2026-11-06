@@ -14,6 +14,7 @@ from uuid import UUID, uuid5
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.artifacts.access import open_stored_object
 from app.artifacts.builds import resolve_build_input
 from app.artifacts.models import Artifact, ArtifactBuild, SourceFile
 from app.artifacts.service import (
@@ -326,19 +327,22 @@ def _handle_validation(
             JobService().complete(job)
             return
         artifact = session.get(Artifact, run.owner_id)
-        if artifact is None or artifact.object_key is None:
+        if artifact is None:
             JobService().fail(job, {"code": "artifact_not_found"})
             return
         run.status = "running"
         run.started_at = run.started_at or utc_now()
-        object_key, expected_checksum, artifact_id = (
+        object_key, platform_object_id, expected_checksum, artifact_id = (
             artifact.object_key,
+            artifact.platform_object_id,
             artifact.sha256,
             artifact.id,
         )
 
     digest = hashlib.sha256()
-    with storage.open(object_key) as body:
+    with open_stored_object(
+        storage, object_key=object_key, platform_object_id=platform_object_id
+    ) as body:
         while chunk := body.read(1024 * 1024):
             digest.update(chunk)
     observed = digest.hexdigest()
@@ -654,7 +658,9 @@ def _inspect_resolved(
     """Verify checksum and inspect one resolved file; record a typed issue on failure."""
 
     digest = hashlib.sha256()
-    with storage.open(source.object_key) as stream:
+    with open_stored_object(
+        storage, object_key=source.object_key, platform_object_id=source.platform_object_id
+    ) as stream:
         while chunk := stream.read(1024 * 1024):
             digest.update(chunk)
     if digest.hexdigest() != source.sha256:
@@ -668,7 +674,9 @@ def _inspect_resolved(
         )
         return None
     try:
-        with storage.open(source.object_key) as stream:
+        with open_stored_object(
+            storage, object_key=source.object_key, platform_object_id=source.platform_object_id
+        ) as stream:
             return inspect_file(stream, source.filename)
     except ProblemException as error:
         issues.append(_import_issue(error.code, error.detail, raw_id, dataset=entry.code))

@@ -14,6 +14,7 @@ from reportlab.pdfgen.canvas import Canvas
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.artifacts.access import open_stored_object
 from app.artifacts.models import Artifact
 from app.artifacts.storage import ObjectStorage
 from app.common.canonical import fingerprint
@@ -623,9 +624,11 @@ class SdtmCapability(SqlDependencyCapability):
                 title="SDTM context dataset is stale",
                 detail=f"SDTM dataset '{dataset_code}' no longer matches the selected artifact.",
             )
-        object_key = artifact.object_key
-        assert object_key is not None
-        with storage.open(object_key) as stream:
+        with open_stored_object(
+            storage,
+            object_key=artifact.object_key,
+            platform_object_id=artifact.platform_object_id,
+        ) as stream:
             data = stream.read()
         if hashlib.sha256(data).hexdigest() != expected_checksum:
             raise ProblemException(
@@ -677,14 +680,11 @@ class SdtmCapability(SqlDependencyCapability):
                 title="Imported SDTM domain is stale",
                 detail=f"Imported domain '{domain_code}' no longer matches the pinned revision.",
             )
-        if artifact.object_key is None:
-            raise ProblemException(
-                status_code=503,
-                code="sdtm_imported_domain_unavailable",
-                title="Imported SDTM domain is unavailable",
-                detail="The imported dataset is not readable from this execution host.",
-            )
-        with storage.open(artifact.object_key) as stream:
+        with open_stored_object(
+            storage,
+            object_key=artifact.object_key,
+            platform_object_id=artifact.platform_object_id,
+        ) as stream:
             data = stream.read()
         if hashlib.sha256(data).hexdigest() != expected_checksum:
             raise ProblemException(
@@ -1008,6 +1008,9 @@ class SdtmCapability(SqlDependencyCapability):
             ],
         }
         result["_source_object_key"] = source.object_key
+        result["_source_platform_object_id"] = (
+            str(source.platform_object_id) if source.platform_object_id else None
+        )
 
     def _build_define_xml_payload(
         self, session: Session, aggregate_id: UUID, study_id: UUID, artifact_type: str
@@ -1349,7 +1352,19 @@ class SdtmCapability(SqlDependencyCapability):
             return _json_artifact(validation, "sdtm-validation.json", payload, validation_run_id)
         if artifact_type == "sdtm_acrf":
             acrf = cast(dict[str, object], payload["acrf"])
-            with storage.open(str(payload["_source_object_key"])) as stream:
+            with open_stored_object(
+                storage,
+                object_key=(
+                    str(payload["_source_object_key"])
+                    if payload.get("_source_object_key") is not None
+                    else None
+                ),
+                platform_object_id=(
+                    UUID(str(payload["_source_platform_object_id"]))
+                    if payload.get("_source_platform_object_id") is not None
+                    else None
+                ),
+            ) as stream:
                 source_pdf = stream.read()
             manifest = {key: value for key, value in payload.items() if not key.startswith("_")}
             return RenderedArtifact(

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import Principal, get_principal
 from app.api.dependencies import get_module_registry, get_object_storage, get_session
+from app.artifacts.access import open_stored_object
 from app.artifacts.builds import ArtifactBuildCreate, ArtifactBuildResponse, create_artifact_build
 from app.artifacts.models import Artifact, SourceFile
 from app.artifacts.service import ArtifactService
@@ -141,7 +142,11 @@ def _pdf_artifact(
             "The aCRF source must be an available immutable PDF source artifact in this study.",
         )
     try:
-        with storage.open(artifact.object_key) as stream:
+        with open_stored_object(
+            storage,
+            object_key=artifact.object_key,
+            platform_object_id=artifact.platform_object_id,
+        ) as stream:
             page_count = len(PdfReader(stream).pages)
     except (PdfReadError, OSError, ValueError) as error:
         raise _unprocessable(

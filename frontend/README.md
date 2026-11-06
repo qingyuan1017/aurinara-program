@@ -30,8 +30,9 @@ Copy `.env.example` to `.env` to change the API base or proxy target.
 
 ## Syncing the API client
 
-The generated client lives in `src/api/generated` and must not be edited by
-hand. Regenerate it whenever the backend contract changes:
+The generated client lives in the ignored `src/api/generated` directory and the exported
+contract lives in ignored `openapi.json`. Neither is committed. A clean checkout generates
+both before development, checking, or production builds:
 
 ```powershell
 # 1. Export the OpenAPI document from the FastAPI app (via `uv`)
@@ -44,8 +45,8 @@ npm run api:generate
 npm run api:sync
 ```
 
-`api:export` runs the FastAPI app factory in test mode and writes
-`openapi.json`. No running server is required.
+`api:export` runs the FastAPI app factory in test mode and writes `openapi.json`. No running
+server is required. `npm run dev`, `npm run check`, and `npm run build` run generation first.
 
 Orval config lives in `orval.config.ts`. All requests flow through the custom
 axios instance in `src/api/axios-instance.ts`, which injects the base URL and
@@ -80,8 +81,9 @@ Request a local token from the dev issuer as described in
 
 | Script              | Purpose                                   |
 | ------------------- | ----------------------------------------- |
-| `npm run dev`       | Start the Vite dev server                 |
-| `npm run build`     | Type-check (`tsc -b`) and bundle          |
+| `npm run dev`       | Generate the client and start Vite        |
+| `npm run build`     | Generate, type-check, and bundle          |
+| `npm run check`     | Generate, type-check, lint, and test      |
 | `npm run preview`   | Preview the production build              |
 | `npm run lint`      | Run ESLint                                |
 | `npm run typecheck` | Type-check without emitting               |

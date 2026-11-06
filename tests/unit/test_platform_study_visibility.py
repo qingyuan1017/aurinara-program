@@ -13,8 +13,8 @@ from app.studies.models import Study, StudyMembership
 from app.studies.service import StudyService
 
 
-class _ShadowGateway:
-    mode = "shadow"
+class _EnforcedGateway:
+    mode = "enforced"
 
     def __init__(self, allowed_studies: set[UUID]) -> None:
         self.allowed_studies = allowed_studies
@@ -47,7 +47,7 @@ def session() -> Session:
     return Session(engine)
 
 
-def test_shadow_mode_includes_centrally_allowed_canonical_study(
+def test_enforced_mode_uses_central_decisions_for_all_studies(
     session: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     principal = Principal(subject="person-1", issuer="https://issuer", scopes=frozenset())
@@ -72,18 +72,15 @@ def test_shadow_mode_includes_centrally_allowed_canonical_study(
     )
     session.commit()
 
-    gateway = _ShadowGateway({canonical.id})
+    gateway = _EnforcedGateway({canonical.id})
     monkeypatch.setattr("app.studies.service.get_platform_authorization", lambda: gateway)
 
     service = StudyService()
-    assert {study.id for study in service.list(session, principal)} == {
-        canonical.id,
-        legacy.id,
-    }
+    assert {study.id for study in service.list(session, principal)} == {canonical.id}
     assert service.require_access(session, canonical.id, principal).id == canonical.id
 
 
-def test_shadow_mode_does_not_grant_central_access_to_legacy_study(
+def test_enforced_mode_can_grant_access_without_local_membership(
     session: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     principal = Principal(subject="person-1", issuer="https://issuer", scopes=frozenset())
@@ -91,10 +88,32 @@ def test_shadow_mode_does_not_grant_central_access_to_legacy_study(
     session.add(legacy)
     session.commit()
 
-    gateway = _ShadowGateway({legacy.id})
+    gateway = _EnforcedGateway({legacy.id})
     monkeypatch.setattr("app.studies.service.get_platform_authorization", lambda: gateway)
 
-    with pytest.raises(ProblemException) as caught:
-        StudyService().require_access(session, legacy.id, principal)
+    assert StudyService().require_access(session, legacy.id, principal).id == legacy.id
 
+
+def test_enforced_mode_denies_local_membership_without_central_access(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    principal = Principal(subject="person-1", issuer="https://issuer", scopes=frozenset())
+    study = Study(code="CENTRAL-1", name="Central", created_by=principal.subject)
+    session.add(study)
+    session.flush()
+    session.add(
+        StudyMembership(
+            study_id=study.id,
+            subject=principal.subject,
+            role="owner",
+            scopes=["*"],
+        )
+    )
+    session.commit()
+    monkeypatch.setattr(
+        "app.studies.service.get_platform_authorization", lambda: _EnforcedGateway(set())
+    )
+
+    with pytest.raises(ProblemException) as caught:
+        StudyService().require_access(session, study.id, principal)
     assert caught.value.code == "study_not_found"

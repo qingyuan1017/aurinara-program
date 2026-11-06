@@ -18,8 +18,12 @@ class Artifact(UuidPrimaryKey, Base):
     __tablename__ = "artifacts"
     __table_args__ = (
         CheckConstraint(
-            "object_key IS NOT NULL OR platform_object_id IS NOT NULL",
+            "(object_key IS NOT NULL) <> (platform_object_id IS NOT NULL)",
             name="ck_artifacts_storage_locator",
+        ),
+        CheckConstraint(
+            "(platform_object_id IS NULL) = (platform_reference_id IS NULL)",
+            name="ck_artifacts_platform_reference",
         ),
     )
 
@@ -65,8 +69,12 @@ class SourceFile(UuidPrimaryKey, Base):
     __tablename__ = "source_files"
     __table_args__ = (
         CheckConstraint(
-            "object_key IS NOT NULL OR platform_object_id IS NOT NULL",
+            "(object_key IS NOT NULL) <> (platform_object_id IS NOT NULL)",
             name="ck_source_files_storage_locator",
+        ),
+        CheckConstraint(
+            "(platform_object_id IS NULL) = (platform_reference_id IS NULL)",
+            name="ck_source_files_platform_reference",
         ),
     )
 

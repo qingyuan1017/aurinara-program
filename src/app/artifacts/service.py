@@ -15,7 +15,7 @@ from app.api.auth import Principal
 from app.artifacts.models import Artifact, SourceFile
 from app.artifacts.storage import ObjectStorage, checksum_object_key
 from app.common.problems import ProblemException
-from app.config import Settings, get_settings
+from app.config import Settings
 from app.platform.objects import PlatformObjectRegistration, get_platform_objects
 from app.studies.service import StudyService
 
@@ -194,29 +194,25 @@ class ArtifactService:
         gateway = get_platform_objects()
         if gateway.mode == "disabled":
             return
-        try:
-            gateway.publish_existing_repository_reference(
-                artifact.platform_reference_id,
-                {
-                    "filename": artifact.filename,
-                    "source_type": "source_file",
-                    "source_id": str(source_file.id),
-                    "source_status": artifact.status,
-                    "module": "raw",
-                    "solution": solution,
-                    "solution_label": solution_label,
-                    "purpose": "source-files",
-                    "classification": "source-file",
-                    "access": {
-                        "read_action": "aurinara.artifacts.read",
-                        "write_action": "aurinara.artifacts.write",
-                    },
-                    "provenance": {"artifact_id": str(artifact.id)},
+        gateway.publish_existing_repository_reference(
+            artifact.platform_reference_id,
+            {
+                "filename": artifact.filename,
+                "source_type": "source_file",
+                "source_id": str(source_file.id),
+                "source_status": artifact.status,
+                "module": "raw",
+                "solution": solution,
+                "solution_label": solution_label,
+                "purpose": "source-files",
+                "classification": "source-file",
+                "access": {
+                    "read_action": "aurinara.artifacts.read",
+                    "write_action": "aurinara.artifacts.write",
                 },
-            )
-        except ProblemException:
-            if gateway.mode == "enforced":
-                raise
+                "provenance": {"artifact_id": str(artifact.id)},
+            },
+        )
 
     def list_source_files(
         self, session: Session, study_id: UUID, principal: Principal
@@ -247,6 +243,13 @@ class ArtifactService:
             session, study_id, principal, action="aurinara.artifacts.write"
         )
         gateway = get_platform_objects()
+        if gateway.mode != "enforced":
+            raise ProblemException(
+                status_code=409,
+                code="platform_integration_disabled",
+                title="Platform integration is disabled",
+                detail="Repository bindings require enforced platform integration.",
+            )
         version = gateway.resolve_repository_version(version_id, user_access_token)
         if version.study_id != study_id:
             raise ProblemException(
@@ -523,7 +526,7 @@ class ArtifactService:
             and stored.platform_external_reference
         ):
             solution, solution_label = _repository_solution(owner_type, owner_id)
-            repository = {
+            repository: dict[str, object] = {
                 "filename": filename,
                 "source_type": artifact_type,
                 "source_id": str(artifact.id),
@@ -546,19 +549,14 @@ class ArtifactService:
                     "generator_version": generator_version,
                 },
             }
-            gateway = get_platform_objects()
-            try:
-                gateway.publish_repository_metadata(
-                    PlatformObjectRegistration(
-                        object_id=stored.platform_object_id,
-                        reference_id=stored.platform_reference_id,
-                        external_reference=stored.platform_external_reference,
-                    ),
-                    repository,
-                )
-            except ProblemException:
-                if gateway.mode == "enforced":
-                    raise
+            get_platform_objects().publish_repository_metadata(
+                PlatformObjectRegistration(
+                    object_id=stored.platform_object_id,
+                    reference_id=stored.platform_reference_id,
+                    external_reference=stored.platform_external_reference,
+                ),
+                repository,
+            )
         return artifact
 
 
@@ -595,18 +593,19 @@ def store_bytes_object(
     """Upload verified immutable bytes without holding a database transaction."""
 
     sha256 = hashlib.sha256(data).hexdigest()
-    object_key = checksum_object_key(sha256)
+    object_key: str | None = None
     temporary_path: Path | None = None
     platform_registration: PlatformObjectRegistration | None = None
     try:
         with tempfile.NamedTemporaryFile(delete=False) as temporary:
             temporary_path = Path(temporary.name)
             temporary.write(data)
-        storage.put_file(object_key, temporary_path, media_type)
-        settings = get_settings()
-        if study_id is not None and external_reference is not None:
+        gateway = get_platform_objects()
+        if gateway.mode == "disabled":
+            object_key = checksum_object_key(sha256)
+            storage.put_file(object_key, temporary_path, media_type)
+        elif study_id is not None and external_reference is not None:
             platform_registration = _register_platform_file(
-                settings=settings,
                 study_id=study_id,
                 path=temporary_path,
                 sha256=sha256,
@@ -615,7 +614,7 @@ def store_bytes_object(
                 external_reference=external_reference,
                 classification=classification,
             )
-        elif get_platform_objects().mode == "enforced":
+        else:
             raise ProblemException(
                 status_code=503,
                 code="object_registration_context_required",
@@ -687,33 +686,36 @@ async def _stream_upload(
                 digest.update(chunk)
                 temporary.write(chunk)
         sha256 = digest.hexdigest()
-        object_key = checksum_object_key(sha256)
-        storage.put_file(object_key, temporary_path, media_type)
-        platform_registration = _register_platform_file(
-            settings=settings,
-            study_id=study_id,
-            path=temporary_path,
-            sha256=sha256,
-            size=size,
-            media_type=media_type,
-            external_reference=external_reference,
-            repository={
-                "filename": filename,
-                "source_type": "source_file",
-                "source_id": str(source_file_id),
-                "source_status": "available",
-                "module": "raw",
-                "solution": "unassigned",
-                "solution_label": "Unassigned",
-                "purpose": "source-files",
-                "classification": "source-file",
-                "access": {
-                    "read_action": "aurinara.artifacts.read",
-                    "write_action": "aurinara.artifacts.write",
+        object_key: str | None = None
+        platform_registration: PlatformObjectRegistration | None = None
+        if get_platform_objects().mode == "disabled":
+            object_key = checksum_object_key(sha256)
+            storage.put_file(object_key, temporary_path, media_type)
+        else:
+            platform_registration = _register_platform_file(
+                study_id=study_id,
+                path=temporary_path,
+                sha256=sha256,
+                size=size,
+                media_type=media_type,
+                external_reference=external_reference,
+                repository={
+                    "filename": filename,
+                    "source_type": "source_file",
+                    "source_id": str(source_file_id),
+                    "source_status": "available",
+                    "module": "raw",
+                    "solution": "unassigned",
+                    "solution_label": "Unassigned",
+                    "purpose": "source-files",
+                    "classification": "source-file",
+                    "access": {
+                        "read_action": "aurinara.artifacts.read",
+                        "write_action": "aurinara.artifacts.write",
+                    },
+                    "provenance": {"artifact_id": str(artifact_id)},
                 },
-                "provenance": {"artifact_id": str(artifact_id)},
-            },
-        )
+            )
     finally:
         await upload.close()
         if temporary_path is not None:
@@ -733,7 +735,6 @@ async def _stream_upload(
 
 def _register_platform_file(
     *,
-    settings: Settings,
     study_id: UUID,
     path: Path,
     sha256: str,
@@ -746,21 +747,16 @@ def _register_platform_file(
     gateway = get_platform_objects()
     if gateway.mode == "disabled":
         return None
-    try:
-        return gateway.register_file(
-            study_id=study_id,
-            path=path,
-            sha256=sha256,
-            size=size,
-            media_type=media_type,
-            classification=classification,
-            external_reference=external_reference,
-            repository=repository,
-        )
-    except ProblemException:
-        if gateway.mode == "enforced":
-            raise
-        return None
+    return gateway.register_file(
+        study_id=study_id,
+        path=path,
+        sha256=sha256,
+        size=size,
+        media_type=media_type,
+        classification=classification,
+        external_reference=external_reference,
+        repository=repository,
+    )
 
 
 def _build_source_file_rows(

@@ -19,6 +19,19 @@ jobs:
 
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16.10-bookworm
+        env:
+          POSTGRES_USER: clinical
+          POSTGRES_PASSWORD: clinical
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U clinical -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -27,15 +40,15 @@ jobs:
         with: {enable-cache: true}
       - run: uv sync --extra dev
       - run: uv run ruff check src workers tests
-      - name: Type-check deployment and worker boundaries
-        run: >-
-          uv run mypy
-          src/app/config.py src/app/database.py
-          src/app/common/logging.py src/app/common/metrics.py
-          src/app/artifacts/storage.py src/app/execution
-          src/app/platform/authorization.py src/app/integration/delivery.py
-          scripts/cloudflare_dns.py workers
+      - name: Type-check maintained Python code
+        run: uv run mypy src workers scripts
       - run: uv run pytest tests/unit tests/contract
+      - name: Verify baseline migration from and back to an empty database
+        env:
+          AURINARA_INTEGRATION: '1'
+          AURINARA_MIGRATION_TEST_ADMIN_URL: postgresql://clinical:clinical@localhost:5432/postgres
+          AURINARA_MIGRATION_TEST_DATABASE_URL: postgresql+psycopg://clinical:clinical@localhost:5432/aurinara_baseline_migration_test
+        run: uv run pytest tests/integration/test_baseline_migration.py
       - name: Require one Alembic head
         run: test "$(uv run alembic heads | wc -l)" -eq 1
       - name: Audit locked production dependencies
@@ -55,14 +68,9 @@ jobs:
         with: {node-version: '20', cache: npm, cache-dependency-path: frontend/package-lock.json}
       - run: npm ci
         working-directory: frontend
-      - run: npm run api:sync
+      - run: npm run check
         working-directory: frontend
-      - run: git diff --exit-code -- frontend/openapi.json frontend/src/api/generated
-      - run: npm run typecheck
-        working-directory: frontend
-      - run: npm run lint
-        working-directory: frontend
-      - run: npm run test
+      - run: npm run build:app
         working-directory: frontend
       - run: npm audit --omit=dev --audit-level=high
         working-directory: frontend

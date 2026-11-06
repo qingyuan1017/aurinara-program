@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import Principal, get_principal
 from app.api.dependencies import get_module_registry, get_object_storage, get_session
+from app.artifacts.access import open_stored_object
 from app.artifacts.builds import ArtifactBuildCreate, ArtifactBuildResponse, create_artifact_build
 from app.artifacts.models import SourceFile
 from app.artifacts.service import ArtifactService
@@ -881,7 +882,9 @@ def _validate_evidence(
     source = session.get(SourceFile, command.source_pdf_file_id)
     if source is None or source.study_id != document.study_id:
         raise _unprocessable("evidence_source_invalid", "Evidence source PDF is unavailable.")
-    with storage.open(source.object_key) as stream:
+    with open_stored_object(
+        storage, object_key=source.object_key, platform_object_id=source.platform_object_id
+    ) as stream:
         reader = PdfReader(stream)
         if command.page_number > len(reader.pages):
             raise _unprocessable(

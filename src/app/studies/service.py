@@ -1,6 +1,5 @@
 """Study transaction and authorization service."""
 
-import logging
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
@@ -15,8 +14,6 @@ from app.common.problems import ProblemException
 from app.platform.authorization import get_platform_authorization
 from app.studies.models import Study, StudyMembership
 from app.studies.schemas import StudyCreate, StudyPatch
-
-logger = logging.getLogger(__name__)
 
 _PATH_MODULES = {
     "raw": "raw",
@@ -117,63 +114,19 @@ class StudyService:
                 )
             action = f"aurinara.{module}.{verb}"
         study = session.get(Study, study_id)
-        local_allowed = (
-            session.scalar(
-                select(StudyMembership.id).where(
-                    StudyMembership.study_id == study_id,
-                    StudyMembership.subject == principal.subject,
-                )
-            )
-            is not None
-        )
         gateway = get_platform_authorization()
-        allowed = local_allowed
-        if gateway.mode != "disabled":
-            try:
-                decision = gateway.decide(principal, action, study_id)
-            except ProblemException:
-                if gateway.mode == "enforced":
-                    raise
-                logger.warning(
-                    "platform authorization unavailable in shadow mode",
-                    extra={"study_id": str(study_id), "subject": principal.subject},
-                )
-                decision = None
-            if decision is None:
-                if study is None or not local_allowed:
-                    raise ProblemException(
-                        status_code=404,
-                        code="study_not_found",
-                        title="Study not found",
-                        detail="The study does not exist or is not visible to this identity.",
+        if gateway.mode == "disabled":
+            allowed = (
+                session.scalar(
+                    select(StudyMembership.id).where(
+                        StudyMembership.study_id == study_id,
+                        StudyMembership.subject == principal.subject,
                     )
-                return study
-            if gateway.mode == "shadow" and decision.allowed != local_allowed:
-                logger.warning(
-                    "platform authorization shadow mismatch",
-                    extra={
-                        "study_id": str(study_id),
-                        "subject": principal.subject,
-                        "local_allowed": local_allowed,
-                        "platform_allowed": decision.allowed,
-                        "policy_version": decision.policy_version,
-                    },
                 )
-            # Canonical studies have no legacy Aurinara membership by design.
-            # During shadow rollout, use a positive central decision for those
-            # projected identities while preserving local enforcement for
-            # legacy studies. This prevents a correctly projected canonical
-            # study from disappearing merely because it was never created by
-            # the legacy local membership workflow.
-            if (
-                gateway.mode == "shadow"
-                and study is not None
-                and study.platform_managed
-                and decision.allowed
-            ):
-                allowed = True
-            if gateway.mode == "enforced":
-                allowed = decision.allowed
+                is not None
+            )
+        else:
+            allowed = gateway.decide(principal, action, study_id).allowed
         if study is None or not allowed:
             raise ProblemException(
                 status_code=404,
@@ -200,27 +153,16 @@ class StudyService:
         all_records = tuple(
             session.scalars(select(Study).order_by(Study.created_at.desc(), Study.id.desc()))
         )
-        if gateway.mode == "shadow":
-            local_ids = {study.id for study in local_records}
-            records = tuple(
-                study
-                for study in all_records
-                if study.platform_managed and study.id not in local_ids
-            )
-        else:
-            records = all_records
         decisions = gateway.decide_batch(
             principal,
             "aurinara.study.read",
-            tuple(study.id for study in records),
+            tuple(study.id for study in all_records),
         )
-        centrally_allowed = tuple(
-            study for study, decision in zip(records, decisions, strict=True) if decision.allowed
+        return tuple(
+            study
+            for study, decision in zip(all_records, decisions, strict=True)
+            if decision.allowed
         )
-        if gateway.mode == "shadow":
-            visible_ids = {study.id for study in (*local_records, *centrally_allowed)}
-            return tuple(study for study in all_records if study.id in visible_ids)
-        return centrally_allowed
 
     def patch(
         self,

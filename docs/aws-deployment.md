@@ -116,7 +116,7 @@ the nested templates, optionally deploys staging on a manual run, runs the one-o
 updates the Cloudflare DNS-only CNAME, publishes the SPA, and performs a
 readiness check. The production job is guarded by GitHub Environment approval,
 takes an RDS snapshot, applies the reviewed CloudFormation change set with
-rolling-update circuit breakers, runs only backward-compatible migrations,
+rolling-update circuit breakers, creates the reviewed database schema,
 updates its Cloudflare CNAME, publishes the SPA, enables parent-stack termination
 protection, and runs the same readiness check. Push deployments proceed directly
 to the protected production job and do not recreate staging.
@@ -133,11 +133,12 @@ The SPA publish script resolves `ApplicationUrl` from the target stack and sets
 on the environment's CloudFront `/api/*` behavior and prevents a developer's
 local `.env` loopback URL from being embedded in staging or production assets.
 
-Database changes use expand/contract sequencing. Application rollback means
-restoring the prior image digests and redeploying the stack. It never means an
-automatic database restore. If a migration needs repair, ship a forward repair
-after confirming old and new application revisions can coexist with the expanded
-schema.
+This repository is a pre-compatibility baseline. Existing databases from earlier
+repository revisions are unsupported and must be discarded before deploying this
+baseline. The migration task creates the current schema from an empty PostgreSQL
+database; it does not contain historical conversions or compatibility bridges.
+After this baseline is deployed, rollback means restoring reviewed application and
+database artifacts deliberately, never relying on an undocumented dual-schema path.
 
 The migration task executes:
 
@@ -163,14 +164,14 @@ fallback and are not presented when production OIDC variables are present. The
 API verifies ID tokens against the exact user-pool issuer, JWKS URL, and SPA
 client audience.
 
-Roll platform authorization in four controlled steps:
+Select platform authorization explicitly per environment:
 
-1. Deploy staging in `shadow` mode and capture mismatches without changing the
-   product decision.
-2. Reconcile study memberships, identity mappings, and requested scopes.
-3. Run staging in `enforced` mode and verify fail-closed outages and cache
-   invalidation events.
-4. Change production to `enforced` in a reviewed template update.
+1. Use `disabled` for standalone deployments with local memberships and
+   application-owned object storage.
+2. Use `enforced` for connected deployments after provisioning Platform study
+   projections, memberships, service credentials, scopes, and object access.
+3. Verify enforced deployments fail closed during Platform outages and invalidate
+   cached authorization decisions after membership events.
 
 In enforced mode a self-registered and MFA-enrolled user has no study visibility
 until the platform grants membership. Backend authorization and object calls use

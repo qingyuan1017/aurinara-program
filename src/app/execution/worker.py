@@ -14,6 +14,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.artifacts.access import open_stored_object
 from app.artifacts.models import Artifact
 from app.artifacts.service import (
     ArtifactService,
@@ -95,9 +96,11 @@ def _prepare_test_preview(
 
 
 def _copy_object(storage: ObjectStorage, artifact: Artifact, destination: Path) -> None:
-    if artifact.object_key is None:
-        raise ValueError("execution artifact has no readable object")
-    with storage.open(artifact.object_key) as source, destination.open("wb") as target:
+    with open_stored_object(
+        storage,
+        object_key=artifact.object_key,
+        platform_object_id=artifact.platform_object_id,
+    ) as source, destination.open("wb") as target:
         shutil.copyfileobj(source, target, length=1024 * 1024)
 
 
@@ -180,9 +183,11 @@ def process_execution_job(
                     input_path.parent.chmod(0o755)
                 else:
                     input_path = input_directory / f"{item['dataset']}.csv"
-                if artifact.object_key is None:
-                    raise ValueError("execution input has no readable object")
-                with storage.open(artifact.object_key) as source:
+                with open_stored_object(
+                    storage,
+                    object_key=artifact.object_key,
+                    platform_object_id=artifact.platform_object_id,
+                ) as source:
                     staged_data = tabular_csv_bytes(source.read(), artifact.filename)
                 input_path.write_bytes(staged_data)
                 input_path.chmod(0o444)

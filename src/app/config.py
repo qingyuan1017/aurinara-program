@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     jwt_algorithms: str = "RS256"
 
     platform_control_plane_url: str | None = None
-    platform_authorization_mode: Literal["disabled", "shadow", "enforced"] = "disabled"
+    platform_authorization_mode: Literal["disabled", "enforced"] = "disabled"
     platform_service_token_url: str | None = None
     platform_service_client_id: str | None = None
     platform_service_client_secret: SecretStr | None = None

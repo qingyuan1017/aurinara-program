@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 from typing import Protocol, cast
-from uuid import UUID
 
 import jwt
 from fastapi import Header, Request
@@ -87,9 +86,3 @@ def get_principal(
         raise _unauthorized("A bearer token is required.")
     verifier = cast(TokenVerifier, request.app.state.token_verifier)
     return verifier.verify(token)
-
-
-def require_study_access(session: object, study_id: UUID, principal: Principal) -> None:
-    """Reserved compatibility shim; services own concrete membership checks."""
-
-    del session, study_id, principal

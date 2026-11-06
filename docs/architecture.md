@@ -11,9 +11,11 @@ Release 1 provides structured authoring, versioned standards/terminology/templat
 The separately deployed Aurinara Platform owns Repository folders, logical files,
 versions, access envelopes, and stored bytes. This application continues to own
 clinical artifact and source-file meaning. Local rows reference exact Platform
-object/reference IDs; `object_key` is optional only when `platform_object_id` is
-present. Disabled and shadow modes retain legacy bytes. Enforced mode never falls
-back when a row is Platform-only.
+object/reference IDs in connected deployments and exact application-owned object
+keys in standalone deployments. A row carries exactly one storage locator. Disabled
+mode reads only application-owned bytes; enforced mode reads only Platform-owned
+bytes. Missing or mode-incompatible locators fail with a typed error and never fall
+back to the other provider.
 
 The native Repository explorer uses one predictable taxonomy for published files:
 `Study / Module / Solution / Purpose / File`. Module is the owning clinical area
@@ -110,8 +112,9 @@ versioned HTTP/OpenAPI contracts and idempotent events only; it never imports th
 plane ORM or reads its database.
 
 Canonical study projections update the platform-owned code, name, and sponsor without changing
-the product-owned study lifecycle. Authorization is introduced through disabled, shadow, and
-enforced modes with a maximum 60-second positive cache and event-driven invalidation.
+the product-owned study lifecycle. Authorization has two modes: `disabled` uses local study
+membership and `enforced` uses the Platform decision with a maximum 60-second positive cache
+and event-driven invalidation.
 Objects retain product-owned artifact metadata while shared immutable bytes are addressed
 only by opaque `platform_object_id`; storage keys and shared-bucket credentials are never
 exposed through product APIs or browser code. See `docs/shared-platform-control-plane.md`.

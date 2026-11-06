@@ -90,6 +90,7 @@ class FakeSourceFile:
         self.study_id = study_id
         self.artifact_id = uuid4()
         self.object_key = f"sha256/{source_id}"
+        self.platform_object_id = None
         self.sha256 = "0" * 64
         self.filename = "data.csv"
         self.size = size
@@ -234,6 +235,7 @@ def _resolved(study_id: UUID, source_id: UUID | None = None) -> ResolvedSource:
         id=sid,
         artifact_id=uuid4(),
         object_key=f"sha256/{sid}",
+        platform_object_id=None,
         sha256="0" * 64,
         filename="data.csv",
         study_id=study_id,

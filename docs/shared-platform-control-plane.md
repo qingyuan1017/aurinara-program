@@ -8,10 +8,6 @@ memberships, authorization decisions, and the opaque object catalog.
 ## Runtime integration
 
 - `PLATFORM_AUTHORIZATION_MODE=disabled` uses existing local memberships.
-- `shadow` calls the platform, logs decision mismatches, and preserves local behavior.
-- In shadow mode, a projected canonical study with no legacy local membership becomes
-  visible only after an explicit positive `aurinara.study.read` decision. Legacy studies
-  continue to use their local memberships until cutover.
 - `enforced` treats the platform decision as authoritative and fails closed with `503`
   when neither the platform nor an unexpired positive cache entry is available.
 - Positive decisions are cached for at most 60 seconds. Membership and user events
@@ -19,7 +15,8 @@ memberships, authorization decisions, and the opaque object catalog.
 - Canonical study events update only `code`, `name`, `sponsor`, and platform projection fields.
   They never change Aurinara's own study/workbench lifecycle state.
 - Artifact and source-file rows with `platform_object_id` download through a short-lived
-  gateway URL. Shadow mode can dual-read legacy bytes; enforced mode cannot fall back.
+  gateway URL in enforced mode. Disabled mode requires an application-owned object key.
+  Rows carry exactly one locator, and neither mode falls back to the other provider.
 
 Confirmed human identities receive only the Platform `platform.study.create`
 capability. Aurinara publishes its `aurinara.<module>.<action>` permission catalog and
@@ -33,26 +30,18 @@ The API service uses an OIDC client-credentials identity with the
 `aurinara.artifacts.write`, and `aurinara.permission.sync`. Browser clients never
 receive these credentials or object-store keys.
 
-## Migration
+## Deployment baseline
 
-Run the reviewed membership exporter from the repository root:
-
-```powershell
-python scripts/export_platform_memberships.py `
-  --mapping .\migration\reviewed-aurinara-map.json `
-  --output .\migration\aurinara-platform-snapshot.json
-```
-
-The mapping must explicitly identify every local study and OIDC subject. Missing or
-ambiguous mappings stop the export. Import the result into `aurinara-platform`, run in
-shadow mode until mismatches are resolved, run `alembic upgrade head` through the
-`20261010_0015` object-reference reconciliation, and then enable the event consumer
-for the product's SQS subscription.
+This pre-compatibility baseline does not migrate earlier Aurinara memberships, object
+references, or database contents. Create a new database from the single baseline migration
+and choose `disabled` or `enforced` explicitly for each deployment. Connected deployments
+must provision Platform study projections, memberships, service credentials, and object
+access before enabling traffic.
 
 For local Compose development, start that supervised consumer with
 `docker compose up -d platform-projection-worker`. The Studies queries refresh every
 30 seconds while the page is active, so a newly authorized projection appears without a
 full browser reload.
 
-Do not remove legacy object keys during dual-read. Populate `platform_object_id` only
-after checksum, metadata, reference, backup, and retention reconciliation succeeds.
+There is no dual-read transition. Import or generate data through the storage provider
+selected for the deployment mode.

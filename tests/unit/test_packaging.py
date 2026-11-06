@@ -46,6 +46,7 @@ def test_deterministic_package_checksums_verify_independently() -> None:
                 artifact_id=uuid4(),
                 archive_path="adam/adam_dataset_csv/ADSL.csv",
                 object_key="source",
+                platform_object_id=None,
                 expected_sha256=digest,
                 size=len(source),
                 media_type="text/csv",

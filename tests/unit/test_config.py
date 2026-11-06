@@ -14,6 +14,11 @@ def test_development_defaults_are_loadable() -> None:
     assert settings.execution_network_disabled is True
 
 
+def test_shadow_platform_authorization_mode_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="platform_authorization_mode"):
+        Settings(_env_file=None, platform_authorization_mode="shadow")  # type: ignore[arg-type]
+
+
 def test_unsafe_production_defaults_are_rejected() -> None:
     with pytest.raises(ValidationError, match="unsafe production configuration"):
         Settings(_env_file=None, app_env="production")

@@ -12,6 +12,7 @@ from openpyxl import Workbook
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.artifacts.access import open_stored_object
 from app.artifacts.models import Artifact, SourceFile
 from app.artifacts.service import ArtifactService
 from app.artifacts.storage import ObjectStorage
@@ -228,6 +229,9 @@ class RawCapability(SqlDependencyCapability):
                         "filename": source.filename,
                         "checksum": source.sha256,
                         "_object_key": source.object_key,
+                        "_platform_object_id": (
+                            str(source.platform_object_id) if source.platform_object_id else None
+                        ),
                     },
                 }
             )
@@ -278,7 +282,19 @@ class RawCapability(SqlDependencyCapability):
             dataset_code = str(dataset["code"])
             source = cast(dict[str, object], dataset["source_file"])
             try:
-                with storage.open(str(source["_object_key"])) as stream:
+                with open_stored_object(
+                    storage,
+                    object_key=(
+                        str(source["_object_key"])
+                        if source.get("_object_key") is not None
+                        else None
+                    ),
+                    platform_object_id=(
+                        UUID(str(source["_platform_object_id"]))
+                        if source.get("_platform_object_id") is not None
+                        else None
+                    ),
+                ) as stream:
                     digest = hashlib.sha256()
                     while chunk := stream.read(1024 * 1024):
                         digest.update(chunk)
@@ -291,7 +307,19 @@ class RawCapability(SqlDependencyCapability):
                         )
                     )
                     continue
-                with storage.open(str(source["_object_key"])) as stream:
+                with open_stored_object(
+                    storage,
+                    object_key=(
+                        str(source["_object_key"])
+                        if source.get("_object_key") is not None
+                        else None
+                    ),
+                    platform_object_id=(
+                        UUID(str(source["_platform_object_id"]))
+                        if source.get("_platform_object_id") is not None
+                        else None
+                    ),
+                ) as stream:
                     physical = inspect_file(stream, str(source["filename"]))
             except ProblemException as error:
                 issues.append(
@@ -491,7 +519,9 @@ class RawCapability(SqlDependencyCapability):
                 title="Raw context dataset is stale",
                 detail=f"Raw dataset '{dataset_code}' no longer matches the selected artifact.",
             )
-        with storage.open(source.object_key) as stream:
+        with open_stored_object(
+            storage, object_key=source.object_key, platform_object_id=source.platform_object_id
+        ) as stream:
             headers, values = read_rows(stream, source.filename)
         if len(values) > maximum_rows:
             raise ProblemException(
@@ -695,7 +725,8 @@ class ResolvedSource:
 
     id: UUID
     artifact_id: UUID
-    object_key: str
+    object_key: str | None
+    platform_object_id: UUID | None
     sha256: str
     filename: str
     study_id: UUID
@@ -786,6 +817,7 @@ def resolve_bulk_sources(
                 id=source.id,
                 artifact_id=source.artifact_id,
                 object_key=source.object_key,
+                platform_object_id=source.platform_object_id,
                 sha256=source.sha256,
                 filename=source.filename,
                 study_id=source.study_id,

@@ -17,6 +17,7 @@ from reportlab.pdfgen import canvas
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.artifacts.access import open_stored_object
 from app.artifacts.models import Artifact
 from app.artifacts.storage import ObjectStorage
 from app.common.canonical import fingerprint
@@ -445,6 +446,9 @@ class TlfCapability(SqlDependencyCapability):
                 "sha256": result.sha256,
                 "filename": result.filename,
                 "object_key": result.object_key,
+                "platform_object_id": (
+                    str(result.platform_object_id) if result.platform_object_id else None
+                ),
             }
         return payload
 
@@ -536,11 +540,23 @@ class TlfCapability(SqlDependencyCapability):
                 validation_run_id=validation_id,
             )
         result = cast(dict[str, object], payload["result"])
-        with storage.open(str(result["object_key"])) as body:
+        with open_stored_object(
+            storage,
+            object_key=(
+                str(result["object_key"]) if result.get("object_key") is not None else None
+            ),
+            platform_object_id=(
+                UUID(str(result["platform_object_id"]))
+                if result.get("platform_object_id") is not None
+                else None
+            ),
+        ) as body:
             result_bytes = body.read()
         public_manifest = {key: value for key, value in payload.items() if key != "result"}
         public_manifest["result"] = {
-            key: value for key, value in result.items() if key != "object_key"
+            key: value
+            for key, value in result.items()
+            if key not in {"object_key", "platform_object_id"}
         }
         if artifact_type == "tlf_output_index":
             index = {

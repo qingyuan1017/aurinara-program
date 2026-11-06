@@ -465,8 +465,9 @@ When the shared platform integration is enabled, creation also uploads the verif
 through a short-lived presigned gateway session and registers the product reference. The
 response continues to expose only product metadata. A source file or artifact carrying a
 `platform_object_id` is downloaded by redirecting to a short-lived gateway-authorized URL.
-Shadow mode may fall back to the legacy object during reconciliation; enforced mode fails
-closed if the gateway cannot authorize the download.
+Disabled mode requires an application-owned object key; enforced mode requires a Platform
+object reference. Missing or mode-incompatible references return a typed error without
+falling back between providers.
 
 The `:bulk` upload accepts a multipart request with many file parts (1..`raw_bulk_upload_max_files`) and returns `201 Created` with one source-file record per part in request order. It is all-or-nothing: a single rejected part (size, media type, or filename) fails the whole request with `problem+json` and commits no `source_files` rows.
 
