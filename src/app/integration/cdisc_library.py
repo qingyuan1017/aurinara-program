@@ -19,8 +19,12 @@ class CdiscLibraryResource:
     content: dict[str, object]
 
 
+class CdiscLibraryUnavailable(RuntimeError):
+    """Raised when the upstream Library cannot serve an administrative import."""
+
+
 class CdiscLibraryReader(Protocol):
-    """Boundary used by the deterministic snapshot crawler."""
+    """Boundary used by the deterministic on-demand selection crawler."""
 
     def get(self, href: str) -> CdiscLibraryResource:
         """Fetch one canonical CDISC Library resource."""
@@ -105,12 +109,24 @@ class HttpCdiscLibraryClient:
         canonical_href = self.canonical_href(href)
         response: httpx.Response | None = None
         for attempt in range(4):
-            response = self.client.get(f"{self.base_url}{canonical_href}")
+            try:
+                response = self.client.get(f"{self.base_url}{canonical_href}")
+            except httpx.RequestError as error:
+                if attempt == 3:
+                    raise CdiscLibraryUnavailable(
+                        "CDISC Library is unavailable; no registry content was changed"
+                    ) from error
+                time.sleep(2**attempt)
+                continue
             if response.status_code not in {429, 500, 502, 503, 504}:
                 break
             if attempt < 3:
                 time.sleep(2**attempt)
         assert response is not None
+        if response.status_code in {429, 500, 502, 503, 504}:
+            raise CdiscLibraryUnavailable(
+                "CDISC Library is unavailable; no registry content was changed"
+            )
         response.raise_for_status()
         if len(response.content) > self.max_response_bytes:
             raise ValueError(f"CDISC Library resource exceeds size limit: {canonical_href}")

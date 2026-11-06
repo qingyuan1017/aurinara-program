@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 from uuid import uuid4
 
+import httpx
 import pytest
 from sqlalchemy.orm import Session
 
@@ -15,7 +16,11 @@ from app.cdisc_library_registry import (
     publish_library_selection,
     register_library_selection_rows,
 )
-from app.integration.cdisc_library import CdiscLibraryResource
+from app.integration.cdisc_library import (
+    CdiscLibraryResource,
+    CdiscLibraryUnavailable,
+    HttpCdiscLibraryClient,
+)
 from app.standards.library_selection import (
     CdiscLibrarySelectionResource,
     fetch_library_selection,
@@ -93,6 +98,30 @@ class FakeLibraryReader:
             resource_type="",
             content=content,
         )
+
+
+def test_provider_unavailable_is_clear_and_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
+    attempts = 0
+
+    def unavailable(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        raise httpx.ConnectError("offline", request=request)
+
+    client = HttpCdiscLibraryClient(
+        base_url="https://library.cdisc.test/api",
+        api_key="secret",
+        timeout_seconds=1,
+    )
+    client.client.close()
+    client.client = httpx.Client(transport=httpx.MockTransport(unavailable))
+    monkeypatch.setattr("app.integration.cdisc_library.time.sleep", lambda _seconds: None)
+
+    with pytest.raises(CdiscLibraryUnavailable, match="no registry content was changed"):
+        client.get("/mdr/sdtmig/3-4")
+
+    assert attempts == 4
+    client.client.close()
 
 
 def test_sdtmig_selections_are_selectable_for_the_sdtm_ig_purpose() -> None:

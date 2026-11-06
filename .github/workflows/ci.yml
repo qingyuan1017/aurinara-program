@@ -39,7 +39,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with: {enable-cache: true}
       - run: uv sync --extra dev
-      - run: uv run ruff check src workers tests
+      - run: uv run ruff check src workers scripts tests
       - name: Type-check maintained Python code
         run: uv run mypy src workers scripts
       - run: uv run pytest tests/unit tests/contract
