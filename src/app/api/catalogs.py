@@ -334,7 +334,7 @@ def get_standard_asset_content(
                 REPOSITORY_ROOT, asset.asset_path, asset.checksum, allowed_root="schemas"
             )[0]
         )
-        if settings.pinned_asset_local_fallback
+        if settings.pinned_asset_local_fallback and asset.asset_path.startswith("schemas/")
         else None
     )
     try:
@@ -516,7 +516,7 @@ def get_terminology_asset_content(
                 REPOSITORY_ROOT, asset.asset_path, asset.checksum, allowed_root="terminology"
             )[0]
         )
-        if settings.pinned_asset_local_fallback
+        if settings.pinned_asset_local_fallback and asset.asset_path.startswith("terminology/")
         else None
     )
     try:

@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.api.auth import Principal, get_principal
 from app.api.dependencies import (
     get_module_registry,
+    get_object_storage,
     get_session,
 )
 from app.artifacts.builds import ArtifactBuildCreate, ArtifactBuildResponse, create_artifact_build
@@ -127,6 +128,7 @@ def _selected_sdtmig_metadata(
     session: Session,
     handler: SdtmCapability,
     workbench: SdtmWorkbench,
+    storage: ObjectStorage,
 ) -> ResolvedStandardMetadata:
     dependency_selection = handler.get_selection(session, workbench.id, workbench.study_id)
     selected = [item for item in dependency_selection.standards if item.purpose == "sdtm_ig"]
@@ -150,6 +152,7 @@ def _selected_sdtmig_metadata(
         return resolve_standard_metadata(
             session,
             selected[0].standard_version_id,
+            storage=storage,
             repository_root=Path(__file__).resolve().parents[3],
         )
     except ValueError as error:
@@ -436,12 +439,13 @@ def get_specification_initialization_options(
     sdtm_id: UUID,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    storage: Annotated[ObjectStorage, Depends(get_object_storage)],
     principal: Annotated[Principal, Depends(get_principal)],
 ) -> SdtmSpecificationInitializationOptions:
     """List the concrete domains available from the exact selected SDTMIG."""
 
     workbench = _sdtm(session, sdtm_id, principal)
-    metadata = _selected_sdtmig_metadata(session, _handler(registry), workbench)
+    metadata = _selected_sdtmig_metadata(session, _handler(registry), workbench, storage)
     try:
         domains = standard_domain_options(metadata)
     except ValueError as error:
@@ -467,6 +471,7 @@ def initialize_specification(
     response: Response,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    storage: Annotated[ObjectStorage, Depends(get_object_storage)],
     principal: Annotated[Principal, Depends(get_principal)],
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
 ) -> SpecificationResponse:
@@ -478,7 +483,7 @@ def initialize_specification(
     current_record = handler.latest_specification(session, workbench.id)
     current = context_from_record(current_record) if current_record is not None else None
     try:
-        metadata = _selected_sdtmig_metadata(session, handler, workbench)
+        metadata = _selected_sdtmig_metadata(session, handler, workbench, storage)
         specification = initialize_specification_from_standard(
             metadata,
             current,

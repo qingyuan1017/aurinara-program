@@ -45,7 +45,7 @@ The release is accepted only when a complete study can register and validate raw
 - Keep inbound connectors on existing typed APIs/imports and require service identities, study membership, module scopes, ETags, and idempotency keys; do not create a generic arbitrary JSON write path.
 - Implement artifacts, canonical dependency fingerprints, checksum-addressed keys, and staleness propagation.
 - Implement immutable validation runs and common issues.
-- Implement the Standards registry over pinned repository assets, including product/version identity, asset provenance and checksums, lifecycle, module purpose, and compatibility links.
+- Implement the Standards registry over administrator-selected immutable provider snapshots, including product/version identity, acquisition provenance and checksums, lifecycle, module purpose, and compatibility links. Keep only required conformance schemas and exceptional unavailable assets pinned in the repository.
 - Implement immutable Terminology releases and revisioned, manually maintained study sponsor extensions bound to exact base releases and codelists.
 - Implement typed study Reference identities and immutable revisions with atomic import/export, optional exact code bindings, retirement, refresh-required events, and dependency invalidation.
 - Implement the Templates registry with immutable assets, artifact-type applicability, content-schema and renderer compatibility, and an enforced presentation-only boundary.
@@ -62,7 +62,7 @@ The release is accepted only when a complete study can register and validate raw
 - A caller with a valid test JWT can create a study and upload/download a source file.
 - A worker can claim, complete, retry, and recover a leased job.
 - An artifact can be built, downloaded, marked stale by an upstream change, and retained.
-- Pinned standards, terminology, and template assets and historical Reference or extension revisions can be queried by exact version without runtime downloads.
+- Imported standards and terminology snapshots, pinned templates, and historical Reference or extension revisions can be queried by exact version without runtime provider downloads.
 - Every clinical aggregate can atomically bind exact compatible dependencies; `latest` aliases, incompatible sets, cross-study revisions, and unavailable versions are rejected.
 - Publishing a new immutable registry version leaves existing selections current, while superseding a selected Reference or extension revision requires explicit refresh and stales dependent evidence without rewriting clinical content.
 - A caller can maintain study reference data and review items, select an exact rule pack, and run an idempotent reconciliation against exact inputs.
@@ -327,7 +327,7 @@ Production deployment runs database migrations as a controlled step, deploys API
 
 | Risk                                                             | Mitigation                                                                                                                                                                           |
 | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Standards assets are incomplete or ambiguously licensed          | Pin approved local assets, record provenance, and fail clearly when unavailable                                                                                                      |
+| CDISC content is unavailable, incomplete, or ambiguously licensed | Import only approved exact releases, retain immutable checksummed snapshots and provenance, keep required non-Library schemas locally, and fail clearly when unavailable             |
 | Registry versions are combined incompatibly                      | Persist compatibility links and validate exact version selections before use                                                                                                         |
 | New registry versions silently alter existing work               | Require exact module-owned selections; never resolve `latest` or auto-upgrade                                                                                                        |
 | Reference or extension corrections overwrite evidence            | Create immutable revisions, require explicit refresh, and stale dependent evidence                                                                                                   |

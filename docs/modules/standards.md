@@ -1,7 +1,9 @@
 # Standards module
 
-Status: implemented as a read-only catalog of repository-pinned standard products,
-versions, assets, and compatibility relationships.
+Status: implemented as a read-only catalog of exact standard products, versions,
+checksum-addressed assets, and compatibility relationships. CDISC releases are acquired
+on demand from CDISC Library by the offline administration command; public API and worker
+operations never call the provider.
 
 ## Use it
 
@@ -18,8 +20,8 @@ Invoke-RestMethod -Uri "$base/standard-versions/$($versions[0].id)/compatibiliti
 
 Use filters such as provider, module, purpose, lifecycle, and compatible version when they
 appear in OpenAPI. Filters narrow the catalog; they never choose a version for an aggregate.
-Asset content is returned from the checked repository copy after checksum verification.
+Asset content is returned from the immutable object-store snapshot after checksum verification.
 
-There are no runtime create, edit, or delete endpoints. Publishing a standard is a reviewed
-repository and seed-data change. Existing aggregates remain pinned when a newer version is
-published.
+There are no runtime create, edit, or delete endpoints. Importing a standard is an explicit
+administrator operation selecting one exact CDISC Library href. Existing aggregates remain
+pinned when a newer version is published or imported.

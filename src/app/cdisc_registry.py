@@ -1,7 +1,8 @@
-"""Offline CLI for snapshotting and registering CDISC Library content."""
+"""Offline CLI for importing and registering immutable CDISC Library content."""
 
 import argparse
 import logging
+import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 from uuid import UUID
@@ -16,6 +17,8 @@ from app.artifacts.storage import (
 )
 from app.cdisc_library_registry import (
     load_and_publish_library_snapshot,
+    publish_library_selection,
+    register_library_selection_rows,
     register_library_snapshot_rows,
 )
 from app.common.asset_content import publish_verified_asset
@@ -26,7 +29,7 @@ from app.config import Settings, get_settings
 from app.database import create_database_engine, create_session_factory
 from app.integration.cdisc_library import HttpCdiscLibraryClient
 from app.standards.importer import import_standard_manifest, publish_standard_manifest
-from app.standards.library_snapshot import create_library_snapshot
+from app.standards.library_snapshot import create_library_snapshot, fetch_library_selection
 from app.standards.models import StandardAsset, StandardVersion
 from app.terminology.importer import import_terminology_manifest, publish_terminology_manifest
 from app.terminology.models import TerminologyAsset, TerminologyRelease
@@ -38,12 +41,13 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Snapshot and register repository-pinned CDISC Library content."
+        description="Import exact CDISC Library selections into immutable object storage."
     )
     commands = parser.add_subparsers(dest="command", required=True)
 
     snapshot = commands.add_parser(
-        "snapshot-all", help="Fetch the entire linked CDISC Library catalog into pinned files."
+        "snapshot-all",
+        help="Legacy: fetch the entire linked CDISC Library catalog into pinned files.",
     )
     snapshot.add_argument(
         "--max-resources",
@@ -55,6 +59,20 @@ def _arguments() -> argparse.Namespace:
         "register-snapshot", help="Register one complete checked Library snapshot."
     )
     register_snapshot.add_argument("manifest", type=Path)
+
+    import_selection = commands.add_parser(
+        "import-selection",
+        help="Fetch and register one exact CDISC release without retaining repository files.",
+    )
+    import_selection.add_argument(
+        "href",
+        help="Concrete Library href, for example /mdr/sdtmig/3-4.",
+    )
+    import_selection.add_argument(
+        "--max-resources",
+        type=int,
+        help="Safety ceiling; defaults to CDISC_LIBRARY_MAX_RESOURCES.",
+    )
 
     register_manifests = commands.add_parser(
         "register-manifests", help="Register reviewed hand-maintained package manifests."
@@ -109,6 +127,51 @@ def _register_snapshot(settings: Settings, manifest_path: Path) -> None:
     with factory.begin() as session:
         register_library_snapshot_rows(session, manifest, manifest_path.resolve(), REPOSITORY_ROOT)
     print(f"registered {manifest.resource_count} CDISC Library resources")
+
+
+def _import_selection(settings: Settings, href: str, max_resources: int | None) -> None:
+    api_key = settings.cdisc_library_api_key
+    if api_key is None or not api_key.get_secret_value():
+        raise SystemExit("CDISC_LIBRARY_API_KEY is required for import-selection")
+
+    def progress(count: int, current_href: str) -> None:
+        if count == 1 or count % 100 == 0:
+            print(f"fetched {count} resources; current={current_href}", flush=True)
+
+    with tempfile.TemporaryDirectory(prefix="aurinara-cdisc-") as temporary_directory:
+        with HttpCdiscLibraryClient(
+            base_url=settings.cdisc_library_base_url,
+            api_key=api_key.get_secret_value(),
+            timeout_seconds=settings.cdisc_library_timeout_seconds,
+        ) as client:
+            selection = fetch_library_selection(
+                reader=client,
+                staging_root=Path(temporary_directory) / "selection",
+                library_base_url=settings.cdisc_library_base_url,
+                selected_href=href,
+                max_resources=(
+                    max_resources
+                    if max_resources is not None
+                    else settings.cdisc_library_max_resources
+                ),
+                parallel_requests=settings.cdisc_library_parallel_requests,
+                progress=progress,
+            )
+        storage = S3ObjectStorage(settings)
+        publish_library_selection(storage, selection)
+        factory = create_session_factory(create_database_engine(settings))
+        with factory.begin() as session:
+            register_library_selection_rows(
+                session,
+                selection.manifest,
+                selection.local_files,
+                REPOSITORY_ROOT,
+            )
+    print(
+        f"registered {selection.manifest.resource_count} resources from "
+        f"{selection.manifest.selected_href}",
+        flush=True,
+    )
 
 
 def _register_manifests(settings: Settings, arguments: argparse.Namespace) -> None:
@@ -166,6 +229,12 @@ def _is_group_digest(asset_path: str, stored_checksum: str, allowed_root: str) -
     return actual != stored_checksum
 
 
+def _is_repository_asset(asset_path: str, allowed_root: str) -> bool:
+    """Return whether an asset locator names a file under its reviewed repository root."""
+
+    return asset_path.startswith(f"{allowed_root}/")
+
+
 def _publish_assets(settings: Settings, arguments: argparse.Namespace) -> None:
     if arguments.batch_size <= 0:
         raise SystemExit("--batch-size must be positive")
@@ -173,6 +242,7 @@ def _publish_assets(settings: Settings, arguments: argparse.Namespace) -> None:
     factory = create_session_factory(create_database_engine(settings))
     processed = 0
     skipped_group_digests = 0
+    skipped_external_assets = 0
 
     def _progress(label: str, identifier: str) -> None:
         nonlocal processed
@@ -181,8 +251,11 @@ def _publish_assets(settings: Settings, arguments: argparse.Namespace) -> None:
             logger.debug("publish-assets %s current=%s", label, identifier)
             print(f"publish-assets processed {processed}; last={label}", flush=True)
 
-    # Per-asset rows carry a real file sha256 and are always publishable.
+    # Repository-backed per-asset rows carry a real file sha256 and are publishable.
     for standard_asset in _stream_rows(factory, StandardAsset, arguments.batch_size):
+        if not _is_repository_asset(standard_asset.asset_path, "schemas"):
+            skipped_external_assets += 1
+            continue
         label = _publish_asset_row(
             storage,
             asset_path=standard_asset.asset_path,
@@ -195,6 +268,9 @@ def _publish_assets(settings: Settings, arguments: argparse.Namespace) -> None:
         )
         _progress(label, str(standard_asset.id))
     for terminology_asset in _stream_rows(factory, TerminologyAsset, arguments.batch_size):
+        if not _is_repository_asset(terminology_asset.asset_path, "terminology"):
+            skipped_external_assets += 1
+            continue
         label = _publish_asset_row(
             storage,
             asset_path=terminology_asset.asset_path,
@@ -209,6 +285,9 @@ def _publish_assets(settings: Settings, arguments: argparse.Namespace) -> None:
 
     # Hand-maintained manifest files; synthetic group-digest rows own no file object.
     for standard_version in _stream_rows(factory, StandardVersion, arguments.batch_size):
+        if not _is_repository_asset(standard_version.asset_path, "schemas"):
+            skipped_external_assets += 1
+            continue
         if _is_group_digest(standard_version.asset_path, standard_version.checksum, "schemas"):
             skipped_group_digests += 1
             continue
@@ -224,6 +303,9 @@ def _publish_assets(settings: Settings, arguments: argparse.Namespace) -> None:
         )
         _progress(label, str(standard_version.id))
     for release in _stream_rows(factory, TerminologyRelease, arguments.batch_size):
+        if not _is_repository_asset(release.asset_path, "terminology"):
+            skipped_external_assets += 1
+            continue
         if _is_group_digest(release.asset_path, release.checksum, "terminology"):
             skipped_group_digests += 1
             continue
@@ -241,7 +323,8 @@ def _publish_assets(settings: Settings, arguments: argparse.Namespace) -> None:
 
     print(
         f"publish-assets complete: processed={processed}, "
-        f"group-digests-skipped={skipped_group_digests}",
+        f"group-digests-skipped={skipped_group_digests}, "
+        f"external-assets-skipped={skipped_external_assets}",
         flush=True,
     )
 
@@ -275,6 +358,8 @@ def main() -> None:
         _snapshot_all(settings, arguments.max_resources)
     elif arguments.command == "register-snapshot":
         _register_snapshot(settings, arguments.manifest)
+    elif arguments.command == "import-selection":
+        _import_selection(settings, arguments.href, arguments.max_resources)
     elif arguments.command == "publish-assets":
         _publish_assets(settings, arguments)
     else:

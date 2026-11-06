@@ -1,4 +1,4 @@
-"""Register a complete pinned CDISC Library snapshot in provider catalogs."""
+"""Register immutable CDISC Library snapshots in provider catalogs."""
 
 import json
 import re
@@ -15,8 +15,10 @@ from app.common.asset_content import publish_verified_asset
 from app.common.canonical import canonical_json, sha256_hex
 from app.common.repository_assets import verify_repository_asset
 from app.standards.library_snapshot import (
+    CdiscLibrarySelectionManifest,
     CdiscLibrarySnapshotManifest,
     CdiscLibrarySnapshotResource,
+    FetchedCdiscLibrarySelection,
 )
 from app.standards.models import StandardAsset, StandardProduct, StandardVersion
 from app.terminology.models import (
@@ -165,9 +167,16 @@ def _group_checksum(resources: list[CdiscLibrarySnapshotResource]) -> str:
 
 
 def _resource_content(
-    resource: CdiscLibrarySnapshotResource, repository_root: Path
+    resource: CdiscLibrarySnapshotResource,
+    repository_root: Path,
+    local_files: dict[str, Path] | None = None,
 ) -> dict[str, object]:
-    payload = json.loads((repository_root / resource.asset_path).read_text(encoding="utf-8"))
+    path = (
+        local_files[resource.canonical_href]
+        if local_files is not None
+        else repository_root / resource.asset_path
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError(f"snapshotted resource is not an object: {resource.canonical_href}")
     return payload
@@ -189,8 +198,7 @@ def _register_standard_group(
     *,
     identity: tuple[str, str, str, str, str, str],
     resources: list[CdiscLibrarySnapshotResource],
-    manifest_path: Path,
-    repository_root: Path,
+    provenance: dict[str, object],
 ) -> None:
     code, name, family, product_type, scope, version = identity
     product_id = uuid5(REGISTRY_NAMESPACE, f"standard-product:{code}")
@@ -222,8 +230,8 @@ def _register_standard_group(
         content_schema_version="1.0.0",
         lifecycle="active",
         checksum=checksum,
-        asset_path=manifest_path.relative_to(repository_root.resolve()).as_posix(),
-        provenance={"source": "CDISC Library", "snapshot": str(manifest_path)},
+        asset_path=min(resources, key=lambda item: len(item.canonical_href)).asset_path,
+        provenance=provenance,
         applicable_modules=_modules(code),
         purposes=_purposes(code),
         compatibility={"resource_count": len(resources)},
@@ -256,6 +264,8 @@ def _register_terminology_group(
     identity: tuple[str, str, str],
     resources: list[CdiscLibrarySnapshotResource],
     repository_root: Path,
+    provenance: dict[str, object] | None = None,
+    local_files: dict[str, Path] | None = None,
 ) -> None:
     code, product, version = identity
     release_id = uuid5(REGISTRY_NAMESPACE, f"terminology-release:{code}:{version}")
@@ -279,7 +289,8 @@ def _register_terminology_group(
         checksum=checksum,
         asset_path=root_resource.asset_path,
         applicable_modules=_modules(product),
-        provenance={"source": "CDISC Library", "resource_count": len(resources)},
+        provenance=provenance
+        or {"source": "CDISC Library", "resource_count": len(resources)},
     )
     session.add(release)
     session.flush()
@@ -304,7 +315,7 @@ def _register_terminology_group(
     codelist_rows: list[dict[str, object]] = []
     term_rows: list[dict[str, object]] = []
     for resource in resources:
-        resource_payload = _resource_content(resource, repository_root)
+        resource_payload = _resource_content(resource, repository_root, local_files)
         for payload in _codelist_payloads(resource_payload):
             concept_id = payload.get("conceptId")
             submission_value = payload.get("submissionValue")
@@ -429,6 +440,14 @@ def register_library_snapshot_rows(
     """Insert catalog rows for a snapshot the publish pass already validated."""
 
     overall = manifest.library_updated["overall"]
+    provenance: dict[str, object] = {
+        "source": "CDISC Library",
+        "acquisition_mode": "complete_repository_snapshot",
+        "library_base_url": manifest.library_base_url,
+        "library_updated": manifest.library_updated,
+        "captured_at": manifest.captured_at.isoformat(),
+        "resource_count": manifest.resource_count,
+    }
     standard_groups: defaultdict[
         tuple[str, str, str, str, str, str], list[CdiscLibrarySnapshotResource]
     ] = defaultdict(list)
@@ -445,8 +464,7 @@ def register_library_snapshot_rows(
             session,
             identity=standard_identity,
             resources=resources,
-            manifest_path=manifest_path,
-            repository_root=repository_root,
+            provenance=provenance,
         )
     for terminology_identity, resources in terminology_groups.items():
         _register_terminology_group(
@@ -454,7 +472,94 @@ def register_library_snapshot_rows(
             identity=terminology_identity,
             resources=resources,
             repository_root=repository_root,
+            provenance=provenance,
         )
+
+
+def publish_library_selection(
+    storage: ObjectStorage, selection: FetchedCdiscLibrarySelection
+) -> None:
+    """Publish fetched resources before any registry transaction is opened."""
+
+    for resource in selection.manifest.resources:
+        publish_verified_asset(
+            storage,
+            selection.local_files[resource.canonical_href],
+            resource.sha256,
+            resource.media_type,
+        )
+
+
+def register_library_selection_rows(
+    session: Session,
+    selection: CdiscLibrarySelectionManifest,
+    local_files: dict[str, Path],
+    repository_root: Path,
+) -> None:
+    """Register one on-demand release after its resources have been published."""
+
+    if selection.resource_count != len(selection.resources) or not selection.resources:
+        raise ValueError("CDISC Library selection inventory is incomplete")
+    if selection.selected_href not in {
+        resource.canonical_href for resource in selection.resources
+    }:
+        raise ValueError("CDISC Library selection does not contain its selected root")
+    hrefs = [resource.canonical_href for resource in selection.resources]
+    if len(hrefs) != len(set(hrefs)):
+        raise ValueError("CDISC Library selection contains duplicate canonical hrefs")
+    if set(hrefs) != set(local_files):
+        raise ValueError("CDISC Library selection staging files do not match its inventory")
+
+    overall = selection.library_updated["overall"]
+    provenance: dict[str, object] = {
+        "source": "CDISC Library",
+        "acquisition_mode": "on_demand_selection",
+        "library_base_url": selection.library_base_url,
+        "selected_href": selection.selected_href,
+        "library_updated": selection.library_updated,
+        "captured_at": selection.captured_at.isoformat(),
+        "resource_count": selection.resource_count,
+    }
+    categories = {resource.category for resource in selection.resources}
+    if len(categories) != 1:
+        raise ValueError("one CDISC Library selection cannot mix standards and terminology")
+    if categories == {"terminology"}:
+        groups: defaultdict[tuple[str, str, str], list[CdiscLibrarySnapshotResource]] = (
+            defaultdict(list)
+        )
+        for resource in selection.resources:
+            groups[_terminology_group(resource, overall)].append(resource)
+        if len(groups) != 1:
+            raise ValueError("selected terminology graph resolved to more than one release")
+        identity, resources = next(iter(groups.items()))
+        if identity[0] == "CDISC_CT_CATALOG":
+            raise ValueError("selected href is not a supported terminology package release")
+        _register_terminology_group(
+            session,
+            identity=identity,
+            resources=resources,
+            repository_root=repository_root,
+            provenance=provenance,
+            local_files=local_files,
+        )
+        return
+
+    standard_groups: defaultdict[
+        tuple[str, str, str, str, str, str], list[CdiscLibrarySnapshotResource]
+    ] = defaultdict(list)
+    for resource in selection.resources:
+        standard_groups[_standard_group(resource, overall)].append(resource)
+    if len(standard_groups) != 1:
+        raise ValueError("selected standard graph resolved to more than one release")
+    standard_identity, standard_resources = next(iter(standard_groups.items()))
+    if standard_identity[0] == "CDISC_LIBRARY_CATALOG":
+        raise ValueError("selected href is not a supported standard product release")
+    _register_standard_group(
+        session,
+        identity=standard_identity,
+        resources=standard_resources,
+        provenance=provenance,
+    )
 
 
 def register_library_snapshot(

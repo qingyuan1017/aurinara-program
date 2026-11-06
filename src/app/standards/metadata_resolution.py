@@ -1,14 +1,15 @@
 """Typed resolution of immutable JSON metadata from the Standards registry."""
 
-import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.artifacts.storage import ObjectStorage
+from app.common.asset_content import AssetContentError, read_verified_asset_json_object
 from app.common.repository_assets import verify_repository_asset
 from app.standards.models import StandardAsset, StandardProduct, StandardVersion
 
@@ -30,6 +31,7 @@ def resolve_standard_metadata(
     session: Session,
     standard_version_id: UUID,
     *,
+    storage: ObjectStorage,
     repository_root: Path,
 ) -> ResolvedStandardMetadata:
     """Resolve and verify the root JSON asset for one exact standard version.
@@ -54,18 +56,27 @@ def resolve_standard_metadata(
     )
     if asset is None or asset.media_type != "application/json":
         raise ValueError("the selected standard version has no JSON root metadata asset")
-    path, _ = verify_repository_asset(
-        repository_root,
-        asset.asset_path,
-        asset.checksum,
-        allowed_root="schemas",
-    )
+    local_fallback: Callable[[], Path] | None = None
+    if storage.local_fallback_enabled and asset.asset_path.startswith("schemas/"):
+        def load_local_asset() -> Path:
+            return verify_repository_asset(
+                repository_root,
+                asset.asset_path,
+                asset.checksum,
+                allowed_root="schemas",
+            )[0]
+
+        local_fallback = load_local_asset
     try:
-        raw_payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        raise ValueError("the selected standard metadata asset is invalid JSON") from error
-    if not isinstance(raw_payload, dict):
-        raise ValueError("the selected standard metadata root must be a JSON object")
+        raw_payload = read_verified_asset_json_object(
+            storage,
+            asset.checksum,
+            local_fallback=local_fallback,
+        )
+    except AssetContentError as error:
+        raise ValueError(
+            f"the selected standard metadata asset is unavailable ({error.reason})"
+        ) from error
     return ResolvedStandardMetadata(
         version_id=version.id,
         product_code=product.code,
@@ -73,5 +84,5 @@ def resolve_standard_metadata(
         version=version.version,
         canonical_href=version.library_href,
         checksum=asset.checksum,
-        payload=cast(dict[str, object], raw_payload),
+        payload=raw_payload,
     )

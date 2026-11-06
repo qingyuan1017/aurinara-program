@@ -1,7 +1,8 @@
 # Terminology module
 
 Status: immutable terminology-release browsing plus revisioned, study-scoped sponsor
-extensions.
+extensions. Published CDISC releases are imported on demand from one exact Library package
+href and retained as checksum-addressed object-store snapshots.
 
 ## Browse a pinned release
 

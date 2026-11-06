@@ -29,6 +29,12 @@ The following are non-negotiable Release 1 boundaries:
 - There is no legacy-backend compatibility layer or legacy migration requirement.
 - Fine-grained RBAC, electronic signatures, formal audit trails, document comparison, regulatory-gateway submission, and built-in SAS execution remain deferred unless the project scope is explicitly changed.
 
+### Current compatibility and footprint policy
+
+Release 1 has not established a production compatibility baseline. Until that baseline is explicitly declared, backward compatibility with earlier repository revisions, prototype APIs, development databases, import formats, commands, or internal contracts is not a requirement. When a contract changes, update its implementation, migrations, callers, fixtures, tests, generated clients, and documentation together. Prefer removing a superseded path over retaining compatibility aliases, shims, dual reads or writes, deprecated endpoints, migration-only commands, or legacy fallbacks. Database migrations must still apply cleanly from an empty database, but existing development data need not be preserved unless a task explicitly requires it. Never interpret this policy as permission to discard immutable evidence or user data outside the exact scope authorized by the user.
+
+Keep the system lightweight by default. Minimize installed and deployed components, dependencies, background services, duplicated metadata, checked-in provider content, caches, compatibility layers, and speculative abstractions. Acquire large external standards or reference packages on demand, retain only exact immutable selections required for reproducibility, and deduplicate bytes by checksum. Prefer extending the modular monolith and existing typed boundaries over introducing another service or storage mechanism. Lightweight design must not weaken study isolation, validation, provenance, deterministic generation, immutable artifacts, retry safety, security controls, or execution isolation.
+
 ## Architecture
 
 Use Python 3.13, FastAPI, Pydantic 2, SQLAlchemy 2, Alembic, PostgreSQL 16, and S3-compatible object storage. MinIO is the local object store.
@@ -65,7 +71,7 @@ Keep `common` limited to technical primitives such as UUIDs, clocks, database se
 
 `kernel` owns the typed module-extension contracts, module descriptor, capability protocols, and startup registry. `integration` owns external-system registrations, external identifier bindings, event subscriptions, delivery attempts, signing, and connector boundaries. Neither package owns clinical content. Do not implement runtime loading of arbitrary Python packages or let integrations bypass an owning module's application service.
 
-`standards`, `terminology`, and `templates` own versioned registries over pinned repository assets. `reference` owns manually maintained study reference data. `review` owns human questions, comments, assignments, and dispositions without claiming electronic signatures. `reconciliation` owns immutable comparisons between exact revisions and artifacts. These packages expose typed interfaces and must not become generic bypasses around module ownership.
+`standards` and `terminology` own versioned registries over exact, checksum-addressed provider snapshots acquired on demand; `templates` owns versioned, repository-pinned presentation assets. `reference` owns manually maintained study reference data. `review` owns human questions, comments, assignments, and dispositions without claiming electronic signatures. `reconciliation` owns immutable comparisons between exact revisions and artifacts. These packages expose typed interfaces and must not become generic bypasses around module ownership.
 
 `transformation` is an internal compilation package. It owns typed dataflow and analysis intermediate representations, core operators, canonicalization, lineage propagation, and deterministic compiler interfaces shared by SDTM, ADaM, and TLF. It does not define a public or persisted universal `TransformationPlan`, and it owns no study mapping, derivation, analysis choice, target metadata, or presentation rule. SDTM owns one Specification (all domains) plus one Derivation Plan per domain; ADaM owns one Specification (all datasets) plus one Derivation Plan per dataset; TLF owns ARS plus ProgramPlan. These remain module-owned authoring contracts even where their outer envelopes are consistent. TLF rendering remains outside the framework.
 
@@ -103,8 +109,8 @@ src/app/                 API and domain application
 workers/                 durable build and execution workers
 runners/                 isolated Python/R runners and SAS adapter
 migrations/              Alembic migrations
-schemas/                 pinned standards schemas
-terminology/             pinned controlled terminology releases
+schemas/                 pinned conformance schemas and exceptional provider assets
+terminology/             synthetic fixtures and exceptional terminology assets
 templates/               versioned presentation templates
 tests/unit/              fast domain and validator tests
 tests/integration/       PostgreSQL and object-store tests
@@ -259,7 +265,7 @@ Do not run user programs in the API or worker process. Do not weaken isolation f
 
 ## Standards and file generation
 
-Pin USDM, Define-XML, controlled terminology, and template assets in the repository with provenance and version metadata. Tests must not download standards, terminology, or template assets at runtime.
+Acquire CDISC standards and controlled terminology from the CDISC Library only through an explicit administrator-selected import. Persist the selected release graph as immutable checksum-addressed object-store snapshots with provenance; never fetch provider content during validation, generation, execution, reconciliation, or packaging. Keep locally required conformance schemas such as Define-XML XSDs, assets unavailable from the Library, and templates pinned in the repository with provenance and version metadata. Tests must not contact CDISC or download schemas, terminology, or templates at runtime.
 
 - Validate Define-XML 2.0 and 2.1 against their locally bundled XSDs.
 - Reconcile Define metadata with the exact selected XPT datasets.

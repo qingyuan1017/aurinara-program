@@ -26,7 +26,7 @@ class StandardProduct(UuidPrimaryKey, Base):
 
 
 class StandardVersion(UuidPrimaryKey, Base):
-    """Immutable exact version backed by repository-pinned assets."""
+    """Immutable exact version backed by checksum-addressed provider assets."""
 
     __tablename__ = "standard_versions"
     __table_args__ = (UniqueConstraint("product_id", "version"),)

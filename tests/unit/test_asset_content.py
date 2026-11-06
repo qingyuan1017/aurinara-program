@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock
+from uuid import uuid4
 
 import pytest
 from botocore.exceptions import ClientError, EndpointConnectionError
@@ -24,6 +25,8 @@ from app.common.asset_content import (
 )
 from app.common.canonical import sha256_hex
 from app.config import Settings
+from app.standards.metadata_resolution import resolve_standard_metadata
+from app.standards.models import StandardAsset, StandardProduct, StandardVersion
 
 
 class _FakeStorage(ObjectStorage):
@@ -172,6 +175,59 @@ def test_publish_uploads_to_checksum_key(tmp_path: Path) -> None:
     assert storage.put_calls == [(key, "application/json")]
 
 
+def test_standard_metadata_resolution_supports_object_store_only_asset(tmp_path: Path) -> None:
+    storage = _FakeStorage(local_fallback_enabled=True)
+    checksum = _store_object(storage, b'{"name":"SDTMIG"}')
+    product = StandardProduct(
+        id=uuid4(),
+        code="SDTMIG",
+        name="SDTM Implementation Guide",
+        provider="CDISC",
+        family="SDTMIG",
+        product_type="implementation_guide",
+        scope="clinical",
+    )
+    version = StandardVersion(
+        id=uuid4(),
+        product_id=product.id,
+        version="3-4",
+        lifecycle="active",
+        checksum=checksum,
+        asset_path=f"external/cdisc-library/{checksum}.json",
+        provenance={"source": "CDISC Library"},
+        applicable_modules=["sdtm"],
+        purposes=["sdtm_ig"],
+        compatibility={},
+        library_href="/mdr/sdtmig/3-4",
+    )
+    asset = StandardAsset(
+        id=uuid4(),
+        version_id=version.id,
+        role="product",
+        media_type="application/json",
+        asset_path=f"external/cdisc-library/{checksum}.json",
+        checksum=checksum,
+        required=True,
+        canonical_href=version.library_href,
+    )
+    session = MagicMock()
+    session.get.side_effect = lambda model, _identifier: {
+        StandardVersion: version,
+        StandardProduct: product,
+    }[model]
+    session.scalar.return_value = asset
+
+    resolved = resolve_standard_metadata(
+        session,
+        version.id,
+        storage=storage,
+        repository_root=tmp_path,
+    )
+
+    assert resolved.payload == {"name": "SDTMIG"}
+    assert resolved.checksum == checksum
+
+
 def _s3_storage() -> S3ObjectStorage:
     storage = S3ObjectStorage(Settings(_env_file=None))
     storage._client = MagicMock()  # type: ignore[attr-defined]
@@ -262,7 +318,7 @@ def test_load_presentation_template_without_fallback_raises_object_missing() -> 
 
 
 def test_group_digest_skip_detection() -> None:
-    from app.cdisc_registry import REPOSITORY_ROOT, _is_group_digest
+    from app.cdisc_registry import REPOSITORY_ROOT, _is_group_digest, _is_repository_asset
 
     relative = "schemas/platform/dependency-selection-1.0.0.json"
     actual = sha256_hex((REPOSITORY_ROOT / relative).read_bytes())
@@ -271,6 +327,8 @@ def test_group_digest_skip_detection() -> None:
     assert _is_group_digest(relative, actual, "schemas") is False
     # A row whose stored checksum is a synthetic digest (does not match the file) is skipped.
     assert _is_group_digest(relative, sha256_hex(b"synthetic-group-digest"), "schemas") is True
+    assert _is_repository_asset(relative, "schemas") is True
+    assert _is_repository_asset("external/cdisc-library/example.json", "schemas") is False
 
 
 def test_s3_exists_true_false_and_error() -> None:
