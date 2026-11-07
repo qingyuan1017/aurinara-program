@@ -58,6 +58,7 @@ def resolve_standard_metadata(
         raise ValueError("the selected standard version has no JSON root metadata asset")
     local_fallback: Callable[[], Path] | None = None
     if storage.local_fallback_enabled and asset.asset_path.startswith("schemas/"):
+
         def load_local_asset() -> Path:
             return verify_repository_asset(
                 repository_root,

@@ -18,13 +18,13 @@ links in the same transaction as each Specification revision.
 ## Create a workbench and select dependencies
 
 ```powershell
-$adam = Invoke-WebRequest -Method Post -Uri "$base/studies/$studyId/adams" -Headers $headers `
+$adam = Invoke-WebRequest -Method Post -Uri "$base/studies/$studyId/adam-workbenches" -Headers $headers `
   -ContentType "application/json" -Body '{"code":"ADAM-01","name":"ADaM workbench"}'
 $adamBody = $adam.Content | ConvertFrom-Json
 $etag = $adam.Headers.ETag
 ```
 
-Use `PUT /adams/{adam_id}/dependencies` with the current `ETag` to replace the complete
+Use `PUT /adam-workbenches/{adam_id}/dependencies` with the current `ETag` to replace the complete
 dependency selection. If ADaM and the chosen SDTM context both select the same Standard
 purpose or Terminology scope, their exact version IDs must match.
 
@@ -44,19 +44,19 @@ $body = @{
   )
 } | ConvertTo-Json -Depth 5
 
-$selection = Invoke-WebRequest -Method Put -Uri "$base/adams/$($adamBody.id)/input-selection" `
+$selection = Invoke-WebRequest -Method Put -Uri "$base/adam-workbenches/$($adamBody.id)/input-selection" `
   -Headers ($headers + @{ "If-Match" = $etag }) -ContentType "application/json" -Body $body
 $etag = $selection.Headers.ETag
 ```
 
 The API accepts only available `sdtm_dataset_xpt` artifacts from the current aligned SDTM
 Specification, input selection, and Derivation Plan. The validation run must be successful,
-error-free, and bind those same exact revisions. `GET /adams/{id}/sdtm-context` returns only
+error-free, and bind those same exact revisions. `GET /adam-workbenches/{id}/sdtm-context` returns only
 the XPT artifacts selected by this ADaM workbench, plus the SDTM metadata snapshot.
 
 ## Save an ADaM Specification
 
-`PUT /adams/{id}/specification` creates a new immutable revision and requires `If-Match`.
+`PUT /adam-workbenches/{id}/specification` creates a new immutable revision and requires `If-Match`.
 The request is one atomic document containing:
 
 - datasets with stable UUIDs, natural codes, class, structure, keys, and sort order;
@@ -117,7 +117,7 @@ Example skeleton:
 
 ### Import and export
 
-`GET /adams/{id}/specification/export?format=json|xlsx` returns a non-persisting export of
+`GET /adam-workbenches/{id}/specification:export?format=json|xlsx` returns a non-persisting export of
 the current revision. The versioned workbook contains `Metadata`, `Datasets`, `Variables`,
 `Parameters`, `ValueLevel`, `Methods`, and `TraceTargets` sheets and preserves typed expressions,
 origins, terminology bindings, stable UUIDs, method-to-node links, and exact trace endpoints.
@@ -129,14 +129,14 @@ value-level items. The save fails with
 not registered. Replacing a Specification revision removes only its superseded declared links;
 the normalized `trace_links` table remains the single relationship store.
 
-`POST /adams/{id}/specification/import` accepts JSON or that XLSX contract. It requires the
+`POST /adam-workbenches/{id}/specification:import` accepts JSON or that XLSX contract. It requires the
 current `If-Match` value and an `Idempotency-Key`. The complete workbook is validated before
 one immutable revision is committed. Replaying the same key and bytes returns the original
 revision; reusing the key for different bytes returns a conflict.
 
 ## Save and validate a Derivation Plan
 
-`PUT /adams/{id}/derivation-plan` also requires the current `ETag`. Its
+`PUT /adam-workbenches/{id}/derivation-plan` also requires the current `ETag`. Its
 `specification_revision` and `input_selection_revision` must match the current records.
 
 ```json
@@ -156,14 +156,14 @@ The initial node vocabulary is `sdtm_read`, `adam_read`, `filter`, `derive`, `se
 `assert`, and `dataset_write`. Expressions are typed expression objects; raw code in ordinary
 nodes and arbitrary expression strings are rejected. A plan may declare typed named
 `custom_functions` with fixed signatures and explicit Python, R, and/or SAS bodies, then invoke
-them through `custom_function` expressions. `POST /adams/{id}/derivation-plan/validate`
+them through `custom_function` expressions. `POST /adam-workbenches/{id}/derivation-plan:validate`
 checks current alignment and returns the deterministic internal IR fingerprint.
 
-`POST /adams/{id}/derivation-plan/preview` accepts optional target `datasets` and a row
+`POST /adam-workbenches/{id}/derivation-plan:preview` accepts optional target `datasets` and a row
 `limit` from 1 through 200. The SDTM module verifies and reads the exact selected XPT bytes,
 including their SHA-256 checksums; ADaM receives only typed rows through the context interface.
 The same lowered IR used by later compilation evaluates the bounded preview. Results are
-transient and are not artifacts. `GET /adams/{id}/lineage` returns the normalized ancestor
+transient and are not artifacts. `GET /adam-workbenches/{id}/lineage` returns the normalized ancestor
 node IDs for each declared dataset write.
 
 Saving a new Specification or input selection marks the current plan `misaligned`. Until a
@@ -173,12 +173,12 @@ ADaM metadata itself is not rewritten or silently rebound.
 
 ## Validate, build, compile, and execute
 
-`POST /adams/{id}/validate` creates an immutable, zero-error validation snapshot over the exact
+`POST /adam-workbenches/{id}:validate` creates an immutable, zero-error validation snapshot over the exact
 ADaM dependency selection, selected SDTM context and XPT checksums, Specification revision,
 Derivation Plan revision, and normalized IR. Compilation and artifact generation require a
 current successful snapshot; a later authoring or input change makes it unusable.
 
-`POST /adams/{id}/artifacts` accepts one or more of:
+`POST /adam-workbenches/{id}/artifacts:build` accepts one or more of:
 
 - `adam_dependency_manifest`
 - `adam_specification` (XLSX) and `adam_specification_json`
@@ -187,7 +187,7 @@ current successful snapshot; a later authoring or input change makes it unusable
 - `adam_validation_report` (JSON)
 - `adam_program_python`, `adam_program_r`, or `adam_program_sas`
 
-`POST /adams/{id}/compile` is the single-backend convenience route. Both routes require an
+`POST /adam-workbenches/{id}:compile` is the single-backend convenience route. Both routes require an
 `Idempotency-Key` and the expected canonical build-input fingerprint. The resulting immutable
 artifact records freeze dependency, input-selection, Specification, plan, validation, IR, and
 compiler provenance.
@@ -197,7 +197,7 @@ program is executable. If it does not, the compiler still creates a reviewable T
 `compiler.executable=false` and `compiler.todo_functions`; only execution of that artifact is
 rejected with `execution_custom_function_incomplete`.
 
-Use `POST /adams/{id}/execute` with the exact generated program, selected SDTM XPT artifact IDs,
+Use `POST /adam-workbenches/{id}:execute` with the exact generated program, selected SDTM XPT artifact IDs,
 validation run, authoring revisions, compiler fingerprint, program input fingerprint, limits,
 and an `Idempotency-Key`. Python and R use the shared isolated runner boundary. The dispatcher
 stages each checksum-bound XPT as deterministic CSV in a fresh workspace, validates that the
@@ -209,8 +209,8 @@ with the typed `runner_not_configured` result.
 
 ## Maintain version-neutral Define metadata
 
-The current Define foundation provides `GET` and `PUT /adams/{id}/define`,
-`POST /adams/{id}/define/initialize`, and `POST /adams/{id}/define/validate`.
+The current Define foundation provides `GET` and `PUT /adam-workbenches/{id}/define`,
+`POST /adam-workbenches/{id}/define:initialize`, and `POST /adam-workbenches/{id}/define:validate`.
 Every immutable revision pins the current Specification and input-selection revisions plus exact
 available `adam_dataset_xpt` artifact IDs, filenames, and checksums. Its datasets retain classes,
 roles, parameters, value-level metadata, origins, terminology bindings, and reviewer-readable
@@ -227,7 +227,7 @@ parameters, value-level metadata, origins, method bindings and definitions, and 
 bindings with the current Specification. Predecessor origins must resolve in the exact selected
 SDTM datasets or maintained ADaM metadata. It also checks complete dataset output coverage, exact
 leaf identity/checksums, and both repository-pinned XSD suites. `GET
-/adams/{id}/define/render?version=2.0|2.1` provides a non-persisting preview only after that
+/adam-workbenches/{id}/define:render?version=2.0|2.1` provides a non-persisting preview only after that
 validation succeeds.
 Exact terminology bindings render as ODM aliases. Parameters and complete typed value-level
 contracts are preserved deterministically in referenced Define comments. Conditions composed of
@@ -236,11 +236,11 @@ render as machine-readable `ValueListDef`/`WhereClauseDef` structures. Condition
 represented faithfully by Define range checks remain comment-only; the renderer never substitutes
 or simplifies their semantics.
 
-`POST /adams/{id}/define/reconcile` creates a durable immutable comparison between one exact
+`POST /adam-workbenches/{id}/define:reconcile` creates a durable immutable comparison between one exact
 Define revision and every selected ADaM XPT checksum. The capability-dispatched evaluator checks
 dataset coverage, filenames and labels; exact variable order, names, labels, types, lengths,
 origins, and methods; undefined XPT variables; and leaf identities, filenames, and checksums.
-After a zero-error reconciliation, `POST /adams/{id}/define/artifacts` can publish one or both
+After a zero-error reconciliation, `POST /adam-workbenches/{id}/define/artifacts:build` can publish one or both
 immutable `adam_define_xml_20` and `adam_define_xml_21` artifacts. Publication records the Define
 validation run, reconciliation run, local XSD fingerprint, dependencies, authoring revisions, and
 exact output checksums. A superseded SDTM context stales Define and ADRG validations and blocks
@@ -249,12 +249,12 @@ Define publication until the ADaM input selection and dependent evidence are ref
 ## Author, validate, and publish the ADRG
 
 Before producing ADaM evidence, select one exact compatible Template for each requested format
-with `PUT /adams/{id}/dependencies`. Use purpose `presentation`, artifact types
+with `PUT /adam-workbenches/{id}/dependencies`. Use purpose `presentation`, artifact types
 `adam_adrg_docx` and `adam_adrg_pdf`, and the same approved template version when it supports both
 formats. Changing that selection later correctly stales dependent evidence.
 
 ADRG initialization is available only after current Define validation and a successful zero-error
-`adam_define_outputs` reconciliation. Call `POST /adams/{id}/adrg/initialize` with the current
+`adam_define_outputs` reconciliation. Call `POST /adam-workbenches/{id}/adrg:initialize` with the current
 workbench `If-Match`, expected ADRG revision, exact current Define revision, and exact
 reconciliation run ID:
 
@@ -271,13 +271,13 @@ reconciliation run ID:
 Initialization derives immutable factual tables from the exact Define-selected XPT artifacts and
 their successful execution/program evidence. It creates the required narrative section shells but
 does not invent clinical conclusions. Populate every section's `paragraphs` with manually authored
-content and save the complete payload using `PUT /adams/{id}/adrg` plus the current `If-Match`.
+content and save the complete payload using `PUT /adam-workbenches/{id}/adrg` plus the current `If-Match`.
 Reinitializing with `expected_adrg_revision` set to the current ADRG revision refreshes factual
 evidence and preserves those paragraphs, headings, title, and version.
 
-`POST /adams/{id}/adrg/validate` creates an immutable validation snapshot. Missing manual content
+`POST /adam-workbenches/{id}/adrg:validate` creates an immutable validation snapshot. Missing manual content
 in any required section is an error. After zero-error validation, resolve the canonical build-input
-fingerprint and call `POST /adams/{id}/adrg/artifacts` with an `Idempotency-Key`:
+fingerprint and call `POST /adam-workbenches/{id}/adrg/artifacts:build` with an `Idempotency-Key`:
 
 ```json
 {

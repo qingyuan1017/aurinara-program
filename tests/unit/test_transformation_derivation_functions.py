@@ -11,7 +11,12 @@ from app.transformation.service import BackendCapabilityMissing, compile_dataflo
 
 def _expression(value: object) -> DerivationExpression:
     return DeriveNode.model_validate(
-        {"node_type": "derive", "id": "derive", "assignments": {"RESULT": value}}
+        {
+            "node_type": "derive",
+            "id": "derive",
+            "assignments": {"RESULT": value},
+            "result_types": {"RESULT": "character"},
+        }
     ).assignments["RESULT"]
 
 
@@ -19,7 +24,7 @@ def test_preview_evaluates_terminology_function() -> None:
     expression = _expression(
         {
             "kind": "terminology_map",
-            "value": {"kind": "column", "dataset": "RAW", "column": "SEX"},
+            "value": {"kind": "column", "column": "SEX"},
             "mappings": {"1": "M", "2": "F"},
             "unmapped": "preserve",
         }
@@ -57,7 +62,7 @@ def test_expression_codegen_uses_typed_runtime_functions() -> None:
     cast_expression = _expression(
         {
             "kind": "cast",
-            "value": {"kind": "column", "dataset": "RAW", "column": "AGE"},
+            "value": {"kind": "column", "column": "AGE"},
             "target_type": "integer",
             "invalid": "null",
         }
@@ -65,7 +70,7 @@ def test_expression_codegen_uses_typed_runtime_functions() -> None:
     mapping_expression = _expression(
         {
             "kind": "terminology_map",
-            "value": {"kind": "column", "dataset": "RAW", "column": "SEX"},
+            "value": {"kind": "column", "column": "SEX"},
             "mappings": {"M": "MALE", "F": "FEMALE"},
             "unmapped": "preserve",
         }
@@ -92,7 +97,6 @@ def test_sas_reports_unsupported_error_policies_before_publication() -> None:
                             "kind": "terminology_map",
                             "value": {
                                 "kind": "column",
-                                "dataset": "RAW",
                                 "column": "SEX",
                             },
                             "mappings": {"M": "MALE"},

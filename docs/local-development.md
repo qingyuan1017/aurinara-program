@@ -522,7 +522,7 @@ After a volume reset, start infrastructure, recreate the bucket through `minio-i
 
 ## 15. Definition of a reviewable change
 
-A change is ready for review when module boundaries are preserved, descriptors and capability ownership are conflict-free, migrations upgrade a clean database, OpenAPI and event/import schemas reflect the intended compatible contracts, relevant unit/integration/security/conformance tests pass, generated artifacts have updated golden evidence when needed, and the documentation describes any new setting, module capability, connector, runner dependency, schema/template version, or operational step.
+A change is ready for review when module boundaries are preserved, descriptors and capability ownership are conflict-free, migrations upgrade a clean database, OpenAPI and event/import schemas reflect the intended current contracts, relevant unit/integration/security/conformance tests pass, generated artifacts have updated golden evidence when needed, and the documentation describes any new setting, module capability, connector, runner dependency, schema/template version, or operational step. Earlier development APIs and databases are not a compatibility target.
 
 ## 16. Phase 5 TLF and packaging checks
 

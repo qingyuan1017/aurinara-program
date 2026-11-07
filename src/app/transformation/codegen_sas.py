@@ -268,7 +268,7 @@ def _sas_expr(expression: DerivationExpression, result_type: str | None = None) 
 
 def sas_source(value: DataflowIR, digest: str) -> str:
     lines = [
-        f"/* aurinara-dataflow compiler=1.8.0 ir={digest} */",
+        f"/* aurinara-dataflow compiler=1.9.0 ir={digest} */",
         _sas_custom_functions(value.custom_functions),
     ]
     ordered = ordered_nodes(value)

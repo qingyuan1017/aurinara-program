@@ -8,7 +8,7 @@ import pytest
 
 from app.common.problems import ProblemException
 from app.raw.files import inspect_file, preview_rows
-from app.raw.routes import _latest_validation_run_response, _manifest_raw_revision
+from app.raw.workbench_routes import _latest_validation_run_response, _manifest_raw_revision
 from app.validation.models import ValidationRun
 
 

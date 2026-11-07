@@ -240,6 +240,7 @@ def download_submission_package(
             title="Submission package is unavailable",
             detail="Only a successfully completed package can be downloaded.",
         )
+
     def body() -> Iterator[bytes]:
         with open_stored_object(
             storage,

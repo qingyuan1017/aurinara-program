@@ -49,9 +49,7 @@ def test_projection_is_idempotent_and_rejects_out_of_order_updates(session: Sess
     session.commit()
     assert apply_platform_event(session, created) is False
 
-    current = _event(
-        study_id, 3, name="Current", sponsor="Current Sponsor", status="archived"
-    )
+    current = _event(study_id, 3, name="Current", sponsor="Current Sponsor", status="archived")
     stale = _event(study_id, 2, name="Stale")
     assert apply_platform_event(session, current) is True
     assert apply_platform_event(session, stale) is True

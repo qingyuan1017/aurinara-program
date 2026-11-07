@@ -32,7 +32,6 @@ def _flow() -> DataflowIR:
                         "STUDYID": {"kind": "literal", "value": "SYN-001"},
                         "USUBJID": {
                             "kind": "column",
-                            "dataset": "DEMOG",
                             "column": "SUBJID",
                         },
                     },
@@ -210,7 +209,7 @@ def _adam_flow() -> DataflowIR:
                     "id": "derive_trt",
                     "target_dataset": "ADSL",
                     "method_id": "MT.TRT01P",
-                    "assignments": {"TRT01P": {"kind": "column", "dataset": "DM", "column": "ARM"}},
+                    "assignments": {"TRT01P": {"kind": "column", "column": "ARM"}},
                 },
                 {
                     "node_type": "select",

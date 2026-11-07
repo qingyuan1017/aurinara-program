@@ -307,7 +307,7 @@ def _py_expr(expression: DerivationExpression, row: str = "row") -> str:
 
 def python_source(value: DataflowIR, digest: str) -> str:
     lines = [
-        f"# aurinara-dataflow compiler=1.8.0 ir={digest}",
+        f"# aurinara-dataflow compiler=1.9.0 ir={digest}",
         "import csv",
         "import os",
         "from pathlib import Path",

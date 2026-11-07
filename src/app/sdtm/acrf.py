@@ -257,7 +257,9 @@ def _touch(session: Session, workbench: SdtmWorkbench, annotation: SdtmAcrfAnnot
     )
 
 
-@router.get("/sdtms/{sdtm_id}/acrf/annotations", response_model=list[AcrfAnnotationResponse])
+@router.get(
+    "/sdtm-workbenches/{sdtm_id}/acrf/annotations", response_model=list[AcrfAnnotationResponse]
+)
 def list_annotations(
     sdtm_id: UUID,
     session: Annotated[Session, Depends(get_session)],
@@ -276,7 +278,7 @@ def list_annotations(
 
 
 @router.post(
-    "/sdtms/{sdtm_id}/acrf/annotations",
+    "/sdtm-workbenches/{sdtm_id}/acrf/annotations",
     response_model=AcrfAnnotationResponse,
     status_code=status.HTTP_201_CREATED,
 )
@@ -394,7 +396,11 @@ def delete_annotation(
     response.headers["X-Aggregate-ETag"] = etag_for_revision(workbench.revision)
 
 
-@router.post("/acrf-annotations/{annotation_id}/links", response_model=AcrfAnnotationResponse)
+@router.put(
+    "/acrf-annotations/{annotation_id}/links",
+    response_model=AcrfAnnotationResponse,
+    operation_id="sdtm_acrf_links_replace",
+)
 def write_links(
     annotation_id: UUID,
     command: AcrfLinksWrite,
@@ -409,14 +415,8 @@ def write_links(
         raise _conflict("acrf_annotation_deleted", "A deleted annotation cannot be edited.")
     require_matching_etag(if_match, record.revision)
     workbench = cast(SdtmWorkbench, session.get(SdtmWorkbench, record.sdtm_id))
-    existing = tuple(_parse_link(item) for item in record.links)
-    if command.operation == "replace":
-        combined = command.links
-    else:
-        by_value = {item.model_dump_json(): item for item in (*existing, *command.links)}
-        combined = tuple(by_value[key] for key in sorted(by_value))
-    _validate_links(session, registry, workbench, combined)
-    record.links = [item.model_dump(mode="json") for item in combined]
+    _validate_links(session, registry, workbench, command.links)
+    record.links = [item.model_dump(mode="json") for item in command.links]
     _touch(session, workbench, record)
     session.commit()
     response.headers["ETag"] = etag_for_revision(record.revision)
@@ -424,7 +424,7 @@ def write_links(
     return AcrfAnnotationResponse.model_validate(record)
 
 
-@router.get("/sdtms/{sdtm_id}/acrf/coverage", response_model=AcrfCoverageResponse)
+@router.get("/sdtm-workbenches/{sdtm_id}/acrf/coverage", response_model=AcrfCoverageResponse)
 def get_coverage(
     sdtm_id: UUID,
     session: Annotated[Session, Depends(get_session)],
@@ -480,7 +480,7 @@ def get_coverage(
 
 
 @router.post(
-    "/sdtms/{sdtm_id}/acrf/artifacts",
+    "/sdtm-workbenches/{sdtm_id}/acrf/artifacts:build",
     response_model=ArtifactBuildResponse,
     status_code=status.HTTP_202_ACCEPTED,
 )

@@ -3,6 +3,7 @@
 from uuid import UUID
 
 import pytest
+from pydantic import ValidationError
 
 from app.transformation.codegen import UnsupportedOperator, _py_expr, _r_expr, _sas_expr
 from app.transformation.contracts import ConditionalExpression, DataflowIR, DeriveNode, Expression
@@ -12,7 +13,7 @@ from app.transformation.expression_validation import (
     EXPR_CONDITIONAL_RESULT_TYPE_MIXED,
     validate_expression,
 )
-from app.transformation.service import BackendCapabilityMissing, compile_dataflow
+from app.transformation.service import compile_dataflow
 
 
 def _ittfl() -> ConditionalExpression:
@@ -27,13 +28,13 @@ def _ittfl() -> ConditionalExpression:
                         "left": {
                             "kind": "binary",
                             "operator": "eq",
-                            "left": {"kind": "column", "dataset": "dm", "column": "SAFFL"},
+                            "left": {"kind": "column", "column": "SAFFL"},
                             "right": {"kind": "literal", "value": "Y"},
                         },
                         "right": {
                             "kind": "binary",
                             "operator": "eq",
-                            "left": {"kind": "column", "dataset": "dm", "column": "RANDFL"},
+                            "left": {"kind": "column", "column": "RANDFL"},
                             "right": {"kind": "literal", "value": "Y"},
                         },
                     },
@@ -47,7 +48,12 @@ def _ittfl() -> ConditionalExpression:
 
 def _as_expression(value: object) -> Expression:
     return DeriveNode.model_validate(
-        {"node_type": "derive", "id": "d", "assignments": {"X": value}}
+        {
+            "node_type": "derive",
+            "id": "d",
+            "assignments": {"X": value},
+            "result_types": {"X": "character"},
+        }
     ).assignments["X"]
 
 
@@ -129,7 +135,7 @@ def test_evaluator_d1_does_not_swallow_unknown_column() -> None:
             "branches": [
                 {
                     "when": {"kind": "literal", "value": True},
-                    "then": {"kind": "column", "dataset": "dm", "column": "MISSING"},
+                    "then": {"kind": "column", "column": "MISSING"},
                 }
             ],
             "otherwise": {"kind": "literal", "value": 9},
@@ -186,14 +192,13 @@ def test_sas_expr_raises_without_result_type() -> None:
         _sas_expr(_ittfl(), None)
 
 
-def _conditional_flow(result_types: dict[str, str] | None) -> DataflowIR:
+def _conditional_flow(result_types: dict[str, str]) -> DataflowIR:
     derive: dict[str, object] = {
         "node_type": "derive",
         "id": "flag",
         "assignments": {"ITTFL": _ittfl().model_dump(mode="json")},
     }
-    if result_types is not None:
-        derive["result_types"] = result_types
+    derive["result_types"] = result_types
     return DataflowIR.model_validate(
         {
             "nodes": [
@@ -209,21 +214,19 @@ def _conditional_flow(result_types: dict[str, str] | None) -> DataflowIR:
     )
 
 
-def test_sas_compiles_with_result_types_and_fails_without() -> None:
+def test_sas_compiles_with_complete_result_types() -> None:
     program = compile_dataflow(_conditional_flow({"ITTFL": "character"}), "sas")
     assert "IFC(" in program.source
-    assert program.compiler_version == "1.8.0"
-    with pytest.raises(BackendCapabilityMissing):
-        compile_dataflow(_conditional_flow(None), "sas")
+    assert program.compiler_version == "1.9.0"
 
 
 def test_compiler_banner_is_bumped() -> None:
     flow = _conditional_flow({"ITTFL": "character"})
-    assert "compiler=1.8.0" in compile_dataflow(flow, "python").source
-    assert "compiler=1.8.0" in compile_dataflow(flow, "r").source
+    assert "compiler=1.9.0" in compile_dataflow(flow, "python").source
+    assert "compiler=1.9.0" in compile_dataflow(flow, "r").source
 
 
-# --- contract round-trip and backward compatibility --------------------------
+# --- contract round-trip and strict typing -----------------------------------
 
 
 def test_conditional_contract_round_trips() -> None:
@@ -232,15 +235,20 @@ def test_conditional_contract_round_trips() -> None:
     assert restored == expression
 
 
-def test_old_ir_without_result_types_validates_and_lowers() -> None:
-    flow = _conditional_flow(None)
-    assert flow.operator_version == "1.4.0"
-    assert flow.schema_version == "1.0.0"
-    derive = next(node for node in flow.nodes if node.node_type == "derive")
-    assert derive.result_types == {}
-    # Python/R unaffected by the missing result type.
-    assert compile_dataflow(flow, "python").source
-    assert compile_dataflow(flow, "r").source
+def test_ir_without_result_types_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="result_types"):
+        DataflowIR.model_validate(
+            {
+                "nodes": [
+                    {"node_type": "read", "id": "read", "dataset": "dm"},
+                    {
+                        "node_type": "derive",
+                        "id": "flag",
+                        "assignments": {"ITTFL": _ittfl().model_dump(mode="json")},
+                    },
+                ]
+            }
+        )
 
 
 def test_derive_executes_conditional_in_preview() -> None:
@@ -275,7 +283,7 @@ def test_validation_flags_unreachable_duplicate_branch() -> None:
     guard = {
         "kind": "binary",
         "operator": "eq",
-        "left": {"kind": "column", "dataset": "dm", "column": "A"},
+        "left": {"kind": "column", "column": "A"},
         "right": {"kind": "literal", "value": "Y"},
     }
     expression = _as_expression(

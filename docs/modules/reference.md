@@ -26,8 +26,8 @@ Retrieve `/references/{id}` with `Invoke-WebRequest` when you need its `ETag`; s
 value as `If-Match` on `PATCH`. A patch creates a new immutable revision. `DELETE` retires
 the logical record while retaining revision history.
 
-`POST /studies/{study_id}/references/import` accepts one complete versioned collection,
+`POST /studies/{study_id}/references:import` accepts one complete versioned collection,
 requires `Idempotency-Key`, validates all rows, and commits none if any row is invalid.
-`GET /studies/{study_id}/references/export` returns the same portable contract. When a
+`GET /studies/{study_id}/references:export` returns the same portable contract. When a
 revision changes, dependent aggregates are marked for explicit refresh; their content is
 never rebound automatically.

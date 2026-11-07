@@ -75,7 +75,6 @@ def _specification() -> AdamSpecification:
                                 "operator": "eq",
                                 "left": {
                                     "kind": "column",
-                                    "dataset": "ADSL",
                                     "column": "TRT01P",
                                 },
                                 "right": {"kind": "literal", "value": "Placebo"},

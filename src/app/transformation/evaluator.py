@@ -76,9 +76,7 @@ def _value(
     if expression.kind == "list_literal":
         return tuple(expression.values)
     if expression.kind == "function":
-        arguments = [
-            _value(argument, row, node_id=node_id) for argument in expression.arguments
-        ]
+        arguments = [_value(argument, row, node_id=node_id) for argument in expression.arguments]
         implementation = fns.REGISTRY[expression.function]
         try:
             return implementation(arguments)
@@ -503,9 +501,7 @@ def _evaluate_dataflow(
                 ) from error
         elif node.node_type == "assert":
             result = _single_input(node.id, inputs)
-            if any(
-                not bool(_value(node.predicate, row, node_id=node.id)) for row in result
-            ):
+            if any(not bool(_value(node.predicate, row, node_id=node.id)) for row in result):
                 raise _problem(
                     node.issue_code,
                     f"Assertion '{node.id}' failed in preview rows.",

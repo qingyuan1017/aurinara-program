@@ -9,9 +9,7 @@ from app.common.problems import ProblemException
 from app.common.repository_assets import verify_repository_asset
 
 
-def load_presentation_template(
-    storage: ObjectStorage, ref: dict[str, object]
-) -> dict[str, object]:
+def load_presentation_template(storage: ObjectStorage, ref: dict[str, object]) -> dict[str, object]:
     """Load one exact template while enforcing its presentation-only boundary."""
 
     checksum = str(ref["checksum"])

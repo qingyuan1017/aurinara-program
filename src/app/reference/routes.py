@@ -326,7 +326,7 @@ def get_reference_revision(
 
 
 @router.post(
-    "/studies/{study_id}/references/import",
+    "/studies/{study_id}/references:import",
     response_model=ReferenceCollection,
     status_code=status.HTTP_201_CREATED,
 )
@@ -434,7 +434,7 @@ def import_references(
     return ReferenceCollection(items=tuple(_response(session, item) for item in created_records))
 
 
-@router.get("/studies/{study_id}/references/export", response_model=ReferenceImport)
+@router.get("/studies/{study_id}/references:export", response_model=ReferenceImport)
 def export_references(
     study_id: UUID,
     session: Annotated[Session, Depends(get_session)],

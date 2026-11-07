@@ -70,13 +70,16 @@ def main() -> None:
             continue
         if job.lease_token is None:
             raise RuntimeError("claimed job did not receive a lease token")
-        with claimed_job(job.lease_token), LeaseHeartbeat(
-            factory,
-            job_id=job.id,
-            worker_id=worker_id,
-            lease_token=job.lease_token,
-            lease_seconds=settings.job_lease_seconds,
-            heartbeat_seconds=settings.job_lease_heartbeat_seconds,
+        with (
+            claimed_job(job.lease_token),
+            LeaseHeartbeat(
+                factory,
+                job_id=job.id,
+                worker_id=worker_id,
+                lease_token=job.lease_token,
+                lease_seconds=settings.job_lease_seconds,
+                heartbeat_seconds=settings.job_lease_heartbeat_seconds,
+            ),
         ):
             try:
                 process_execution_job(factory, registry, storage, executor, settings, job.id)

@@ -4,20 +4,20 @@ import {
   WorkbenchDetailShell,
   type WorkbenchTab,
 } from "@/components/workbench/workbench-detail-shell";
-import { InputSelectionPanel } from "@/components/workbench/input-selection-panel";
+import { InputSelectionPanel } from "@/features/sdtm/components/input-selection-panel";
 import { useCurrentStudy } from "@/components/study-context";
-import { SpecificationPanel } from "@/components/workbench/specification-panel";
-import { SdtmValidationPanel } from "@/components/workbench/sdtm-validation-panel";
-import { DefinePanel } from "@/components/workbench/define-panel";
-import { SdtmDependenciesPanel } from "@/components/workbench/sdtm-dependencies-panel";
-import { AcrfPanel } from "@/components/workbench/acrf-panel";
-import { CsdrgPanel } from "@/components/workbench/csdrg-panel";
+import { SpecificationPanel } from "@/features/sdtm/components/specification-panel";
+import { SdtmValidationPanel } from "@/features/sdtm/components/validation-panel";
+import { DefinePanel } from "@/features/sdtm/components/define-panel";
+import { SdtmDependenciesPanel } from "@/features/sdtm/components/dependencies-panel";
+import { AcrfPanel } from "@/features/sdtm/components/acrf-panel";
+import { CsdrgPanel } from "@/features/sdtm/components/csdrg-panel";
 import {
   CodeWorkareasPanel,
   DomainMappingPanel,
   ProgramArtifactReadinessPanel,
   VariableMappingPanel,
-} from "@/components/workbench/sdtm-mapping-panels";
+} from "@/features/sdtm/components/mapping-panels";
 import { useGetSdtmAggregate } from "@/api/generated/sdtm/sdtm";
 
 const SDTM_TABS = [

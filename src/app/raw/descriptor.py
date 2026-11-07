@@ -11,7 +11,7 @@ from app.raw.service import RAW_ARTIFACT_TYPES, RawCapability
 DESCRIPTOR = ModuleDescriptor(
     module_key="raw",
     module_version="0.4.0",
-    api_prefix="/api/v1/raw",
+    api_prefix="/api/v1/raw-workbenches",
     content_schema_versions=("1.0.0",),
     dependency_purposes=("raw_metadata", "controlled_values", "study_context", "presentation"),
     entity_types=("raw_workbench", "raw_dataset", "raw_variable"),
@@ -38,7 +38,12 @@ DESCRIPTOR = ModuleDescriptor(
 HANDLER = RawCapability("raw", "raw_workbench", RawWorkbench, RawDependencySelection)
 router = APIRouter()
 router.include_router(
-    dependency_aggregate_router("raw", "/studies/{study_id}/raw", "/raw/{raw_id}", "raw_id")
+    dependency_aggregate_router(
+        "raw",
+        "/studies/{study_id}/raw-workbenches",
+        "/raw-workbenches/{raw_id}",
+        "raw_id",
+    )
 )
 router.include_router(raw_router)
 REGISTRATION = ModuleRegistration(

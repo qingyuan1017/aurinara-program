@@ -279,7 +279,7 @@ def _save(
     return record
 
 
-@router.get("/sdtms/{sdtm_id}/csdrg", response_model=CsdrgResponse)
+@router.get("/sdtm-workbenches/{sdtm_id}/csdrg", response_model=CsdrgResponse)
 def get_csdrg(
     sdtm_id: UUID,
     session: Annotated[Session, Depends(get_session)],
@@ -292,7 +292,7 @@ def get_csdrg(
     return CsdrgResponse.model_validate(record)
 
 
-@router.put("/sdtms/{sdtm_id}/csdrg", response_model=CsdrgResponse)
+@router.put("/sdtm-workbenches/{sdtm_id}/csdrg", response_model=CsdrgResponse)
 def put_csdrg(
     sdtm_id: UUID,
     command: SdtmCsdrgModel,
@@ -310,7 +310,7 @@ def put_csdrg(
     return CsdrgResponse.model_validate(record)
 
 
-@router.post("/sdtms/{sdtm_id}/csdrg/initialize", response_model=CsdrgResponse)
+@router.post("/sdtm-workbenches/{sdtm_id}/csdrg:initialize", response_model=CsdrgResponse)
 def initialize_csdrg(
     sdtm_id: UUID,
     command: SdtmCsdrgInitialize,
@@ -352,7 +352,7 @@ def initialize_csdrg(
     return CsdrgResponse.model_validate(record)
 
 
-@router.post("/sdtms/{sdtm_id}/csdrg/validate", response_model=ValidationRunResponse)
+@router.post("/sdtm-workbenches/{sdtm_id}/csdrg:validate", response_model=ValidationRunResponse)
 def validate_csdrg(
     sdtm_id: UUID,
     session: Annotated[Session, Depends(get_session)],
@@ -403,7 +403,7 @@ def validate_csdrg(
 
 
 @router.post(
-    "/sdtms/{sdtm_id}/csdrg/artifacts",
+    "/sdtm-workbenches/{sdtm_id}/csdrg/artifacts:build",
     response_model=ArtifactBuildResponse,
     status_code=status.HTTP_202_ACCEPTED,
 )

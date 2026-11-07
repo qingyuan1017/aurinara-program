@@ -233,7 +233,7 @@ def _compatibility_issues(
 
 
 @router.get(
-    "/sdtms/{sdtm_id}/domains/{domain_code}/imported-dataset",
+    "/sdtm-workbenches/{sdtm_id}/domains/{domain_code}/imported-dataset",
     response_model=ImportedDomainResponse,
 )
 def get_imported_domain(
@@ -265,7 +265,7 @@ def get_imported_domain(
 
 
 @router.post(
-    "/sdtms/{sdtm_id}/domains/{domain_code}/imported-dataset",
+    "/sdtm-workbenches/{sdtm_id}/domains/{domain_code}/imported-dataset",
     response_model=ImportedDomainResponse,
     status_code=status.HTTP_201_CREATED,
 )
@@ -571,6 +571,6 @@ def import_domain(
     session.commit()
     response.headers["ETag"] = etag_for_revision(workbench.revision)
     response.headers["Location"] = (
-        f"/api/v1/sdtms/{workbench.id}/domains/{domain_code}/imported-dataset"
+        f"/api/v1/sdtm-workbenches/{workbench.id}/domains/{domain_code}/imported-dataset"
     )
     return ImportedDomainResponse.from_record(record, selected_as_source=True)

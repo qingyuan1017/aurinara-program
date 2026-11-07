@@ -64,9 +64,7 @@ def test_disabled_mode_does_not_fall_back_to_platform(monkeypatch: pytest.Monkey
 
     with (
         pytest.raises(ProblemException, match="application-owned object reference") as error,
-        access.open_stored_object(
-            MemoryStorage(), object_key=None, platform_object_id=uuid4()
-        ),
+        access.open_stored_object(MemoryStorage(), object_key=None, platform_object_id=uuid4()),
     ):
         pass
 
@@ -98,9 +96,7 @@ def test_enforced_mode_does_not_fall_back_to_application_storage(
 
     with (
         pytest.raises(ProblemException, match="Platform object reference") as error,
-        access.open_stored_object(
-            storage, object_key="sha256/local", platform_object_id=None
-        ),
+        access.open_stored_object(storage, object_key="sha256/local", platform_object_id=None),
     ):
         pass
 

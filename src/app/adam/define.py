@@ -712,7 +712,7 @@ def _current_validation(session: Session, record: AdamDefineRevision) -> Validat
     )
 
 
-@router.get("/adams/{adam_id}/define", response_model=DefineResponse)
+@router.get("/adam-workbenches/{adam_id}/define", response_model=DefineResponse)
 def get_define(
     adam_id: UUID,
     session: Annotated[Session, Depends(get_session)],
@@ -725,7 +725,7 @@ def get_define(
     return DefineResponse.model_validate(record)
 
 
-@router.put("/adams/{adam_id}/define", response_model=DefineResponse)
+@router.put("/adam-workbenches/{adam_id}/define", response_model=DefineResponse)
 def put_define(
     adam_id: UUID,
     command: AdamDefineModel,
@@ -752,7 +752,7 @@ def put_define(
     return DefineResponse.model_validate(record)
 
 
-@router.post("/adams/{adam_id}/define/initialize", response_model=DefineResponse)
+@router.post("/adam-workbenches/{adam_id}/define:initialize", response_model=DefineResponse)
 def initialize_define(
     adam_id: UUID,
     command: AdamDefineInitialize,
@@ -795,7 +795,7 @@ def initialize_define(
     return DefineResponse.model_validate(record)
 
 
-@router.post("/adams/{adam_id}/define/validate", response_model=ValidationRunResponse)
+@router.post("/adam-workbenches/{adam_id}/define:validate", response_model=ValidationRunResponse)
 def validate_define(
     adam_id: UUID,
     session: Annotated[Session, Depends(get_session)],
@@ -871,7 +871,7 @@ def validate_define(
     return ValidationRunResponse.model_validate(run)
 
 
-@router.get("/adams/{adam_id}/define/render", operation_id="render_adam_define")
+@router.get("/adam-workbenches/{adam_id}/define:render")
 def render_define(
     adam_id: UUID,
     session: Annotated[Session, Depends(get_session)],
@@ -899,7 +899,7 @@ def render_define(
 
 
 @router.post(
-    "/adams/{adam_id}/define/reconcile",
+    "/adam-workbenches/{adam_id}/define:reconcile",
     response_model=ReconciliationResponse,
     status_code=202,
 )
@@ -949,7 +949,7 @@ def reconcile_define(
 
 
 @router.post(
-    "/adams/{adam_id}/define/artifacts",
+    "/adam-workbenches/{adam_id}/define/artifacts:build",
     response_model=ArtifactBuildResponse,
     status_code=202,
 )

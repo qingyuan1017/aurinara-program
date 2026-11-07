@@ -287,7 +287,7 @@ def get_artifact_build(
     return ArtifactBuildResponse.model_validate(_require_build(session, build_id, principal))
 
 
-@router.post("/artifact-builds/{build_id}/cancel", response_model=ArtifactBuildResponse)
+@router.post("/artifact-builds/{build_id}:cancel", response_model=ArtifactBuildResponse)
 def cancel_artifact_build(
     build_id: UUID,
     session: Annotated[Session, Depends(get_session)],

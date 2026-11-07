@@ -19,6 +19,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.artifacts.builds import resolve_build_input
+from app.artifacts.storage import checksum_object_key
 from app.catalog_seed import seed
 from app.common.canonical import fingerprint, sha256_hex
 from app.database import create_database_engine, create_session_factory
@@ -65,13 +66,15 @@ SYNTHETIC_SDTMIG_VERSION_ID = UUID("10000000-0000-0000-0000-000000000112")
 SYNTHETIC_SDTMIG_ASSET_ID = UUID("10000000-0000-0000-0000-000000000113")
 
 
-def _register_synthetic_sdtmig(session: Session) -> None:
+def _register_synthetic_sdtmig(session: Session, storage: MemoryStorage) -> None:
     """Register one repository-pinned synthetic SDTMIG for endpoint tests."""
 
+    path = "schemas/test/synthetic-sdtmig-9-9.json"
+    asset_path = Path(__file__).resolve().parents[2] / path
+    checksum = sha256_hex(asset_path.read_bytes())
+    storage.put_file(checksum_object_key(checksum), asset_path, "application/json")
     if session.get(StandardVersion, SYNTHETIC_SDTMIG_VERSION_ID) is not None:
         return
-    path = "schemas/test/synthetic-sdtmig-9-9.json"
-    checksum = sha256_hex((Path(__file__).resolve().parents[2] / path).read_bytes())
     if session.get(StandardProduct, SYNTHETIC_SDTMIG_PRODUCT_ID) is None:
         session.add(
             StandardProduct(
@@ -145,7 +148,7 @@ async def phase3_client() -> AsyncIterator[AsyncClient]:
     storage = MemoryStorage()
     with factory() as session:
         seed(session, storage)
-        _register_synthetic_sdtmig(session)
+        _register_synthetic_sdtmig(session, storage)
     app = create_app(
         settings=settings,
         session_factory=factory,
@@ -169,7 +172,7 @@ async def test_sdtm_specification_xlsx_export_and_idempotent_import(
         "/api/v1/studies", headers=headers, json={"code": "P3-XLSX", "name": "Phase 3 XLSX"}
     )
     sdtm = await client.post(
-        f"/api/v1/studies/{study.json()['id']}/sdtms",
+        f"/api/v1/studies/{study.json()['id']}/sdtm-workbenches",
         headers=headers,
         json={"code": "SDTM", "name": "SDTM"},
     )
@@ -199,13 +202,13 @@ async def test_sdtm_specification_xlsx_export_and_idempotent_import(
         ]
     }
     specification = await client.put(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/specification",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/specification",
         headers={**headers, "If-Match": sdtm.headers["etag"]},
         json=payload,
     )
     assert specification.status_code == 200, specification.text
     exported = await client.get(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/specification/export?format=xlsx",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/specification:export?format=xlsx",
         headers=headers,
     )
     assert exported.status_code == 200, exported.text
@@ -221,7 +224,7 @@ async def test_sdtm_specification_xlsx_export_and_idempotent_import(
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     }
     imported = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/specification/import",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/specification:import",
         headers=import_headers,
         content=changed.getvalue(),
     )
@@ -229,7 +232,7 @@ async def test_sdtm_specification_xlsx_export_and_idempotent_import(
     assert imported.json()["revision"] == 2
     assert imported.json()["payload"]["domains"][0]["label"] == "Manually maintained label"
     replay = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/specification/import",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/specification:import",
         headers=import_headers,
         content=changed.getvalue(),
     )
@@ -249,7 +252,7 @@ async def test_existing_sdtm_xpt_becomes_the_selected_domain_source(
         json={"code": "P3-XPT-IN", "name": "Existing SDTM import"},
     )
     sdtm = await client.post(
-        f"/api/v1/studies/{study.json()['id']}/sdtms",
+        f"/api/v1/studies/{study.json()['id']}/sdtm-workbenches",
         headers=headers,
         json={"code": "SDTM", "name": "SDTM"},
     )
@@ -277,7 +280,7 @@ async def test_existing_sdtm_xpt_becomes_the_selected_domain_source(
         }
     )
     specification = await client.put(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/specification",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/specification",
         headers={**headers, "If-Match": sdtm.headers["etag"]},
         json={"domains": [domain.model_dump(mode="json")]},
     )
@@ -289,9 +292,9 @@ async def test_existing_sdtm_xpt_becomes_the_selected_domain_source(
         files={"file": ("dm.xpt", product.data, "application/x-sas-xport")},
     )
     assert source.status_code == 201, source.text
-    current = await client.get(f"/api/v1/sdtms/{sdtm.json()['id']}", headers=headers)
+    current = await client.get(f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}", headers=headers)
     accepted = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/domains/DM/imported-dataset",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/domains/DM/imported-dataset",
         headers={
             **headers,
             "If-Match": current.headers["etag"],
@@ -310,16 +313,16 @@ async def test_existing_sdtm_xpt_becomes_the_selected_domain_source(
     assert accepted.json()["extracted_schema"]["row_count"] == 1
     assert accepted.json()["extracted_schema"]["variables"][0]["name"] == "USUBJID"
     loaded = await client.get(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/domains/DM/imported-dataset",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/domains/DM/imported-dataset",
         headers=headers,
     )
     assert loaded.status_code == 200, loaded.text
     assert loaded.json()["artifact_id"] == accepted.json()["artifact_id"]
     assert loaded.json()["selected_as_source"] is True
 
-    current = await client.get(f"/api/v1/sdtms/{sdtm.json()['id']}", headers=headers)
+    current = await client.get(f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}", headers=headers)
     output_selection = await client.put(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/output-selection",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/output-selection",
         headers={**headers, "If-Match": current.headers["etag"]},
         json={
             "items": [
@@ -334,20 +337,24 @@ async def test_existing_sdtm_xpt_becomes_the_selected_domain_source(
     )
     assert output_selection.status_code == 200, output_selection.text
 
-    validation = await client.post(f"/api/v1/sdtms/{sdtm.json()['id']}/validate", headers=headers)
+    validation = await client.post(
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}:validate", headers=headers
+    )
     assert validation.status_code == 200, validation.text
 
     adam = await client.post(
-        f"/api/v1/studies/{study.json()['id']}/adams",
+        f"/api/v1/studies/{study.json()['id']}/adam-workbenches",
         headers=headers,
         json={"code": "ADAM", "name": "ADaM"},
     )
-    current_sdtm = await client.get(f"/api/v1/sdtms/{sdtm.json()['id']}", headers=headers)
+    current_sdtm = await client.get(
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}", headers=headers
+    )
     dependencies = await client.get(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/dependencies", headers=headers
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/dependencies", headers=headers
     )
     selected = await client.put(
-        f"/api/v1/adams/{adam.json()['id']}/input-selection",
+        f"/api/v1/adam-workbenches/{adam.json()['id']}/input-selection",
         headers={**headers, "If-Match": adam.headers["etag"]},
         json={
             "sdtm_id": sdtm.json()["id"],
@@ -378,12 +385,12 @@ async def test_sdtm_specification_initializes_from_selected_industry_standard(
         json={"code": "P3-STANDARD", "name": "Industry standard initialization"},
     )
     sdtm = await client.post(
-        f"/api/v1/studies/{study.json()['id']}/sdtms",
+        f"/api/v1/studies/{study.json()['id']}/sdtm-workbenches",
         headers=headers,
         json={"code": "SDTM", "name": "SDTM"},
     )
     dependencies = await client.put(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/dependencies",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/dependencies",
         headers={**headers, "If-Match": sdtm.headers["etag"]},
         json={
             "standards": [
@@ -397,14 +404,14 @@ async def test_sdtm_specification_initializes_from_selected_industry_standard(
     assert dependencies.status_code == 200, dependencies.text
 
     options = await client.get(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/specification/initialization-options",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/specification/initialization-options",
         headers=headers,
     )
     assert options.status_code == 200, options.text
     assert [item["code"] for item in options.json()["domains"]] == ["DM", "AE"]
 
     initialized = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/specification/initialize",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/specification:initialize",
         headers={**headers, "If-Match": dependencies.headers["etag"]},
         json={"domain_codes": ["DM"], "required_expected_only": True},
     )
@@ -420,14 +427,14 @@ async def test_sdtm_specification_initializes_from_selected_industry_standard(
     manually_edited["domains"][0]["label"] = "Manual demographics label"
     manually_edited["domains"][0]["variables"] = manually_edited["domains"][0]["variables"][:2]
     saved = await client.put(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/specification",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/specification",
         headers={**headers, "If-Match": initialized.headers["etag"]},
         json=manually_edited,
     )
     assert saved.status_code == 200, saved.text
 
     refreshed = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/specification/initialize",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/specification:initialize",
         headers={**headers, "If-Match": saved.headers["etag"]},
         json={"domain_codes": ["DM"], "required_expected_only": False},
     )
@@ -464,25 +471,27 @@ async def test_raw_latest_validation_run_resolution(
         },
     )
     raw = await client.post(
-        f"/api/v1/studies/{study_id}/raw",
+        f"/api/v1/studies/{study_id}/raw-workbenches",
         headers=headers,
         json={"code": "RAW", "name": "Raw"},
     )
     raw_id = raw.json()["id"]
 
     # Before any dataset or validation run exists, resolution reports no run.
-    empty = await client.get(f"/api/v1/raw/{raw_id}/latest-validation-run", headers=headers)
+    empty = await client.get(
+        f"/api/v1/raw-workbenches/{raw_id}/latest-validation-run", headers=headers
+    )
     assert empty.status_code == 404, empty.text
     assert empty.json()["code"] == "raw_validation_run_not_found"
 
     dataset = await client.post(
-        f"/api/v1/raw/{raw_id}/datasets",
+        f"/api/v1/raw-workbenches/{raw_id}/datasets",
         headers=headers,
         json={"code": "DEMOG", "label": "Demographics", "source_file_id": source.json()["id"]},
     )
     assert dataset.status_code == 201, dataset.text
     initialized = await client.post(
-        f"/api/v1/raw-datasets/{dataset.json()['id']}/variables/initialize", headers=headers
+        f"/api/v1/raw-datasets/{dataset.json()['id']}/variables:initialize", headers=headers
     )
     assert initialized.status_code == 200, initialized.text
 
@@ -494,23 +503,27 @@ async def test_raw_latest_validation_run_resolution(
         headers={**headers, "If-Match": '"revision-1"'},
     )
     assert deleted.status_code == 204, deleted.text
-    failed_run = await client.post(f"/api/v1/raw/{raw_id}/validate", headers=headers)
+    failed_run = await client.post(f"/api/v1/raw-workbenches/{raw_id}:validate", headers=headers)
     assert failed_run.json()["status"] == "failed", failed_run.text
-    still_empty = await client.get(f"/api/v1/raw/{raw_id}/latest-validation-run", headers=headers)
+    still_empty = await client.get(
+        f"/api/v1/raw-workbenches/{raw_id}/latest-validation-run", headers=headers
+    )
     assert still_empty.status_code == 404, still_empty.text
 
     # Re-fill the physical metadata and pass validation.
     reinitialized = await client.post(
-        f"/api/v1/raw-datasets/{dataset.json()['id']}/variables/initialize", headers=headers
+        f"/api/v1/raw-datasets/{dataset.json()['id']}/variables:initialize", headers=headers
     )
     assert reinitialized.status_code == 200, reinitialized.text
-    first = await client.post(f"/api/v1/raw/{raw_id}/validate", headers=headers)
+    first = await client.post(f"/api/v1/raw-workbenches/{raw_id}:validate", headers=headers)
     assert first.json()["status"] == "succeeded", first.text
-    current_raw = await client.get(f"/api/v1/raw/{raw_id}", headers=headers)
-    second = await client.post(f"/api/v1/raw/{raw_id}/validate", headers=headers)
+    current_raw = await client.get(f"/api/v1/raw-workbenches/{raw_id}", headers=headers)
+    second = await client.post(f"/api/v1/raw-workbenches/{raw_id}:validate", headers=headers)
     assert second.json()["status"] == "succeeded", second.text
 
-    resolved = await client.get(f"/api/v1/raw/{raw_id}/latest-validation-run", headers=headers)
+    resolved = await client.get(
+        f"/api/v1/raw-workbenches/{raw_id}/latest-validation-run", headers=headers
+    )
     assert resolved.status_code == 200, resolved.text
     body = resolved.json()
     # The newest succeeded run is resolved (not the first), and the advisory
@@ -521,7 +534,9 @@ async def test_raw_latest_validation_run_resolution(
     assert len(body["input_fingerprint"]) == 64
 
     # Study access is enforced: an unknown raw id is a 404.
-    unknown = await client.get(f"/api/v1/raw/{uuid4()}/latest-validation-run", headers=headers)
+    unknown = await client.get(
+        f"/api/v1/raw-workbenches/{uuid4()}/latest-validation-run", headers=headers
+    )
     assert unknown.status_code == 404, unknown.text
     assert unknown.json()["code"] == "raw_not_found"
 
@@ -548,32 +563,34 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
         },
     )
     raw = await client.post(
-        f"/api/v1/studies/{study_id}/raw",
+        f"/api/v1/studies/{study_id}/raw-workbenches",
         headers=headers,
         json={"code": "RAW", "name": "Raw"},
     )
     dataset = await client.post(
-        f"/api/v1/raw/{raw.json()['id']}/datasets",
+        f"/api/v1/raw-workbenches/{raw.json()['id']}/datasets",
         headers=headers,
         json={"code": "DEMOG", "label": "Demographics", "source_file_id": source.json()["id"]},
     )
     assert dataset.status_code == 201, dataset.text
     initialized = await client.post(
-        f"/api/v1/raw-datasets/{dataset.json()['id']}/variables/initialize", headers=headers
+        f"/api/v1/raw-datasets/{dataset.json()['id']}/variables:initialize", headers=headers
     )
     assert initialized.status_code == 200, initialized.text
     preview = await client.post(
-        f"/api/v1/raw-datasets/{dataset.json()['id']}/preview",
+        f"/api/v1/raw-datasets/{dataset.json()['id']}:preview",
         headers=headers,
         json={"columns": ["SUBJID"], "limit": 1},
     )
     assert preview.json()["rows"] == [{"SUBJID": "01"}]
-    raw_validation = await client.post(f"/api/v1/raw/{raw.json()['id']}/validate", headers=headers)
+    raw_validation = await client.post(
+        f"/api/v1/raw-workbenches/{raw.json()['id']}:validate", headers=headers
+    )
     assert raw_validation.json()["status"] == "succeeded", raw_validation.text
 
-    current_raw = await client.get(f"/api/v1/raw/{raw.json()['id']}", headers=headers)
+    current_raw = await client.get(f"/api/v1/raw-workbenches/{raw.json()['id']}", headers=headers)
     raw_reconciliation = await client.post(
-        f"/api/v1/raw/{raw.json()['id']}/reconcile",
+        f"/api/v1/raw-workbenches/{raw.json()['id']}:reconcile",
         headers={**headers, "Idempotency-Key": "reconcile-raw-schema-1"},
         json={"expected_raw_revision": current_raw.json()["revision"]},
     )
@@ -609,13 +626,13 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
     # build must be ACCEPTED (not 409 stale_input_fingerprint).
     raw_artifact_types = ("raw_metadata_json", "raw_data_dictionary_xlsx")
     raw_fingerprint = await client.post(
-        f"/api/v1/raw/{raw.json()['id']}/artifacts/fingerprint",
+        f"/api/v1/raw-workbenches/{raw.json()['id']}/artifacts:fingerprint",
         headers=headers,
         json={"artifact_types": list(raw_artifact_types)},
     )
     assert raw_fingerprint.status_code == 200, raw_fingerprint.text
     raw_build = await client.post(
-        f"/api/v1/raw/{raw.json()['id']}/artifacts",
+        f"/api/v1/raw-workbenches/{raw.json()['id']}/artifacts:build",
         headers={**headers, "Idempotency-Key": "build-raw-metadata-1"},
         json={
             "artifact_types": list(raw_artifact_types),
@@ -644,15 +661,15 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
     } == set(raw_artifact_types)
 
     raw_dependencies = await client.get(
-        f"/api/v1/raw/{raw.json()['id']}/dependencies", headers=headers
+        f"/api/v1/raw-workbenches/{raw.json()['id']}/dependencies", headers=headers
     )
     sdtm = await client.post(
-        f"/api/v1/studies/{study_id}/sdtms",
+        f"/api/v1/studies/{study_id}/sdtm-workbenches",
         headers=headers,
         json={"code": "SDTM", "name": "SDTM"},
     )
     sdtm_dependencies = await client.put(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/dependencies",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/dependencies",
         headers={**headers, "If-Match": sdtm.headers["etag"]},
         json={
             "templates": [
@@ -667,7 +684,7 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
     )
     assert sdtm_dependencies.status_code == 200, sdtm_dependencies.text
     selection = await client.put(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/input-selection",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/input-selection",
         headers={**headers, "If-Match": sdtm_dependencies.headers["etag"]},
         json={
             "raw_id": raw.json()["id"],
@@ -685,7 +702,7 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
     )
     assert selection.status_code == 200, selection.text
     specification = await client.put(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/specification",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/specification",
         headers={**headers, "If-Match": selection.headers["etag"]},
         json={
             "domains": [
@@ -725,22 +742,20 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
     )
     assert specification.status_code == 200, specification.text
     domain_mapping = await client.put(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/domains/DM/domain-mapping",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/domains/DM/domain-mapping",
         headers={**headers, "If-Match": specification.headers["etag"]},
         json={"raw_datasets": ["DEMOG"], "upstream_domains": []},
     )
     assert domain_mapping.status_code == 200, domain_mapping.text
     variable_mapping = await client.put(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/domains/DM/variable-mapping",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/domains/DM/variable-mapping",
         headers={**headers, "If-Match": domain_mapping.headers["etag"]},
         json={
             "cells": [
                 {
                     "target_variable": "USUBJID",
                     "context_id": None,
-                    "sources": [
-                        {"source_type": "raw", "dataset": "DEMOG", "variable": "SUBJID"}
-                    ],
+                    "sources": [{"source_type": "raw", "dataset": "DEMOG", "variable": "SUBJID"}],
                 }
             ]
         },
@@ -760,7 +775,7 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
         writer.writerow({"STUDYID": "P3-001", "USUBJID": row["SUBJID"]})
 """
     workarea = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/code-workareas",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/code-workareas",
         headers={**headers, "If-Match": variable_mapping.headers["etag"]},
         json={
             "name": "Primary Python",
@@ -771,7 +786,7 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
     )
     assert workarea.status_code == 201, workarea.text
     test_run = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/code-workareas/{workarea.json()['id']}/test",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/code-workareas/{workarea.json()['id']}:test",
         headers={**headers, "Idempotency-Key": "test-dm-python-1"},
         json={"upstream_artifacts": []},
     )
@@ -807,9 +822,11 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
         files={"file": ("crf.pdf", pdf_stream.getvalue(), "application/pdf")},
     )
     raw_variable_id = initialized.json()["variables"][0]["id"]
-    current_sdtm = await client.get(f"/api/v1/sdtms/{sdtm.json()['id']}", headers=headers)
+    current_sdtm = await client.get(
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}", headers=headers
+    )
     annotation = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/acrf/annotations",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/acrf/annotations",
         headers={**headers, "If-Match": current_sdtm.headers["etag"]},
         json={
             "source_pdf_artifact_id": crf.json()["artifact_id"],
@@ -830,14 +847,16 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
     assert annotation.status_code == 201, annotation.text
     linked = annotation
     assert len(linked.json()["links"]) == 2
-    coverage = await client.get(f"/api/v1/sdtms/{sdtm.json()['id']}/acrf/coverage", headers=headers)
+    coverage = await client.get(
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/acrf/coverage", headers=headers
+    )
     assert coverage.status_code == 200, coverage.text
     assert coverage.json()["annotation_count"] == 1
     assert {tuple(item.values()) for item in coverage.json()["uncovered_sdtm_variables"]} == {
         ("DM", "STUDYID")
     }
     domain_validation = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/domains/DM/validate", headers=headers
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/domains/DM:validate", headers=headers
     )
     assert domain_validation.json()["status"] == "succeeded", domain_validation.text
 
@@ -858,7 +877,7 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
             options={"domain_code": "DM"},
         )
     metadata_build = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/artifacts",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/artifacts:build",
         headers={**headers, "Idempotency-Key": "build-sdtm-metadata-1"},
         json={
             "artifact_types": list(metadata_artifact_types),
@@ -912,7 +931,7 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
             options={},
         )
     acrf_build = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/acrf/artifacts",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/acrf/artifacts:build",
         headers={**headers, "Idempotency-Key": "build-acrf-1"},
         json={"expected_input_fingerprint": fingerprint(acrf_resolved)},
     )
@@ -941,7 +960,7 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
     assert len(PdfReader(io.BytesIO(acrf_download.content)).pages) == 1
 
     generation = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/code-workareas/{workarea.json()['id']}/generate",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/code-workareas/{workarea.json()['id']}:generate",
         headers={**headers, "Idempotency-Key": "generate-dm-python-1"},
         json={"upstream_artifacts": []},
     )
@@ -991,9 +1010,11 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
         {"STUDYID": "P3-001", "USUBJID": "02"},
     ]
 
-    current_sdtm = await client.get(f"/api/v1/sdtms/{sdtm.json()['id']}", headers=headers)
+    current_sdtm = await client.get(
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}", headers=headers
+    )
     selected_outputs = await client.put(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/output-selection",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/output-selection",
         headers={**headers, "If-Match": current_sdtm.headers["etag"]},
         json={
             "items": [
@@ -1007,12 +1028,16 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
         },
     )
     assert selected_outputs.status_code == 200, selected_outputs.text
-    validation = await client.post(f"/api/v1/sdtms/{sdtm.json()['id']}/validate", headers=headers)
+    validation = await client.post(
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}:validate", headers=headers
+    )
     assert validation.json()["status"] == "succeeded", validation.text
 
-    current_sdtm = await client.get(f"/api/v1/sdtms/{sdtm.json()['id']}", headers=headers)
+    current_sdtm = await client.get(
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}", headers=headers
+    )
     define = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/define/initialize",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/define:initialize",
         headers={**headers, "If-Match": current_sdtm.headers["etag"]},
         json={
             "expected_define_revision": None,
@@ -1033,13 +1058,13 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
         annotation.json()["id"]
     ]
     maintained = await client.put(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/define",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/define",
         headers={**headers, "If-Match": define.headers["etag"]},
         json=manual_payload,
     )
     assert maintained.status_code == 200, maintained.text
     reinitialized = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/define/initialize",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/define:initialize",
         headers={**headers, "If-Match": maintained.headers["etag"]},
         json={
             "expected_define_revision": 2,
@@ -1055,14 +1080,14 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
     assert reinitialized.json()["revision"] == 3
     assert reinitialized.json()["payload"]["datasets"][0]["label"] == "Manually maintained DM label"
     define_validation = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/define/validate", headers=headers
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/define:validate", headers=headers
     )
     assert define_validation.status_code == 200, define_validation.text
     assert define_validation.json()["error_count"] == 0
     xpt_after_define = await client.get(f"/api/v1/artifacts/{xpt_artifact_id}", headers=headers)
     assert xpt_after_define.json()["status"] == "available"
     reconciliation = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/define/reconcile",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/define:reconcile",
         headers={**headers, "Idempotency-Key": "reconcile-sdtm-define-1"},
         json={
             "define_revision": reinitialized.json()["revision"],
@@ -1090,7 +1115,7 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
 
     for version in ("2.0", "2.1"):
         rendered_define = await client.get(
-            f"/api/v1/sdtms/{sdtm.json()['id']}/define/render",
+            f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/define:render",
             headers=headers,
             params={"version": version},
         )
@@ -1108,7 +1133,7 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
             options={},
         )
     define_build = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/define/artifacts",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/define/artifacts:build",
         headers={**headers, "Idempotency-Key": "build-define-xml-1"},
         json={
             "versions": ["2.0", "2.1"],
@@ -1146,9 +1171,11 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
         version = "2.0" if item.json()["artifact_type"].endswith("_20") else "2.1"
         validate_define_xml(define_download.content, version)
 
-    current_sdtm = await client.get(f"/api/v1/sdtms/{sdtm.json()['id']}", headers=headers)
+    current_sdtm = await client.get(
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}", headers=headers
+    )
     csdrg = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/csdrg/initialize",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/csdrg:initialize",
         headers={**headers, "If-Match": current_sdtm.headers["etag"]},
         json={
             "expected_csdrg_revision": None,
@@ -1162,7 +1189,7 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
     assert csdrg.json()["payload"]["dataset_facts"][0]["dataset"] == "DM"
     assert csdrg.json()["payload"]["dataset_facts"][0]["row_count"] == 2
     incomplete_csdrg_validation = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/csdrg/validate", headers=headers
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/csdrg:validate", headers=headers
     )
     assert incomplete_csdrg_validation.status_code == 200, incomplete_csdrg_validation.text
     assert incomplete_csdrg_validation.json()["error_count"] == 9
@@ -1187,13 +1214,13 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
         )
     ]
     authored_csdrg = await client.put(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/csdrg",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/csdrg",
         headers={**headers, "If-Match": csdrg.headers["etag"]},
         json=csdrg_payload,
     )
     assert authored_csdrg.status_code == 200, authored_csdrg.text
     refreshed_csdrg = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/csdrg/initialize",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/csdrg:initialize",
         headers={**headers, "If-Match": authored_csdrg.headers["etag"]},
         json={
             "expected_csdrg_revision": 2,
@@ -1210,7 +1237,7 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
         == csdrg_payload["narrative_sections"]
     )
     csdrg_validation = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/csdrg/validate", headers=headers
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/csdrg:validate", headers=headers
     )
     assert csdrg_validation.status_code == 200, csdrg_validation.text
     assert csdrg_validation.json()["error_count"] == 0
@@ -1226,7 +1253,7 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
             options={},
         )
     csdrg_build = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/csdrg/artifacts",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/csdrg/artifacts:build",
         headers={**headers, "Idempotency-Key": "build-csdrg-1"},
         json={
             "artifact_types": ["sdtm_csdrg_docx", "sdtm_csdrg_pdf"],
@@ -1264,9 +1291,11 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
     )
     assert len(PdfReader(io.BytesIO(csdrg_pdf.content)).pages) >= 2
 
-    current_sdtm = await client.get(f"/api/v1/sdtms/{sdtm.json()['id']}", headers=headers)
+    current_sdtm = await client.get(
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}", headers=headers
+    )
     sas_workarea = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/code-workareas",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/code-workareas",
         headers={**headers, "If-Match": current_sdtm.headers["etag"]},
         json={
             "name": "Review SAS",
@@ -1277,14 +1306,12 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
     )
     assert sas_workarea.status_code == 201, sas_workarea.text
     execution = await client.post(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/code-workareas/{sas_workarea.json()['id']}/generate",
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/code-workareas/{sas_workarea.json()['id']}:generate",
         headers={**headers, "Idempotency-Key": "generate-sas-1"},
         json={"upstream_artifacts": []},
     )
     assert execution.status_code == 202, execution.text
-    sas_run = await client.get(
-        f"/api/v1/sdtm-code-runs/{execution.json()['id']}", headers=headers
-    )
+    sas_run = await client.get(f"/api/v1/sdtm-code-runs/{execution.json()['id']}", headers=headers)
     assert sas_run.json()["status"] == "failed"
     assert sas_run.json()["failure"]["code"] == "runner_not_configured"
 
@@ -1294,7 +1321,7 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
     )
     assert removed.status_code == 204, removed.text
     annotations = await client.get(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/acrf/annotations", headers=headers
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/acrf/annotations", headers=headers
     )
     assert annotations.json() == []
 
@@ -1307,7 +1334,7 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
     )
     assert changed.status_code == 200, changed.text
     stale_selection = await client.get(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/input-selection", headers=headers
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/input-selection", headers=headers
     )
     assert stale_selection.json()["state"] == "input_refresh_required"
     stale_validation = await client.get(
@@ -1318,11 +1345,13 @@ with (root / "outputs/DM.csv").open("w", encoding="utf-8", newline="") as target
         f"/api/v1/execution-runs/{generation.json()['id']}", headers=headers
     )
     assert stale_execution.json()["status"] == "stale"
-    blocked = await client.post(f"/api/v1/sdtms/{sdtm.json()['id']}/validate", headers=headers)
+    blocked = await client.post(
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}:validate", headers=headers
+    )
     assert blocked.status_code == 409
     assert blocked.json()["code"] == "sdtm_output_selection_required"
 
     stale_mapping = await client.get(
-        f"/api/v1/sdtms/{sdtm.json()['id']}/domains/DM/domain-mapping", headers=headers
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/domains/DM/domain-mapping", headers=headers
     )
     assert stale_mapping.json()["state"] == "misaligned"

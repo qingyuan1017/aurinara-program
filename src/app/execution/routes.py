@@ -425,7 +425,7 @@ def get_execution_outputs(
     }
 
 
-@router.post("/execution-runs/{run_id}/cancel", response_model=ExecutionRunResponse)
+@router.post("/execution-runs/{run_id}:cancel", response_model=ExecutionRunResponse)
 def cancel_execution_run(
     run_id: UUID,
     session: Annotated[Session, Depends(get_session)],

@@ -402,7 +402,7 @@ aur_date_diff_months <- function(e, s) {
 
 def r_source(value: DataflowIR, digest: str) -> str:
     lines = [
-        f"# aurinara-dataflow compiler=1.8.0 ir={digest}",
+        f"# aurinara-dataflow compiler=1.9.0 ir={digest}",
         'root <- Sys.getenv("AURINARA_WORKSPACE", unset = "/workspace")',
         'inputs <- file.path(root, "inputs")',
         'outputs <- file.path(root, "outputs")',

@@ -13,11 +13,11 @@ import {
   WorkbenchDetailShell,
   type WorkbenchTab,
 } from '@/components/workbench/workbench-detail-shell'
-import { DatasetsPanel } from '@/components/workbench/datasets-panel'
-import { ArtifactsPanel } from '@/components/workbench/artifacts-panel'
-import { DependenciesPanel } from '@/components/workbench/dependencies-panel'
-import { ReconciliationPanel } from '@/components/workbench/reconciliation-panel'
-import { RawValidationPanel } from '@/components/workbench/raw-validation-panel'
+import { DatasetsPanel } from '@/features/raw/components/datasets-panel'
+import { ArtifactsPanel } from '@/features/raw/components/artifacts-panel'
+import { DependenciesPanel } from '@/features/raw/components/dependencies-panel'
+import { ReconciliationPanel } from '@/features/raw/components/reconciliation-panel'
+import { RawValidationPanel } from '@/features/raw/components/raw-validation-panel'
 import { useGetRawAggregate, usePatchRaw } from '@/api/generated/raw/raw'
 import type { AggregateResponse, PatchRawBody } from '@/api/generated/model'
 import { ifMatchRequest } from '@/lib/requests'
@@ -59,7 +59,7 @@ function RawDetailPage() {
 
   const [editOpen, setEditOpen] = React.useState(false)
 
-  // name/status edit (Requirement 2.5): PATCH /api/v1/raw/{raw_id} with the
+  // name/status edit (Requirement 2.5): PATCH /api/v1/raw-workbenches/{raw_id} with the
   // current ETag. The `request` option rebinds to the latest revision on every
   // render, so after a 412/428 reload the retry carries the fresh token.
   const patch = usePatchRaw({
@@ -132,7 +132,7 @@ function RawDetailPage() {
         title={aggregate ? `${aggregate.code} ${aggregate.name}` : 'Raw workbench'}
         description={
           <>
-            Raw workbench from <code>GET /api/v1/raw/{'{raw_id}'}</code>.
+            Raw workbench from <code>GET /api/v1/raw-workbenches/{'{raw_id}'}</code>.
           </>
         }
         actions={

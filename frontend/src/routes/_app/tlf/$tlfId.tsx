@@ -15,7 +15,7 @@ import {
   TlfProgramPlanPanel,
   TlfShellPanel,
   TlfValidationPanel,
-} from '@/components/workbench/tlf-panels'
+} from '@/features/tlf/components/panels'
 import { useGetTlfAggregate } from '@/api/generated/tlf/tlf'
 
 const TABS = [

@@ -22,7 +22,7 @@ import {
   DocumentProtocolContextPanel,
   DocumentUsdmPanel,
   DocumentValidationPanel,
-} from '@/components/workbench/document-panels'
+} from '@/features/documents/components/panels'
 import type { DocumentResponse } from '@/api/generated/model'
 import {
   getGetDocumentQueryKey,

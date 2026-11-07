@@ -305,7 +305,7 @@ def _mark_output_stale(session: Session, aggregate_id: UUID) -> None:
     artifact_service.mark_owner_stale(session, owner_type="sdtm_workbench", owner_id=aggregate_id)
 
 
-@router.get("/sdtms/{sdtm_id}/domain-mappings", response_model=MappingHeadPage)
+@router.get("/sdtm-workbenches/{sdtm_id}/domain-mappings", response_model=MappingHeadPage)
 def list_domain_mappings(
     sdtm_id: UUID,
     session: Annotated[Session, Depends(get_session)],
@@ -320,7 +320,9 @@ def list_domain_mappings(
     )
 
 
-@router.get("/sdtms/{sdtm_id}/domains/{domain}/domain-mapping", response_model=MappingResponse)
+@router.get(
+    "/sdtm-workbenches/{sdtm_id}/domains/{domain}/domain-mapping", response_model=MappingResponse
+)
 def get_domain_mapping(
     sdtm_id: UUID,
     domain: str,
@@ -341,7 +343,9 @@ def get_domain_mapping(
     return _mapping_response(record)
 
 
-@router.put("/sdtms/{sdtm_id}/domains/{domain}/domain-mapping", response_model=MappingResponse)
+@router.put(
+    "/sdtm-workbenches/{sdtm_id}/domains/{domain}/domain-mapping", response_model=MappingResponse
+)
 def put_domain_mapping(
     sdtm_id: UUID,
     domain: str,
@@ -434,7 +438,9 @@ def put_domain_mapping(
     return _mapping_response(record)
 
 
-@router.get("/sdtms/{sdtm_id}/domains/{domain}/variable-mapping", response_model=MappingResponse)
+@router.get(
+    "/sdtm-workbenches/{sdtm_id}/domains/{domain}/variable-mapping", response_model=MappingResponse
+)
 def get_variable_mapping(
     sdtm_id: UUID,
     domain: str,
@@ -455,7 +461,9 @@ def get_variable_mapping(
     return _mapping_response(record)
 
 
-@router.put("/sdtms/{sdtm_id}/domains/{domain}/variable-mapping", response_model=MappingResponse)
+@router.put(
+    "/sdtm-workbenches/{sdtm_id}/domains/{domain}/variable-mapping", response_model=MappingResponse
+)
 def put_variable_mapping(
     sdtm_id: UUID,
     domain: str,
@@ -584,7 +592,7 @@ def _mapping_pins(
     return spec, dm, vm
 
 
-@router.get("/sdtms/{sdtm_id}/code-workareas", response_model=WorkareaPage)
+@router.get("/sdtm-workbenches/{sdtm_id}/code-workareas", response_model=WorkareaPage)
 def list_workareas(
     sdtm_id: UUID,
     session: Annotated[Session, Depends(get_session)],
@@ -600,7 +608,7 @@ def list_workareas(
 
 
 @router.post(
-    "/sdtms/{sdtm_id}/code-workareas",
+    "/sdtm-workbenches/{sdtm_id}/code-workareas",
     response_model=WorkareaResponse,
     status_code=status.HTTP_201_CREATED,
 )
@@ -655,7 +663,9 @@ def create_workarea(
     return _workarea_response(session, record)
 
 
-@router.get("/sdtms/{sdtm_id}/code-workareas/{workarea_id}", response_model=WorkareaResponse)
+@router.get(
+    "/sdtm-workbenches/{sdtm_id}/code-workareas/{workarea_id}", response_model=WorkareaResponse
+)
 def get_workarea(
     sdtm_id: UUID,
     workarea_id: UUID,
@@ -676,7 +686,9 @@ def get_workarea(
     return _workarea_response(session, record)
 
 
-@router.put("/sdtms/{sdtm_id}/code-workareas/{workarea_id}", response_model=WorkareaResponse)
+@router.put(
+    "/sdtm-workbenches/{sdtm_id}/code-workareas/{workarea_id}", response_model=WorkareaResponse
+)
 def update_workarea(
     sdtm_id: UUID,
     workarea_id: UUID,
@@ -721,7 +733,8 @@ def update_workarea(
 
 
 @router.post(
-    "/sdtms/{sdtm_id}/code-workareas/{workarea_id}/archive", response_model=WorkareaResponse
+    "/sdtm-workbenches/{sdtm_id}/code-workareas/{workarea_id}:archive",
+    response_model=WorkareaResponse,
 )
 def archive_workarea(
     sdtm_id: UUID,
@@ -1063,7 +1076,8 @@ def _workarea_for_run(
 
 
 @router.post(
-    "/sdtms/{sdtm_id}/code-workareas/{workarea_id}/test", status_code=status.HTTP_202_ACCEPTED
+    "/sdtm-workbenches/{sdtm_id}/code-workareas/{workarea_id}:test",
+    status_code=status.HTTP_202_ACCEPTED,
 )
 def test_workarea(
     sdtm_id: UUID,
@@ -1095,7 +1109,8 @@ def test_workarea(
 
 
 @router.post(
-    "/sdtms/{sdtm_id}/code-workareas/{workarea_id}/generate", status_code=status.HTTP_202_ACCEPTED
+    "/sdtm-workbenches/{sdtm_id}/code-workareas/{workarea_id}:generate",
+    status_code=status.HTTP_202_ACCEPTED,
 )
 def generate_workarea(
     sdtm_id: UUID,
@@ -1153,7 +1168,7 @@ def get_code_run(
     }
 
 
-@router.get("/sdtms/{sdtm_id}/output-selection", response_model=OutputSelectionResponse)
+@router.get("/sdtm-workbenches/{sdtm_id}/output-selection", response_model=OutputSelectionResponse)
 def get_output_selection(
     sdtm_id: UUID,
     response: Response,
@@ -1175,7 +1190,7 @@ def get_output_selection(
     return OutputSelectionResponse.model_validate(record)
 
 
-@router.put("/sdtms/{sdtm_id}/output-selection", response_model=OutputSelectionResponse)
+@router.put("/sdtm-workbenches/{sdtm_id}/output-selection", response_model=OutputSelectionResponse)
 def put_output_selection(
     sdtm_id: UUID,
     command: SdtmOutputSelectionWrite,
@@ -1302,7 +1317,7 @@ def put_output_selection(
     return OutputSelectionResponse.model_validate(prior)
 
 
-@router.get("/sdtms/{sdtm_id}/program-artifact-readiness")
+@router.get("/sdtm-workbenches/{sdtm_id}/program-artifact-readiness")
 def get_program_artifact_readiness(
     sdtm_id: UUID,
     session: Annotated[Session, Depends(get_session)],

@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import { useCurrentStudy } from '@/components/study-context'
 import { WorkbenchDetailShell, type WorkbenchTab } from '@/components/workbench/workbench-detail-shell'
-import { AdamAdrgPanel, AdamContextPanel, AdamDefinePanel, AdamDependenciesPanel, AdamInputSelectionPanel, AdamOperationsPanel, AdamPlanPanel, AdamSpecificationPanel, AdamValidationPanel } from '@/components/workbench/adam-panels'
+import { AdamAdrgPanel, AdamContextPanel, AdamDefinePanel, AdamDependenciesPanel, AdamInputSelectionPanel, AdamOperationsPanel, AdamPlanPanel, AdamSpecificationPanel, AdamValidationPanel } from '@/features/adam/components/panels'
 import { useGetAdamAggregate } from '@/api/generated/adam/adam'
 
 const TABS = ['inputs', 'specification', 'plans', 'context', 'validation', 'operations', 'define', 'adrg', 'dependencies'] as const

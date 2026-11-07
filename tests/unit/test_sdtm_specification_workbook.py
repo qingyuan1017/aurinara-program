@@ -67,7 +67,7 @@ def _specification() -> SdtmSpecification:
                             "condition": {
                                 "kind": "binary",
                                 "operator": "eq",
-                                "left": {"kind": "column", "dataset": "DM", "column": "SEX"},
+                                "left": {"kind": "column", "column": "SEX"},
                                 "right": {"kind": "literal", "value": "M"},
                             },
                             "label": "Male subjects",

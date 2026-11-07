@@ -12,6 +12,7 @@ from app.api.catalogs import router as catalogs_router
 from app.api.health import router as health_router
 from app.api.middleware import RequestContextMiddleware
 from app.api.modules import router as modules_router
+from app.api.operation_ids import stable_operation_id
 from app.api.traceability import router as traceability_router
 from app.artifacts.builds import router as artifact_builds_router
 from app.artifacts.routes import router as artifacts_router
@@ -54,6 +55,7 @@ def create_app(
         docs_url="/docs",
         redoc_url=None,
         openapi_url=f"{resolved_settings.app_api_prefix}/openapi.json",
+        generate_unique_id_function=stable_operation_id,
     )
     application.state.settings = resolved_settings
     application.state.module_registry = registry

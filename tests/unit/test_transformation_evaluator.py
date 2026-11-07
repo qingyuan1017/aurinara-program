@@ -18,7 +18,7 @@ def test_evaluator_uses_typed_operators_and_declared_write() -> None:
                     "predicate": {
                         "kind": "binary",
                         "operator": "ge",
-                        "left": {"kind": "column", "dataset": "DEMOG", "column": "AGE"},
+                        "left": {"kind": "column", "column": "AGE"},
                         "right": {"kind": "literal", "value": 18},
                     },
                 },
@@ -29,10 +29,10 @@ def test_evaluator_uses_typed_operators_and_declared_write() -> None:
                         "STUDYID": {"kind": "literal", "value": "SYN-001"},
                         "USUBJID": {
                             "kind": "column",
-                            "dataset": "DEMOG",
                             "column": "SUBJID",
                         },
                     },
+                    "result_types": {"STUDYID": "character", "USUBJID": "character"},
                 },
                 {"node_type": "write", "id": "write", "dataset": "DM"},
             ],
@@ -64,6 +64,7 @@ def test_derive_assignments_all_read_the_same_incoming_row() -> None:
                         "SUBJID": {"kind": "column", "column": "SITEID"},
                         "SITEID": {"kind": "literal", "value": "101"},
                     },
+                    "result_types": {"SUBJID": "character", "SITEID": "character"},
                     "assignment_order": ["SITEID", "SUBJID"],
                 },
                 {"node_type": "write", "id": "write", "dataset": "DM"},
@@ -106,6 +107,7 @@ def test_evaluator_normalizes_heterogeneous_incoming_rows_to_one_schema() -> Non
                             "column": "VAR5",
                         }
                     },
+                    "result_types": {"AETERM": "character"},
                 },
                 {"node_type": "write", "id": "write", "dataset": "AE"},
             ],
@@ -135,9 +137,8 @@ def test_evaluator_reports_source_schema_for_unknown_expression_column() -> None
                 {
                     "node_type": "derive",
                     "id": "derive_ae",
-                    "assignments": {
-                        "AETERM": {"kind": "column", "column": "VAR5"}
-                    },
+                    "assignments": {"AETERM": {"kind": "column", "column": "VAR5"}},
+                    "result_types": {"AETERM": "character"},
                 },
                 {"node_type": "write", "id": "write", "dataset": "AE"},
             ],
@@ -178,10 +179,10 @@ def test_evaluator_can_preview_healthy_node_before_failing_downstream_node() -> 
                     "assignments": {
                         "AETERM": {
                             "kind": "column",
-                            "dataset": "AE_RAW",
                             "column": "VAR11",
                         }
                     },
+                    "result_types": {"AETERM": "character"},
                 },
                 {
                     "node_type": "derive",
@@ -189,10 +190,10 @@ def test_evaluator_can_preview_healthy_node_before_failing_downstream_node() -> 
                     "assignments": {
                         "AEDECOD": {
                             "kind": "column",
-                            "dataset": "AE_RAW",
                             "column": "VAR12",
                         }
                     },
+                    "result_types": {"AEDECOD": "character"},
                 },
                 {"node_type": "write", "id": "write", "dataset": "AE"},
             ],

@@ -264,8 +264,7 @@ def _register_terminology_group(
         checksum=checksum,
         asset_path=root_resource.asset_path,
         applicable_modules=_modules(product),
-        provenance=provenance
-        or {"source": "CDISC Library", "resource_count": len(resources)},
+        provenance=provenance or {"source": "CDISC Library", "resource_count": len(resources)},
     )
     session.add(release)
     session.flush()
@@ -409,9 +408,7 @@ def register_library_selection_rows(
 
     if selection.resource_count != len(selection.resources) or not selection.resources:
         raise ValueError("CDISC Library selection inventory is incomplete")
-    if selection.selected_href not in {
-        resource.canonical_href for resource in selection.resources
-    }:
+    if selection.selected_href not in {resource.canonical_href for resource in selection.resources}:
         raise ValueError("CDISC Library selection does not contain its selected root")
     hrefs = [resource.canonical_href for resource in selection.resources]
     if len(hrefs) != len(set(hrefs)):

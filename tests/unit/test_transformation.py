@@ -188,11 +188,10 @@ def test_custom_function_compiles_supplied_language_and_todo_placeholders(
                         "USUBJID": {
                             "kind": "custom_function",
                             "function_id": "make_subject",
-                            "arguments": [
-                                {"kind": "column", "dataset": "DEMOG", "column": "SUBJID"}
-                            ],
+                            "arguments": [{"kind": "column", "column": "SUBJID"}],
                         }
                     },
+                    "result_types": {"USUBJID": "character"},
                 },
                 {"node_type": "write", "id": "write", "dataset": "DM"},
             ],
@@ -250,6 +249,7 @@ def test_custom_function_calls_require_a_definition_and_exact_arity() -> None:
                         "arguments": [],
                     }
                 },
+                "result_types": {"VALUE": "numeric"},
             }
         ]
     }
@@ -291,11 +291,10 @@ def test_custom_function_is_executable_for_supplied_r_body(tmp_path: Path) -> No
                         "USUBJID": {
                             "kind": "custom_function",
                             "function_id": "make_subject",
-                            "arguments": [
-                                {"kind": "column", "dataset": "DEMOG", "column": "SUBJID"}
-                            ],
+                            "arguments": [{"kind": "column", "column": "SUBJID"}],
                         }
                     },
+                    "result_types": {"USUBJID": "character"},
                 },
                 {"node_type": "write", "id": "write", "dataset": "DM"},
             ],

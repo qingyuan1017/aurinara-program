@@ -28,7 +28,7 @@ from app.common.time import utc_now
 from app.config import Settings
 from app.execution.adapters import ExecutionLimits, ExecutionRequest, Executor
 from app.execution.contracts import ExecutionProduct
-from app.execution.jobs import Job, JobService
+from app.execution.jobs import Job, JobService, claimed_job
 from app.execution.models import ExecutionRun
 from app.execution.staging import tabular_csv_bytes
 from app.kernel.contracts import ModuleCapability
@@ -96,11 +96,14 @@ def _prepare_test_preview(
 
 
 def _copy_object(storage: ObjectStorage, artifact: Artifact, destination: Path) -> None:
-    with open_stored_object(
-        storage,
-        object_key=artifact.object_key,
-        platform_object_id=artifact.platform_object_id,
-    ) as source, destination.open("wb") as target:
+    with (
+        open_stored_object(
+            storage,
+            object_key=artifact.object_key,
+            platform_object_id=artifact.platform_object_id,
+        ) as source,
+        destination.open("wb") as target,
+    ):
         shutil.copyfileobj(source, target, length=1024 * 1024)
 
 
@@ -118,7 +121,28 @@ def process_execution_job(
     settings: Settings,
     job_id: UUID,
 ) -> None:
-    """Process one claimed execution job without holding I/O transactions open."""
+    """Process one claimed execution job under its exact queue lease."""
+
+    with factory() as session:
+        job = session.get(Job, job_id)
+        if job is None:
+            return
+        lease_token = job.lease_token
+    if lease_token is None:
+        raise RuntimeError("claimed execution job did not receive a lease token")
+    with claimed_job(lease_token):
+        _process_execution_job(factory, registry, storage, executor, settings, job_id)
+
+
+def _process_execution_job(
+    factory: sessionmaker[Session],
+    registry: ModuleRegistry,
+    storage: ObjectStorage,
+    executor: Executor,
+    settings: Settings,
+    job_id: UUID,
+) -> None:
+    """Stage, execute, and publish without holding I/O transactions open."""
 
     with factory.begin() as session:
         job = session.get(Job, job_id)

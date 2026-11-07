@@ -41,7 +41,7 @@ async def test_document_authoring_puts_publish_typed_json_bodies(client: AsyncCl
     assert content_schema["type"] == "object"
     assert content_schema["additionalProperties"] is True
 
-    usdm_schema = paths["/api/v1/documents/{document_id}/usdm"]["put"]["requestBody"][
-        "content"
-    ]["application/json"]["schema"]
+    usdm_schema = paths["/api/v1/documents/{document_id}/usdm"]["put"]["requestBody"]["content"][
+        "application/json"
+    ]["schema"]
     assert usdm_schema == {"$ref": "#/components/schemas/UsdmDocument"}

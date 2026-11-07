@@ -1540,7 +1540,8 @@ def lower_plan(specification: AdamSpecification, plan: AdamDerivationPlan) -> Da
                     "adam_plan_target_unknown",
                     f"Derivation target '{node.target_dataset}' is absent from the Specification.",
                 )
-            variables = {variable.name for variable in dataset.variables}
+            variable_types = {variable.name: variable.data_type for variable in dataset.variables}
+            variables = set(variable_types)
             unknown_assignments = sorted(set(node.assignments) - variables)
             if unknown_assignments:
                 raise _invalid_plan(
@@ -1564,6 +1565,7 @@ def lower_plan(specification: AdamSpecification, plan: AdamDerivationPlan) -> Da
                         name: expression.model_dump(mode="json")
                         for name, expression in node.assignments.items()
                     },
+                    "result_types": {name: variable_types[name] for name in node.assignments},
                 }
             )
         else:

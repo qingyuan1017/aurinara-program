@@ -118,9 +118,7 @@ class JobService:
         queue_conditions = [Job.status == "queued"]
         if job_types is not None:
             queue_conditions.append(Job.job_type.in_(job_types))
-        queue_depth = session.scalar(
-            select(func.count(Job.id)).where(*queue_conditions)
-        ) or 0
+        queue_depth = session.scalar(select(func.count(Job.id)).where(*queue_conditions)) or 0
         emit_metric(
             "QueuedJobs",
             float(queue_depth),

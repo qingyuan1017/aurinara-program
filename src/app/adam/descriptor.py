@@ -2,10 +2,8 @@
 
 from fastapi import APIRouter
 
-from app.adam.adrg import router as adrg_router
-from app.adam.define import router as define_router
 from app.adam.models import AdamDependencySelection, AdamWorkbench
-from app.adam.routes import router as adam_router
+from app.adam.routes import router as feature_router
 from app.adam.service import ADAM_ARTIFACT_TYPES, AdamCapability
 from app.api.clinical_aggregates import dependency_aggregate_router
 from app.kernel.contracts import ModuleCapability, ModuleDescriptor, ModuleRegistration
@@ -13,7 +11,7 @@ from app.kernel.contracts import ModuleCapability, ModuleDescriptor, ModuleRegis
 DESCRIPTOR = ModuleDescriptor(
     module_key="adam",
     module_version="0.4.0",
-    api_prefix="/api/v1/adams",
+    api_prefix="/api/v1/adam-workbenches",
     content_schema_versions=("1.0.0",),
     dependency_purposes=(
         "adam_ig",
@@ -52,11 +50,14 @@ DESCRIPTOR = ModuleDescriptor(
 HANDLER = AdamCapability("adam", "adam_workbench", AdamWorkbench, AdamDependencySelection)
 router = APIRouter()
 router.include_router(
-    dependency_aggregate_router("adam", "/studies/{study_id}/adams", "/adams/{adam_id}", "adam_id")
+    dependency_aggregate_router(
+        "adam",
+        "/studies/{study_id}/adam-workbenches",
+        "/adam-workbenches/{adam_id}",
+        "adam_id",
+    )
 )
-router.include_router(adam_router)
-router.include_router(define_router)
-router.include_router(adrg_router)
+router.include_router(feature_router)
 REGISTRATION = ModuleRegistration(
     DESCRIPTOR,
     {

@@ -54,9 +54,10 @@ the bearer token from `src/lib/auth.ts`.
 
 ### Generated hook names
 
-FastAPI emits verbose operation IDs (e.g. `list_studies_api_v1_studies_get`).
-The Orval `operationName` override trims the `_api_v1_...` suffix, so hooks read
-cleanly: `useListStudies`, `useCreateStudy`, `useGetStudy`, etc.
+FastAPI publishes stable `owner_resource_action` operation IDs. The Orval
+override converts those IDs to action-first TypeScript names within each
+tag-owned client module, keeping hooks readable without weakening the public
+operation-ID contract.
 
 ## Authentication
 
@@ -98,13 +99,20 @@ src/
     generated/            # GENERATED — do not edit
   components/
     layout/               # app sidebar, header, user nav
+    workbench/            # reusable shell, polling, transfer, and artifact primitives
     ui/                   # shadcn/ui primitives
     theme-provider.tsx    # light/dark/system theme
+  features/
+    raw/                  # Raw API adapters, panels, and co-located tests
+    documents/            # Documents panels and feature state
+    sdtm/                 # SDTM authoring, mappings, aCRF, Define, and tests
+    adam/                 # ADaM workbench panels
+    tlf/                  # TLF workbench panels
   hooks/
   lib/
     auth.ts               # bearer-token storage
     query-client.ts
-    utils.ts              # cn()
+    utils.ts              # class-name composition only
   routes/                 # TanStack Router file-based routes
   styles/globals.css      # Tailwind v4 + shadcn theme tokens
 ```

@@ -69,14 +69,6 @@ class LiteralExpression(StrictModel):
 
 class ColumnExpression(StrictModel):
     kind: Literal["column"]
-    dataset: str | None = Field(
-        default=None,
-        json_schema_extra={"deprecated": True},
-        description=(
-            "Legacy source label. Column values are always read from the row entering "
-            "the current operator."
-        ),
-    )
     column: str
 
 
@@ -312,7 +304,7 @@ class DeriveNode(StrictModel):
     id: str
     assignments: dict[str, DerivationExpression] = Field(min_length=1)
     assignment_order: tuple[str, ...] = ()
-    result_types: dict[str, Literal["character", "numeric"]] = Field(default_factory=dict)
+    result_types: dict[str, Literal["character", "numeric"]]
 
     @model_validator(mode="after")
     def valid_assignment_order(self) -> "DeriveNode":
@@ -321,6 +313,8 @@ class DeriveNode(StrictModel):
         order = self.assignment_order or tuple(self.assignments)
         if len(order) != len(set(order)) or set(order) != set(self.assignments):
             raise ValueError("assignment_order must list every assignment exactly once")
+        if set(self.result_types) != set(self.assignments):
+            raise ValueError("result_types must declare every assignment exactly once")
         object.__setattr__(self, "assignment_order", order)
         object.__setattr__(
             self,
@@ -477,7 +471,7 @@ class Edge(StrictModel):
 
 class DataflowIR(StrictModel):
     schema_version: Literal["1.0.0"] = "1.0.0"
-    operator_version: Literal["1.4.0"] = "1.4.0"
+    operator_version: Literal["1.5.0"] = "1.5.0"
     custom_functions: tuple[CustomFunctionDefinition, ...] = ()
     nodes: tuple[DataflowNode, ...] = Field(min_length=1)
     edges: tuple[Edge, ...] = ()

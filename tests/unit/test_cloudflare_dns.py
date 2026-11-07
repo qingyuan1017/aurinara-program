@@ -17,9 +17,7 @@ def _outputs(_: str, key: str) -> str:
 def test_configure_dns_creates_dns_only_cname() -> None:
     calls: list[tuple[str, str, dict[str, Any] | None]] = []
 
-    def requester(
-        method: str, url: str, _: str, payload: dict[str, Any] | None
-    ) -> dict[str, Any]:
+    def requester(method: str, url: str, _: str, payload: dict[str, Any] | None) -> dict[str, Any]:
         calls.append((method, url, payload))
         if method == "GET":
             return {"success": True, "result": []}
@@ -48,9 +46,7 @@ def test_configure_dns_creates_dns_only_cname() -> None:
 def test_configure_dns_updates_existing_cname() -> None:
     calls: list[tuple[str, str]] = []
 
-    def requester(
-        method: str, url: str, _: str, payload: dict[str, Any] | None
-    ) -> dict[str, Any]:
+    def requester(method: str, url: str, _: str, payload: dict[str, Any] | None) -> dict[str, Any]:
         calls.append((method, url))
         if method == "GET":
             return {"success": True, "result": [{"id": "record-id"}]}
@@ -88,9 +84,7 @@ def test_configure_dns_rejects_non_cloudfront_target() -> None:
 
 
 def test_configure_dns_rejects_proxied_result() -> None:
-    def requester(
-        method: str, url: str, _: str, payload: dict[str, Any] | None
-    ) -> dict[str, Any]:
+    def requester(method: str, url: str, _: str, payload: dict[str, Any] | None) -> dict[str, Any]:
         del url, payload
         if method == "GET":
             return {"success": True, "result": []}

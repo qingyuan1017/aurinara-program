@@ -27,7 +27,7 @@ def _lit(value: object) -> dict[str, object]:
 
 
 def _col(name: str) -> dict[str, object]:
-    return {"kind": "column", "dataset": "src", "column": name}
+    return {"kind": "column", "column": name}
 
 
 def _fn(name: str, *arguments: dict[str, object]) -> dict[str, object]:
@@ -36,7 +36,12 @@ def _fn(name: str, *arguments: dict[str, object]) -> dict[str, object]:
 
 def _as_expression(value: dict[str, object]) -> Expression:
     return DeriveNode.model_validate(
-        {"node_type": "derive", "id": "d", "assignments": {"X": value}}
+        {
+            "node_type": "derive",
+            "id": "d",
+            "assignments": {"X": value},
+            "result_types": {"X": "character"},
+        }
     ).assignments["X"]
 
 

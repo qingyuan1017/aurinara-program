@@ -4,8 +4,8 @@ Compiles a conditional-derive Dataflow IR to Python and R, executes both in a
 temporary workspace, and compares normalized outputs. R assertions are guarded
 behind ``shutil.which("Rscript")`` but, when R is present, a Python-vs-R
 mismatch fails the test rather than being skipped. SAS is non-failing: the test
-asserts the SAS program is generated when result types are present and that
-``BackendCapabilityMissing`` is the only reason it is withheld when absent.
+asserts the SAS program is generated when complete result types are present and
+that incomplete derive contracts are rejected before compilation.
 """
 
 import csv
@@ -16,9 +16,10 @@ import sys
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from app.transformation.contracts import DataflowIR
-from app.transformation.service import BackendCapabilityMissing, compile_dataflow
+from app.transformation.service import compile_dataflow
 
 _RSCRIPT = shutil.which("Rscript")
 
@@ -291,14 +292,13 @@ def test_null_when_falls_through_to_otherwise(tmp_path: Path) -> None:
     assert _column_values(r_rows, "RES") == _column_values(python_rows, "RES")
 
 
-def test_sas_generated_with_result_types_and_missing_without() -> None:
+def test_sas_requires_complete_result_types() -> None:
     with_types = _conditional_ir({"ITTFL": _ittfl_expression()}, {"ITTFL": "character"})
     program = compile_dataflow(with_types, "sas")
     assert "IFC(" in program.source
 
-    without_types = _conditional_ir({"ITTFL": _ittfl_expression()}, {})
-    with pytest.raises(BackendCapabilityMissing):
-        compile_dataflow(without_types, "sas")
+    with pytest.raises(ValidationError, match="result_types must declare every assignment"):
+        _conditional_ir({"ITTFL": _ittfl_expression()}, {})
 
 
 # --- Phase 2: function catalog conformance -----------------------------------
@@ -465,4 +465,4 @@ def test_function_catalog_python_and_r_agree(tmp_path: Path) -> None:
 def test_function_catalog_generates_sas_program() -> None:
     program = compile_dataflow(_catalog_ir(), "sas")
     assert "data work." in program.source
-    assert program.compiler_version == "1.8.0"
+    assert program.compiler_version == "1.9.0"

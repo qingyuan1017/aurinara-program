@@ -98,7 +98,6 @@ def _plan() -> AdamDerivationPlan:
                     "assignments": {
                         "TRT01P": {
                             "kind": "column",
-                            "dataset": "DM",
                             "column": "ARM",
                         }
                     },
@@ -247,7 +246,7 @@ def test_plan_lowers_custom_function_definitions() -> None:
     payload["nodes"][1]["assignments"]["TRT01P"] = {
         "kind": "custom_function",
         "function_id": "planned_treatment",
-        "arguments": [{"kind": "column", "dataset": "DM", "column": "ARM"}],
+        "arguments": [{"kind": "column", "column": "ARM"}],
     }
     internal = lower_plan(_specification(), AdamDerivationPlan.model_validate(payload))
     assert internal.custom_functions[0].implementation("sas") == "return(value);"

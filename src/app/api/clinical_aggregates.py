@@ -190,34 +190,34 @@ def dependency_aggregate_router(
         methods=["POST"],
         response_model=AggregateResponse,
         status_code=status.HTTP_201_CREATED,
-        operation_id=f"create_{module_key}_aggregate",
+        operation_id=f"{module_key}_workbench_create",
     )
     router.add_api_route(
         collection_path,
         _list_endpoint(module_key),
         methods=["GET"],
         response_model=AggregateCollection,
-        operation_id=f"list_{module_key}_aggregates",
+        operation_id=f"{module_key}_workbench_list",
     )
     router.add_api_route(
         member_path,
         _get_endpoint(module_key, parameter_name),
         methods=["GET"],
         response_model=AggregateResponse,
-        operation_id=f"get_{module_key}_aggregate",
+        operation_id=f"{module_key}_workbench_get",
     )
     router.add_api_route(
         f"{member_path}/dependencies",
         _get_dependencies_endpoint(module_key, parameter_name),
         methods=["GET"],
         response_model=DependencySelectionResponse,
-        operation_id=f"get_{module_key}_dependencies",
+        operation_id=f"{module_key}_dependencies_get",
     )
     router.add_api_route(
         f"{member_path}/dependencies",
         _put_dependencies_endpoint(module_key, parameter_name),
         methods=["PUT"],
         response_model=DependencySelectionResponse,
-        operation_id=f"replace_{module_key}_dependencies",
+        operation_id=f"{module_key}_dependencies_replace",
     )
     return router

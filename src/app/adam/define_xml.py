@@ -64,12 +64,7 @@ def _condition_checks(
     if column.kind == "literal" and literal.kind == "column":
         column, literal = literal, column
         comparator = {"LT": "GT", "LE": "GE", "GT": "LT", "GE": "LE"}.get(comparator, comparator)
-    if (
-        column.kind != "column"
-        or literal.kind != "literal"
-        or column.dataset != dataset_code
-        or column.column not in known_variables
-    ):
+    if column.kind != "column" or literal.kind != "literal" or column.column not in known_variables:
         return None
     value = _literal_text(literal.value)
     if value is None:

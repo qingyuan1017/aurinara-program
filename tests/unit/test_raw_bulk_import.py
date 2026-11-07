@@ -628,7 +628,7 @@ def test_cancel_handler_transitions_queued_to_cancelled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from app.api.auth import Principal
-    from app.raw import routes
+    from app.raw import workbench_routes as routes
 
     study_id = uuid4()
     record = RawDatasetImport(
@@ -668,7 +668,7 @@ def test_cancel_handler_transitions_queued_to_cancelled(
 def test_cancel_handler_rejects_terminal_import(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.api.auth import Principal
     from app.common.problems import ProblemException
-    from app.raw import routes
+    from app.raw import workbench_routes as routes
 
     study_id = uuid4()
     record = RawDatasetImport(

@@ -98,7 +98,7 @@ async def _study_and_raw(client: AsyncClient) -> tuple[str, str]:
     )
     study_id = study.json()["id"]
     raw = await client.post(
-        f"/api/v1/studies/{study_id}/raw",
+        f"/api/v1/studies/{study_id}/raw-workbenches",
         headers=_HEADERS,
         json={"code": "RAW", "name": "Raw"},
     )
@@ -151,7 +151,7 @@ async def test_bulk_import_single_transaction_commit(bulk_client: AsyncClient) -
     before_bindings = _count(client, "raw_dataset_file_bindings")
 
     created = await client.post(
-        f"/api/v1/raw/{raw_id}/datasets/import",
+        f"/api/v1/raw-workbenches/{raw_id}/datasets:import",
         headers={**_HEADERS, "Idempotency-Key": "bulk-ok-1"},
         json={
             "entries": [
@@ -186,7 +186,7 @@ async def test_bulk_import_missing_key_is_400(bulk_client: AsyncClient) -> None:
     study_id, raw_id = await _study_and_raw(client)
     source_id = await _source(client, study_id)
     response = await client.post(
-        f"/api/v1/raw/{raw_id}/datasets/import",
+        f"/api/v1/raw-workbenches/{raw_id}/datasets:import",
         headers=_HEADERS,
         json={"entries": [{"code": "DM", "label": "x", "source_file_id": source_id}]},
     )
@@ -202,13 +202,13 @@ async def test_bulk_import_idempotency_replay_and_reuse(bulk_client: AsyncClient
     body = {"entries": [{"code": "DM", "label": "x", "source_file_id": source_id}]}
 
     first = await client.post(
-        f"/api/v1/raw/{raw_id}/datasets/import",
+        f"/api/v1/raw-workbenches/{raw_id}/datasets:import",
         headers={**_HEADERS, "Idempotency-Key": "reuse-1"},
         json=body,
     )
     assert first.status_code == 202, first.text
     replay = await client.post(
-        f"/api/v1/raw/{raw_id}/datasets/import",
+        f"/api/v1/raw-workbenches/{raw_id}/datasets:import",
         headers={**_HEADERS, "Idempotency-Key": "reuse-1"},
         json=body,
     )
@@ -216,7 +216,7 @@ async def test_bulk_import_idempotency_replay_and_reuse(bulk_client: AsyncClient
     assert replay.json()["id"] == first.json()["id"]
 
     reuse = await client.post(
-        f"/api/v1/raw/{raw_id}/datasets/import",
+        f"/api/v1/raw-workbenches/{raw_id}/datasets:import",
         headers={**_HEADERS, "Idempotency-Key": "reuse-1"},
         json={"entries": [{"code": "AE", "label": "x", "source_file_id": source_id}]},
     )
@@ -230,7 +230,7 @@ async def test_bulk_import_content_failure_not_requeued(bulk_client: AsyncClient
     _, raw_id = await _study_and_raw(client)
     # A source id that does not resolve -> deterministic content failure.
     created = await client.post(
-        f"/api/v1/raw/{raw_id}/datasets/import",
+        f"/api/v1/raw-workbenches/{raw_id}/datasets:import",
         headers={**_HEADERS, "Idempotency-Key": "bad-source-1"},
         json={"entries": [{"code": "DM", "label": "x", "source_file_id": str(uuid4())}]},
     )
@@ -267,7 +267,7 @@ async def test_bulk_import_late_duplicate_rolls_back(bulk_client: AsyncClient) -
     source_id = await _source(client, study_id)
 
     created = await client.post(
-        f"/api/v1/raw/{raw_id}/datasets/import",
+        f"/api/v1/raw-workbenches/{raw_id}/datasets:import",
         headers={**_HEADERS, "Idempotency-Key": "late-dup-1"},
         json={"entries": [{"code": "DUP", "label": "x", "source_file_id": source_id}]},
     )
@@ -277,7 +277,7 @@ async def test_bulk_import_late_duplicate_rolls_back(bulk_client: AsyncClient) -
     # Create the conflicting dataset AFTER enqueue but BEFORE the worker runs,
     # so the duplicate surfaces as a late IntegrityError inside T2.
     conflict = await client.post(
-        f"/api/v1/raw/{raw_id}/datasets",
+        f"/api/v1/raw-workbenches/{raw_id}/datasets",
         headers=_HEADERS,
         json={"code": "DUP", "label": "existing", "source_file_id": source_id},
     )
@@ -312,7 +312,7 @@ async def test_cancel_queued_import_is_synchronous(bulk_client: AsyncClient) -> 
     study_id, raw_id = await _study_and_raw(client)
     source_id = await _source(client, study_id)
     created = await client.post(
-        f"/api/v1/raw/{raw_id}/datasets/import",
+        f"/api/v1/raw-workbenches/{raw_id}/datasets:import",
         headers={**_HEADERS, "Idempotency-Key": "cancel-1"},
         json={"entries": [{"code": "DM", "label": "x", "source_file_id": source_id}]},
     )
@@ -320,7 +320,7 @@ async def test_cancel_queued_import_is_synchronous(bulk_client: AsyncClient) -> 
     import_id = created.json()["id"]
 
     cancelled = await client.post(
-        f"/api/v1/raw-dataset-imports/{import_id}/cancel", headers=_HEADERS
+        f"/api/v1/raw-dataset-imports/{import_id}:cancel", headers=_HEADERS
     )
     assert cancelled.status_code == 200, cancelled.text
     assert cancelled.json()["status"] == "cancelled"

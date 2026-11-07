@@ -25,9 +25,7 @@ def _metadata(*, product_code: str = "SDTMIG") -> ResolvedStandardMetadata:
                 {
                     "datasets": [
                         {
-                            "_links": {
-                                "parentClass": {"title": "Special-Purpose Datasets"}
-                            },
+                            "_links": {"parentClass": {"title": "Special-Purpose Datasets"}},
                             "name": "DM",
                             "label": "Demographics",
                             "datasetStructure": "One record per subject",
@@ -63,9 +61,7 @@ def _metadata(*, product_code: str = "SDTMIG") -> ResolvedStandardMetadata:
                             ],
                         },
                         {
-                            "_links": {
-                                "parentClass": {"title": "Events"}
-                            },
+                            "_links": {"parentClass": {"title": "Events"}},
                             "name": "AE",
                             "label": "Adverse Events",
                             "datasetStructure": "One record per adverse event",
@@ -192,9 +188,7 @@ def test_initializes_only_selected_domains_and_required_expected_variables() -> 
 
 
 def test_reinitialization_filters_only_new_variables_and_preserves_existing_permissible() -> None:
-    initialized = initialize_specification_from_standard(
-        _metadata(), domain_codes=("DM",)
-    )
+    initialized = initialize_specification_from_standard(_metadata(), domain_codes=("DM",))
     result = initialize_specification_from_standard(
         _metadata(),
         initialized,
@@ -212,9 +206,7 @@ def test_reinitialization_filters_only_new_variables_and_preserves_existing_perm
 
 def test_rejects_unknown_selected_domain() -> None:
     with pytest.raises(ValueError, match="does not contain concrete domain.*ZZ"):
-        initialize_specification_from_standard(
-            _metadata(), domain_codes=("ZZ",)
-        )
+        initialize_specification_from_standard(_metadata(), domain_codes=("ZZ",))
 
 
 def test_rejects_a_selected_standard_that_is_not_sdtmig() -> None:

@@ -22,16 +22,16 @@ Human clients and external-system service identities send an externally issued J
 Nested create and collection routes include the study ID:
 
 ```text
-/api/v1/studies/{study_id}/raw
+/api/v1/studies/{study_id}/raw-workbenches
 /api/v1/studies/{study_id}/documents
 /api/v1/studies/{study_id}/references
 /api/v1/studies/{study_id}/review-items
 /api/v1/studies/{study_id}/terminology-extensions
 /api/v1/studies/{study_id}/validation-rule-packs
 /api/v1/studies/{study_id}/integrations
-/api/v1/studies/{study_id}/sdtms
-/api/v1/studies/{study_id}/adams
-/api/v1/studies/{study_id}/tlfs
+/api/v1/studies/{study_id}/sdtm-workbenches
+/api/v1/studies/{study_id}/adam-workbenches
+/api/v1/studies/{study_id}/tlf-workbenches
 ```
 
 Routes addressed by a globally unique resource ID still resolve the owning study and perform the same membership check. A resource from another study cannot be attached by supplying its UUID.
@@ -76,7 +76,7 @@ Errors use `application/problem+json` and RFC 9457 fields:
   "title": "Clinical content is invalid",
   "status": 422,
   "detail": "The SDTM Domain Mapping contains blocking validation issues.",
-  "instance": "/api/v1/sdtms/7da4.../domains/DM/domain-mapping",
+  "instance": "/api/v1/sdtm-workbenches/7da4.../domains/DM/domain-mapping",
   "code": "clinical_content_invalid",
   "request_id": "01J...",
   "issues": [
@@ -137,12 +137,12 @@ Long-running action endpoints use the same result contract in every module:
 
 | Action suffix                                        | Success status and resource                                                                                  |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `/validate`                                          | `202 Accepted` with a validation run and `Location: /api/v1/validation-runs/{validation_run_id}`             |
-| `/reconcile` or reconciliation-run collection `POST` | `202 Accepted` with a reconciliation run and `Location: /api/v1/reconciliation-runs/{reconciliation_run_id}` |
-| `/compile` or `/artifacts`                           | `202 Accepted` with an artifact build and `Location: /api/v1/artifact-builds/{build_id}`                     |
-| `/raw/{raw_id}/datasets/import`                      | `202 Accepted` with a raw dataset import and `Location: /api/v1/raw-dataset-imports/{import_id}`             |
-| `/execute`                                           | `202 Accepted` with an execution run and `Location: /api/v1/execution-runs/{run_id}`                         |
-| `/render` when it creates artifacts                  | `202 Accepted` with an artifact build and `Location: /api/v1/artifact-builds/{build_id}`                     |
+| `:validate`                                          | `202 Accepted` with a validation run and `Location: /api/v1/validation-runs/{validation_run_id}`             |
+| `:reconcile` or reconciliation-run collection `POST` | `202 Accepted` with a reconciliation run and `Location: /api/v1/reconciliation-runs/{reconciliation_run_id}` |
+| `:compile` or `/artifacts:build`                     | `202 Accepted` with an artifact build and `Location: /api/v1/artifact-builds/{build_id}`                     |
+| `/raw-workbenches/{raw_id}/datasets:import`                      | `202 Accepted` with a raw dataset import and `Location: /api/v1/raw-dataset-imports/{import_id}`             |
+| `:execute`                                           | `202 Accepted` with an execution run and `Location: /api/v1/execution-runs/{run_id}`                         |
+| `:render` when it creates artifacts                  | `202 Accepted` with an artifact build and `Location: /api/v1/artifact-builds/{build_id}`                     |
 | Submission-package collection `POST`                 | `202 Accepted` with a submission package and `Location: /api/v1/submission-packages/{package_id}`            |
 
 Synchronous previews and non-persisting renders return `200 OK` and do not create operation resources. All artifact-producing requests include an expected input fingerprint. Artifact builds, execution runs, reconciliation runs, bulk raw dataset imports, and submission-package creation require `Idempotency-Key`.
@@ -341,8 +341,8 @@ Sponsor extensions are manually maintained, study-scoped overlays that reference
 ```text
 POST  /api/v1/studies/{study_id}/references
 GET   /api/v1/studies/{study_id}/references
-POST  /api/v1/studies/{study_id}/references/import
-GET   /api/v1/studies/{study_id}/references/export
+POST  /api/v1/studies/{study_id}/references:import
+GET   /api/v1/studies/{study_id}/references:export
 GET   /api/v1/references/{reference_id}
 PATCH /api/v1/references/{reference_id}
 DELETE /api/v1/references/{reference_id}
@@ -385,7 +385,7 @@ Platform rule definitions and released rule packs are immutable. Study-scoped sp
 POST /api/v1/reconciliation-runs
 GET  /api/v1/reconciliation-runs/{reconciliation_run_id}
 GET  /api/v1/reconciliation-runs/{reconciliation_run_id}/issues
-POST /api/v1/reconciliation-runs/{reconciliation_run_id}/cancel
+POST /api/v1/reconciliation-runs/{reconciliation_run_id}:cancel
 ```
 
 The request supplies `study_id`, a registered reconciliation type, exact entity revisions and artifact IDs, an expected input fingerprint, and typed options. The service resolves every input through its owning module, verifies study ownership and availability, and records checksums before queueing the immutable run.
@@ -474,42 +474,42 @@ The `:bulk` upload accepts a multipart request with many file parts (1..`raw_bul
 ## 7. Raw routes
 
 ```text
-POST  /api/v1/studies/{study_id}/raw
-GET   /api/v1/studies/{study_id}/raw
-GET   /api/v1/raw/{raw_id}
-PATCH /api/v1/raw/{raw_id}
-GET   /api/v1/raw/{raw_id}/dependencies
-PUT   /api/v1/raw/{raw_id}/dependencies
+POST  /api/v1/studies/{study_id}/raw-workbenches
+GET   /api/v1/studies/{study_id}/raw-workbenches
+GET   /api/v1/raw-workbenches/{raw_id}
+PATCH /api/v1/raw-workbenches/{raw_id}
+GET   /api/v1/raw-workbenches/{raw_id}/dependencies
+PUT   /api/v1/raw-workbenches/{raw_id}/dependencies
 
-GET    /api/v1/raw/{raw_id}/datasets
-POST   /api/v1/raw/{raw_id}/datasets
-POST   /api/v1/raw/{raw_id}/datasets/import
+GET    /api/v1/raw-workbenches/{raw_id}/datasets
+POST   /api/v1/raw-workbenches/{raw_id}/datasets
+POST   /api/v1/raw-workbenches/{raw_id}/datasets:import
 GET    /api/v1/raw-dataset-imports/{import_id}
-POST   /api/v1/raw-dataset-imports/{import_id}/cancel
+POST   /api/v1/raw-dataset-imports/{import_id}:cancel
 GET    /api/v1/raw-datasets/{dataset_id}
 PATCH  /api/v1/raw-datasets/{dataset_id}
 DELETE /api/v1/raw-datasets/{dataset_id}
 
 GET    /api/v1/raw-datasets/{dataset_id}/variables
 POST   /api/v1/raw-datasets/{dataset_id}/variables
-POST   /api/v1/raw-datasets/{dataset_id}/variables/initialize
+POST   /api/v1/raw-datasets/{dataset_id}/variables:initialize
 GET    /api/v1/raw-variables/{variable_id}
 PATCH  /api/v1/raw-variables/{variable_id}
 DELETE /api/v1/raw-variables/{variable_id}
 
-POST /api/v1/raw-datasets/{dataset_id}/preview
-POST /api/v1/raw/{raw_id}/validate
-GET  /api/v1/raw/{raw_id}/latest-validation-run
-POST /api/v1/raw/{raw_id}/reconcile
-POST /api/v1/raw/{raw_id}/artifacts/fingerprint
-POST /api/v1/raw/{raw_id}/artifacts
+POST /api/v1/raw-datasets/{dataset_id}:preview
+POST /api/v1/raw-workbenches/{raw_id}:validate
+GET  /api/v1/raw-workbenches/{raw_id}/latest-validation-run
+POST /api/v1/raw-workbenches/{raw_id}:reconcile
+POST /api/v1/raw-workbenches/{raw_id}/artifacts:fingerprint
+POST /api/v1/raw-workbenches/{raw_id}/artifacts:build
 ```
 
 A raw dataset binds a manually maintained dataset record to an exact, study-owned immutable source-file record and its corresponding artifact. Dataset natural keys are unique within the Raw workbench. Replacing the file binding uses `PATCH` with `If-Match`, creates a new aggregate revision, and makes dependent input selections, SDTM mappings, validation runs, artifacts, and executions stale or alignment-required as applicable; it never overwrites the source file.
 
-`POST /api/v1/raw/{raw_id}/datasets/import` is the asynchronous bulk create. It takes a versioned JSON-array envelope (`schema_version`, optional `expected_raw_revision`, and `entries` where each entry carries `code`, `label`, optional `description`, `source_file_id`, and `initialize_variables`) and requires an `Idempotency-Key`. It returns `202 Accepted` with `Location: /api/v1/raw-dataset-imports/{import_id}` and a status resource whose `status` is `queued`. Omitting the key returns `400 idempotency_key_required`; replaying the same key and body returns the prior run at `202`; the same key with a different body returns `409 idempotency_key_reused`. A durable worker validates the whole array (source resolution, summed byte cap, checksum, file inspection, workbench-duplicate codes) before committing anything, then atomically creates one dataset and one immutable binding per entry, bumps the workbench revision once, and stales consumers exactly as a single create. `GET /api/v1/raw-dataset-imports/{import_id}` reports the current status, the created `raw_dataset` IDs on success, or the full typed issue list on failure (no datasets written). `POST /api/v1/raw-dataset-imports/{import_id}/cancel` cancels a `queued` import synchronously and requests cancellation of a `running` import, which the worker observes at its next transaction boundary; a terminal import returns `409 invalid_lifecycle_transition`. Content rejections terminate the run `failed` with per-entry issues while the backing job completes successfully and is never requeued.
+`POST /api/v1/raw-workbenches/{raw_id}/datasets:import` is the asynchronous bulk create. It takes a versioned JSON-array envelope (`schema_version`, optional `expected_raw_revision`, and `entries` where each entry carries `code`, `label`, optional `description`, `source_file_id`, and `initialize_variables`) and requires an `Idempotency-Key`. It returns `202 Accepted` with `Location: /api/v1/raw-dataset-imports/{import_id}` and a status resource whose `status` is `queued`. Omitting the key returns `400 idempotency_key_required`; replaying the same key and body returns the prior run at `202`; the same key with a different body returns `409 idempotency_key_reused`. A durable worker validates the whole array (source resolution, summed byte cap, checksum, file inspection, workbench-duplicate codes) before committing anything, then atomically creates one dataset and one immutable binding per entry, bumps the workbench revision once, and stales consumers exactly as a single create. `GET /api/v1/raw-dataset-imports/{import_id}` reports the current status, the created `raw_dataset` IDs on success, or the full typed issue list on failure (no datasets written). `POST /api/v1/raw-dataset-imports/{import_id}:cancel` cancels a `queued` import synchronously and requests cancellation of a `running` import, which the worker observes at its next transaction boundary; a terminal import returns `409 invalid_lifecycle_transition`. Content rejections terminate the run `failed` with per-entry issues while the backing job completes successfully and is never requeued.
 
-Variable metadata includes the source name, label, physical type, length or precision where applicable, ordinal position, role, controlled terminology reference, and user-authored description. `variables/initialize` inspects the selected file and fills only missing factual physical metadata. It preserves manual edits and does not infer clinical meaning, mappings, derivations, annotations, or review decisions. Raw dependencies may select applicable raw-layout or metadata standards, terminology for explicitly bound values, study Reference revisions for source systems, vendors, sites, and units, and templates for dictionary or import/export workbooks; none is inferred from uploaded rows.
+Variable metadata includes the source name, label, physical type, length or precision where applicable, ordinal position, role, controlled terminology reference, and user-authored description. `variables:initialize` inspects the selected file and fills only missing factual physical metadata. It preserves manual edits and does not infer clinical meaning, mappings, derivations, annotations, or review decisions. Raw dependencies may select applicable raw-layout or metadata standards, terminology for explicitly bound values, study Reference revisions for source systems, vendors, sites, and units, and templates for dictionary or import/export workbooks; none is inferred from uploaded rows.
 
 Preview accepts a typed column selection and bounded row window, returns `200 OK`, and does not
 persist rows or create an artifact. Validation checks file availability and checksum, supported
@@ -523,7 +523,7 @@ object-store locations. Raw artifact requests follow the common artifact-build c
 `artifacts/fingerprint` is a read-only preview. It accepts
 `{ "artifact_types": [...] }` (at least one, drawn from the fixed Raw artifact-type set) and
 returns `200 OK` with `{ "input_fingerprint": "<64 hex>" }` computed from the exact same resolved
-build inputs as `POST /api/v1/raw/{raw_id}/artifacts`. The returned value is the value a client
+build inputs as `POST /api/v1/raw-workbenches/{raw_id}/artifacts:build`. The returned value is the value a client
 sends back as `expected_input_fingerprint` on the build request. It requires study access,
 persists nothing, needs no `Idempotency-Key`, and returns `422` for unsupported or invalid
 artifact types or owner, consistent with the sibling Raw routes.
@@ -550,11 +550,11 @@ PUT   /api/v1/documents/{document_id}/dependencies
 
 GET  /api/v1/documents/{document_id}/content
 PUT  /api/v1/documents/{document_id}/content
-POST /api/v1/documents/{document_id}/content/import
-GET  /api/v1/documents/{document_id}/content/export
+POST /api/v1/documents/{document_id}/content:import
+GET  /api/v1/documents/{document_id}/content:export
 
-POST /api/v1/documents/{document_id}/validate
-POST /api/v1/documents/{document_id}/artifacts
+POST /api/v1/documents/{document_id}:validate
+POST /api/v1/documents/{document_id}/artifacts:build
 ```
 
 Creation requires one of these `document_type` values:
@@ -577,15 +577,15 @@ signals_report
 actions_report
 ```
 
-Document metadata includes its `document_type`, aggregate-scoped `document_code` natural key, user-facing name, lifecycle status, content schema version, and explicit related document IDs. A relationship never selects a Protocol, SAP, or other document implicitly. Every type has a dedicated versioned Pydantic content contract. Its dependencies bind applicable content/schema standards, controlled-value terminology, exact study Reference revisions, and one presentation template per generated artifact type. PDF document types use structured sections compatible with the shared `Document` renderer. Workbook types use typed sheets, columns, and row contracts. XLSX and JSON content imports are atomic, preserve user-maintained values, and do not infer narrative content, risk decisions, signals, actions, CAPA conclusions, or clinical mappings. Templates may supply headings, styles, and blank structures only. `content/export` accepts a `format` query value of `json` or, for workbook types, `xlsx` and returns a non-persisting `200 OK` response. Immutable deliverables are created through `POST .../artifacts`, which accepts an explicit artifact-type list and expected input fingerprint.
+Document metadata includes its `document_type`, aggregate-scoped `document_code` natural key, user-facing name, lifecycle status, content schema version, and explicit related document IDs. A relationship never selects a Protocol, SAP, or other document implicitly. Every type has a dedicated versioned Pydantic content contract. Its dependencies bind applicable content/schema standards, controlled-value terminology, exact study Reference revisions, and one presentation template per generated artifact type. PDF document types use structured sections compatible with the shared `Document` renderer. Workbook types use typed sheets, columns, and row contracts. XLSX and JSON content imports are atomic, preserve user-maintained values, and do not infer narrative content, risk decisions, signals, actions, CAPA conclusions, or clinical mappings. Templates may supply headings, styles, and blank structures only. `content:export` accepts a `format` query value of `json` or, for workbook types, `xlsx` and returns a non-persisting `200 OK` response. Immutable deliverables are created through `POST .../artifacts:build`, which accepts an explicit artifact-type list and expected input fingerprint.
 
 ### 8.2 Protocol-specific resources
 
 ```text
 GET  /api/v1/documents/{document_id}/usdm
 PUT  /api/v1/documents/{document_id}/usdm
-POST /api/v1/documents/{document_id}/usdm/import
-GET  /api/v1/documents/{document_id}/usdm/export
+POST /api/v1/documents/{document_id}/usdm:import
+GET  /api/v1/documents/{document_id}/usdm:export
 
 GET    /api/v1/documents/{document_id}/evidence
 POST   /api/v1/documents/{document_id}/evidence
@@ -611,19 +611,19 @@ This route is valid only when `document_type` is `statistical_analysis_plan`. Th
 ### 9.1 Workbench, dependencies, and exact Raw inputs
 
 ```text
-POST  /api/v1/studies/{study_id}/sdtms
-GET   /api/v1/studies/{study_id}/sdtms
-GET   /api/v1/sdtms/{sdtm_id}
-PATCH /api/v1/sdtms/{sdtm_id}
+POST  /api/v1/studies/{study_id}/sdtm-workbenches
+GET   /api/v1/studies/{study_id}/sdtm-workbenches
+GET   /api/v1/sdtm-workbenches/{sdtm_id}
+PATCH /api/v1/sdtm-workbenches/{sdtm_id}
 
-GET /api/v1/sdtms/{sdtm_id}/dependencies
-PUT /api/v1/sdtms/{sdtm_id}/dependencies
-GET /api/v1/sdtms/{sdtm_id}/input-selection
-PUT /api/v1/sdtms/{sdtm_id}/input-selection
-GET /api/v1/sdtms/{sdtm_id}/raw-context
+GET /api/v1/sdtm-workbenches/{sdtm_id}/dependencies
+PUT /api/v1/sdtm-workbenches/{sdtm_id}/dependencies
+GET /api/v1/sdtm-workbenches/{sdtm_id}/input-selection
+PUT /api/v1/sdtm-workbenches/{sdtm_id}/input-selection
+GET /api/v1/sdtm-workbenches/{sdtm_id}/raw-context
 
-GET  /api/v1/sdtms/{sdtm_id}/domains/{domain_code}/imported-dataset
-POST /api/v1/sdtms/{sdtm_id}/domains/{domain_code}/imported-dataset
+GET  /api/v1/sdtm-workbenches/{sdtm_id}/domains/{domain_code}/imported-dataset
+POST /api/v1/sdtm-workbenches/{sdtm_id}/domains/{domain_code}/imported-dataset
 ```
 
 The input selection is not an implicit link to the current Raw workbench. `PUT input-selection` requires `If-Match` and supplies the exact `raw_id`, Raw aggregate revision, successful validation-run ID, selected source-file artifact IDs and checksums, and expected Raw dependency fingerprint. The service verifies study ownership, artifact availability, validation success, dataset identity, and consistency with the selected Raw revision. Changing the selection creates a new SDTM revision and stales all dependent SDTM, ADaM, TLF, and package evidence without changing maintained specification content.
@@ -644,46 +644,46 @@ that immutable import revision as an available provider. Output Selection explic
 ### 9.2 SDTM Specification
 
 ```text
-GET  /api/v1/sdtms/{sdtm_id}/specification
-PUT  /api/v1/sdtms/{sdtm_id}/specification
-GET  /api/v1/sdtms/{sdtm_id}/specification/initialization-options
-POST /api/v1/sdtms/{sdtm_id}/specification/initialize
-POST /api/v1/sdtms/{sdtm_id}/specification/import
-GET  /api/v1/sdtms/{sdtm_id}/specification/export
+GET  /api/v1/sdtm-workbenches/{sdtm_id}/specification
+PUT  /api/v1/sdtm-workbenches/{sdtm_id}/specification
+GET  /api/v1/sdtm-workbenches/{sdtm_id}/specification/initialization-options
+POST /api/v1/sdtm-workbenches/{sdtm_id}/specification:initialize
+POST /api/v1/sdtm-workbenches/{sdtm_id}/specification:import
+GET  /api/v1/sdtm-workbenches/{sdtm_id}/specification:export
 ```
 
 The versioned SDTM Specification is one aggregate contract containing domains, variables, reusable value contexts, value-level metadata, terminology bindings, domain keys and sort order, sequencing metadata, expected output names, and typed trace targets. A value context has `id`, `label`, `discriminator_variable`, operator `eq|ne|in`, and typed values; `eq`/`ne` require one value and `in` requires a non-empty unique list. Value-level metadata references `context_id`. Natural keys are unique within the workbench or domain. The Specification owns target metadata but no executable transformation logic.
 
-`GET specification/initialization-options` requires exactly one selected SDTM implementation-guide version under the `sdtm_ig` dependency purpose and lists its concrete domain codes, labels, classes, and Required/Expected/Permissible variable counts. For complete CDISC Library snapshots registered with the earlier generic purpose, `reference_metadata` is accepted as a compatibility alias. `POST specification/initialize` requires `If-Match` plus an explicit non-empty `domain_codes` selection and a `required_expected_only` choice. The service resolves and checksum-verifies the exact pinned root JSON asset, populates only the selected concrete domains, and, when `required_expected_only` is true, adds only Required and Expected variables. Reinitialization preserves existing domain and variable values and ordering—including an already-authored Permissible variable—and only appends eligible structures that are missing. The parameterized `SUPPQUAL` pattern is not materialized as a concrete output. Initialization does not create study mappings, derivations, terminology usage decisions, or clinical judgments.
+`GET specification/initialization-options` requires exactly one selected SDTM implementation-guide version under the `sdtm_ig` dependency purpose and lists its concrete domain codes, labels, classes, and Required/Expected/Permissible variable counts. `reference_metadata` is not an alias for this purpose. `POST specification:initialize` requires `If-Match` plus an explicit non-empty `domain_codes` selection and a `required_expected_only` choice. The service resolves and checksum-verifies the exact pinned root JSON asset, populates only the selected concrete domains, and, when `required_expected_only` is true, adds only Required and Expected variables. Reinitialization preserves existing domain and variable values and ordering—including an already-authored Permissible variable—and only appends eligible structures that are missing. The parameterized `SUPPQUAL` pattern is not materialized as a concrete output. Initialization does not create study mappings, derivations, terminology usage decisions, or clinical judgments.
 
 `PUT specification` and import require `If-Match`, validate the complete contract, and commit one revision atomically. Import also requires `Idempotency-Key`; replaying the same key and exact bytes returns the originally committed revision, while different bytes conflict. New authoring requires schema `2.0.0`; older revisions remain historical and cannot drive mappings or generation until a user explicitly saves a current revision. XLSX uses versioned `Metadata`, `Domains`, `Variables`, `ValueContexts`, and `ValueLevel` sheets. Export selects non-persisting JSON or XLSX with `?format=json|xlsx`.
 
 ### 9.3 Mappings, Code Workareas, Output Selection, and operations
 
 ```text
-GET  /api/v1/sdtms/{sdtm_id}/domain-mappings
-GET  /api/v1/sdtms/{sdtm_id}/domains/{domain_code}/domain-mapping
-PUT  /api/v1/sdtms/{sdtm_id}/domains/{domain_code}/domain-mapping
-GET  /api/v1/sdtms/{sdtm_id}/domains/{domain_code}/variable-mapping
-PUT  /api/v1/sdtms/{sdtm_id}/domains/{domain_code}/variable-mapping
+GET  /api/v1/sdtm-workbenches/{sdtm_id}/domain-mappings
+GET  /api/v1/sdtm-workbenches/{sdtm_id}/domains/{domain_code}/domain-mapping
+PUT  /api/v1/sdtm-workbenches/{sdtm_id}/domains/{domain_code}/domain-mapping
+GET  /api/v1/sdtm-workbenches/{sdtm_id}/domains/{domain_code}/variable-mapping
+PUT  /api/v1/sdtm-workbenches/{sdtm_id}/domains/{domain_code}/variable-mapping
 
-GET  /api/v1/sdtms/{sdtm_id}/code-workareas
-POST /api/v1/sdtms/{sdtm_id}/code-workareas
-GET  /api/v1/sdtms/{sdtm_id}/code-workareas/{workarea_id}
-PUT  /api/v1/sdtms/{sdtm_id}/code-workareas/{workarea_id}
-POST /api/v1/sdtms/{sdtm_id}/code-workareas/{workarea_id}/archive
-POST /api/v1/sdtms/{sdtm_id}/code-workareas/{workarea_id}/test
-POST /api/v1/sdtms/{sdtm_id}/code-workareas/{workarea_id}/generate
+GET  /api/v1/sdtm-workbenches/{sdtm_id}/code-workareas
+POST /api/v1/sdtm-workbenches/{sdtm_id}/code-workareas
+GET  /api/v1/sdtm-workbenches/{sdtm_id}/code-workareas/{workarea_id}
+PUT  /api/v1/sdtm-workbenches/{sdtm_id}/code-workareas/{workarea_id}
+POST /api/v1/sdtm-workbenches/{sdtm_id}/code-workareas/{workarea_id}:archive
+POST /api/v1/sdtm-workbenches/{sdtm_id}/code-workareas/{workarea_id}:test
+POST /api/v1/sdtm-workbenches/{sdtm_id}/code-workareas/{workarea_id}:generate
 GET  /api/v1/sdtm-code-runs/{run_id}
 
-GET  /api/v1/sdtms/{sdtm_id}/output-selection
-PUT  /api/v1/sdtms/{sdtm_id}/output-selection
-GET  /api/v1/sdtms/{sdtm_id}/program-artifact-readiness
-POST /api/v1/sdtms/{sdtm_id}/domains/{domain_code}/validate
-GET  /api/v1/sdtms/{sdtm_id}/lineage
+GET  /api/v1/sdtm-workbenches/{sdtm_id}/output-selection
+PUT  /api/v1/sdtm-workbenches/{sdtm_id}/output-selection
+GET  /api/v1/sdtm-workbenches/{sdtm_id}/program-artifact-readiness
+POST /api/v1/sdtm-workbenches/{sdtm_id}/domains/{domain_code}:validate
+GET  /api/v1/sdtm-workbenches/{sdtm_id}/lineage
 
-POST /api/v1/sdtms/{sdtm_id}/validate
-POST /api/v1/sdtms/{sdtm_id}/artifacts
+POST /api/v1/sdtm-workbenches/{sdtm_id}:validate
+POST /api/v1/sdtm-workbenches/{sdtm_id}/artifacts:build
 ```
 
 Domain Mapping is immutable per domain and pins the current Specification and Raw input-selection revisions. It accepts one or more total Raw datasets and upstream SDTM domains. The API rejects inputs outside the exact Raw context, duplicates, self-references, unknown domains, and dependency cycles. Logical upstream references are resolved to exact XPT artifacts only in a test or generation request.
@@ -701,18 +701,17 @@ The artifact endpoint builds non-program deliverables such as the Specification,
 ### 9.4 aCRF
 
 ```text
-GET    /api/v1/sdtms/{sdtm_id}/acrf/annotations
-POST   /api/v1/sdtms/{sdtm_id}/acrf/annotations
+GET    /api/v1/sdtm-workbenches/{sdtm_id}/acrf/annotations
+POST   /api/v1/sdtm-workbenches/{sdtm_id}/acrf/annotations
 GET    /api/v1/acrf-annotations/{annotation_id}
 PATCH  /api/v1/acrf-annotations/{annotation_id}
 DELETE /api/v1/acrf-annotations/{annotation_id}
-POST   /api/v1/acrf-annotations/{annotation_id}/links
-GET    /api/v1/sdtms/{sdtm_id}/acrf/coverage
-POST   /api/v1/sdtms/{sdtm_id}/acrf/reconcile
-POST   /api/v1/sdtms/{sdtm_id}/acrf/artifacts
+PUT    /api/v1/acrf-annotations/{annotation_id}/links
+GET    /api/v1/sdtm-workbenches/{sdtm_id}/acrf/coverage
+POST   /api/v1/sdtm-workbenches/{sdtm_id}/acrf/artifacts:build
 ```
 
-The links operation atomically replaces or amends typed links to exact SDTM variable rows and Raw variables. Graph-node links are not accepted. Reconciliation creates an immutable reconciliation run.
+The links operation atomically replaces the complete typed link set with exact SDTM variable rows and Raw variables. Graph-node links and incremental amend commands are not accepted.
 
 Annotation coordinates use the `normalized_top_left` system with `x`, `y`, `width`, and
 `height` values bounded by the page. Creation identifies one immutable source PDF artifact and
@@ -724,13 +723,13 @@ SDTM workbench's selected Raw context.
 ### 9.5 Define-XML
 
 ```text
-GET  /api/v1/sdtms/{sdtm_id}/define
-PUT  /api/v1/sdtms/{sdtm_id}/define
-POST /api/v1/sdtms/{sdtm_id}/define/initialize
-POST /api/v1/sdtms/{sdtm_id}/define/validate
-POST /api/v1/sdtms/{sdtm_id}/define/reconcile
-GET  /api/v1/sdtms/{sdtm_id}/define/render
-POST /api/v1/sdtms/{sdtm_id}/define/artifacts
+GET  /api/v1/sdtm-workbenches/{sdtm_id}/define
+PUT  /api/v1/sdtm-workbenches/{sdtm_id}/define
+POST /api/v1/sdtm-workbenches/{sdtm_id}/define:initialize
+POST /api/v1/sdtm-workbenches/{sdtm_id}/define:validate
+POST /api/v1/sdtm-workbenches/{sdtm_id}/define:reconcile
+GET  /api/v1/sdtm-workbenches/{sdtm_id}/define:render
+POST /api/v1/sdtm-workbenches/{sdtm_id}/define/artifacts:build
 ```
 
 `initialize` accepts an expected revision and fills absent structures from the exact SDTM
@@ -751,11 +750,11 @@ Define leaves, and aCRF/Define variable references and publish a report artifact
 ### 9.6 cSDRG
 
 ```text
-GET  /api/v1/sdtms/{sdtm_id}/csdrg
-PUT  /api/v1/sdtms/{sdtm_id}/csdrg
-POST /api/v1/sdtms/{sdtm_id}/csdrg/initialize
-POST /api/v1/sdtms/{sdtm_id}/csdrg/validate
-POST /api/v1/sdtms/{sdtm_id}/csdrg/artifacts
+GET  /api/v1/sdtm-workbenches/{sdtm_id}/csdrg
+PUT  /api/v1/sdtm-workbenches/{sdtm_id}/csdrg
+POST /api/v1/sdtm-workbenches/{sdtm_id}/csdrg:initialize
+POST /api/v1/sdtm-workbenches/{sdtm_id}/csdrg:validate
+POST /api/v1/sdtm-workbenches/{sdtm_id}/csdrg/artifacts:build
 ```
 
 Initialization binds the current exact Specification, Define revision, successful zero-error
@@ -772,16 +771,16 @@ validation run and reconciliation run on immutable DOCX/PDF artifacts.
 ### 10.1 Workbench, dependencies, and exact SDTM inputs
 
 ```text
-POST  /api/v1/studies/{study_id}/adams
-GET   /api/v1/studies/{study_id}/adams
-GET   /api/v1/adams/{adam_id}
-PATCH /api/v1/adams/{adam_id}
+POST  /api/v1/studies/{study_id}/adam-workbenches
+GET   /api/v1/studies/{study_id}/adam-workbenches
+GET   /api/v1/adam-workbenches/{adam_id}
+PATCH /api/v1/adam-workbenches/{adam_id}
 
-GET /api/v1/adams/{adam_id}/dependencies
-PUT /api/v1/adams/{adam_id}/dependencies
-GET /api/v1/adams/{adam_id}/input-selection
-PUT /api/v1/adams/{adam_id}/input-selection
-GET /api/v1/adams/{adam_id}/sdtm-context
+GET /api/v1/adam-workbenches/{adam_id}/dependencies
+PUT /api/v1/adam-workbenches/{adam_id}/dependencies
+GET /api/v1/adam-workbenches/{adam_id}/input-selection
+PUT /api/v1/adam-workbenches/{adam_id}/input-selection
+GET /api/v1/adam-workbenches/{adam_id}/sdtm-context
 ```
 
 The input selection is not an implicit link to the current SDTM workbench. `PUT input-selection` requires `If-Match` and supplies the exact `sdtm_id`, SDTM aggregate revision, successful validation-run ID, selected SDTM XPT artifact IDs, and expected SDTM dependency fingerprint. The service verifies study ownership, artifact availability and checksums, validation success, dataset uniqueness, and consistency with the selected SDTM revision. Changing the selection creates a new ADaM revision and stales all dependent ADaM and TLF evidence.
@@ -791,10 +790,10 @@ The input selection is not an implicit link to the current SDTM workbench. `PUT 
 ### 10.2 ADaM Specification
 
 ```text
-GET  /api/v1/adams/{adam_id}/specification
-PUT  /api/v1/adams/{adam_id}/specification
-POST /api/v1/adams/{adam_id}/specification/import
-GET  /api/v1/adams/{adam_id}/specification/export
+GET  /api/v1/adam-workbenches/{adam_id}/specification
+PUT  /api/v1/adam-workbenches/{adam_id}/specification
+POST /api/v1/adam-workbenches/{adam_id}/specification:import
+GET  /api/v1/adam-workbenches/{adam_id}/specification:export
 ```
 
 The versioned ADaM Specification uses the common Specification envelope and is one aggregate contract containing datasets, variables, parameters, value-level metadata, methods, terminology bindings, and typed trace targets. Dataset entries record natural key, label, selected-standard class, structure, keys, sort order, purpose, and expected output name. Variable entries record physical metadata, role, origin, predecessor, method, terminology binding, and the stable Derivation Plan output that produces the variable. Dataset classes and roles resolve through the selected Standards version rather than a hard-coded global enum.
@@ -808,21 +807,21 @@ Typed trace targets connect exact Protocol objectives/endpoints or SAP objective
 ### 10.3 Derivation Plan and operations
 
 ```text
-GET  /api/v1/adams/{adam_id}/derivation-plans
-GET  /api/v1/adams/{adam_id}/datasets/{dataset_code}/derivation-plan
-PUT  /api/v1/adams/{adam_id}/datasets/{dataset_code}/derivation-plan
-POST /api/v1/adams/{adam_id}/datasets/{dataset_code}/derivation-plan/validate
-POST /api/v1/adams/{adam_id}/datasets/{dataset_code}/derivation-plan/preview
-POST /api/v1/adams/{adam_id}/datasets/{dataset_code}/validate
-GET  /api/v1/adams/{adam_id}/lineage
+GET  /api/v1/adam-workbenches/{adam_id}/derivation-plans
+GET  /api/v1/adam-workbenches/{adam_id}/datasets/{dataset_code}/derivation-plan
+PUT  /api/v1/adam-workbenches/{adam_id}/datasets/{dataset_code}/derivation-plan
+POST /api/v1/adam-workbenches/{adam_id}/datasets/{dataset_code}/derivation-plan:validate
+POST /api/v1/adam-workbenches/{adam_id}/datasets/{dataset_code}/derivation-plan:preview
+POST /api/v1/adam-workbenches/{adam_id}/datasets/{dataset_code}:validate
+GET  /api/v1/adam-workbenches/{adam_id}/lineage
 
-POST /api/v1/adams/{adam_id}/validate
-POST /api/v1/adams/{adam_id}/compile
-POST /api/v1/adams/{adam_id}/execute
-POST /api/v1/adams/{adam_id}/artifacts
+POST /api/v1/adam-workbenches/{adam_id}:validate
+POST /api/v1/adam-workbenches/{adam_id}:compile
+POST /api/v1/adam-workbenches/{adam_id}:execute
+POST /api/v1/adam-workbenches/{adam_id}/artifacts:build
 ```
 
-The Derivation Plan is per dataset: one ADaM-owned typed DAG per `{dataset_code}`, aligned to one ADaM Specification revision and one exact SDTM input-selection revision, producing only its own dataset. It reads SDTM artifacts in that selection via `sdtm_read` and declared predecessor ADaM datasets via `adam_read` resolved through the Specification (pinned by server-resolved `upstream_plan_pins`). Dataset-to-dataset dependencies must remain acyclic across the aggregate's per-dataset plans. Nodes use ADaM vocabulary and stable dataset/variable/parameter references; backend-specific code fragments are prohibited. `{dataset_code}` must match the pattern, exist in the current Specification (`404 adam_dataset_unknown`), and equal the body `dataset` (`422 adam_plan_dataset_mismatch`). `GET /derivation-plans` is an opaque-cursor-paginated collection of per-dataset plan heads; each per-dataset plan uses its own plan revision as its `ETag`/`If-Match` token (first write accepts absent or `*`). `POST /datasets/{dataset_code}/validate` writes a per-dataset run, while the aggregate `POST /validate` records a `plan_revisions` map and `plan_set_fingerprint`. After ADaM validation, the module lowers each plan to internal Dataflow IR; IR is not exposed as an editable API resource.
+The Derivation Plan is per dataset: one ADaM-owned typed DAG per `{dataset_code}`, aligned to one ADaM Specification revision and one exact SDTM input-selection revision, producing only its own dataset. It reads SDTM artifacts in that selection via `sdtm_read` and declared predecessor ADaM datasets via `adam_read` resolved through the Specification (pinned by server-resolved `upstream_plan_pins`). Dataset-to-dataset dependencies must remain acyclic across the aggregate's per-dataset plans. Nodes use ADaM vocabulary and stable dataset/variable/parameter references; backend-specific code fragments are prohibited. `{dataset_code}` must match the pattern, exist in the current Specification (`404 adam_dataset_unknown`), and equal the body `dataset` (`422 adam_plan_dataset_mismatch`). `GET /derivation-plans` is an opaque-cursor-paginated collection of per-dataset plan heads; each per-dataset plan uses its own plan revision as its `ETag`/`If-Match` token (first write accepts absent or `*`). `POST /datasets/{dataset_code}:validate` writes a per-dataset run, while the aggregate `POST :validate` records a `plan_revisions` map and `plan_set_fingerprint`. After ADaM validation, the module lowers each plan to internal Dataflow IR; IR is not exposed as an editable API resource.
 
 Workbench validation covers dependency compatibility with the exact SDTM context; specification completeness; dataset classes, keys, and sort order; variables and roles; parameters and value-level applicability; terminology; origins and predecessor resolution; method-to-node alignment; per-dataset Derivation Plan shape and single-dataset output coverage; traceability; XPT constraints; and declared output reconciliation. The all-dataset deliverables additionally enforce whole-Specification coverage (`409 adam_output_coverage_incomplete`) and that every produced dataset plan is aligned with satisfied upstream pins. It reports specification, derivation, standards, traceability, and artifact issues as distinguishable categories. `GET /lineage` returns a dataset-keyed map `{plan_set_fingerprint, datasets: {dataset_code: {ir_fingerprint, outputs}}}` and `409`s naming the first misaligned dataset.
 
@@ -833,13 +832,13 @@ Preview selects target dataset codes and bounded rows, then uses the same loweri
 ADaM Define routes parallel SDTM Define routes:
 
 ```text
-GET  /api/v1/adams/{adam_id}/define
-PUT  /api/v1/adams/{adam_id}/define
-POST /api/v1/adams/{adam_id}/define/initialize
-POST /api/v1/adams/{adam_id}/define/validate
-GET  /api/v1/adams/{adam_id}/define/render
-POST /api/v1/adams/{adam_id}/define/reconcile
-POST /api/v1/adams/{adam_id}/define/artifacts
+GET  /api/v1/adam-workbenches/{adam_id}/define
+PUT  /api/v1/adam-workbenches/{adam_id}/define
+POST /api/v1/adam-workbenches/{adam_id}/define:initialize
+POST /api/v1/adam-workbenches/{adam_id}/define:validate
+GET  /api/v1/adam-workbenches/{adam_id}/define:render
+POST /api/v1/adam-workbenches/{adam_id}/define:reconcile
+POST /api/v1/adam-workbenches/{adam_id}/define/artifacts:build
 ```
 
 The non-persisting `render` endpoint requires a `version` query parameter with value `2.0` or `2.1`. The ADaM Define model includes dataset classes, analysis roles, parameters, value-level metadata, origins, methods, terminology references, and SDTM traceability. Initialization may add missing factual structures from the saved ADaM Specification and exact output artifacts but cannot overwrite user-maintained metadata or narrative.
@@ -861,11 +860,11 @@ Conditions outside that lossless subset remain comment-only rather than being we
 ADRG routes are:
 
 ```text
-GET  /api/v1/adams/{adam_id}/adrg
-PUT  /api/v1/adams/{adam_id}/adrg
-POST /api/v1/adams/{adam_id}/adrg/initialize
-POST /api/v1/adams/{adam_id}/adrg/validate
-POST /api/v1/adams/{adam_id}/adrg/artifacts
+GET  /api/v1/adam-workbenches/{adam_id}/adrg
+PUT  /api/v1/adam-workbenches/{adam_id}/adrg
+POST /api/v1/adam-workbenches/{adam_id}/adrg:initialize
+POST /api/v1/adam-workbenches/{adam_id}/adrg:validate
+POST /api/v1/adam-workbenches/{adam_id}/adrg/artifacts:build
 ```
 
 Initialization requires the current Define revision and its successful zero-error
@@ -881,31 +880,31 @@ DOCX/PDF artifact type.
 ## 11. TLF routes
 
 ```text
-POST  /api/v1/studies/{study_id}/tlfs
-GET   /api/v1/studies/{study_id}/tlfs
-GET   /api/v1/tlfs/{tlf_id}
-PATCH /api/v1/tlfs/{tlf_id}
-GET   /api/v1/tlfs/{tlf_id}/dependencies
-PUT   /api/v1/tlfs/{tlf_id}/dependencies
+POST  /api/v1/studies/{study_id}/tlf-workbenches
+GET   /api/v1/studies/{study_id}/tlf-workbenches
+GET   /api/v1/tlf-workbenches/{tlf_id}
+PATCH /api/v1/tlf-workbenches/{tlf_id}
+GET   /api/v1/tlf-workbenches/{tlf_id}/dependencies
+PUT   /api/v1/tlf-workbenches/{tlf_id}/dependencies
 
-GET /api/v1/tlfs/{tlf_id}/shell
-PUT /api/v1/tlfs/{tlf_id}/shell
-GET /api/v1/tlfs/{tlf_id}/bindings
-PUT /api/v1/tlfs/{tlf_id}/bindings
-GET /api/v1/tlfs/{tlf_id}/assumptions
-PUT /api/v1/tlfs/{tlf_id}/assumptions
-GET /api/v1/tlfs/{tlf_id}/ars
-PUT /api/v1/tlfs/{tlf_id}/ars
-GET /api/v1/tlfs/{tlf_id}/program-plan
-PUT /api/v1/tlfs/{tlf_id}/program-plan
-POST /api/v1/tlfs/{tlf_id}/program-plan/validate
-POST /api/v1/tlfs/{tlf_id}/program-plan/preview
+GET /api/v1/tlf-workbenches/{tlf_id}/shell
+PUT /api/v1/tlf-workbenches/{tlf_id}/shell
+GET /api/v1/tlf-workbenches/{tlf_id}/bindings
+PUT /api/v1/tlf-workbenches/{tlf_id}/bindings
+GET /api/v1/tlf-workbenches/{tlf_id}/assumptions
+PUT /api/v1/tlf-workbenches/{tlf_id}/assumptions
+GET /api/v1/tlf-workbenches/{tlf_id}/ars
+PUT /api/v1/tlf-workbenches/{tlf_id}/ars
+GET /api/v1/tlf-workbenches/{tlf_id}/program-plan
+PUT /api/v1/tlf-workbenches/{tlf_id}/program-plan
+POST /api/v1/tlf-workbenches/{tlf_id}/program-plan:validate
+POST /api/v1/tlf-workbenches/{tlf_id}/program-plan:preview
 
-POST /api/v1/tlfs/{tlf_id}/validate
-POST /api/v1/tlfs/{tlf_id}/compile
-POST /api/v1/tlfs/{tlf_id}/execute
-POST /api/v1/tlfs/{tlf_id}/render
-POST /api/v1/tlfs/{tlf_id}/artifacts
+POST /api/v1/tlf-workbenches/{tlf_id}:validate
+POST /api/v1/tlf-workbenches/{tlf_id}:compile
+POST /api/v1/tlf-workbenches/{tlf_id}:execute
+POST /api/v1/tlf-workbenches/{tlf_id}:render
+POST /api/v1/tlf-workbenches/{tlf_id}/artifacts:build
 ```
 
 Validation requires every leaf shell row to map to an explicit analysis step. The dependency selection may bind an exact ARS version, explicitly used terminology, study Reference revisions, and one presentation template per output artifact type. Templates control layout but never create analysis steps, titles, interpretations, populations, parameters, or statistics.
@@ -916,19 +915,19 @@ The ProgramPlan owns explicit ADaM reads, filters, population/parameter selectio
 
 ```text
 GET  /api/v1/validation-runs/{validation_run_id}
-POST /api/v1/validation-runs/{validation_run_id}/cancel
+POST /api/v1/validation-runs/{validation_run_id}:cancel
 
 GET  /api/v1/studies/{study_id}/artifacts
 GET  /api/v1/artifacts/{artifact_id}
 GET  /api/v1/artifacts/{artifact_id}/download
-POST /api/v1/artifacts/{artifact_id}/validate
+POST /api/v1/artifacts/{artifact_id}:validate
 
 POST /api/v1/artifact-builds
 GET  /api/v1/artifact-builds/{build_id}
-POST /api/v1/artifact-builds/{build_id}/cancel
+POST /api/v1/artifact-builds/{build_id}:cancel
 ```
 
-Validation-run cancellation is available only while the run is queued or running. Artifact validation creates a validation run and follows the common `/validate` action contract.
+Validation-run cancellation is available only while the run is queued or running. Artifact validation creates a validation run and follows the common `:validate` action contract.
 
 Artifact filters include module, type, owner, status, source-plan type, validation run, reconciliation run, execution run, and creation range. The generic build route is intended for clients that already know owner and artifact types; module convenience routes submit the same internal command.
 
@@ -954,7 +953,7 @@ POST /api/v1/execution-runs
 GET  /api/v1/execution-runs/{run_id}
 GET  /api/v1/execution-runs/{run_id}/logs
 GET  /api/v1/execution-runs/{run_id}/outputs
-POST /api/v1/execution-runs/{run_id}/cancel
+POST /api/v1/execution-runs/{run_id}:cancel
 ```
 
 ```json
@@ -992,7 +991,7 @@ GET    /api/v1/studies/{study_id}/trace-links
 GET    /api/v1/trace-links/{trace_link_id}
 DELETE /api/v1/trace-links/{trace_link_id}
 GET    /api/v1/studies/{study_id}/traceability
-POST   /api/v1/studies/{study_id}/traceability/validate
+POST   /api/v1/studies/{study_id}/traceability:validate
 ```
 
 A create request supplies typed source and target references, relationship, and optional metadata. The service verifies both endpoints before committing. The traceability query supports direction, module, relationship, entity, and maximum depth with bounded traversal.
@@ -1040,4 +1039,4 @@ GET /health/ready
 GET /api/v1/openapi.json
 ```
 
-Liveness checks only the process. Readiness verifies required database and object-store connectivity and confirms that module registration completed without capability conflicts. CI snapshots the OpenAPI document and safe module catalog, checks backward compatibility within v1, validates event/import schema compatibility, and generates a typed client fixture used by contract tests.
+Liveness checks only the process. Readiness verifies required database and object-store connectivity and confirms that module registration completed without capability conflicts. CI generates OpenAPI and the typed client from a clean checkout, asserts the normalized route and operation-ID inventory, validates event/import schemas, and runs contract, type, test, and build checks. This pre-production baseline does not run a backward-compatibility gate.

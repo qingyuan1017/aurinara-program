@@ -27,6 +27,8 @@ from app.platform.objects import get_platform_objects
 
 router = APIRouter(tags=["artifacts"])
 service = ArtifactService()
+
+
 def _stream_object(storage: ObjectStorage, object_key: str) -> Iterator[bytes]:
     with storage.open(object_key) as body:
         while chunk := body.read(1024 * 1024):

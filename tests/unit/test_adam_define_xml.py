@@ -130,7 +130,7 @@ def test_supported_value_level_condition_renders_machine_readable_define() -> No
     value_level["condition"] = {
         "kind": "binary",
         "operator": "eq",
-        "left": {"kind": "column", "dataset": "ADSL", "column": "PARAMCD"},
+        "left": {"kind": "column", "column": "PARAMCD"},
         "right": {"kind": "literal", "value": "AGE"},
     }
     model = AdamDefineModel.model_validate(payload)

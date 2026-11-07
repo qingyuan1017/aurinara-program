@@ -384,7 +384,7 @@ def _save(
     return record
 
 
-@router.get("/sdtms/{sdtm_id}/define", response_model=DefineResponse)
+@router.get("/sdtm-workbenches/{sdtm_id}/define", response_model=DefineResponse)
 def get_define(
     sdtm_id: UUID,
     session: Annotated[Session, Depends(get_session)],
@@ -397,7 +397,7 @@ def get_define(
     return DefineResponse.model_validate(record)
 
 
-@router.put("/sdtms/{sdtm_id}/define", response_model=DefineResponse)
+@router.put("/sdtm-workbenches/{sdtm_id}/define", response_model=DefineResponse)
 def put_define(
     sdtm_id: UUID,
     command: SdtmDefineModel,
@@ -424,7 +424,7 @@ def put_define(
     return DefineResponse.model_validate(record)
 
 
-@router.post("/sdtms/{sdtm_id}/define/initialize", response_model=DefineResponse)
+@router.post("/sdtm-workbenches/{sdtm_id}/define:initialize", response_model=DefineResponse)
 def initialize_define(
     sdtm_id: UUID,
     command: SdtmDefineInitialize,
@@ -464,7 +464,7 @@ def initialize_define(
     return DefineResponse.model_validate(record)
 
 
-@router.post("/sdtms/{sdtm_id}/define/validate", response_model=ValidationRunResponse)
+@router.post("/sdtm-workbenches/{sdtm_id}/define:validate", response_model=ValidationRunResponse)
 def validate_define(
     sdtm_id: UUID,
     session: Annotated[Session, Depends(get_session)],
@@ -559,7 +559,7 @@ def validate_define(
     return ValidationRunResponse.model_validate(run)
 
 
-@router.get("/sdtms/{sdtm_id}/define/render")
+@router.get("/sdtm-workbenches/{sdtm_id}/define:render")
 def render_define(
     sdtm_id: UUID,
     session: Annotated[Session, Depends(get_session)],
@@ -587,7 +587,7 @@ def render_define(
 
 
 @router.post(
-    "/sdtms/{sdtm_id}/define/artifacts",
+    "/sdtm-workbenches/{sdtm_id}/define/artifacts:build",
     response_model=ArtifactBuildResponse,
     status_code=202,
 )
@@ -625,7 +625,7 @@ def create_define_artifacts(
 
 
 @router.post(
-    "/sdtms/{sdtm_id}/define/reconcile",
+    "/sdtm-workbenches/{sdtm_id}/define:reconcile",
     response_model=ReconciliationResponse,
     status_code=202,
 )

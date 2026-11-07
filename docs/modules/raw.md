@@ -9,14 +9,14 @@ preview, validation, immutable source/schema reconciliation, and artifacts.
 Upload a CSV, flat JSON array, or XLSX source through the shared source-file endpoint, then:
 
 ```powershell
-$raw = Invoke-RestMethod -Method Post -Uri "$base/studies/$studyId/raw" -Headers $headers `
+$raw = Invoke-RestMethod -Method Post -Uri "$base/studies/$studyId/raw-workbenches" -Headers $headers `
   -ContentType "application/json" -Body '{"code":"RAW-01","name":"Raw workbench"}'
 $body = @{
   code = "DEMOG"
   label = "Demographics"
   source_file_id = $sourceFileId
 } | ConvertTo-Json
-$dataset = Invoke-RestMethod -Method Post -Uri "$base/raw/$($raw.id)/datasets" `
+$dataset = Invoke-RestMethod -Method Post -Uri "$base/raw-workbenches/$($raw.id)/datasets" `
   -Headers $headers -ContentType "application/json" -Body $body
 ```
 
@@ -31,21 +31,21 @@ or delete metadata. Names and ordinals are unique within a dataset. Metadata inc
 physical type, length/precision, ordinal, role, description, and an optional exact
 terminology binding.
 
-`POST /raw-datasets/{id}/variables/initialize` reads the bound file and creates absent
+`POST /raw-datasets/{id}/variables:initialize` reads the bound file and creates absent
 variables or fills only missing physical type/length/precision. It never overwrites manual
 values and never infers clinical meaning, roles, terminology, mappings, or derivations.
 
 ## Preview and validate
 
-`POST /raw-datasets/{id}/preview` accepts optional `columns`, zero-based `offset`, and a
+`POST /raw-datasets/{id}:preview` accepts optional `columns`, zero-based `offset`, and a
 `limit` from 1 to 200. Rows are returned only in the response and are not persisted or
 logged.
 
-`POST /raw/{id}/validate` recalculates source checksums, verifies supported file shape,
+`POST /raw-workbenches/{id}:validate` recalculates source checksums, verifies supported file shape,
 compares maintained and physical variables/types, and records an immutable validation
 snapshot. Error issues block artifact generation.
 
-`POST /raw/{id}/reconcile` requires an `Idempotency-Key` and the expected current Raw revision.
+`POST /raw-workbenches/{id}:reconcile` requires an `Idempotency-Key` and the expected current Raw revision.
 It creates a durable immutable `raw_source_schema` reconciliation over the exact workbench
 revision and every bound source artifact ID/checksum. The worker compares maintained variable
 names, types, ordinals, declared lengths, and precision with observed physical facts, then
@@ -54,14 +54,14 @@ but never source rows or internal object-store locations.
 
 ## Build artifacts
 
-Select exact dependencies at `/raw/{id}/dependencies`, validate, then request one or more:
+Select exact dependencies at `/raw-workbenches/{id}/dependencies`, validate, then request one or more:
 
 - `raw_dependency_manifest`
 - `raw_metadata_json`
 - `raw_data_dictionary_xlsx`
 - `raw_validation_report_json`
 
-Use `POST /raw/{id}/artifacts` with `Idempotency-Key` and the expected canonical input
+Use `POST /raw-workbenches/{id}/artifacts:build` with `Idempotency-Key` and the expected canonical input
 fingerprint. Poll the build and download the immutable result through shared artifact routes.
 The registered context-export capability exposes an immutable Raw revision, exact source
 artifacts/checksums, variables, and dependency fingerprint to SDTM without repository access.

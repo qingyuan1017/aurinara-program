@@ -25,9 +25,9 @@ executable code or disable mandatory rules. Replace a study pack with
 
 ## Run validation
 
-For Documents, use `POST /documents/{document_id}/validate`; it snapshots exact document,
+For Documents, use `POST /documents/{document_id}:validate`; it snapshots exact document,
 content, USDM, evidence, relationship, and dependency revisions and completes synchronously
-inside the request. For an immutable artifact, use `POST /artifacts/{artifact_id}/validate`;
+inside the request. For an immutable artifact, use `POST /artifacts/{artifact_id}:validate`;
 it returns a queued run for the worker. Neither current endpoint requires an idempotency
 key. Poll queued runs at `GET /validation-runs/{id}` and inspect `issues`, counts, and report
 artifact IDs. Cancellation is available while a run is queued or running.

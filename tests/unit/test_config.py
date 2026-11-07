@@ -36,8 +36,7 @@ def test_safe_production_configuration_is_accepted() -> None:
         integration_secret_encryption_key="production-key-from-secret-store",
         execution_network_disabled=True,
         pinned_asset_local_fallback=False,
-        python_runner_image="example.dkr.ecr.us-east-1.amazonaws.com/python@sha256:"
-        + "a" * 64,
+        python_runner_image="example.dkr.ecr.us-east-1.amazonaws.com/python@sha256:" + "a" * 64,
         r_runner_image="example.dkr.ecr.us-east-1.amazonaws.com/r@sha256:" + "b" * 64,
     )
 

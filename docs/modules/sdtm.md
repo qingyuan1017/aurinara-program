@@ -84,23 +84,23 @@ A current coherent Output Selection is required before aggregate SDTM validation
 All routes are under `/api/v1`.
 
 ```text
-GET /sdtms/{id}/domain-mappings
-GET|PUT /sdtms/{id}/domains/{domain}/domain-mapping
-GET|PUT /sdtms/{id}/domains/{domain}/variable-mapping
+GET /sdtm-workbenches/{id}/domain-mappings
+GET|PUT /sdtm-workbenches/{id}/domains/{domain}/domain-mapping
+GET|PUT /sdtm-workbenches/{id}/domains/{domain}/variable-mapping
 
-GET|POST /sdtms/{id}/code-workareas
-GET|PUT /sdtms/{id}/code-workareas/{workarea_id}
-POST /sdtms/{id}/code-workareas/{workarea_id}/archive
-POST /sdtms/{id}/code-workareas/{workarea_id}/test
-POST /sdtms/{id}/code-workareas/{workarea_id}/generate
+GET|POST /sdtm-workbenches/{id}/code-workareas
+GET|PUT /sdtm-workbenches/{id}/code-workareas/{workarea_id}
+POST /sdtm-workbenches/{id}/code-workareas/{workarea_id}:archive
+POST /sdtm-workbenches/{id}/code-workareas/{workarea_id}:test
+POST /sdtm-workbenches/{id}/code-workareas/{workarea_id}:generate
 GET /sdtm-code-runs/{run_id}
 
-GET|PUT /sdtms/{id}/output-selection
-GET /sdtms/{id}/program-artifact-readiness
-GET /sdtms/{id}/lineage
-POST /sdtms/{id}/validate
-POST /sdtms/{id}/domains/{domain}/validate
-POST /sdtms/{id}/artifacts
+GET|PUT /sdtm-workbenches/{id}/output-selection
+GET /sdtm-workbenches/{id}/program-artifact-readiness
+GET /sdtm-workbenches/{id}/lineage
+POST /sdtm-workbenches/{id}:validate
+POST /sdtm-workbenches/{id}/domains/{domain}:validate
+POST /sdtm-workbenches/{id}/artifacts:build
 ```
 
 Mapping, workarea, and Output Selection mutations use ETag/`If-Match` concurrency. Test and generation requests require `Idempotency-Key` and return `202 Accepted` with a status resource. The removed graph-plan, graph-preview, SDTM compile, and SDTM execute routes have no compatibility aliases.

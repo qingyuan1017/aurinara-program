@@ -253,7 +253,7 @@ def get_validation_run(
 
 
 @router.post(
-    "/artifacts/{artifact_id}/validate",
+    "/artifacts/{artifact_id}:validate",
     response_model=ValidationRunResponse,
     status_code=status.HTTP_202_ACCEPTED,
 )
@@ -309,7 +309,7 @@ def validate_artifact(
     return ValidationRunResponse.model_validate(run)
 
 
-@router.post("/validation-runs/{run_id}/cancel", response_model=ValidationRunResponse)
+@router.post("/validation-runs/{run_id}:cancel", response_model=ValidationRunResponse)
 def cancel_validation_run(
     run_id: UUID,
     session: Annotated[Session, Depends(get_session)],

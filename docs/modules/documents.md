@@ -56,8 +56,8 @@ Use `PUT /documents/{id}/content` with `If-Match`. A minimal narrative payload i
 
 Every document type has a strict Pydantic contract. Workbook types use typed `rows` with a
 stable `row_id`, description, category, status, owner, dates, and type-specific fields.
-`POST /documents/{id}/content/import` supports atomic JSON and, for workbook types, XLSX;
-it also requires `Idempotency-Key`. `GET /documents/{id}/content/export?format=json` is a
+`POST /documents/{id}/content:import` supports atomic JSON and, for workbook types, XLSX;
+it also requires `Idempotency-Key`. `GET /documents/{id}/content:export?format=json` is a
 non-persisting export; workbook types also allow `format=xlsx`.
 
 ## 3. Add Protocol USDM and evidence
@@ -97,7 +97,7 @@ an exact compatible template selection for its own artifact type.
 
 ## 5. Validate and build
 
-Call `POST /documents/{id}/validate`; the current implementation completes the immutable
+Call `POST /documents/{id}:validate`; the current implementation completes the immutable
 validation snapshot synchronously and returns it in the `202` response. Fix all
 error-severity issues before generation. Request artifacts with
 `POST /documents/{id}/artifacts`, `Idempotency-Key`, an explicit `artifact_types` list, and

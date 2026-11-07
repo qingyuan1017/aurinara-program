@@ -6,10 +6,10 @@ import { AXIOS_INSTANCE } from '@/api/axios-instance'
  * `useDownload` — the single escape hatch for backend bodies the Orval typed
  * client cannot model as a typed JSON response (Requirement 1.4):
  *
- * - Specification export: `GET /api/v1/sdtms/{sdtmId}/specification/export?format=json|xlsx`
+ * - Specification export: `GET /api/v1/sdtm-workbenches/{sdtmId}/specification:export?format=json|xlsx`
  *   (Requirement 11.6)
  * - Artifact download: `GET /api/v1/artifacts/{artifactId}/download` (Requirement 8.4)
- * - Define render: `GET /api/v1/sdtms/{sdtmId}/define/render?version=2.0|2.1` (Requirement 18.5)
+ * - Define render: `GET /api/v1/sdtm-workbenches/{sdtmId}/define:render?version=2.0|2.1` (Requirement 18.5)
  *
  * It calls {@link AXIOS_INSTANCE} directly with `responseType: 'blob'`, so it
  * inherits the exact base URL and the bearer-token request interceptor applied
@@ -143,7 +143,7 @@ export function useDownload(): UseDownloadResult {
   const downloadSpecificationExport = useCallback(
     async (sdtmId: string, format: SpecificationExportFormat): Promise<void> => {
       const response = await requestBlob(
-        `/api/v1/sdtms/${sdtmId}/specification/export`,
+        `/api/v1/sdtm-workbenches/${sdtmId}/specification:export`,
         { format },
       )
       const filename =
@@ -184,7 +184,7 @@ export function useDownload(): UseDownloadResult {
       fallbackFilename?: string,
     ): Promise<void> => {
       const response = await requestBlob(
-        `/api/v1/documents/${documentId}/content/export`,
+        `/api/v1/documents/${documentId}/content:export`,
         { format },
       )
       const filename =
@@ -198,7 +198,7 @@ export function useDownload(): UseDownloadResult {
 
   const downloadDocumentUsdm = useCallback(
     async (documentId: string, fallbackFilename?: string): Promise<void> => {
-      const response = await requestBlob(`/api/v1/documents/${documentId}/usdm/export`)
+      const response = await requestBlob(`/api/v1/documents/${documentId}/usdm:export`)
       const filename =
         filenameFromResponse(response) ??
         fallbackFilename ??
@@ -210,7 +210,7 @@ export function useDownload(): UseDownloadResult {
 
   const renderDefineXml = useCallback(
     async (sdtmId: string, version: DefineRenderVersion): Promise<string> => {
-      const response = await requestBlob(`/api/v1/sdtms/${sdtmId}/define/render`, {
+      const response = await requestBlob(`/api/v1/sdtm-workbenches/${sdtmId}/define:render`, {
         version,
       })
       return response.data.text()

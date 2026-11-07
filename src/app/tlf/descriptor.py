@@ -11,7 +11,7 @@ from app.tlf.service import TLF_ARTIFACT_TYPES, TlfCapability
 DESCRIPTOR = ModuleDescriptor(
     module_key="tlf",
     module_version="0.5.0",
-    api_prefix="/api/v1/tlfs",
+    api_prefix="/api/v1/tlf-workbenches",
     content_schema_versions=("1.0.0",),
     dependency_purposes=(
         "analysis_reporting_standard",
@@ -40,7 +40,12 @@ DESCRIPTOR = ModuleDescriptor(
 HANDLER = TlfCapability("tlf", "tlf_workbench", TlfWorkbench, TlfDependencySelection)
 router = APIRouter()
 router.include_router(
-    dependency_aggregate_router("tlf", "/studies/{study_id}/tlfs", "/tlfs/{tlf_id}", "tlf_id")
+    dependency_aggregate_router(
+        "tlf",
+        "/studies/{study_id}/tlf-workbenches",
+        "/tlf-workbenches/{tlf_id}",
+        "tlf_id",
+    )
 )
 router.include_router(tlf_router)
 REGISTRATION = ModuleRegistration(

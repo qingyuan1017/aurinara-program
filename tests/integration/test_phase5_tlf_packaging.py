@@ -238,14 +238,14 @@ async def test_tlf_execute_render_and_deterministic_package(
         adam_checksum = adam_output.sha256
 
     created = await client.post(
-        f"/api/v1/studies/{study_id}/tlfs",
+        f"/api/v1/studies/{study_id}/tlf-workbenches",
         headers=headers,
         json={"code": "T-14-1", "name": "Disposition"},
     )
     assert created.status_code == 201, created.text
     tlf_id = created.json()["id"]
     dependency = await client.put(
-        f"/api/v1/tlfs/{tlf_id}/dependencies",
+        f"/api/v1/tlf-workbenches/{tlf_id}/dependencies",
         headers={**headers, "If-Match": created.headers["etag"]},
         json={
             "templates": [
@@ -259,7 +259,7 @@ async def test_tlf_execute_render_and_deterministic_package(
     )
     assert dependency.status_code == 200, dependency.text
     shell = await client.put(
-        f"/api/v1/tlfs/{tlf_id}/shell",
+        f"/api/v1/tlf-workbenches/{tlf_id}/shell",
         headers={**headers, "If-Match": dependency.headers["etag"]},
         json={
             "output_code": "T-14-1",
@@ -271,7 +271,7 @@ async def test_tlf_execute_render_and_deterministic_package(
     )
     assert shell.status_code == 200, shell.text
     bindings = await client.put(
-        f"/api/v1/tlfs/{tlf_id}/bindings",
+        f"/api/v1/tlf-workbenches/{tlf_id}/bindings",
         headers={**headers, "If-Match": shell.headers["etag"]},
         json={
             "datasets": [
@@ -306,13 +306,13 @@ async def test_tlf_execute_render_and_deterministic_package(
     )
     assert bindings.status_code == 200, bindings.text
     assumptions = await client.put(
-        f"/api/v1/tlfs/{tlf_id}/assumptions",
+        f"/api/v1/tlf-workbenches/{tlf_id}/assumptions",
         headers={**headers, "If-Match": bindings.headers["etag"]},
         json={"items": [{"id": "a1", "text": "Safety population is manually selected."}]},
     )
     assert assumptions.status_code == 200, assumptions.text
     ars = await client.put(
-        f"/api/v1/tlfs/{tlf_id}/ars",
+        f"/api/v1/tlf-workbenches/{tlf_id}/ars",
         headers={**headers, "If-Match": assumptions.headers["etag"]},
         json={
             "analyses": [
@@ -329,7 +329,7 @@ async def test_tlf_execute_render_and_deterministic_package(
     )
     assert ars.status_code == 200, ars.text
     plan = await client.put(
-        f"/api/v1/tlfs/{tlf_id}/program-plan",
+        f"/api/v1/tlf-workbenches/{tlf_id}/program-plan",
         headers={**headers, "If-Match": ars.headers["etag"]},
         json={
             "shell_revision": 1,
@@ -349,9 +349,11 @@ async def test_tlf_execute_render_and_deterministic_package(
         },
     )
     assert plan.status_code == 200, plan.text
-    validation = await client.post(f"/api/v1/tlfs/{tlf_id}/validate", headers=headers)
+    validation = await client.post(f"/api/v1/tlf-workbenches/{tlf_id}:validate", headers=headers)
     assert validation.status_code == 200, validation.text
-    preview = await client.post(f"/api/v1/tlfs/{tlf_id}/program-plan/preview", headers=headers)
+    preview = await client.post(
+        f"/api/v1/tlf-workbenches/{tlf_id}/program-plan:preview", headers=headers
+    )
     assert preview.status_code == 200, preview.text
     assert "Subject disposition" not in str(preview.json()["normalized_analysis_ir"])
 
@@ -366,7 +368,7 @@ async def test_tlf_execute_render_and_deterministic_package(
             options={},
         )
     program_build = await client.post(
-        f"/api/v1/tlfs/{tlf_id}/compile",
+        f"/api/v1/tlf-workbenches/{tlf_id}:compile",
         headers={**headers, "Idempotency-Key": "tlf-program-1"},
         json={
             "backend": "python",
@@ -389,7 +391,7 @@ async def test_tlf_execute_render_and_deterministic_package(
         compiler_fingerprint = program.compiler_fingerprint
         program_input_fingerprint = program.input_fingerprint
     execution = await client.post(
-        f"/api/v1/tlfs/{tlf_id}/execute",
+        f"/api/v1/tlf-workbenches/{tlf_id}:execute",
         headers={**headers, "Idempotency-Key": "tlf-execution-1"},
         json={
             "language": "python",
@@ -443,7 +445,7 @@ async def test_tlf_execute_render_and_deterministic_package(
             options={},
         )
     rendered = await client.post(
-        f"/api/v1/tlfs/{tlf_id}/render",
+        f"/api/v1/tlf-workbenches/{tlf_id}:render",
         headers={**headers, "Idempotency-Key": "tlf-render-1"},
         json={"format": "pdf", "expected_input_fingerprint": fingerprint(render_resolved)},
     )

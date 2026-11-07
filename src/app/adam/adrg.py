@@ -293,7 +293,7 @@ def _save(
     return record
 
 
-@router.get("/adams/{adam_id}/adrg", response_model=AdrgResponse)
+@router.get("/adam-workbenches/{adam_id}/adrg", response_model=AdrgResponse)
 def get_adrg(
     adam_id: UUID,
     session: Annotated[Session, Depends(get_session)],
@@ -306,7 +306,7 @@ def get_adrg(
     return AdrgResponse.model_validate(record)
 
 
-@router.put("/adams/{adam_id}/adrg", response_model=AdrgResponse)
+@router.put("/adam-workbenches/{adam_id}/adrg", response_model=AdrgResponse)
 def put_adrg(
     adam_id: UUID,
     command: AdamAdrgModel,
@@ -324,7 +324,7 @@ def put_adrg(
     return AdrgResponse.model_validate(record)
 
 
-@router.post("/adams/{adam_id}/adrg/initialize", response_model=AdrgResponse)
+@router.post("/adam-workbenches/{adam_id}/adrg:initialize", response_model=AdrgResponse)
 def initialize_adrg(
     adam_id: UUID,
     command: AdamAdrgInitialize,
@@ -374,7 +374,7 @@ def initialize_adrg(
     return AdrgResponse.model_validate(record)
 
 
-@router.post("/adams/{adam_id}/adrg/validate", response_model=ValidationRunResponse)
+@router.post("/adam-workbenches/{adam_id}/adrg:validate", response_model=ValidationRunResponse)
 def validate_adrg(
     adam_id: UUID,
     session: Annotated[Session, Depends(get_session)],
@@ -425,7 +425,7 @@ def validate_adrg(
 
 
 @router.post(
-    "/adams/{adam_id}/adrg/artifacts",
+    "/adam-workbenches/{adam_id}/adrg/artifacts:build",
     response_model=ArtifactBuildResponse,
     status_code=status.HTTP_202_ACCEPTED,
 )

@@ -211,9 +211,7 @@ def test_permission_catalog_covers_every_aurinara_module() -> None:
     catalog = permission_catalog()
     by_module = {
         str(item["module"]): {
-            str(candidate["code"])
-            for candidate in catalog
-            if candidate["module"] == item["module"]
+            str(candidate["code"]) for candidate in catalog if candidate["module"] == item["module"]
         }
         for item in catalog
     }

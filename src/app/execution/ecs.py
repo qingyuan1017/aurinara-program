@@ -212,9 +212,7 @@ class EcsExecutor:
             return 0
         try:
             return sum(
-                path.stat().st_size
-                for path in output_directory.rglob("*")
-                if path.is_file()
+                path.stat().st_size for path in output_directory.rglob("*") if path.is_file()
             )
         except OSError:
             return 0

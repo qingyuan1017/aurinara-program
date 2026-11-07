@@ -729,14 +729,13 @@ def _record_failure(
                 record.completed_at = utc_now()
 
 
-def _process_job(
+def _dispatch_job(
     factory: sessionmaker[Session],
     registry: ModuleRegistry,
     storage: ObjectStorage,
     job: Job,
-    settings: Settings | None = None,
+    settings: Settings,
 ) -> None:
-    resolved_settings = settings or get_settings()
     try:
         if job.job_type == "artifact_build":
             _handle_artifact_build(factory, registry, storage, job.id)
@@ -747,7 +746,7 @@ def _process_job(
         elif job.job_type == "submission_package":
             _handle_submission_package(factory, registry, storage, job.id)
         elif job.job_type == "raw_dataset_import":
-            _handle_raw_dataset_import(factory, registry, storage, resolved_settings, job.id)
+            _handle_raw_dataset_import(factory, registry, storage, settings, job.id)
         else:
             _record_failure(
                 factory,
@@ -768,6 +767,21 @@ def _process_job(
             job.id,
             {"code": "job_processing_failed", "detail": type(error).__name__},
         )
+
+
+def _process_job(
+    factory: sessionmaker[Session],
+    registry: ModuleRegistry,
+    storage: ObjectStorage,
+    job: Job,
+    settings: Settings | None = None,
+) -> None:
+    """Process one claimed job under the exact lease token returned by the queue."""
+
+    if job.lease_token is None:
+        raise RuntimeError("claimed job did not receive a lease token")
+    with claimed_job(job.lease_token):
+        _dispatch_job(factory, registry, storage, job, settings or get_settings())
 
 
 def main() -> None:
@@ -810,13 +824,16 @@ def main() -> None:
             continue
         if job.lease_token is None:
             raise RuntimeError("claimed job did not receive a lease token")
-        with claimed_job(job.lease_token), LeaseHeartbeat(
-            factory,
-            job_id=job.id,
-            worker_id=worker_id,
-            lease_token=job.lease_token,
-            lease_seconds=settings.job_lease_seconds,
-            heartbeat_seconds=settings.job_lease_heartbeat_seconds,
+        with (
+            claimed_job(job.lease_token),
+            LeaseHeartbeat(
+                factory,
+                job_id=job.id,
+                worker_id=worker_id,
+                lease_token=job.lease_token,
+                lease_seconds=settings.job_lease_seconds,
+                heartbeat_seconds=settings.job_lease_heartbeat_seconds,
+            ),
         ):
             _process_job(factory, registry, storage, job, settings)
 

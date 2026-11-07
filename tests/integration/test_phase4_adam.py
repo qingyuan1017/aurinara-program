@@ -73,7 +73,7 @@ async def phase4_client() -> AsyncIterator[AsyncClient]:
     engine = create_database_engine(settings)
     factory = create_session_factory(engine)
     with engine.begin() as connection:
-        connection.execute(text("TRUNCATE studies CASCADE"))
+        connection.execute(text("TRUNCATE jobs, studies CASCADE"))
     storage = MemoryStorage()
     with factory() as session:
         seed(session, storage)
@@ -103,7 +103,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     )
     study_id = study.json()["id"]
     sdtm = await client.post(
-        f"/api/v1/studies/{study_id}/sdtms",
+        f"/api/v1/studies/{study_id}/sdtm-workbenches",
         headers=headers,
         json={"code": "SDTM", "name": "SDTM"},
     )
@@ -113,7 +113,9 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     sdtm_id = sdtm.json()["id"]
     study_uuid = UUID(study_id)
     sdtm_uuid = UUID(sdtm_id)
-    dependencies = await client.get(f"/api/v1/sdtms/{sdtm_id}/dependencies", headers=headers)
+    dependencies = await client.get(
+        f"/api/v1/sdtm-workbenches/{sdtm_id}/dependencies", headers=headers
+    )
     dependency_fingerprint = dependencies.json()["fingerprint"]
     source_payload = {"raw_id": "00000000-0000-0000-0000-000000000001"}
     specification_payload = {
@@ -254,14 +256,14 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
         validation_id = str(validation.id)
 
     adam = await client.post(
-        f"/api/v1/studies/{study_id}/adams",
+        f"/api/v1/studies/{study_id}/adam-workbenches",
         headers=headers,
         json={"code": "ADAM", "name": "ADaM"},
     )
     assert adam.status_code == 201, adam.text
     adam_id = adam.json()["id"]
     adam_dependencies = await client.put(
-        f"/api/v1/adams/{adam_id}/dependencies",
+        f"/api/v1/adam-workbenches/{adam_id}/dependencies",
         headers={**headers, "If-Match": adam.headers["etag"]},
         json={
             "templates": [
@@ -276,7 +278,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     )
     assert adam_dependencies.status_code == 200, adam_dependencies.text
     selected = await client.put(
-        f"/api/v1/adams/{adam_id}/input-selection",
+        f"/api/v1/adam-workbenches/{adam_id}/input-selection",
         headers={**headers, "If-Match": adam_dependencies.headers["etag"]},
         json={
             "sdtm_id": sdtm_id,
@@ -344,7 +346,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
         ],
     }
     saved_specification = await client.put(
-        f"/api/v1/adams/{adam_id}/specification",
+        f"/api/v1/adam-workbenches/{adam_id}/specification",
         headers={**headers, "If-Match": selected.headers["etag"]},
         json=adam_specification,
     )
@@ -360,7 +362,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
                 "id": "derive_trt",
                 "target_dataset": "ADSL",
                 "method_id": "MT.TRT01P",
-                "assignments": {"TRT01P": {"kind": "column", "dataset": "DM", "column": "ARM"}},
+                "assignments": {"TRT01P": {"kind": "column", "column": "ARM"}},
             },
             {
                 "node_type": "select",
@@ -376,25 +378,26 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
         ],
     }
     saved_plan = await client.put(
-        f"/api/v1/adams/{adam_id}/datasets/ADSL/derivation-plan",
+        f"/api/v1/adam-workbenches/{adam_id}/datasets/ADSL/derivation-plan",
         headers={**headers, "If-Match": "*"},
         json=adam_plan,
     )
     assert saved_plan.status_code == 200, saved_plan.text
     validated = await client.post(
-        f"/api/v1/adams/{adam_id}/datasets/ADSL/derivation-plan/validate", headers=headers
+        f"/api/v1/adam-workbenches/{adam_id}/datasets/ADSL/derivation-plan:validate",
+        headers=headers,
     )
     assert validated.status_code == 200, validated.text
     assert validated.json()["status"] == "valid"
 
     preview = await client.post(
-        f"/api/v1/adams/{adam_id}/datasets/ADSL/derivation-plan/preview",
+        f"/api/v1/adam-workbenches/{adam_id}/datasets/ADSL/derivation-plan:preview",
         headers=headers,
         json={"datasets": ["ADSL"], "limit": 1},
     )
     assert preview.status_code == 200, preview.text
     assert preview.json()["outputs"]["ADSL"] == [{"USUBJID": "01", "TRT01P": "Placebo"}]
-    lineage = await client.get(f"/api/v1/adams/{adam_id}/lineage", headers=headers)
+    lineage = await client.get(f"/api/v1/adam-workbenches/{adam_id}/lineage", headers=headers)
     assert lineage.status_code == 200, lineage.text
     assert lineage.json()["datasets"]["ADSL"]["outputs"]["ADSL"] == [
         "derive_trt",
@@ -402,12 +405,12 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
         "select_adsl",
     ]
 
-    validation = await client.post(f"/api/v1/adams/{adam_id}/validate", headers=headers)
+    validation = await client.post(f"/api/v1/adam-workbenches/{adam_id}:validate", headers=headers)
     assert validation.status_code == 200, validation.text
     assert validation.json()["status"] == "succeeded"
     assert validation.json()["error_count"] == 0
     dataset_validation = await client.post(
-        f"/api/v1/adams/{adam_id}/datasets/ADSL/validate", headers=headers
+        f"/api/v1/adam-workbenches/{adam_id}/datasets/ADSL:validate", headers=headers
     )
     assert dataset_validation.status_code == 200, dataset_validation.text
     assert dataset_validation.json()["status"] == "succeeded"
@@ -433,7 +436,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
             options={"domain_code": "ADSL"},
         )
     metadata_build = await client.post(
-        f"/api/v1/adams/{adam_id}/artifacts",
+        f"/api/v1/adam-workbenches/{adam_id}/artifacts:build",
         headers={**headers, "Idempotency-Key": "adam-metadata-artifacts-1"},
         json={
             "artifact_types": list(metadata_artifact_types),
@@ -479,7 +482,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
             options={"domain_code": "ADSL"},
         )
     compiled = await client.post(
-        f"/api/v1/adams/{adam_id}/compile",
+        f"/api/v1/adam-workbenches/{adam_id}:compile",
         headers={**headers, "Idempotency-Key": "adam-compile-python-1"},
         json={
             "backend": "python",
@@ -515,7 +518,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     assert program.json()["source_plan_type"] == "adam_derivation_plan"
 
     execution = await client.post(
-        f"/api/v1/adams/{adam_id}/execute",
+        f"/api/v1/adam-workbenches/{adam_id}:execute",
         headers={**headers, "Idempotency-Key": "adam-execute-python-1"},
         json={
             "language": "python",
@@ -576,7 +579,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     ]
 
     define = await client.post(
-        f"/api/v1/adams/{adam_id}/define/initialize",
+        f"/api/v1/adam-workbenches/{adam_id}/define:initialize",
         headers={**headers, "If-Match": saved_specification.headers["etag"]},
         json={
             "expected_define_revision": None,
@@ -598,13 +601,13 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     maintained_payload = define.json()["payload"]
     maintained_payload["description"] = "Manually maintained Define description"
     maintained = await client.put(
-        f"/api/v1/adams/{adam_id}/define",
+        f"/api/v1/adam-workbenches/{adam_id}/define",
         headers={**headers, "If-Match": define.headers["etag"]},
         json=maintained_payload,
     )
     assert maintained.status_code == 200, maintained.text
     reinitialized = await client.post(
-        f"/api/v1/adams/{adam_id}/define/initialize",
+        f"/api/v1/adam-workbenches/{adam_id}/define:initialize",
         headers={**headers, "If-Match": maintained.headers["etag"]},
         json={
             "expected_define_revision": 2,
@@ -624,13 +627,13 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     invalid_define_payload = json.loads(json.dumps(valid_define_payload))
     invalid_define_payload["datasets"][0]["label"] = "Metadata that differs from Specification"
     invalid_define = await client.put(
-        f"/api/v1/adams/{adam_id}/define",
+        f"/api/v1/adam-workbenches/{adam_id}/define",
         headers={**headers, "If-Match": reinitialized.headers["etag"]},
         json=invalid_define_payload,
     )
     assert invalid_define.status_code == 200, invalid_define.text
     invalid_define_validation = await client.post(
-        f"/api/v1/adams/{adam_id}/define/validate", headers=headers
+        f"/api/v1/adam-workbenches/{adam_id}/define:validate", headers=headers
     )
     assert invalid_define_validation.status_code == 200, invalid_define_validation.text
     assert invalid_define_validation.json()["error_count"] == 1
@@ -638,33 +641,33 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
         "adam_define_dataset_metadata_mismatch"
     )
     blocked_render = await client.get(
-        f"/api/v1/adams/{adam_id}/define/render",
+        f"/api/v1/adam-workbenches/{adam_id}/define:render",
         headers=headers,
         params={"version": "2.1"},
     )
     assert blocked_render.status_code == 409, blocked_render.text
     reinitialized = await client.put(
-        f"/api/v1/adams/{adam_id}/define",
+        f"/api/v1/adam-workbenches/{adam_id}/define",
         headers={**headers, "If-Match": invalid_define.headers["etag"]},
         json=valid_define_payload,
     )
     assert reinitialized.status_code == 200, reinitialized.text
     define_validation = await client.post(
-        f"/api/v1/adams/{adam_id}/define/validate", headers=headers
+        f"/api/v1/adam-workbenches/{adam_id}/define:validate", headers=headers
     )
     assert define_validation.status_code == 200, define_validation.text
     assert define_validation.json()["error_count"] == 0
     assert define_validation.json()["validator_version"] == "1.2.0"
     for version in ("2.0", "2.1"):
         rendered = await client.get(
-            f"/api/v1/adams/{adam_id}/define/render",
+            f"/api/v1/adam-workbenches/{adam_id}/define:render",
             headers=headers,
             params={"version": version},
         )
         assert rendered.status_code == 200, rendered.text
         validate_define_xml(rendered.content, version)
     reconciliation = await client.post(
-        f"/api/v1/adams/{adam_id}/define/reconcile",
+        f"/api/v1/adam-workbenches/{adam_id}/define:reconcile",
         headers={**headers, "Idempotency-Key": "adam-define-reconcile-1"},
         json={
             "define_revision": reinitialized.json()["revision"],
@@ -703,7 +706,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
             options={},
         )
     define_build = await client.post(
-        f"/api/v1/adams/{adam_id}/define/artifacts",
+        f"/api/v1/adam-workbenches/{adam_id}/define/artifacts:build",
         headers={**headers, "Idempotency-Key": "adam-define-artifacts-1"},
         json={
             "versions": ["2.0", "2.1"],
@@ -737,7 +740,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
         assert b'SourceSystemVersion="1.1.0"' in download.content
 
     adrg = await client.post(
-        f"/api/v1/adams/{adam_id}/adrg/initialize",
+        f"/api/v1/adam-workbenches/{adam_id}/adrg:initialize",
         headers={**headers, "If-Match": reinitialized.headers["etag"]},
         json={
             "expected_adrg_revision": None,
@@ -756,13 +759,13 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
             f"Manually authored synthetic reviewer guidance for {section['heading']}."
         ]
     authored_adrg = await client.put(
-        f"/api/v1/adams/{adam_id}/adrg",
+        f"/api/v1/adam-workbenches/{adam_id}/adrg",
         headers={**headers, "If-Match": adrg.headers["etag"]},
         json=adrg_payload,
     )
     assert authored_adrg.status_code == 200, authored_adrg.text
     refreshed_adrg = await client.post(
-        f"/api/v1/adams/{adam_id}/adrg/initialize",
+        f"/api/v1/adam-workbenches/{adam_id}/adrg:initialize",
         headers={**headers, "If-Match": authored_adrg.headers["etag"]},
         json={
             "expected_adrg_revision": 2,
@@ -776,7 +779,9 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     assert all(
         section["paragraphs"] for section in refreshed_adrg.json()["payload"]["narrative_sections"]
     )
-    adrg_validation = await client.post(f"/api/v1/adams/{adam_id}/adrg/validate", headers=headers)
+    adrg_validation = await client.post(
+        f"/api/v1/adam-workbenches/{adam_id}/adrg:validate", headers=headers
+    )
     assert adrg_validation.status_code == 200, adrg_validation.text
     assert adrg_validation.json()["error_count"] == 0
     adrg_artifact_types = ("adam_adrg_docx", "adam_adrg_pdf")
@@ -791,7 +796,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
             options={},
         )
     adrg_build = await client.post(
-        f"/api/v1/adams/{adam_id}/adrg/artifacts",
+        f"/api/v1/adam-workbenches/{adam_id}/adrg/artifacts:build",
         headers={**headers, "Idempotency-Key": "adam-adrg-artifacts-1"},
         json={
             "artifact_types": list(adrg_artifact_types),
@@ -832,7 +837,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     assert "Phase 4 Analysis Data Reviewer's Guide" in rendered_text["pdf"]
 
     exported = await client.get(
-        f"/api/v1/adams/{adam_id}/specification/export?format=xlsx", headers=headers
+        f"/api/v1/adam-workbenches/{adam_id}/specification:export?format=xlsx", headers=headers
     )
     assert exported.status_code == 200, exported.text
     workbook = load_workbook(io.BytesIO(exported.content))
@@ -847,7 +852,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     }
     imported = await client.post(
-        f"/api/v1/adams/{adam_id}/specification/import",
+        f"/api/v1/adam-workbenches/{adam_id}/specification:import",
         headers=import_headers,
         content=changed.getvalue(),
     )
@@ -855,25 +860,28 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     assert imported.json()["revision"] == 2
     assert imported.json()["payload"]["datasets"][0]["label"] == ("Imported subject-level dataset")
     replay = await client.post(
-        f"/api/v1/adams/{adam_id}/specification/import",
+        f"/api/v1/adam-workbenches/{adam_id}/specification:import",
         headers=import_headers,
         content=changed.getvalue(),
     )
     assert replay.status_code == 200, replay.text
     assert replay.json()["id"] == imported.json()["id"]
     blocked = await client.post(
-        f"/api/v1/adams/{adam_id}/datasets/ADSL/derivation-plan/validate", headers=headers
+        f"/api/v1/adam-workbenches/{adam_id}/datasets/ADSL/derivation-plan:validate",
+        headers=headers,
     )
     assert blocked.status_code == 409
     assert blocked.json()["code"] == "adam_plan_misaligned"
 
     revised_sdtm = await client.put(
-        f"/api/v1/sdtms/{sdtm_id}/specification",
+        f"/api/v1/sdtm-workbenches/{sdtm_id}/specification",
         headers={**headers, "If-Match": sdtm.headers["etag"]},
         json=specification_payload,
     )
     assert revised_sdtm.status_code == 200, revised_sdtm.text
-    stale_selection = await client.get(f"/api/v1/adams/{adam_id}/input-selection", headers=headers)
+    stale_selection = await client.get(
+        f"/api/v1/adam-workbenches/{adam_id}/input-selection", headers=headers
+    )
     assert stale_selection.status_code == 200, stale_selection.text
     assert stale_selection.json()["state"] == "input_refresh_required"
     with factory() as session:
@@ -947,7 +955,7 @@ async def test_specification_replaces_verified_normalized_trace_targets(
     )
     assert content.status_code == 200, content.text
     adam = await client.post(
-        f"/api/v1/studies/{study_id}/adams",
+        f"/api/v1/studies/{study_id}/adam-workbenches",
         headers=headers,
         json={"code": "ADAM-TRACE", "name": "ADaM traceability"},
     )
@@ -1013,7 +1021,7 @@ async def test_specification_replaces_verified_normalized_trace_targets(
         ],
     }
     saved = await client.put(
-        f"/api/v1/adams/{adam_id}/specification",
+        f"/api/v1/adam-workbenches/{adam_id}/specification",
         headers={**headers, "If-Match": adam.headers["etag"]},
         json=specification,
     )
@@ -1035,7 +1043,7 @@ async def test_specification_replaces_verified_normalized_trace_targets(
     }
 
     invalid = await client.put(
-        f"/api/v1/adams/{adam_id}/specification",
+        f"/api/v1/adam-workbenches/{adam_id}/specification",
         headers={**headers, "If-Match": saved.headers["etag"]},
         json={
             **specification,
@@ -1054,7 +1062,7 @@ async def test_specification_replaces_verified_normalized_trace_targets(
     assert invalid.json()["code"] == "trace_endpoint_invalid"
 
     replaced = await client.put(
-        f"/api/v1/adams/{adam_id}/specification",
+        f"/api/v1/adam-workbenches/{adam_id}/specification",
         headers={**headers, "If-Match": saved.headers["etag"]},
         json={**specification, "trace_targets": []},
     )

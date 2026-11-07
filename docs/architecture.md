@@ -148,9 +148,9 @@ clinical-artifact-platform/
       validation/
       packaging/
   workers/
-    job_worker/
-    execution_dispatcher/
-    integration_dispatcher/
+    job_worker.py
+    execution_dispatcher.py
+    integration_dispatcher.py
   runners/
     python/
     r/
@@ -183,16 +183,18 @@ clinical-artifact-platform/
   pyproject.toml
 ```
 
-Each domain package follows the same internal shape where applicable:
+Each domain package uses a shallow feature-oriented shape where applicable:
 
 ```text
 <module>/
   descriptor.py      # immutable ModuleDescriptor and capability registration
-  api.py             # FastAPI routes and request/response translation
+  routes.py          # route aggregator only
+  *_routes.py        # feature-owned routes and transport translation
   models.py          # domain entities and value objects
   schemas.py         # Pydantic API contracts
   repository.py      # repository interfaces and SQLAlchemy implementation
-  services.py        # use cases and transaction boundaries
+  service.py         # registered capability facade
+  *_service.py       # focused use cases and transaction boundaries
   validators.py      # clinical and structural validation
   builders.py        # artifact builders and render inputs
   capabilities.py    # typed adapters implemented for shared services
@@ -201,6 +203,8 @@ Each domain package follows the same internal shape where applicable:
 ```
 
 `common` contains technical primitives only: identifiers, clocks, database sessions, problem details, pagination, hashing, canonical JSON, and transactional helpers. Business concepts remain in the module that owns them.
+
+The frontend mirrors clinical ownership under `frontend/src/features/{raw,documents,sdtm,adam,tlf}`. Route files compose feature panels and remain thin. A feature may import generated API modules and shared UI/workbench primitives, but ESLint forbids importing another clinical feature's internals. Generated OpenAPI and Orval output are clean-checkout build artifacts and are not tracked.
 
 ## 5. Technology baseline
 

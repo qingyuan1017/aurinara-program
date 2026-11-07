@@ -154,8 +154,7 @@ def test_on_demand_selection_fetches_only_selected_release_graph(tmp_path: Path)
     assert fetched.manifest.selected_href == root
     assert {item.canonical_href for item in fetched.manifest.resources} == {root, child}
     assert all(
-        item.asset_path.startswith("external/cdisc-library/")
-        for item in fetched.manifest.resources
+        item.asset_path.startswith("external/cdisc-library/") for item in fetched.manifest.resources
     )
     assert not (tmp_path / "schemas").exists()
     assert not (tmp_path / "terminology").exists()

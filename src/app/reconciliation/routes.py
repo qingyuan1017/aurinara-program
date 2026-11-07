@@ -231,7 +231,7 @@ def get_reconciliation(
     return ReconciliationResponse.model_validate(run)
 
 
-@router.post("/reconciliation-runs/{run_id}/cancel", response_model=ReconciliationResponse)
+@router.post("/reconciliation-runs/{run_id}:cancel", response_model=ReconciliationResponse)
 def cancel_reconciliation(
     run_id: UUID,
     session: Annotated[Session, Depends(get_session)],

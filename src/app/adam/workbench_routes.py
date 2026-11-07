@@ -1,0 +1,1196 @@
+"""ADaM exact inputs, Specification exchange, plan, preview, and lineage APIs."""
+
+import hashlib
+import json
+from datetime import datetime
+from typing import Annotated, Protocol, cast
+from uuid import UUID
+from zipfile import BadZipFile
+
+from fastapi import APIRouter, Depends, Header, Query, Request, Response, status
+from fastapi.responses import JSONResponse
+from openpyxl.utils.exceptions import InvalidFileException
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.adam.contracts import AdamDerivationPlan, AdamInputSelectionWrite, AdamSpecification
+from app.adam.models import (
+    AdamDerivationPlanRevision,
+    AdamInputSelection,
+    AdamSpecificationRevision,
+    AdamWorkbench,
+)
+from app.adam.service import (
+    ADAM_BUILD_ARTIFACT_TYPES,
+    AdamCapability,
+    context_from_record,
+    lower_plan,
+    plan_from_record,
+    validate_dependency_compatibility,
+    validate_origins,
+    validate_sdtm_sources,
+)
+from app.adam.specification_workbook import (
+    parse_specification_xlsx,
+    render_specification_xlsx,
+)
+from app.api.auth import Principal, get_principal
+from app.api.dependencies import (
+    get_application_settings,
+    get_module_registry,
+    get_object_storage,
+    get_session,
+)
+from app.artifacts.builds import ArtifactBuildCreate, ArtifactBuildResponse, create_artifact_build
+from app.artifacts.models import Artifact
+from app.artifacts.service import ArtifactService
+from app.artifacts.storage import ObjectStorage
+from app.common.canonical import fingerprint
+from app.common.etag import etag_for_revision, require_matching_etag
+from app.common.idempotency import IdempotencyRecord
+from app.common.pagination import paginate
+from app.common.problems import ProblemException
+from app.common.time import utc_now
+from app.config import Settings
+from app.execution.routes import (
+    ExecutionLimits,
+    ExecutionRunCreate,
+    ExecutionRunResponse,
+    create_execution_run,
+)
+from app.kernel.contracts import ModuleCapability
+from app.kernel.registry import ModuleRegistry
+from app.kernel.traceability import (
+    TraceabilityError,
+    TraceabilityService,
+    TraceCommand,
+    TraceEndpoint,
+)
+from app.studies.service import StudyService
+from app.transformation.evaluator import evaluate_dataflow
+from app.transformation.service import canonical_ir, ir_fingerprint, lineage
+from app.validation.models import ValidationRun
+from app.validation.routes import ValidationRunResponse
+
+router = APIRouter(tags=["adam"])
+studies = StudyService()
+artifacts = ArtifactService()
+traceability = TraceabilityService()
+
+
+class SdtmContextExporter(Protocol):
+    def context_snapshot(
+        self, session: Session, sdtm_id: UUID, study_id: UUID
+    ) -> dict[str, object]: ...
+
+    def read_context_dataset(
+        self,
+        session: Session,
+        storage: ObjectStorage,
+        *,
+        sdtm_id: UUID,
+        study_id: UUID,
+        dataset_code: str,
+        artifact_id: UUID,
+        expected_checksum: str,
+        maximum_rows: int = 10_000,
+    ) -> tuple[dict[str, object | None], ...]: ...
+
+
+class InputSelectionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    revision: int
+    state: str
+    payload: dict[str, object]
+    fingerprint: str
+
+
+class SpecificationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    aggregate_id: UUID
+    revision: int
+    schema_version: str
+    payload: dict[str, object]
+    fingerprint: str
+    created_by: str
+    created_at: datetime
+
+
+def _alignment_state(state: str) -> str:
+    return "current" if state == "aligned" else "alignment_required"
+
+
+class PlanResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    aggregate_id: UUID
+    dataset: str
+    revision: int
+    schema_version: str
+    specification_revision: int
+    input_selection_revision: int
+    state: str
+    alignment_state: str
+    alignment_reasons: tuple[str, ...]
+    upstream_plan_pins: tuple[dict[str, object], ...]
+    payload: dict[str, object]
+    fingerprint: str
+    created_by: str
+    created_at: datetime
+
+    @classmethod
+    def from_record(cls, record: AdamDerivationPlanRevision) -> "PlanResponse":
+        return cls(
+            id=record.id,
+            aggregate_id=record.aggregate_id,
+            dataset=record.dataset_code,
+            revision=record.revision,
+            schema_version=record.schema_version,
+            specification_revision=record.specification_revision,
+            input_selection_revision=record.input_selection_revision,
+            state=record.state,
+            alignment_state=_alignment_state(record.state),
+            alignment_reasons=tuple(record.alignment_reasons or ()),
+            upstream_plan_pins=tuple(record.upstream_plan_pins),
+            payload=record.payload,
+            fingerprint=record.fingerprint,
+            created_by=record.created_by,
+            created_at=record.created_at,
+        )
+
+
+class PlanHeadSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: UUID
+    dataset: str
+    revision: int
+    alignment_state: str
+    alignment_reasons: tuple[str, ...]
+    fingerprint: str
+
+
+class PlanHeadPage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    items: tuple[PlanHeadSummary, ...]
+    next_cursor: str | None
+
+
+class PreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    datasets: tuple[str, ...] = ()
+    limit: int = Field(default=100, ge=1, le=200)
+
+
+class AdamArtifactRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    artifact_types: tuple[str, ...] = Field(min_length=1)
+    expected_input_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    dataset_code: str | None = Field(default=None, pattern=r"^[A-Z][A-Z0-9]{1,7}$")
+
+
+class CompileRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    backend: str = Field(pattern=r"^(python|r|sas)$")
+    expected_input_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    dataset_code: str = Field(pattern=r"^[A-Z][A-Z0-9]{1,7}$")
+
+
+class AdamExecutionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    language: str = Field(pattern=r"^(python|r|sas)$")
+    program_artifact_id: UUID
+    input_artifact_ids: tuple[UUID, ...] = Field(min_length=1)
+    validation_run_id: UUID
+    input_selection_revision: int = Field(ge=1)
+    source_specification_revision: int = Field(ge=1)
+    source_plan_revision: int = Field(ge=1)
+    compiler_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    expected_input_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    limits: ExecutionLimits
+
+
+def _handler(registry: ModuleRegistry) -> AdamCapability:
+    return cast(AdamCapability, registry.require_handler("adam", ModuleCapability.DEPENDENCIES))
+
+
+def _adam(session: Session, adam_id: UUID, principal: Principal) -> AdamWorkbench:
+    workbench = session.get(AdamWorkbench, adam_id)
+    if workbench is None:
+        raise ProblemException(
+            status_code=404,
+            code="adam_not_found",
+            title="ADaM workbench not found",
+            detail="The ADaM workbench does not exist.",
+        )
+    studies.require_access(session, workbench.study_id, principal)
+    return workbench
+
+
+def _stale(field: str, detail: str) -> ProblemException:
+    return ProblemException(
+        status_code=409,
+        code=f"adam_{field}_stale",
+        title="ADaM input is stale",
+        detail=detail,
+    )
+
+
+def _missing(code: str, detail: str) -> ProblemException:
+    return ProblemException(
+        status_code=409,
+        code=code,
+        title="ADaM authoring is incomplete",
+        detail=detail,
+    )
+
+
+def _selection_command(selection: AdamInputSelection) -> AdamInputSelectionWrite:
+    payload = {
+        key: value for key, value in selection.payload.items() if key != "sdtm_context_fingerprint"
+    }
+    return AdamInputSelectionWrite.model_validate(payload)
+
+
+def _sdtm_context(
+    session: Session,
+    registry: ModuleRegistry,
+    command: AdamInputSelectionWrite,
+    study_id: UUID,
+    adam_id: UUID,
+) -> dict[str, object]:
+    provider = cast(
+        SdtmContextExporter,
+        registry.require_handler("sdtm", ModuleCapability.CONTEXT_EXPORT),
+    )
+    context = provider.context_snapshot(session, command.sdtm_id, study_id)
+    validate_dependency_compatibility(
+        _handler(registry).get_selection(session, adam_id, study_id),
+        context,
+    )
+    if context["sdtm_revision"] != command.sdtm_revision:
+        raise _stale("sdtm_revision", "The selected SDTM revision is no longer current.")
+    if context["dependency_fingerprint"] != command.sdtm_dependency_fingerprint:
+        raise _stale("sdtm_dependency_fingerprint", "The SDTM dependency selection has changed.")
+    eligible = {
+        (str(item["artifact_id"]), str(item["dataset_code"]), str(item["checksum"])): item
+        for item in cast(list[dict[str, object]], context["xpt_artifacts"])
+    }
+    selected_rows: list[dict[str, object]] = []
+    for selected in command.xpt_artifacts:
+        key = (str(selected.artifact_id), selected.dataset_code, selected.checksum)
+        candidate = eligible.get(key)
+        artifact = session.get(Artifact, selected.artifact_id)
+        if (
+            candidate is None
+            or artifact is None
+            or artifact.study_id != study_id
+            or artifact.module_key != "sdtm"
+            or artifact.artifact_type != "sdtm_dataset_xpt"
+            or artifact.status != "available"
+            or artifact.sha256 != selected.checksum
+        ):
+            raise ProblemException(
+                status_code=422,
+                code="adam_sdtm_artifact_invalid",
+                title="ADaM SDTM input is invalid",
+                detail="Every XPT must match the exact current SDTM context.",
+            )
+        selected_rows.append(candidate)
+    selected_context = {**context, "xpt_artifacts": selected_rows}
+    validation = session.get(ValidationRun, command.validation_run_id)
+    manifest = validation.input_manifest if validation is not None else {}
+    if (
+        validation is None
+        or validation.study_id != study_id
+        or validation.module_key != "sdtm"
+        or validation.owner_type != "sdtm_workbench"
+        or validation.owner_id != command.sdtm_id
+        or validation.status != "succeeded"
+        or validation.error_count != 0
+        or manifest.get("sdtm_revision") != command.sdtm_revision
+        or manifest.get("dependency_fingerprint") != command.sdtm_dependency_fingerprint
+        or manifest.get("specification_revision") != context["specification_revision"]
+        or manifest.get("output_selection_revision") != context["output_selection_revision"]
+        or manifest.get("output_selection_fingerprint") != context["output_selection_fingerprint"]
+    ):
+        raise ProblemException(
+            status_code=422,
+            code="adam_sdtm_validation_invalid",
+            title="ADaM SDTM validation is invalid",
+            detail="Select a successful validation snapshot for the exact SDTM revisions.",
+        )
+    return {
+        **selected_context,
+        "validation_run": {
+            "id": str(validation.id),
+            "input_fingerprint": validation.input_fingerprint,
+            "status": validation.status,
+            "error_count": validation.error_count,
+            "warning_count": validation.warning_count,
+        },
+    }
+
+
+@router.get("/adam-workbenches/{adam_id}/input-selection", response_model=InputSelectionResponse)
+def get_input_selection(
+    adam_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> InputSelectionResponse:
+    workbench = _adam(session, adam_id, principal)
+    return InputSelectionResponse.model_validate(
+        _handler(registry).current_input(session, workbench.id)
+    )
+
+
+@router.put("/adam-workbenches/{adam_id}/input-selection", response_model=InputSelectionResponse)
+def put_input_selection(
+    adam_id: UUID,
+    command: AdamInputSelectionWrite,
+    response: Response,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+) -> InputSelectionResponse:
+    workbench = _adam(session, adam_id, principal)
+    require_matching_etag(if_match, workbench.revision)
+    context = _sdtm_context(session, registry, command, workbench.study_id, workbench.id)
+    payload = command.model_dump(mode="json")
+    payload["sdtm_context_fingerprint"] = fingerprint(context)
+    record = session.scalar(
+        select(AdamInputSelection).where(AdamInputSelection.aggregate_id == workbench.id)
+    )
+    if record is None:
+        record = AdamInputSelection(
+            aggregate_id=workbench.id,
+            study_id=workbench.study_id,
+            revision=1,
+            state="current",
+            payload=payload,
+            fingerprint=fingerprint(payload),
+        )
+        session.add(record)
+    else:
+        record.revision += 1
+        record.state = "current"
+        record.payload = payload
+        record.fingerprint = fingerprint(payload)
+    _misalign_all_dataset_plans(_handler(registry), session, workbench.id, "input_changed")
+    workbench.revision += 1
+    artifacts.mark_owner_stale(session, owner_type="adam_workbench", owner_id=workbench.id)
+    session.commit()
+    response.headers["ETag"] = etag_for_revision(workbench.revision)
+    return InputSelectionResponse.model_validate(record)
+
+
+def _misalign_all_dataset_plans(
+    handler: AdamCapability, session: Session, aggregate_id: UUID, reason: str
+) -> None:
+    """Misalign every per-dataset head plan for a spec/input change and fan out."""
+
+    for head in handler.list_plan_heads(session, aggregate_id):
+        if head.state == "aligned":
+            head.state = "misaligned"
+            current = list(head.alignment_reasons or [])
+            if reason not in current:
+                current.append(reason)
+            head.alignment_reasons = current
+            handler.mark_sibling_plan_change(
+                session, aggregate_id, head.dataset_code, "upstream_plan_changed"
+            )
+
+
+@router.get("/adam-workbenches/{adam_id}/sdtm-context")
+def get_sdtm_context(
+    adam_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> dict[str, object]:
+    workbench = _adam(session, adam_id, principal)
+    selection = _handler(registry).current_input(session, workbench.id)
+    return _sdtm_context(
+        session,
+        registry,
+        _selection_command(selection),
+        workbench.study_id,
+        workbench.id,
+    )
+
+
+@router.get("/adam-workbenches/{adam_id}/specification", response_model=SpecificationResponse)
+def get_specification(
+    adam_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> SpecificationResponse:
+    workbench = _adam(session, adam_id, principal)
+    record = _handler(registry).latest_specification(session, workbench.id)
+    if record is None:
+        raise _missing("adam_specification_required", "ADaM Specification is not saved.")
+    return SpecificationResponse.model_validate(record)
+
+
+def _save_specification(
+    session: Session,
+    registry: ModuleRegistry,
+    workbench: AdamWorkbench,
+    command: AdamSpecification,
+    principal: Principal,
+) -> AdamSpecificationRevision:
+    handler = _handler(registry)
+    current = handler.latest_specification(session, workbench.id)
+    previous_specification = context_from_record(current) if current is not None else None
+    record = AdamSpecificationRevision(
+        aggregate_id=workbench.id,
+        study_id=workbench.study_id,
+        revision=1 if current is None else current.revision + 1,
+        schema_version=command.schema_version,
+        payload=command.model_dump(mode="json"),
+        fingerprint=fingerprint(command.model_dump(mode="json")),
+        created_by=principal.subject,
+    )
+    session.add(record)
+    session.flush()
+    try:
+        traceability.replace(
+            session,
+            registry,
+            workbench.study_id,
+            _trace_commands(previous_specification),
+            _trace_commands(command),
+            principal.subject,
+        )
+    except TraceabilityError as error:
+        raise ProblemException(
+            status_code=422,
+            code=error.code,
+            title="ADaM trace target is invalid",
+            detail=error.detail,
+        ) from error
+    _misalign_all_dataset_plans(handler, session, workbench.id, "specification_changed")
+    workbench.revision += 1
+    artifacts.mark_owner_stale(session, owner_type="adam_workbench", owner_id=workbench.id)
+    return record
+
+
+def _trace_commands(specification: AdamSpecification | None) -> tuple[TraceCommand, ...]:
+    if specification is None:
+        return ()
+    return tuple(
+        TraceCommand(
+            relationship_type=item.relationship_type,
+            source=TraceEndpoint(
+                module=item.source.module,
+                entity_type=item.source.entity_type,
+                entity_id=item.source.entity_id,
+            ),
+            target=TraceEndpoint(
+                module=item.target.module,
+                entity_type=item.target.entity_type,
+                entity_id=item.target.entity_id,
+            ),
+        )
+        for item in specification.trace_targets
+    )
+
+
+@router.put("/adam-workbenches/{adam_id}/specification", response_model=SpecificationResponse)
+def put_specification(
+    adam_id: UUID,
+    command: AdamSpecification,
+    response: Response,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+) -> SpecificationResponse:
+    workbench = _adam(session, adam_id, principal)
+    require_matching_etag(if_match, workbench.revision)
+    record = _save_specification(session, registry, workbench, command, principal)
+    session.commit()
+    response.headers["ETag"] = etag_for_revision(workbench.revision)
+    return SpecificationResponse.model_validate(record)
+
+
+@router.post(
+    "/adam-workbenches/{adam_id}/specification:import", response_model=SpecificationResponse
+)
+async def import_specification(
+    adam_id: UUID,
+    request: Request,
+    response: Response,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> SpecificationResponse:
+    workbench = _adam(session, adam_id, principal)
+    data = await request.body()
+    request_fingerprint = hashlib.sha256(data).hexdigest()
+    route = f"adams:{workbench.id}:specification-import"
+    if not idempotency_key:
+        raise ProblemException(
+            status_code=400,
+            code="idempotency_key_required",
+            title="Idempotency-Key is required",
+            detail="Supply an Idempotency-Key header for an atomic import.",
+        )
+    existing = session.scalar(
+        select(IdempotencyRecord).where(
+            IdempotencyRecord.subject == principal.subject,
+            IdempotencyRecord.route == route,
+            IdempotencyRecord.study_id == workbench.study_id,
+            IdempotencyRecord.key == idempotency_key,
+        )
+    )
+    if existing is not None:
+        if existing.request_fingerprint != request_fingerprint:
+            raise ProblemException(
+                status_code=409,
+                code="idempotency_key_reused",
+                title="Idempotency key was reused",
+                detail="The key is already bound to different import bytes.",
+            )
+        record = session.get(AdamSpecificationRevision, existing.resource_id)
+        if record is None:
+            raise RuntimeError("idempotency record references a missing ADaM Specification")
+        response.headers["ETag"] = etag_for_revision(workbench.revision)
+        return SpecificationResponse.model_validate(record)
+    require_matching_etag(if_match, workbench.revision)
+    try:
+        if request.headers.get("content-type", "").startswith("application/json"):
+            command = AdamSpecification.model_validate(json.loads(data))
+        else:
+            command = parse_specification_xlsx(data)
+    except (BadZipFile, InvalidFileException, ValidationError, ValueError) as error:
+        raise ProblemException(
+            status_code=422,
+            code="adam_specification_import_invalid",
+            title="ADaM Specification import is invalid",
+            detail=str(error),
+        ) from error
+    record = _save_specification(session, registry, workbench, command, principal)
+    session.flush()
+    session.add(
+        IdempotencyRecord(
+            subject=principal.subject,
+            route=route,
+            study_id=workbench.study_id,
+            key=idempotency_key,
+            request_fingerprint=request_fingerprint,
+            resource_type="adam_specification_revision",
+            resource_id=record.id,
+        )
+    )
+    session.commit()
+    response.headers["ETag"] = etag_for_revision(workbench.revision)
+    return SpecificationResponse.model_validate(record)
+
+
+@router.get("/adam-workbenches/{adam_id}/specification:export")
+def export_specification(
+    adam_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+    export_format: Annotated[str, Query(alias="format", pattern=r"^(json|xlsx)$")] = "json",
+) -> Response:
+    record = get_specification(adam_id, session, registry, principal)
+    if export_format == "json":
+        return JSONResponse(content=record.payload)
+    specification = AdamSpecification.model_validate(record.payload)
+    return Response(
+        render_specification_xlsx(specification),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="adam-specification.xlsx"'},
+    )
+
+
+def _require_dataset(
+    handler: AdamCapability, session: Session, aggregate_id: UUID, dataset_code: str
+) -> AdamSpecificationRevision:
+    import re
+
+    if not re.fullmatch(r"[A-Z][A-Z0-9]{1,7}", dataset_code):
+        raise ProblemException(
+            status_code=404,
+            code="adam_dataset_unknown",
+            title="ADaM dataset is unknown",
+            detail=f"'{dataset_code}' is not a valid dataset code.",
+        )
+    specification = handler.latest_specification(session, aggregate_id)
+    if specification is None:
+        raise _missing("adam_specification_required", "ADaM Specification is not saved.")
+    codes = {dataset.code for dataset in context_from_record(specification).datasets}
+    if dataset_code not in codes:
+        raise ProblemException(
+            status_code=404,
+            code="adam_dataset_unknown",
+            title="ADaM dataset is unknown",
+            detail=f"Dataset '{dataset_code}' is not declared in the current Specification.",
+        )
+    return specification
+
+
+@router.get("/adam-workbenches/{adam_id}/derivation-plans", response_model=PlanHeadPage)
+def list_plans(
+    adam_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    after: Annotated[str | None, Query()] = None,
+) -> PlanHeadPage:
+    workbench = _adam(session, adam_id, principal)
+    heads = _handler(registry).list_plan_heads(session, workbench.id)
+    page, next_cursor = paginate(
+        heads, limit=limit, after=after, filters={"aggregate_id": str(workbench.id)}
+    )
+    return PlanHeadPage(
+        items=tuple(
+            PlanHeadSummary(
+                id=head.id,
+                dataset=head.dataset_code,
+                revision=head.revision,
+                alignment_state=_alignment_state(head.state),
+                alignment_reasons=tuple(head.alignment_reasons or ()),
+                fingerprint=head.fingerprint,
+            )
+            for head in page
+        ),
+        next_cursor=next_cursor,
+    )
+
+
+@router.get(
+    "/adam-workbenches/{adam_id}/datasets/{dataset_code}/derivation-plan",
+    response_model=PlanResponse,
+)
+def get_plan(
+    adam_id: UUID,
+    dataset_code: str,
+    response: Response,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> PlanResponse:
+    workbench = _adam(session, adam_id, principal)
+    handler = _handler(registry)
+    _require_dataset(handler, session, workbench.id, dataset_code)
+    record = handler.latest_plan(session, workbench.id, dataset_code)
+    if record is None:
+        raise _missing("adam_derivation_plan_required", "ADaM Derivation Plan is not saved.")
+    response.headers["ETag"] = etag_for_revision(record.revision)
+    return PlanResponse.from_record(record)
+
+
+@router.put(
+    "/adam-workbenches/{adam_id}/datasets/{dataset_code}/derivation-plan",
+    response_model=PlanResponse,
+)
+def put_plan(
+    adam_id: UUID,
+    dataset_code: str,
+    command: AdamDerivationPlan,
+    response: Response,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+) -> PlanResponse:
+    workbench = _adam(session, adam_id, principal)
+    handler = _handler(registry)
+    specification = _require_dataset(handler, session, workbench.id, dataset_code)
+    if command.dataset != dataset_code:
+        raise ProblemException(
+            status_code=422,
+            code="adam_plan_dataset_mismatch",
+            title="ADaM plan dataset mismatch",
+            detail="The plan body dataset must equal the path dataset.",
+        )
+    session.execute(
+        select(AdamWorkbench.id).where(AdamWorkbench.id == workbench.id).with_for_update()
+    )
+    selection = handler.current_input(session, workbench.id)
+    current = handler.latest_plan(session, workbench.id, dataset_code)
+    if current is None:
+        if if_match not in (None, "*"):
+            raise ProblemException(
+                status_code=412,
+                code="precondition_failed",
+                title="The resource has changed",
+                detail="No plan exists yet for this dataset.",
+            )
+    else:
+        require_matching_etag(if_match, current.revision)
+    if (
+        selection.state != "current"
+        or command.specification_revision != specification.revision
+        or command.input_selection_revision != selection.revision
+    ):
+        raise _stale("plan_alignment", "Plan revisions do not match current inputs.")
+    context = _sdtm_context(
+        session,
+        registry,
+        _selection_command(selection),
+        workbench.study_id,
+        workbench.id,
+    )
+    validate_sdtm_sources(command, context)
+    specification_contract = context_from_record(specification)
+    validate_origins(specification_contract, context)
+    lower_plan(specification_contract, command)
+    handler.check_cross_plan_cycle(session, workbench.id, command)
+    pins = handler.resolve_upstream_plan_pins(session, workbench.id, command, specification)
+    record = AdamDerivationPlanRevision(
+        aggregate_id=workbench.id,
+        study_id=workbench.study_id,
+        dataset_code=dataset_code,
+        revision=1 if current is None else current.revision + 1,
+        schema_version=command.schema_version,
+        specification_revision=command.specification_revision,
+        input_selection_revision=command.input_selection_revision,
+        state="aligned",
+        upstream_plan_pins=pins,
+        alignment_reasons=[],
+        payload=command.model_dump(mode="json"),
+        fingerprint=fingerprint(command.model_dump(mode="json")),
+        created_by=principal.subject,
+    )
+    session.add(record)
+    session.flush()
+    handler.mark_sibling_plan_change(session, workbench.id, dataset_code, "upstream_plan_changed")
+    artifacts.mark_owner_stale(session, owner_type="adam_workbench", owner_id=workbench.id)
+    session.commit()
+    response.headers["ETag"] = etag_for_revision(record.revision)
+    return PlanResponse.from_record(record)
+
+
+@router.post(
+    "/adam-workbenches/{adam_id}/datasets/{dataset_code}/derivation-plan:validate",
+)
+def validate_plan(
+    adam_id: UUID,
+    dataset_code: str,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> dict[str, object]:
+    workbench = _adam(session, adam_id, principal)
+    handler = _handler(registry)
+    _require_dataset(handler, session, workbench.id, dataset_code)
+    specification, selection, plan = handler.require_dataset_aligned(
+        session, workbench.id, dataset_code
+    )
+    context = _sdtm_context(
+        session,
+        registry,
+        _selection_command(selection),
+        workbench.study_id,
+        workbench.id,
+    )
+    plan_contract = plan_from_record(plan)
+    validate_sdtm_sources(plan_contract, context)
+    specification_contract = context_from_record(specification)
+    validate_origins(specification_contract, context)
+    internal = lower_plan(specification_contract, plan_contract)
+    return {
+        "status": "valid",
+        "dataset": dataset_code,
+        "input_selection_revision": selection.revision,
+        "specification_revision": specification.revision,
+        "plan_revision": plan.revision,
+        "ir_fingerprint": ir_fingerprint(internal),
+        "issues": [],
+    }
+
+
+@router.post(
+    "/adam-workbenches/{adam_id}/datasets/{dataset_code}/derivation-plan:preview",
+)
+def preview_plan(
+    adam_id: UUID,
+    dataset_code: str,
+    command: PreviewRequest,
+    session: Annotated[Session, Depends(get_session)],
+    storage: Annotated[ObjectStorage, Depends(get_object_storage)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> dict[str, object]:
+    """Evaluate the aligned per-dataset plan over exact SDTM XPTs with bounded rows."""
+
+    workbench = _adam(session, adam_id, principal)
+    handler = _handler(registry)
+    _require_dataset(handler, session, workbench.id, dataset_code)
+    specification, selection, plan = handler.require_dataset_aligned(
+        session, workbench.id, dataset_code
+    )
+    context = _sdtm_context(
+        session,
+        registry,
+        _selection_command(selection),
+        workbench.study_id,
+        workbench.id,
+    )
+    plan_contract = plan_from_record(plan)
+    validate_sdtm_sources(plan_contract, context)
+    specification_contract = context_from_record(specification)
+    validate_origins(specification_contract, context)
+    internal = lower_plan(specification_contract, plan_contract)
+    provider = cast(
+        SdtmContextExporter,
+        registry.require_handler("sdtm", ModuleCapability.CONTEXT_EXPORT),
+    )
+    selected = {
+        str(item["dataset_code"]): item
+        for item in cast(list[dict[str, object]], context["xpt_artifacts"])
+    }
+    required = {node.dataset for node in plan_contract.nodes if node.node_type == "sdtm_read"}
+    datasets = {
+        code: provider.read_context_dataset(
+            session,
+            storage,
+            sdtm_id=UUID(str(context["sdtm_id"])),
+            study_id=workbench.study_id,
+            dataset_code=code,
+            artifact_id=UUID(str(selected[code]["artifact_id"])),
+            expected_checksum=str(selected[code]["checksum"]),
+        )
+        for code in required
+    }
+    outputs = evaluate_dataflow(internal, datasets, row_limit=command.limit)
+    unknown = sorted(set(command.datasets) - set(outputs))
+    if unknown:
+        raise ProblemException(
+            status_code=422,
+            code="adam_preview_dataset_unknown",
+            title="ADaM preview dataset is unknown",
+            detail=f"The plan did not produce: {', '.join(unknown)}.",
+        )
+    requested = command.datasets or tuple(outputs)
+    return {
+        "schema_version": "1.0.0",
+        "ir_fingerprint": ir_fingerprint(internal),
+        "input_selection_revision": selection.revision,
+        "specification_revision": specification.revision,
+        "plan_revision": plan.revision,
+        "limit": command.limit,
+        "outputs": {name: outputs[name] for name in requested},
+    }
+
+
+@router.get("/adam-workbenches/{adam_id}/lineage")
+def get_lineage(
+    adam_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> dict[str, object]:
+    workbench = _adam(session, adam_id, principal)
+    handler = _handler(registry)
+    specification = handler.latest_specification(session, workbench.id)
+    selection = handler.current_input(session, workbench.id)
+    plans = handler.aligned_dataset_plans(session, workbench.id)
+    assert specification is not None
+    context = _sdtm_context(
+        session, registry, _selection_command(selection), workbench.study_id, workbench.id
+    )
+    specification_contract = context_from_record(specification)
+    datasets: dict[str, object] = {}
+    fingerprints: dict[str, str] = {}
+    for code in sorted(plans):
+        plan_contract = plan_from_record(plans[code])
+        validate_sdtm_sources(plan_contract, context)
+        validate_origins(specification_contract, context)
+        internal = lower_plan(specification_contract, plan_contract)
+        ir_fp = ir_fingerprint(internal)
+        fingerprints[code] = ir_fp
+        datasets[code] = {"ir_fingerprint": ir_fp, "outputs": lineage(internal)}
+    return {"plan_set_fingerprint": fingerprint(fingerprints), "datasets": datasets}
+
+
+@router.post(
+    "/adam-workbenches/{adam_id}/datasets/{dataset_code}:validate",
+    response_model=ValidationRunResponse,
+)
+def validate_adam_dataset(
+    adam_id: UUID,
+    dataset_code: str,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> ValidationRunResponse:
+    """Per-dataset validation run for authoring feedback and per-dataset program builds."""
+
+    workbench = _adam(session, adam_id, principal)
+    handler = _handler(registry)
+    _require_dataset(handler, session, workbench.id, dataset_code)
+    specification, selection, plan = handler.require_dataset_aligned(
+        session, workbench.id, dataset_code
+    )
+    context = _sdtm_context(
+        session, registry, _selection_command(selection), workbench.study_id, workbench.id
+    )
+    specification_contract = context_from_record(specification)
+    plan_contract = plan_from_record(plan)
+    validate_sdtm_sources(plan_contract, context)
+    validate_origins(specification_contract, context)
+    internal = lower_plan(specification_contract, plan_contract)
+    manifest = {
+        "adam_revision": workbench.revision,
+        "dependency_fingerprint": handler.get_selection(
+            session, workbench.id, workbench.study_id
+        ).fingerprint,
+        "input_selection_revision": selection.revision,
+        "specification_revision": specification.revision,
+        "dataset_code": dataset_code,
+        "plan_revision": plan.revision,
+        "plan_fingerprint": plan.fingerprint,
+        "sdtm_context_fingerprint": fingerprint(context),
+        "normalized_ir": canonical_ir(internal),
+    }
+    now = utc_now()
+    run = ValidationRun(
+        study_id=workbench.study_id,
+        module_key="adam",
+        owner_type="adam_workbench",
+        owner_id=workbench.id,
+        status="succeeded",
+        validator_name="adam-authoring-validator",
+        validator_version="1.0.0",
+        input_fingerprint=fingerprint(manifest),
+        input_manifest=manifest,
+        started_at=now,
+        completed_at=now,
+        error_count=0,
+        warning_count=0,
+        info_count=0,
+        issues=[],
+        report_artifact_ids=[],
+        created_by=principal.subject,
+    )
+    session.add(run)
+    session.commit()
+    return ValidationRunResponse.model_validate(run)
+
+
+@router.post("/adam-workbenches/{adam_id}:validate", response_model=ValidationRunResponse)
+def validate_adam(
+    adam_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> ValidationRunResponse:
+    """Snapshot validation of the exact aligned ADaM authoring inputs (all datasets)."""
+
+    workbench = _adam(session, adam_id, principal)
+    handler = _handler(registry)
+    specification = handler.latest_specification(session, workbench.id)
+    selection = handler.current_input(session, workbench.id)
+    plans = handler.aligned_dataset_plans(session, workbench.id)
+    assert specification is not None
+    context = _sdtm_context(
+        session, registry, _selection_command(selection), workbench.study_id, workbench.id
+    )
+    specification_contract = context_from_record(specification)
+    normalized_ir: dict[str, object] = {}
+    plan_revisions: dict[str, int] = {}
+    plan_fingerprints: dict[str, str] = {}
+    for code in sorted(plans):
+        plan_contract = plan_from_record(plans[code])
+        validate_sdtm_sources(plan_contract, context)
+        validate_origins(specification_contract, context)
+        internal = lower_plan(specification_contract, plan_contract)
+        normalized_ir[code] = canonical_ir(internal)
+        plan_revisions[code] = plans[code].revision
+        plan_fingerprints[code] = plans[code].fingerprint
+    manifest = {
+        "adam_revision": workbench.revision,
+        "dependency_fingerprint": handler.get_selection(
+            session, workbench.id, workbench.study_id
+        ).fingerprint,
+        "input_selection_revision": selection.revision,
+        "input_selection_fingerprint": selection.fingerprint,
+        "specification_revision": specification.revision,
+        "specification_fingerprint": specification.fingerprint,
+        "plan_revisions": plan_revisions,
+        "plan_set_fingerprint": fingerprint(plan_fingerprints),
+        "sdtm_context_fingerprint": fingerprint(context),
+        "selected_xpt_artifacts": [
+            {
+                "artifact_id": str(item["artifact_id"]),
+                "dataset_code": str(item["dataset_code"]),
+                "checksum": str(item["checksum"]),
+            }
+            for item in cast(list[dict[str, object]], context["xpt_artifacts"])
+        ],
+        "normalized_ir": normalized_ir,
+    }
+    now = utc_now()
+    run = ValidationRun(
+        study_id=workbench.study_id,
+        module_key="adam",
+        owner_type="adam_workbench",
+        owner_id=workbench.id,
+        status="succeeded",
+        validator_name="adam-authoring-validator",
+        validator_version="1.0.0",
+        input_fingerprint=fingerprint(manifest),
+        input_manifest=manifest,
+        started_at=now,
+        completed_at=now,
+        error_count=0,
+        warning_count=0,
+        info_count=0,
+        issues=[],
+        report_artifact_ids=[],
+        created_by=principal.subject,
+    )
+    session.add(run)
+    session.commit()
+    return ValidationRunResponse.model_validate(run)
+
+
+def _build(
+    workbench: AdamWorkbench,
+    artifact_types: tuple[str, ...],
+    expected_input_fingerprint: str,
+    response: Response,
+    session: Session,
+    registry: ModuleRegistry,
+    principal: Principal,
+    idempotency_key: str | None,
+    dataset_code: str | None = None,
+) -> ArtifactBuildResponse:
+    unsupported = sorted(set(artifact_types) - set(ADAM_BUILD_ARTIFACT_TYPES))
+    if unsupported:
+        raise ProblemException(
+            status_code=422,
+            code="artifact_type_unsupported",
+            title="Artifact type is unsupported",
+            detail=f"Unsupported ADaM artifact types: {', '.join(unsupported)}",
+        )
+    options: dict[str, str | int | float | bool | None] = {}
+    if dataset_code is not None:
+        options["domain_code"] = dataset_code
+    return create_artifact_build(
+        ArtifactBuildCreate(
+            study_id=workbench.study_id,
+            owner_type="adam_workbench",
+            owner_id=workbench.id,
+            artifact_types=artifact_types,
+            expected_input_fingerprint=expected_input_fingerprint,
+            options=options,
+        ),
+        response,
+        session,
+        registry,
+        principal,
+        idempotency_key,
+    )
+
+
+@router.post(
+    "/adam-workbenches/{adam_id}/artifacts:build",
+    response_model=ArtifactBuildResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def create_adam_artifacts(
+    adam_id: UUID,
+    command: AdamArtifactRequest,
+    response: Response,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> ArtifactBuildResponse:
+    workbench = _adam(session, adam_id, principal)
+    return _build(
+        workbench,
+        command.artifact_types,
+        command.expected_input_fingerprint,
+        response,
+        session,
+        registry,
+        principal,
+        idempotency_key,
+        command.dataset_code,
+    )
+
+
+@router.post(
+    "/adam-workbenches/{adam_id}:compile",
+    response_model=ArtifactBuildResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def compile_adam(
+    adam_id: UUID,
+    command: CompileRequest,
+    response: Response,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> ArtifactBuildResponse:
+    workbench = _adam(session, adam_id, principal)
+    return _build(
+        workbench,
+        (f"adam_program_{command.backend}",),
+        command.expected_input_fingerprint,
+        response,
+        session,
+        registry,
+        principal,
+        idempotency_key,
+        command.dataset_code,
+    )
+
+
+@router.post(
+    "/adam-workbenches/{adam_id}:execute",
+    response_model=ExecutionRunResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def execute_adam(
+    adam_id: UUID,
+    command: AdamExecutionRequest,
+    response: Response,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_application_settings)],
+    principal: Annotated[Principal, Depends(get_principal)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> ExecutionRunResponse:
+    """Submit exact ADaM execution through the shared isolated run service."""
+
+    workbench = _adam(session, adam_id, principal)
+    return create_execution_run(
+        ExecutionRunCreate(
+            study_id=workbench.study_id,
+            module="adam",
+            owner_type="adam_workbench",
+            owner_id=workbench.id,
+            language=command.language,
+            program_artifact_id=command.program_artifact_id,
+            input_artifact_ids=command.input_artifact_ids,
+            validation_run_id=command.validation_run_id,
+            input_selection_revision=command.input_selection_revision,
+            source_specification_revision=command.source_specification_revision,
+            source_plan_type="adam_derivation_plan",
+            source_plan_revision=command.source_plan_revision,
+            compiler_fingerprint=command.compiler_fingerprint,
+            expected_input_fingerprint=command.expected_input_fingerprint,
+            limits=command.limits,
+        ),
+        response,
+        session,
+        settings,
+        principal,
+        idempotency_key,
+    )

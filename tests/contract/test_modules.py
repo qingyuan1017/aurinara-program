@@ -29,7 +29,7 @@ async def test_module_member_and_event_types(client: AsyncClient) -> None:
     event_types = await client.get("/api/v1/modules/raw/event-types")
 
     assert member.status_code == 200
-    assert member.json()["api_prefix"] == "/api/v1/raw"
+    assert member.json()["api_prefix"] == "/api/v1/raw-workbenches"
     assert event_types.status_code == 200
     assert event_types.json() == {"module_key": "raw", "event_types": []}
 

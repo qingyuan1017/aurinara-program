@@ -137,7 +137,7 @@ async def test_create_study_upload_and_download(integration_client: AsyncClient)
     assert downloaded.status_code == 200
     assert downloaded.content == b"USUBJID,AGE\n01,42\n"
     validation = await integration_client.post(
-        f"/api/v1/artifacts/{body['artifact_id']}/validate", headers=headers
+        f"/api/v1/artifacts/{body['artifact_id']}:validate", headers=headers
     )
     assert validation.status_code == 202, validation.text
     application = integration_client._transport.app  # type: ignore[attr-defined]
@@ -171,7 +171,7 @@ async def test_exact_dependencies_reference_review_trace_and_reconciliation(
     assert rule_packs.status_code == 200
     assert rule_packs.json()[0]["code"] == "PLATFORM_INTEGRITY"
     raw = await integration_client.post(
-        f"/api/v1/studies/{study_id}/raw",
+        f"/api/v1/studies/{study_id}/raw-workbenches",
         headers=headers,
         json={"code": "RAW", "name": "Raw Workbench"},
     )
@@ -223,7 +223,7 @@ async def test_exact_dependencies_reference_review_trace_and_reconciliation(
         ],
     }
     replaced = await integration_client.put(
-        f"/api/v1/raw/{raw_id}/dependencies",
+        f"/api/v1/raw-workbenches/{raw_id}/dependencies",
         headers={**headers, "If-Match": raw.headers["etag"]},
         json=selection,
     )
@@ -312,7 +312,9 @@ async def test_exact_dependencies_reference_review_trace_and_reconciliation(
         },
     )
     assert changed_reference.status_code == 200, changed_reference.text
-    refreshed = await integration_client.get(f"/api/v1/raw/{raw_id}/dependencies", headers=headers)
+    refreshed = await integration_client.get(
+        f"/api/v1/raw-workbenches/{raw_id}/dependencies", headers=headers
+    )
     assert refreshed.json()["state"] == "dependency_refresh_required"
     stale_artifact = await integration_client.get(
         f"/api/v1/artifacts/{artifact_id}", headers=headers
@@ -327,7 +329,7 @@ async def test_exact_dependencies_reference_review_trace_and_reconciliation(
         "current_revision_id"
     ]
     accepted_refresh = await integration_client.put(
-        f"/api/v1/raw/{raw_id}/dependencies",
+        f"/api/v1/raw-workbenches/{raw_id}/dependencies",
         headers={**headers, "If-Match": '"revision-2"'},
         json=selection,
     )
@@ -415,7 +417,7 @@ async def test_reference_import_and_terminology_extension_revisions(
     assert rejected_extension.status_code == 422, rejected_extension.text
     assert rejected_extension.json()["code"] == "terminology_codelist_not_extensible"
     imported = await integration_client.post(
-        f"/api/v1/studies/{study_id}/references/import",
+        f"/api/v1/studies/{study_id}/references:import",
         headers={**headers, "Idempotency-Key": "reference-import-1"},
         json={
             "schema_version": "1.0.0",
@@ -434,7 +436,7 @@ async def test_reference_import_and_terminology_extension_revisions(
     )
     assert imported.status_code == 201, imported.text
     replay = await integration_client.post(
-        f"/api/v1/studies/{study_id}/references/import",
+        f"/api/v1/studies/{study_id}/references:import",
         headers={**headers, "Idempotency-Key": "reference-import-1"},
         json={
             "schema_version": "1.0.0",
@@ -453,7 +455,7 @@ async def test_reference_import_and_terminology_extension_revisions(
     )
     assert replay.json() == imported.json()
     exported = await integration_client.get(
-        f"/api/v1/studies/{study_id}/references/export", headers=headers
+        f"/api/v1/studies/{study_id}/references:export", headers=headers
     )
     assert exported.json()["items"][0]["natural_key"] == "LAB"
 
@@ -753,12 +755,14 @@ def test_job_claim_retry_recovery_and_completion(integration_settings: Settings)
     with factory.begin() as session:
         claimed = service.claim(session, worker_id="worker-1", lease_seconds=1)
         assert claimed is not None
-        service.fail(claimed, {"code": "transient"})
+        assert claimed.lease_token is not None
+        service.fail(claimed, {"code": "transient"}, lease_token=claimed.lease_token)
     with factory.begin() as session:
         recovered = service.claim(session, worker_id="worker-2", lease_seconds=1)
         assert recovered is not None
         assert recovered.operation_id == operation_id
-        service.complete(recovered)
+        assert recovered.lease_token is not None
+        service.complete(recovered, lease_token=recovered.lease_token)
     with factory() as session:
         finished = session.get(Job, recovered.id)
         assert finished is not None

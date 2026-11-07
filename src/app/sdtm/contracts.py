@@ -385,7 +385,6 @@ class AcrfAnnotationPatch(StrictModel):
 
 
 class AcrfLinksWrite(StrictModel):
-    operation: Literal["replace", "amend"] = "replace"
     links: tuple[AcrfLink, ...] = ()
 
     @model_validator(mode="after")

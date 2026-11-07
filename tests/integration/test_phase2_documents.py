@@ -184,7 +184,7 @@ async def test_protocol_sap_and_quality_workbook_workflow(phase2_client: AsyncCl
     )
     assert evidence.status_code == 201, evidence.text
     protocol_validation = await client.post(
-        f"/api/v1/documents/{protocol_id}/validate", headers=headers
+        f"/api/v1/documents/{protocol_id}:validate", headers=headers
     )
     assert protocol_validation.status_code == 202, protocol_validation.text
     assert protocol_validation.json()["status"] == "succeeded"
@@ -209,7 +209,7 @@ async def test_protocol_sap_and_quality_workbook_workflow(phase2_client: AsyncCl
             options={},
         )
     build = await client.post(
-        f"/api/v1/documents/{protocol_id}/artifacts",
+        f"/api/v1/documents/{protocol_id}/artifacts:build",
         headers={**headers, "Idempotency-Key": "protocol-artifacts-1"},
         json={
             "artifact_types": artifact_types,
@@ -295,7 +295,7 @@ async def test_protocol_sap_and_quality_workbook_workflow(phase2_client: AsyncCl
     )
     assert sap_content.status_code == 200, sap_content.text
     sap_validation = await client.post(
-        f"/api/v1/documents/{sap.json()['id']}/validate", headers=headers
+        f"/api/v1/documents/{sap.json()['id']}:validate", headers=headers
     )
     assert sap_validation.json()["status"] == "succeeded", sap_validation.text
     sap_artifact_types = (
@@ -313,7 +313,7 @@ async def test_protocol_sap_and_quality_workbook_workflow(phase2_client: AsyncCl
             options={},
         )
     sap_build_response = await client.post(
-        f"/api/v1/documents/{sap.json()['id']}/artifacts",
+        f"/api/v1/documents/{sap.json()['id']}/artifacts:build",
         headers={**headers, "Idempotency-Key": "sap-artifacts-1"},
         json={
             "artifact_types": sap_artifact_types,
@@ -374,7 +374,7 @@ async def test_protocol_sap_and_quality_workbook_workflow(phase2_client: AsyncCl
     )
     assert action_content.status_code == 200, action_content.text
     action_validation = await client.post(
-        f"/api/v1/documents/{actions.json()['id']}/validate", headers=headers
+        f"/api/v1/documents/{actions.json()['id']}:validate", headers=headers
     )
     assert action_validation.json()["status"] == "succeeded"
     with factory() as session:
@@ -388,7 +388,7 @@ async def test_protocol_sap_and_quality_workbook_workflow(phase2_client: AsyncCl
             options={},
         )
     action_build_response = await client.post(
-        f"/api/v1/documents/{actions.json()['id']}/artifacts",
+        f"/api/v1/documents/{actions.json()['id']}/artifacts:build",
         headers={**headers, "Idempotency-Key": "action-artifacts-1"},
         json={
             "artifact_types": ["actions_report_xlsx"],
@@ -528,12 +528,12 @@ async def test_every_operational_document_type_validates_and_generates(
                 "Idempotency-Key": "actions-import",
             }
             saved = await client.post(
-                f"/api/v1/documents/{document_id}/content/import",
+                f"/api/v1/documents/{document_id}/content:import",
                 headers=import_headers,
                 json=payload,
             )
             replay = await client.post(
-                f"/api/v1/documents/{document_id}/content/import",
+                f"/api/v1/documents/{document_id}/content:import",
                 headers=import_headers,
                 json=payload,
             )
@@ -545,7 +545,7 @@ async def test_every_operational_document_type_validates_and_generates(
                 json=payload,
             )
         assert saved.status_code == 200, saved.text
-        validation = await client.post(f"/api/v1/documents/{document_id}/validate", headers=headers)
+        validation = await client.post(f"/api/v1/documents/{document_id}:validate", headers=headers)
         assert validation.json()["status"] == "succeeded", validation.text
         with factory() as session:
             _, _, resolved = resolve_build_input(
@@ -558,7 +558,7 @@ async def test_every_operational_document_type_validates_and_generates(
                 options={},
             )
         build = await client.post(
-            f"/api/v1/documents/{document_id}/artifacts",
+            f"/api/v1/documents/{document_id}/artifacts:build",
             headers={**headers, "Idempotency-Key": f"ops-{index}"},
             json={
                 "artifact_types": [artifact_type],
