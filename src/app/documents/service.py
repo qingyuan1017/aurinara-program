@@ -14,20 +14,23 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.artifacts.models import Artifact, SourceFile
-from app.artifacts.storage import ObjectStorage
-from app.common.asset_content import read_verified_asset_json_object
-from app.common.canonical import fingerprint
-from app.common.problems import ProblemException
-from app.common.repository_assets import verify_repository_asset
-from app.documents.contracts import (
-    DocumentContentContract,
+from app.artifacts.narrative import (
+    RENDERER_VERSION,
     DocumentCover,
     DocumentParagraph,
     DocumentSection,
     DocumentTable,
+    RenderDocument,
+    render_docx,
+    render_pdf,
+)
+from app.artifacts.storage import ObjectStorage
+from app.common.canonical import fingerprint
+from app.common.problems import ProblemException
+from app.documents.contracts import (
+    DocumentContentContract,
     DocumentType,
     EvidenceRegion,
-    RenderDocument,
     StatisticalAnalysisPlanContent,
     UsdmDocument,
     WorkbookContentBase,
@@ -40,14 +43,12 @@ from app.documents.models import (
     ProtocolUsdmDocument,
 )
 from app.documents.rendering import (
-    RENDERER_VERSION,
     content_to_document,
-    render_docx,
-    render_pdf,
     render_xlsx,
 )
 from app.kernel.dependencies import RenderedArtifact, SqlDependencyCapability
 from app.packaging.contracts import PackageContribution
+from app.templates.content import load_presentation_template
 from app.templates.models import TemplateVersion
 from app.validation.models import ValidationRun
 
@@ -676,59 +677,6 @@ class DocumentsCapability(SqlDependencyCapability):
 
 def stable_entity_id(document_id: UUID, entity_type: str, natural_id: str) -> UUID:
     return uuid5(ENTITY_NAMESPACE, f"{document_id}:{entity_type}:{natural_id}")
-
-
-def load_presentation_template(storage: ObjectStorage, ref: dict[str, object]) -> dict[str, object]:
-    """Load and enforce the presentation-only boundary of one exact Template asset."""
-
-    checksum = str(ref["checksum"])
-    asset_path = str(ref["asset_path"])
-    renderer_versions = cast(list[str], ref["renderer_versions"])
-    local_fallback = (
-        (
-            lambda: verify_repository_asset(
-                Path(__file__).resolve().parents[3],
-                asset_path,
-                checksum,
-                allowed_root="templates",
-            )[0]
-        )
-        if storage.local_fallback_enabled
-        else None
-    )
-    value = read_verified_asset_json_object(storage, checksum, local_fallback=local_fallback)
-    allowed_keys = {"schema_version", "renderer", "styles", "blank_structure"}
-    if not set(value) <= allowed_keys:
-        raise ProblemException(
-            status_code=409,
-            code="template_content_boundary_violation",
-            title="Template contains unsupported content",
-            detail="Templates may contain only presentation styles and blank structure.",
-        )
-    styles = value.get("styles")
-    blank_structure = value.get("blank_structure")
-    if (
-        not isinstance(styles, dict)
-        or any(
-            not isinstance(key, str) or not isinstance(item, str) for key, item in styles.items()
-        )
-        or not isinstance(blank_structure, list)
-        or any(not isinstance(item, str) for item in blank_structure)
-    ):
-        raise ProblemException(
-            status_code=409,
-            code="template_content_boundary_violation",
-            title="Template contains unsupported content",
-            detail="Template styles and blank structures must be presentation-only strings.",
-        )
-    if "document-1" not in renderer_versions or value.get("renderer") != "document-1":
-        raise ProblemException(
-            status_code=409,
-            code="template_renderer_incompatible",
-            title="Template renderer is incompatible",
-            detail="The exact Template version does not support this renderer.",
-        )
-    return value
 
 
 def document_input_snapshot(

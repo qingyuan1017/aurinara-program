@@ -282,7 +282,7 @@ def test_s3_open_maps_connectivity_error_to_storage_error() -> None:
 
 def test_load_presentation_template_uses_local_fallback_when_enabled() -> None:
     from app.cdisc_registry import REPOSITORY_ROOT
-    from app.documents.service import load_presentation_template
+    from app.templates.content import load_presentation_template
 
     relative = "templates/platform/document-layout-2.0.0.json"
     checksum = sha256_hex((REPOSITORY_ROOT / relative).read_bytes())
@@ -300,7 +300,7 @@ def test_load_presentation_template_uses_local_fallback_when_enabled() -> None:
 
 def test_load_presentation_template_without_fallback_raises_object_missing() -> None:
     from app.cdisc_registry import REPOSITORY_ROOT
-    from app.documents.service import load_presentation_template
+    from app.templates.content import load_presentation_template
 
     relative = "templates/platform/document-layout-2.0.0.json"
     checksum = sha256_hex((REPOSITORY_ROOT / relative).read_bytes())

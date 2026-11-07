@@ -11,10 +11,10 @@ from reportlab.pdfgen.canvas import Canvas
 from sqlalchemy import text
 
 from app.artifacts.builds import resolve_build_input
+from app.artifacts.narrative import normalized_docx_text, normalized_pdf_text
 from app.catalog_seed import seed
 from app.common.canonical import fingerprint
 from app.database import create_database_engine, create_session_factory
-from app.documents.rendering import normalized_docx_text, normalized_pdf_text
 from app.execution.jobs import JobService
 from app.main import create_app
 from tests.conftest import make_test_settings

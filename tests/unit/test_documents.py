@@ -8,6 +8,12 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
+from app.artifacts.narrative import (
+    normalized_docx_text,
+    normalized_pdf_text,
+    render_docx,
+    render_pdf,
+)
 from app.documents.contracts import (
     ActionsReportContent,
     EvidenceRegion,
@@ -18,10 +24,6 @@ from app.documents.contracts import (
 )
 from app.documents.rendering import (
     content_to_document,
-    normalized_docx_text,
-    normalized_pdf_text,
-    render_docx,
-    render_pdf,
     render_xlsx,
     workbook_payload,
 )

@@ -4,6 +4,24 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
+const clinicalFeatures = ['raw', 'documents', 'sdtm', 'adam', 'tlf']
+const featureBoundaryConfigs = clinicalFeatures.map((feature) => ({
+  files: [`src/features/${feature}/**/*.{ts,tsx}`],
+  rules: {
+    'no-restricted-imports': [
+      'error',
+      {
+        patterns: clinicalFeatures
+          .filter((candidate) => candidate !== feature)
+          .map((candidate) => ({
+            group: [`@/features/${candidate}`, `@/features/${candidate}/**`],
+            message: 'Clinical features communicate through the generated API and shared components.',
+          })),
+      },
+    ],
+  },
+}))
+
 export default tseslint.config(
   { ignores: ['dist', 'src/api/generated', 'src/routeTree.gen.ts'] },
   {
@@ -20,7 +38,7 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': [
-        'warn',
+        'error',
         { allowConstantExport: true },
       ],
       // Honour the leading-underscore convention for intentionally unused
@@ -36,4 +54,5 @@ export default tseslint.config(
       ],
     },
   },
+  ...featureBoundaryConfigs,
 )

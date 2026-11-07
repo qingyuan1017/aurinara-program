@@ -31,17 +31,18 @@ from app.adam.specification_workbook import render_specification_xlsx
 from app.adam.validation_versions import DEFINE_VALIDATOR_NAME, DEFINE_VALIDATOR_VERSION
 from app.adam.xpt import build_adam_xpt_v5
 from app.artifacts.models import Artifact
-from app.artifacts.storage import ObjectStorage
-from app.common.canonical import fingerprint
-from app.common.problems import ProblemException
-from app.documents.contracts import (
+from app.artifacts.narrative import (
     DocumentCover,
     DocumentParagraph,
     DocumentSection,
     DocumentTable,
     RenderDocument,
+    render_docx,
+    render_pdf,
 )
-from app.documents.rendering import render_docx, render_pdf
+from app.artifacts.storage import ObjectStorage
+from app.common.canonical import fingerprint
+from app.common.problems import ProblemException
 from app.execution.contracts import ExecutionProduct
 from app.execution.models import ExecutionRun
 from app.kernel.dependencies import (

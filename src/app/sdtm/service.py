@@ -16,18 +16,18 @@ from sqlalchemy.orm import Session
 
 from app.artifacts.access import open_stored_object
 from app.artifacts.models import Artifact
-from app.artifacts.storage import ObjectStorage
-from app.common.canonical import fingerprint
-from app.common.problems import ProblemException
-from app.documents.contracts import (
+from app.artifacts.narrative import (
     DocumentCover,
     DocumentParagraph,
     DocumentSection,
     DocumentTable,
     RenderDocument,
+    render_docx,
+    render_pdf,
 )
-from app.documents.rendering import render_docx, render_pdf
-from app.documents.service import load_presentation_template
+from app.artifacts.storage import ObjectStorage
+from app.common.canonical import fingerprint
+from app.common.problems import ProblemException
 from app.execution.contracts import ExecutionProduct
 from app.execution.models import ExecutionRun
 from app.kernel.dependencies import RenderedArtifact, SqlDependencyCapability
@@ -54,6 +54,7 @@ from app.sdtm.models import (
 )
 from app.sdtm.specification_workbook import render_specification_xlsx
 from app.sdtm.xpt import build_xpt_v5, read_xpt_rows
+from app.templates.content import load_presentation_template
 from app.templates.models import TemplateVersion
 from app.validation.models import ValidationRun
 

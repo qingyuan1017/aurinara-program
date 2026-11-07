@@ -42,46 +42,6 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class DocumentParagraph(StrictModel):
-    text: str = Field(min_length=1)
-    style: Literal["body", "note", "warning"] = "body"
-
-
-class DocumentTable(StrictModel):
-    headers: tuple[str, ...] = Field(min_length=1)
-    rows: tuple[tuple[str, ...], ...] = ()
-
-    @model_validator(mode="after")
-    def validate_width(self) -> "DocumentTable":
-        if any(len(row) != len(self.headers) for row in self.rows):
-            raise ValueError("every table row must match the header width")
-        return self
-
-
-class DocumentSection(StrictModel):
-    section_id: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
-    heading: str = Field(min_length=1, max_length=500)
-    paragraphs: tuple[DocumentParagraph, ...] = ()
-    bullets: tuple[str, ...] = ()
-    tables: tuple[DocumentTable, ...] = ()
-
-
-class DocumentCover(StrictModel):
-    title: str = Field(min_length=1, max_length=500)
-    subtitle: str | None = None
-    document_code: str
-    version: str
-    effective_date: date | None = None
-
-
-class RenderDocument(StrictModel):
-    """Renderer-neutral narrative document."""
-
-    schema_version: Literal["1.0.0"] = "1.0.0"
-    cover: DocumentCover
-    sections: tuple[DocumentSection, ...]
-
-
 class NarrativeSection(StrictModel):
     section_id: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
     heading: str = Field(min_length=1, max_length=500)
