@@ -17,12 +17,18 @@ from app.api.traceability import router as traceability_router
 from app.artifacts.builds import router as artifact_builds_router
 from app.artifacts.routes import router as artifacts_router
 from app.artifacts.storage import ObjectStorage, S3ObjectStorage
+from app.assistance.catalog_routes import router as assistance_catalog_router
+from app.assistance.platform_agents import PlatformAgentClient
 from app.common.logging import configure_logging
 from app.common.problems import install_exception_handlers
 from app.composition import build_module_registry
 from app.config import Settings, get_settings
 from app.database import create_database_engine, create_session_factory
 from app.execution.routes import router as execution_router
+from app.integration.cdisc_library import (
+    CdiscLibraryReaderFactory,
+    create_cdisc_library_reader_factory,
+)
 from app.integration.routes import router as integration_router
 from app.kernel.registry import ModuleRegistry
 from app.reconciliation.routes import router as reconciliation_router
@@ -39,11 +45,18 @@ def create_app(
     session_factory: sessionmaker[Session] | None = None,
     object_storage: ObjectStorage | None = None,
     token_verifier: TokenVerifier | None = None,
+    cdisc_library_reader_factory: CdiscLibraryReaderFactory | None = None,
 ) -> FastAPI:
     """Create a fully composed API without external I/O at import time."""
 
     resolved_settings = settings or get_settings()
-    registry = module_registry or build_module_registry()
+    resolved_reader_factory = (
+        cdisc_library_reader_factory
+        or create_cdisc_library_reader_factory(resolved_settings)
+    )
+    registry = module_registry or build_module_registry(
+        cdisc_library_reader_factory=resolved_reader_factory
+    )
     resolved_session_factory = session_factory or create_session_factory(
         create_database_engine(resolved_settings)
     )
@@ -62,6 +75,8 @@ def create_app(
     application.state.session_factory = resolved_session_factory
     application.state.object_storage = object_storage or S3ObjectStorage(resolved_settings)
     application.state.token_verifier = token_verifier or JwksTokenVerifier(resolved_settings)
+    application.state.cdisc_library_reader_factory = resolved_reader_factory
+    application.state.platform_agent_client = PlatformAgentClient(resolved_settings)
     application.state.infrastructure_readiness_enabled = resolved_settings.app_env != "test"
     application.add_middleware(RequestContextMiddleware)
     application.add_middleware(
@@ -75,6 +90,9 @@ def create_app(
     install_exception_handlers(application)
     application.include_router(health_router)
     application.include_router(modules_router, prefix=resolved_settings.app_api_prefix)
+    application.include_router(
+        assistance_catalog_router, prefix=resolved_settings.app_api_prefix
+    )
     application.include_router(studies_router, prefix=resolved_settings.app_api_prefix)
     application.include_router(artifacts_router, prefix=resolved_settings.app_api_prefix)
     application.include_router(artifact_builds_router, prefix=resolved_settings.app_api_prefix)

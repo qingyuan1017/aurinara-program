@@ -21,6 +21,7 @@ class ModuleCapability(StrEnum):
 
     DEPENDENCIES = "dependencies"
     STALENESS = "staleness"
+    PROPOSALS = "proposals"
     VALIDATION = "validation"
     ARTIFACTS = "artifacts"
     ENTITY_RESOLUTION = "entity_resolution"
@@ -49,6 +50,7 @@ class ModuleDescriptor(BaseModel):
     relationship_types: tuple[OwnedType, ...] = ()
     artifact_types: tuple[OwnedType, ...] = ()
     source_plan_types: tuple[OwnedType, ...] = ()
+    proposal_types: tuple[OwnedType, ...] = ()
     reconciliation_types: tuple[OwnedType, ...] = ()
     event_types: tuple[EventType, ...] = ()
     authorization_scopes: tuple[str, ...] = ()
@@ -61,6 +63,7 @@ class ModuleDescriptor(BaseModel):
         "relationship_types",
         "artifact_types",
         "source_plan_types",
+        "proposal_types",
         "reconciliation_types",
         "event_types",
         "authorization_scopes",

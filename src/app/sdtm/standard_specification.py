@@ -11,6 +11,40 @@ from app.sdtm.contracts import (
 )
 from app.standards.metadata_resolution import ResolvedStandardMetadata
 
+_PROVIDER_FIELD_NORMALIZATIONS: dict[tuple[str, str, str], str] = {
+    # Older Library representations omit fields that are explicit in subsequent
+    # releases of the same SDTM variables. Keep this list narrow and reviewable.
+    ("PR", "PRLNKGRP", "core"): "Perm",
+    ("FA", "FALAT", "core"): "Perm",
+    ("DX", "DXLAT", "core"): "Perm",
+    ("TR", "TRMETHOD", "simpleDatatype"): "Char",
+    ("RELREC", "STUDYID", "role"): "Identifier",
+    ("RELREC", "RDOMAIN", "role"): "Identifier",
+    ("RELREC", "USUBJID", "role"): "Identifier",
+    ("RELREC", "IDVAR", "role"): "Identifier",
+    ("RELREC", "IDVARVAL", "role"): "Identifier",
+    ("RELREC", "RELTYPE", "role"): "Record Qualifier",
+    ("RELREC", "RELID", "role"): "Record Qualifier",
+    ("DE", "DEREASND", "role"): "Record Qualifier",
+    ("DE", "DESEV", "role"): "Record Qualifier",
+    ("DE", "DEACNDEV", "role"): "Record Qualifier",
+    ("HO", "HOTERM", "label"): "Healthcare Encounter Term",
+    ("HO", "HODECOD", "label"): "Dictionary-Derived Term",
+    ("HO", "HOSTDY", "label"): "Study Day of Start of Encounter",
+    ("MH", "MHREASND", "label"): "Reason Medical History Not Collected",
+    ("IS", "ISSTRESC", "label"): "Character Result/Finding in Std Format",
+    ("MI", "MISTRESC", "label"): "Character Result/Finding in Std Format",
+    ("PC", "PCSTRESC", "label"): "Character Result/Finding in Std Format",
+    ("PP", "PPSTRESC", "label"): "Character Result/Finding in Std Format",
+    ("PE", "PESTRESC", "label"): "Character Result/Finding in Std Format",
+    ("QS", "QSSTRESC", "label"): "Character Result/Finding in Std Format",
+    ("FA", "FALAT", "label"): "Laterality",
+    ("SR", "SRSTRESC", "label"): "Character Result/Finding in Std Format",
+    ("DE", "DEDY", "label"): "Study Day of Start of Tracking Event",
+    ("DE", "DESTDY", "label"): "Study Day of Device Event Start",
+    ("DT", "DTDTC", "label"): "Date/Time of Tracking Event Collection",
+}
+
 
 def _objects(value: object) -> tuple[Mapping[str, object], ...]:
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes, bytearray)):
@@ -23,6 +57,32 @@ def _required_text(source: Mapping[str, object], field: str, context: str) -> st
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{context} is missing {field}")
     return value.strip()
+
+
+def _standard_variable_text(
+    source: Mapping[str, object], domain_code: str, variable_name: str, field: str
+) -> str:
+    value = source.get(field)
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    normalized = _PROVIDER_FIELD_NORMALIZATIONS.get((domain_code, variable_name, field))
+    if normalized is not None:
+        return normalized
+    raise ValueError(f"standard variable {domain_code}.{variable_name} is missing {field}")
+
+
+def _standard_variable_label(
+    source: Mapping[str, object], domain_code: str, variable_name: str
+) -> str:
+    label = _required_text(source, "label", f"standard variable {domain_code}.{variable_name}")
+    if len(label) <= 40:
+        return label
+    normalized = _PROVIDER_FIELD_NORMALIZATIONS.get((domain_code, variable_name, "label"))
+    if normalized is not None:
+        return normalized
+    raise ValueError(
+        f"standard variable {domain_code}.{variable_name} label exceeds the 40-character XPT limit"
+    )
 
 
 def _class_name(source: Mapping[str, object]) -> str:
@@ -38,19 +98,19 @@ def _class_name(source: Mapping[str, object]) -> str:
 
 def _variable(source: Mapping[str, object], domain_code: str) -> SdtmVariable:
     name = _required_text(source, "name", f"standard domain {domain_code} variable")
-    datatype = _required_text(source, "simpleDatatype", f"standard variable {domain_code}.{name}")
+    datatype = _standard_variable_text(source, domain_code, name, "simpleDatatype")
     if datatype not in {"Char", "Num"}:
         raise ValueError(
             f"standard variable {domain_code}.{name} has unsupported datatype {datatype}"
         )
-    core = _required_text(source, "core", f"standard variable {domain_code}.{name}")
+    core = _standard_variable_text(source, domain_code, name, "core")
     if core not in {"Req", "Exp", "Perm"}:
         raise ValueError(f"standard variable {domain_code}.{name} has unsupported core {core}")
     return SdtmVariable(
         name=name,
-        label=_required_text(source, "label", f"standard variable {domain_code}.{name}"),
+        label=_standard_variable_label(source, domain_code, name),
         data_type="character" if datatype == "Char" else "numeric",
-        role=_required_text(source, "role", f"standard variable {domain_code}.{name}"),
+        role=_standard_variable_text(source, domain_code, name, "role"),
         core=cast(Literal["Req", "Exp", "Perm"], core),
         origin="Standard",
     )

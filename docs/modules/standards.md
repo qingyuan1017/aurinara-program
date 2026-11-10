@@ -2,8 +2,15 @@
 
 Status: implemented as a read-only catalog of exact standard products, versions,
 checksum-addressed assets, and compatibility relationships. CDISC releases are acquired
-on demand from CDISC Library by the offline administration command; public API and worker
-operations never call the provider.
+on demand from CDISC Library by the offline administration command for snapshot-backed
+consumers. Provider catalog mutation remains administrative.
+
+The SDTM Specification workflow is an explicit exception. After an exact registered SDTMIG
+version is selected, every Specification operation fetches its canonical resource live from CDISC
+Library, including catalog/domain discovery, read, initialization, direct save, import/replay,
+export, and Specification AI proposal generation or acceptance. The API key remains server-side,
+upstream failures are returned as typed problems, and each resulting Specification revision
+records the canonical href and SHA-256 of the exact live response.
 
 ## Use it
 

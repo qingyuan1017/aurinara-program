@@ -1,33 +1,32 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
+import { AiProposalReview } from '@/components/workbench/ai-proposal-review'
 import { useCurrentStudy } from '@/components/study-context'
 import {
   WorkbenchDetailShell,
   type WorkbenchTab,
 } from '@/components/workbench/workbench-detail-shell'
 import {
-  TlfArsPanel,
-  TlfAssumptionsPanel,
-  TlfBindingsPanel,
   TlfBuildPanel,
   TlfDependenciesPanel,
   TlfExecutionPanel,
+  TlfInventoryPanel,
+  TlfInputSelectionPanel,
+  TlfAnalysisAuthoringPanel,
   TlfProgramPlanPanel,
-  TlfShellPanel,
   TlfValidationPanel,
 } from '@/features/tlf/components/panels'
 import { useGetTlfAggregate } from '@/api/generated/tlf/tlf'
 
 const TABS = [
-  'shell',
-  'bindings',
-  'assumptions',
-  'ars',
-  'program-plan',
+  'sources',
+  'inventory',
+  'analysis',
+  'programming',
   'validation',
   'build',
   'execution',
-  'dependencies',
+  'readiness',
 ] as const
 type Tab = (typeof TABS)[number]
 
@@ -36,7 +35,7 @@ export const Route = createFileRoute('/_app/tlf/$tlfId')({
     tab:
       typeof search.tab === 'string' && TABS.includes(search.tab as Tab)
         ? (search.tab as Tab)
-        : 'shell',
+        : 'sources',
   }),
   component: TlfDetailPage,
 })
@@ -50,15 +49,14 @@ function TlfDetailPage() {
     query: { enabled: !!currentStudyId },
   })
   const tabs: WorkbenchTab[] = [
-    { value: 'shell', label: 'Shell', render: () => <TlfShellPanel tlfId={tlfId} /> },
-    { value: 'bindings', label: 'Bindings', render: () => <TlfBindingsPanel tlfId={tlfId} /> },
-    { value: 'assumptions', label: 'Assumptions', render: () => <TlfAssumptionsPanel tlfId={tlfId} /> },
-    { value: 'ars', label: 'ARS', render: () => <TlfArsPanel tlfId={tlfId} /> },
-    { value: 'program-plan', label: 'ProgramPlan', render: () => <TlfProgramPlanPanel tlfId={tlfId} /> },
-    { value: 'validation', label: 'Validation', render: () => <TlfValidationPanel tlfId={tlfId} /> },
-    { value: 'build', label: 'Compile & render', render: () => <TlfBuildPanel tlfId={tlfId} /> },
+    { value: 'sources', label: '1 · Sources', render: () => <div className="flex flex-col gap-6"><TlfInputSelectionPanel tlfId={tlfId} /><TlfDependenciesPanel tlfId={tlfId} /></div> },
+    { value: 'inventory', label: '2 · Output inventory', render: () => <AiProposalReview module="tlf" aggregateId={tlfId} proposalType="tlf_output_inventory" title="Output table of contents review" description="Review the source-grounded study-wide inventory of tables, listings, and figures. Conventional proposals remain explicitly labeled and blocked where evidence is missing." manualEditor={<TlfInventoryPanel tlfId={tlfId} />} /> },
+    { value: 'analysis', label: '3 · Analysis & display', render: () => <AiProposalReview module="tlf" aggregateId={tlfId} proposalType="tlf_analysis_shells" title="Analysis and display shell review" description="Review populations, methods, exact ADaM schema links, rows, columns, figures, display rules, assumptions, and ARS coverage for every accepted output." manualEditor={<TlfAnalysisAuthoringPanel tlfId={tlfId} />} /> },
+    { value: 'programming', label: '4 · Programming', render: () => <AiProposalReview module="tlf" aggregateId={tlfId} proposalType="tlf_programming_plan" title="Typed programming review" description="Review ARS-linked, language-neutral ProgramPlans. Python, R, and SAS are compiled deterministically only after acceptance." manualEditor={<TlfProgramPlanPanel tlfId={tlfId} />} /> },
+    { value: 'validation', label: '5 · Validation', render: () => <TlfValidationPanel tlfId={tlfId} /> },
+    { value: 'build', label: '6–7 · Compile & render', render: () => <TlfBuildPanel tlfId={tlfId} /> },
     { value: 'execution', label: 'Execution', render: () => <TlfExecutionPanel tlfId={tlfId} /> },
-    { value: 'dependencies', label: 'Dependencies', render: () => <TlfDependenciesPanel tlfId={tlfId} /> },
+    { value: 'readiness', label: '8 · Readiness', render: () => <TlfDependenciesPanel tlfId={tlfId} /> },
   ]
 
   return (
@@ -71,7 +69,7 @@ function TlfDetailPage() {
         resourceLabel="TLF workbench"
         tabs={tabs}
         activeTab={tab}
-        defaultTab="shell"
+        defaultTab="sources"
         onTabChange={(value) =>
           navigate({
             to: '/tlf/$tlfId',

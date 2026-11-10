@@ -1,5 +1,11 @@
 # Reference module
 
+> **AI transition:** study facts and corrections will be evidence-grounded typed proposals with
+> human acceptance. Exact code resolution, immutable revisions, retirement, and refresh/staleness
+> remain deterministic. Current direct create/patch/import operations are transitional authoring
+> paths; deterministic imports may remain evidence ingestion but cannot bypass proposal review for
+> semantic changes.
+
 Status: implemented revisioned study facts for organizations, countries, sites, vendors,
 languages, units, roles, and milestones.
 

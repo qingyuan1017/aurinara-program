@@ -22,6 +22,7 @@ class ModuleRegistry:
         "relationship_types",
         "artifact_types",
         "source_plan_types",
+        "proposal_types",
         "reconciliation_types",
         "event_types",
     )

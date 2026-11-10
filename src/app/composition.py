@@ -2,6 +2,7 @@
 
 from app.adam.descriptor import REGISTRATION as ADAM_REGISTRATION
 from app.documents.descriptor import REGISTRATION as DOCUMENTS_REGISTRATION
+from app.integration.cdisc_library import CdiscLibraryReaderFactory
 from app.integration.descriptor import REGISTRATION as INTEGRATION_REGISTRATION
 from app.kernel.contracts import ModuleRegistration
 from app.kernel.registry import ModuleRegistry
@@ -11,6 +12,7 @@ from app.reconciliation.descriptor import REGISTRATION as RECONCILIATION_REGISTR
 from app.reference.descriptor import REGISTRATION as REFERENCE_REGISTRATION
 from app.review.descriptor import DESCRIPTOR as REVIEW_DESCRIPTOR
 from app.sdtm.descriptor import REGISTRATION as SDTM_REGISTRATION
+from app.sdtm.descriptor import build_registration as build_sdtm_registration
 from app.standards.descriptor import DESCRIPTOR as STANDARDS_DESCRIPTOR
 from app.templates.descriptor import DESCRIPTOR as TEMPLATES_DESCRIPTOR
 from app.terminology.descriptor import REGISTRATION as TERMINOLOGY_REGISTRATION
@@ -40,12 +42,18 @@ BUILTIN_DESCRIPTORS = tuple(
 )
 
 
-def build_module_registry() -> ModuleRegistry:
+def build_module_registry(
+    *, cdisc_library_reader_factory: CdiscLibraryReaderFactory | None = None
+) -> ModuleRegistry:
     """Compose, validate, and seal all reviewed built-in modules."""
 
     registry = ModuleRegistry()
     registry.register_all(
-        registration
+        (
+            build_sdtm_registration(cdisc_library_reader_factory)
+            if registration is SDTM_REGISTRATION and cdisc_library_reader_factory is not None
+            else registration
+        )
         if isinstance(registration, ModuleRegistration)
         else ModuleRegistration(registration)
         for registration in BUILTIN_REGISTRATIONS

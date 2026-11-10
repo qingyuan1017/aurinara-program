@@ -1,7 +1,11 @@
 # Documents module
 
-Status: Phase 2 vertical slice implemented for manually authored Protocol, SAP, narrative,
+Status: Phase 2 vertical slice implemented for directly authored Protocol, SAP, narrative,
 operational, quality, signal, action, and workbook deliverables.
+
+> **AI transition:** every document type will use evidence-grounded typed proposals with
+> field-level diffs and human accept/reject/revision decisions. Current direct content endpoints
+> remain implementation status only and are not the target product workflow.
 
 ## 1. Create the document
 
@@ -47,7 +51,7 @@ Use `PUT /documents/{id}/content` with `If-Match`. A minimal narrative payload i
     {
       "section_id": "objectives",
       "heading": "Objectives",
-      "paragraphs": ["Manually authored objective text."]
+      "paragraphs": ["Human-accepted proposed objective text."]
     }
   ],
   "related_records": []

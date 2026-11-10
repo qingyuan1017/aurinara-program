@@ -75,6 +75,15 @@ class AdamSpecificationRevision(UuidPrimaryKey, Base):
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    originating_proposal_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("authoring_proposals.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    originating_decision_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("proposal_review_decisions.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
@@ -113,6 +122,15 @@ class AdamDerivationPlanRevision(UuidPrimaryKey, Base):
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    originating_proposal_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("authoring_proposals.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    originating_decision_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("proposal_review_decisions.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
@@ -140,6 +158,15 @@ class AdamDefineRevision(UuidPrimaryKey, Base):
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    originating_proposal_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("authoring_proposals.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    originating_decision_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("proposal_review_decisions.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
@@ -169,6 +196,15 @@ class AdamAdrgRevision(UuidPrimaryKey, Base):
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    originating_proposal_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("authoring_proposals.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    originating_decision_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("proposal_review_decisions.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )

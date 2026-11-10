@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from app.adam.models import AdamDependencySelection, AdamWorkbench
+from app.adam.proposals import ADAM_PROPOSAL_TYPES, AdamProposalCapability
 from app.adam.routes import router as feature_router
 from app.adam.service import ADAM_ARTIFACT_TYPES, AdamCapability
 from app.api.clinical_aggregates import dependency_aggregate_router
@@ -31,6 +32,7 @@ DESCRIPTOR = ModuleDescriptor(
     ),
     artifact_types=ADAM_ARTIFACT_TYPES,
     source_plan_types=("adam_derivation_plan",),
+    proposal_types=ADAM_PROPOSAL_TYPES,
     reconciliation_types=("adam_define_outputs",),
     authorization_scopes=("aurinara.adam.read", "aurinara.adam.write"),
     capabilities=frozenset(
@@ -44,10 +46,12 @@ DESCRIPTOR = ModuleDescriptor(
             ModuleCapability.RECONCILIATION_INPUTS,
             ModuleCapability.RECONCILIATION,
             ModuleCapability.PACKAGING,
+            ModuleCapability.PROPOSALS,
         }
     ),
 )
 HANDLER = AdamCapability("adam", "adam_workbench", AdamWorkbench, AdamDependencySelection)
+PROPOSAL_HANDLER = AdamProposalCapability(HANDLER)
 router = APIRouter()
 router.include_router(
     dependency_aggregate_router(
@@ -61,7 +65,7 @@ router.include_router(feature_router)
 REGISTRATION = ModuleRegistration(
     DESCRIPTOR,
     {
-        capability: HANDLER
+        capability: PROPOSAL_HANDLER if capability == ModuleCapability.PROPOSALS else HANDLER
         for capability in ModuleCapability
         if capability in DESCRIPTOR.capabilities
     },

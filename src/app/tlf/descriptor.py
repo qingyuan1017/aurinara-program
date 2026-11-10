@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from app.api.clinical_aggregates import dependency_aggregate_router
 from app.kernel.contracts import ModuleCapability, ModuleDescriptor, ModuleRegistration
 from app.tlf.models import TlfDependencySelection, TlfWorkbench
+from app.tlf.proposals import TLF_PROPOSAL_TYPES, TlfProposalCapability
 from app.tlf.routes import router as tlf_router
 from app.tlf.service import TLF_ARTIFACT_TYPES, TlfCapability
 
@@ -22,6 +23,7 @@ DESCRIPTOR = ModuleDescriptor(
     entity_types=("tlf_workbench", "tlf_output"),
     artifact_types=TLF_ARTIFACT_TYPES,
     source_plan_types=("tlf_program_plan",),
+    proposal_types=TLF_PROPOSAL_TYPES,
     authorization_scopes=("aurinara.tlf.read", "aurinara.tlf.write"),
     capabilities=frozenset(
         {
@@ -34,10 +36,12 @@ DESCRIPTOR = ModuleDescriptor(
             ModuleCapability.COMPILATION,
             ModuleCapability.EXECUTION,
             ModuleCapability.PACKAGING,
+            ModuleCapability.PROPOSALS,
         }
     ),
 )
 HANDLER = TlfCapability("tlf", "tlf_workbench", TlfWorkbench, TlfDependencySelection)
+PROPOSAL_HANDLER = TlfProposalCapability(HANDLER)
 router = APIRouter()
 router.include_router(
     dependency_aggregate_router(
@@ -51,7 +55,7 @@ router.include_router(tlf_router)
 REGISTRATION = ModuleRegistration(
     DESCRIPTOR,
     {
-        capability: HANDLER
+        capability: PROPOSAL_HANDLER if capability == ModuleCapability.PROPOSALS else HANDLER
         for capability in ModuleCapability
         if capability in DESCRIPTOR.capabilities
     },

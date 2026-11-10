@@ -2,7 +2,7 @@
 
 ## Scope and authority
 
-This file applies to the entire repository. More specific `AGENTS.md` files may be added inside subdirectories when a module needs additional rules; a nested file may refine these conventions for its subtree but must not weaken platform-wide safety, traceability, immutability, or manual-authoring requirements.
+This file applies to the entire repository. More specific `AGENTS.md` files may be added inside subdirectories when a module needs additional rules; a nested file may refine these conventions for its subtree but must not weaken platform-wide safety, traceability, immutability, AI-proposal provenance, or human-review requirements.
 
 Before changing implementation or contracts, read the relevant documents:
 
@@ -16,12 +16,16 @@ If implementation and documentation disagree, do not silently choose one. Preser
 
 ## Product boundaries
 
-This is a standalone Clinical Artifact Platform for manually managing raw data and authoring, validating, reviewing, reconciling, generating, executing, and packaging Documents, SDTM, ADaM, and TLF deliverables. Shared first-class modules own standards, terminology, reference data, templates, review, and reconciliation. The Documents module owns Protocol, SAP, and study operational and quality deliverables.
+This is a standalone, AI-first Clinical Artifact Platform for managing raw data and generating, validating, reviewing, reconciling, executing, and packaging Documents, SDTM, ADaM, and TLF deliverables. Shared first-class modules own standards, terminology, reference data, templates, review, reconciliation, and the provider-neutral AI proposal runtime. The Documents module owns Protocol, SAP, and study operational and quality deliverables.
 
 The following are non-negotiable Release 1 boundaries:
 
-- Clinical content, mappings, rules, assumptions, annotations, and review decisions are authored by users.
-- Do not add AI generation, proposal workflows, automated mapping, recommendations, or confidence scoring.
+- AI-generated typed proposals are the default authoring path for every module that creates or changes clinical content, mappings, rules, assumptions, annotations, narratives, code, analysis choices, reference data, terminology extensions, or package selections.
+- Humans are reviewers, not the routine first authors. A human may accept, reject, or request revision with guidance. AI output must never become active content, executable authority, or package input before an explicit authorized human acceptance.
+- Review decisions, dispositions, and approval rationale are human-authored evidence. AI may summarize validation evidence or draft a response, but it may not approve its own proposal or impersonate a reviewer.
+- Every proposal must bind exact immutable context, base revisions, dependency selections, provider/model identity, prompt/instruction version, generation parameters, response checksum, validation results, and reviewer decision. Acceptance creates normal immutable module-owned revisions and staleness events in one transaction.
+- Do not present uncalibrated confidence scores as evidence. Surface assumptions, unresolved items, citations to exact inputs, validation issues, and model limitations instead.
+- Exact provider content, deterministic factual extraction, dependency selection, authentication, authorization, validation, execution isolation, and packaging checks remain authoritative; an AI proposal cannot override them.
 - Do not claim regulatory certification or parity with a commercial validator.
 - Python and R execution are first-party capabilities.
 - SAS programs are generated, while SAS execution uses an optional external runner adapter.
@@ -51,6 +55,7 @@ src/app/
   terminology/
   reference/
   templates/
+  assistance/
   review/
   reconciliation/
   raw/
@@ -71,7 +76,7 @@ Keep `common` limited to technical primitives such as UUIDs, clocks, database se
 
 `kernel` owns the typed module-extension contracts, module descriptor, capability protocols, and startup registry. `integration` owns external-system registrations, external identifier bindings, event subscriptions, delivery attempts, signing, and connector boundaries. Neither package owns clinical content. Do not implement runtime loading of arbitrary Python packages or let integrations bypass an owning module's application service.
 
-`standards` and `terminology` own versioned registries over exact, checksum-addressed provider snapshots acquired on demand; `templates` owns versioned, repository-pinned presentation assets. `reference` owns manually maintained study reference data. `review` owns human questions, comments, assignments, and dispositions without claiming electronic signatures. `reconciliation` owns immutable comparisons between exact revisions and artifacts. These packages expose typed interfaces and must not become generic bypasses around module ownership.
+`standards` and `terminology` own versioned registries over exact, checksum-addressed provider snapshots acquired on demand; `templates` owns versioned, repository-pinned presentation assets. `reference` owns reviewed study reference data. `assistance` owns provider adapters, immutable generation-run envelopes, prompt/instruction versioning, and generic proposal lifecycle primitives, but it owns no clinical schema or content. Each module owns its proposal types, context assembly, validation, diff presentation, and acceptance handler. `review` owns human questions, comments, assignments, proposal decisions, and dispositions without claiming electronic signatures. `reconciliation` owns immutable comparisons between exact revisions and artifacts. These packages expose typed interfaces and must not become generic bypasses around module ownership.
 
 `transformation` is an internal compilation package. It owns typed dataflow and analysis intermediate representations, core operators, canonicalization, lineage propagation, and deterministic compiler interfaces shared by SDTM, ADaM, and TLF. It does not define a public or persisted universal `TransformationPlan`, and it owns no study mapping, derivation, analysis choice, target metadata, or presentation rule. SDTM owns one Specification (all domains) plus one Derivation Plan per domain; ADaM owns one Specification (all datasets) plus one Derivation Plan per dataset; TLF owns ARS plus ProgramPlan. These remain module-owned authoring contracts even where their outer envelopes are consistent. TLF rendering remains outside the framework.
 
@@ -88,11 +93,30 @@ Use dependency injection at application boundaries. Keep domain and service code
 
 ### Module extension conventions
 
-Every capability-participating first-party or deployment-added module registers one immutable `ModuleDescriptor` at application composition time. The descriptor uses a stable lowercase one-word `module_key` and declares its API prefix, module version, supported content schema versions, dependency purposes, owned entity and relationship types, artifact types, source-plan types, event types, authorization scopes, and implemented capabilities. Supported capabilities include dependency selection and staleness edges, validation, artifacts, typed entity resolution, review targets, reconciliation inputs, context export, packaging, compilation, execution, and outbound events. A module registers only capabilities it actually implements.
+Every capability-participating first-party or deployment-added module registers one immutable `ModuleDescriptor` at application composition time. The descriptor uses a stable lowercase one-word `module_key` and declares its API prefix, module version, supported content schema versions, dependency purposes, owned entity and relationship types, artifact types, source-plan types, proposal types, event types, authorization scopes, and implemented capabilities. Supported capabilities include dependency selection and staleness edges, AI proposal generation and acceptance, validation, artifacts, typed entity resolution, review targets, reconciliation inputs, context export, packaging, compilation, execution, and outbound events. A module registers only capabilities it actually implements.
 
 Shared services dispatch through typed capability registries; do not add module-name `if`/`match` chains to Artifacts, Validation, Review, Reconciliation, Traceability, Packaging, or Integration. Startup must fail on duplicate module keys, route prefixes, owned entity or relationship types, artifact types, source-plan types, event types, or missing handlers for declared capabilities. Registration never grants cross-module persistence access.
 
 A new module owns its package, migrations, API schemas and router, services, repositories, validators, artifact builders, context DTOs, trace resolvers, events, and tests. Alembic remains the single ordered migration history. Modules are added at code/deployment time and reviewed like the core application; Release 1 does not support hot installation or execution of untrusted plugin code.
+
+### AI proposal and human-review conventions
+
+AI generation runs are durable worker operations. API processes assemble no prompts and call no model provider. A run receives a module-owned, size-bounded context DTO containing only the exact revisions and evidence required for the requested proposal. Raw subject rows, credentials, licensed provider payloads, review-comment bodies, and unrestricted documents are excluded unless the proposal type explicitly requires them, the study policy permits them, and the context builder applies the configured redaction and disclosure rules.
+
+The shared `assistance` boundary may normalize provider requests and responses, enforce timeouts and token limits, record usage, and persist immutable run/proposal envelopes. It must not define clinical prompt content, silently add tools, resolve mutable “latest” inputs, apply a proposal, or query a clinical repository. Each owning module must:
+
+- register a stable proposal type and versioned output schema;
+- build the exact context through its typed service interfaces;
+- version its system instructions and validation policy;
+- validate model output completely before presenting it for review;
+- produce a field-level diff against the exact base revision;
+- expose assumptions, unresolved items, evidence references, and deterministic validation issues;
+- apply an accepted proposal through the same invariants as any other module command; and
+- record the accepted proposal, reviewer, decision time, rationale, and resulting revision IDs.
+
+Proposal states are `queued`, `running`, `review_required`, `accepted`, `rejected`, `revision_requested`, `failed`, and `superseded`. Failed or invalid output remains evidence but cannot be accepted. Acceptance requires the aggregate's current `ETag`; a stale base revision returns `409` and requires a new proposal. Accept/reject/revision commands require idempotency keys. Acceptance and the resulting content revisions, trace links, staleness changes, and outbox events commit once. Rejection and revision requests never mutate active clinical content.
+
+Provider credentials are environment-backed secrets and are never returned, logged, written into prompts, artifacts, or proposal payloads. Model calls use TLS, strict destination configuration, bounded retries, and no arbitrary provider or tool URL supplied by a user. Model responses are untrusted input and must pass Pydantic, module, authorization, reference-resolution, and safety validation. AI-generated program bodies run only through the existing isolated runner boundary after human acceptance and successful validation; they never execute in the API, assistance worker, or review UI.
 
 ### External integration conventions
 
@@ -180,7 +204,7 @@ Issue codes are stable machine-readable identifiers. Messages explain the observ
 
 Validation runs are immutable snapshots. Record validator name and version, canonical input fingerprint, start and completion times, issue counts, full issues, and report artifact IDs. Revalidation creates a new run.
 
-The validation package owns a declarative rule registry with stable rule IDs, versions, applicability, parameters, default severity, and rule-pack membership. Module packages own their clinical rule implementations. Sponsor-defined rule packs are manually authored data, never executable user code.
+The validation package owns a declarative rule registry with stable rule IDs, versions, applicability, parameters, default severity, and rule-pack membership. Module packages own their clinical rule implementations. AI may propose a sponsor rule-pack configuration, but only registered non-user-executable rules may be selected and a human must accept the proposal before it becomes active.
 
 Errors block dependent generation, execution, or packaging. Warnings remain visible in reports and package manifests. Keep schema validation, platform conformance checks, and external-validator findings distinguishable.
 
@@ -223,7 +247,7 @@ Every artifact must record the fields and provenance defined in `docs/artifact-c
 - Upload or publish bytes only after successful generation and checksum verification.
 - On failure, retain structured failure metadata but do not publish partial files as available artifacts.
 
-Narrative PDF and DOCX artifacts for the Documents module, cSDRG, ADRG, validation reports, review reports, and reconciliation reports must use the shared renderer-neutral `Document` representation. Uploaded original PDFs and annotated evidence overlays retain their source/evidence-specific builders. Clinical content comes only from persisted, manually maintained records. Templates control presentation and section order. Documents workbooks use typed, versioned row contracts and `openpyxl`; they must not infer clinical judgments or silently alter user-maintained values.
+Narrative PDF and DOCX artifacts for the Documents module, cSDRG, ADRG, validation reports, review reports, and reconciliation reports must use the shared renderer-neutral `Document` representation. Uploaded original PDFs and annotated evidence overlays retain their source/evidence-specific builders. Clinical content comes only from persisted, human-accepted module revisions linked to immutable AI proposal and review evidence. Templates control presentation and section order. Documents workbooks use typed, versioned row contracts and `openpyxl`; importers and renderers must not infer clinical judgments or silently alter accepted values.
 
 ## Jobs and workers
 
@@ -265,7 +289,7 @@ Do not run user programs in the API or worker process. Do not weaken isolation f
 
 ## Standards and file generation
 
-Acquire CDISC standards and controlled terminology from the CDISC Library only through an explicit administrator-selected import. Persist the selected release graph as immutable checksum-addressed object-store snapshots with provenance; never fetch provider content during validation, generation, execution, reconciliation, or packaging. Keep locally required conformance schemas such as Define-XML XSDs, assets unavailable from the Library, and templates pinned in the repository with provenance and version metadata. Tests must not contact CDISC or download schemas, terminology, or templates at runtime.
+Acquire CDISC standards and controlled terminology through the server-side CDISC Library connector. Every SDTM Specification operation—including catalog/domain discovery, read, initialization, direct save, import/replay, export, and Specification AI proposal generation or acceptance—deliberately fetches the exact selected canonical SDTMIG resource live. Created Specification revisions record its canonical href and response checksum; proposal context receives only the normalized typed Specification facts required for drafting. The API key remains environment-backed and tests use an injected fake connector. Persist other selected release graphs as immutable checksum-addressed object-store snapshots with provenance; never fetch provider content during validation, non-Specification generation, execution, reconciliation, or packaging. Keep locally required conformance schemas such as Define-XML XSDs, assets unavailable from the Library, and templates pinned in the repository with provenance and version metadata. Tests must not contact CDISC or download schemas, terminology, or templates at runtime.
 
 - Validate Define-XML 2.0 and 2.1 against their locally bundled XSDs.
 - Reconcile Define metadata with the exact selected XPT datasets.
@@ -275,7 +299,7 @@ Acquire CDISC standards and controlled terminology from the CDISC Library only t
 - Build DOCX with `python-docx`, PDF with `reportlab`, XLSX with `openpyxl`, and XML/XSD operations with `lxml` unless an architecture change is documented.
 - Normalize unstable binary metadata before comparing golden files.
 
-Initialization endpoints may fill missing factual structures from saved metadata. They must preserve manual edits and must not generate narrative clinical content.
+Deterministic initialization endpoints may fill missing factual structures from saved metadata. They must preserve accepted content and must not generate narrative or clinical judgments. AI drafting is a separate proposal operation with explicit provenance and human review; initialization must never invoke it implicitly.
 
 ## Submission packaging
 
@@ -356,6 +380,6 @@ Before handing off:
 
 ## Definition of done
 
-A change is complete when it respects module boundaries, preserves study isolation and manual authoring, records required provenance, handles staleness and retries correctly, registers accurate module capabilities, preserves import/event compatibility, includes meaningful verification, and keeps implementation, OpenAPI, module descriptors, migrations, standards assets, artifact catalog, and operating documentation consistent.
+A change is complete when it respects module boundaries, preserves study isolation and human review, records complete AI and artifact provenance, prevents unaccepted proposals from becoming active, handles staleness and retries correctly, registers accurate module capabilities, preserves import/event compatibility, includes meaningful verification, and keeps implementation, OpenAPI, module descriptors, migrations, standards assets, artifact catalog, and operating documentation consistent.
 
 Release 1 as a whole is complete only when all ten end-to-end scenarios in `docs/implementation-plan.md` pass without manual database or object-store intervention.

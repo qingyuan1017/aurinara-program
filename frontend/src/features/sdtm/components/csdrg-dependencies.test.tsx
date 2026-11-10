@@ -784,6 +784,29 @@ describe('SdtmDependenciesPanel concurrency (Req 20.4)', () => {
 })
 
 describe('SdtmDependenciesPanel refresh-required banner (Req 20.5)', () => {
+  it('summarizes dependency readiness before technical administration details', () => {
+    sdtmApi.dependencies = makeDependencies({
+      state: 'current',
+      standards: [
+        { purpose: 'sdtm_ig', standard_version_id: 'standard-version-1' },
+      ],
+      terminology: [
+        { scope: 'sdtm', terminology_release_id: 'terminology-1' },
+      ],
+    })
+
+    renderInWorkbench(<SdtmDependenciesPanel sdtmId="sdtm-1" />)
+
+    expect(screen.getByText('Standards and dependencies')).toBeTruthy()
+    expect(screen.getByText('Industry standards')).toBeTruthy()
+    expect(screen.getByText('Controlled terminology')).toBeTruthy()
+    expect(screen.getByText('sdtm ig')).toBeTruthy()
+    const technicalDetails = screen
+      .getByText('Technical details and dependency administration')
+      .closest('details')
+    expect(technicalDetails?.hasAttribute('open')).toBe(false)
+  })
+
   it('shows the banner and disables the save control when a refresh is required', async () => {
     sdtmApi.dependencies = makeDependencies({
       state: 'dependency_refresh_required',

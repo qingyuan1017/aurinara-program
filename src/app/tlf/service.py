@@ -28,13 +28,15 @@ from app.kernel.dependencies import RenderedArtifact, SqlDependencyCapability
 from app.packaging.contracts import PackageContribution
 from app.templates.models import TemplateVersion
 from app.tlf.contracts import (
+    TlfAdamDatasetBinding,
     TlfArs,
     TlfAssumptions,
     TlfBindings,
+    TlfOutputInventory,
     TlfProgramPlan,
     TlfShell,
 )
-from app.tlf.models import TlfAuthoringRevision, TlfWorkbench
+from app.tlf.models import TlfAuthoringRevision, TlfInputSelection, TlfWorkbench
 from app.transformation.analysis import (
     analysis_ir_fingerprint,
     canonical_analysis_ir,
@@ -43,7 +45,7 @@ from app.transformation.analysis import (
 from app.transformation.contracts import AnalysisIR, AnalysisProcedure
 from app.validation.models import ValidationRun
 
-TLF_CONTENT_TYPES = ("shell", "bindings", "assumptions", "ars", "program_plan")
+TLF_CONTENT_TYPES = ("inventory", "shell", "bindings", "assumptions", "ars", "program_plan")
 TLF_PROGRAM_ARTIFACT_TYPES = ("tlf_program_python", "tlf_program_r", "tlf_program_sas")
 TLF_RENDER_ARTIFACT_TYPES = (
     "tlf_table_rtf",
@@ -74,6 +76,7 @@ TLF_ARTIFACT_TYPES = (
 )
 
 _CONTRACTS: dict[str, type[BaseModel]] = {
+    "inventory": TlfOutputInventory,
     "shell": TlfShell,
     "bindings": TlfBindings,
     "assumptions": TlfAssumptions,
@@ -94,7 +97,7 @@ def _conflict(code: str, detail: str) -> ProblemException:
 def content_contract(record: TlfAuthoringRevision) -> object:
     """Parse one persisted revision through its closed content contract."""
 
-    contract = _CONTRACTS.get(record.content_type)
+    contract = _CONTRACTS.get(record.content_type.split(":", 1)[0])
     if contract is None:
         raise RuntimeError(f"unsupported TLF content type: {record.content_type}")
     return contract.model_validate(record.payload)
@@ -161,12 +164,48 @@ class TlfCapability(SqlDependencyCapability):
             .order_by(TlfAuthoringRevision.revision.desc())
         )
 
+    def save_content(
+        self,
+        session: Session,
+        workbench: TlfWorkbench,
+        content_type: str,
+        model: BaseModel,
+        *,
+        created_by: str,
+        originating_proposal_id: UUID | None = None,
+        originating_decision_id: UUID | None = None,
+    ) -> TlfAuthoringRevision:
+        """Create one immutable manual or AI-originated authoring revision."""
+
+        previous = self.latest_content(session, workbench.id, content_type)
+        if previous is not None and previous.state == "current":
+            previous.state = "superseded"
+        payload = model.model_dump(mode="json")
+        record = TlfAuthoringRevision(
+            aggregate_id=workbench.id,
+            study_id=workbench.study_id,
+            content_type=content_type,
+            revision=1 if previous is None else previous.revision + 1,
+            schema_version=str(payload.get("schema_version", "1.0.0")),
+            state="current",
+            payload=payload,
+            fingerprint=fingerprint(payload),
+            created_by=created_by,
+            originating_proposal_id=originating_proposal_id,
+            originating_decision_id=originating_decision_id,
+        )
+        session.add(record)
+        session.flush()
+        return record
+
     def current_authoring(
-        self, session: Session, aggregate_id: UUID
+        self, session: Session, aggregate_id: UUID, output_code: str
     ) -> dict[str, TlfAuthoringRevision]:
         records = {
-            content_type: self.latest_content(session, aggregate_id, content_type)
-            for content_type in TLF_CONTENT_TYPES
+            content_type: self.latest_content(
+                session, aggregate_id, f"{content_type}:{output_code}"
+            )
+            for content_type in ("shell", "bindings", "assumptions", "ars", "program_plan")
         }
         missing = [key for key, value in records.items() if value is None]
         if missing:
@@ -174,13 +213,52 @@ class TlfCapability(SqlDependencyCapability):
                 "tlf_authoring_incomplete",
                 f"Author the following TLF resources first: {', '.join(missing)}.",
             )
-        return {key: cast(TlfAuthoringRevision, value) for key, value in records.items()}
+        result = {key: cast(TlfAuthoringRevision, value) for key, value in records.items()}
+        if any(item.state != "current" for item in result.values()):
+            raise _conflict(
+                "tlf_authoring_misaligned",
+                "Accept refreshed TLF stages before validation or execution.",
+            )
+        return result
+
+    def current_authoring_without_plan(
+        self, session: Session, aggregate_id: UUID, output_code: str
+    ) -> dict[str, TlfAuthoringRevision]:
+        records = {
+            content_type: self.latest_content(
+                session, aggregate_id, f"{content_type}:{output_code}"
+            )
+            for content_type in ("shell", "bindings", "assumptions", "ars")
+        }
+        missing = [key for key, value in records.items() if value is None]
+        if missing:
+            raise _conflict(
+                "tlf_analysis_shells_incomplete",
+                f"Accept analysis content first: {', '.join(missing)}.",
+            )
+        result = {key: cast(TlfAuthoringRevision, value) for key, value in records.items()}
+        if any(item.state != "current" for item in result.values()):
+            raise _conflict(
+                "tlf_analysis_shells_misaligned",
+                "Accept refreshed analysis shells before programming.",
+            )
+        return result
 
     def validate_bindings(self, session: Session, study_id: UUID, bindings: TlfBindings) -> None:
         """Resolve every exact ADaM binding without accessing ADaM repositories."""
 
+        self.validate_input_datasets(session, study_id, bindings.datasets)
+
+    def validate_input_datasets(
+        self,
+        session: Session,
+        study_id: UUID,
+        datasets: tuple[TlfAdamDatasetBinding, ...],
+    ) -> None:
+        """Resolve exact operator-selected ADaM evidence without choosing it."""
+
         issues: list[dict[str, object]] = []
-        for selected in bindings.datasets:
+        for selected in datasets:
             artifact = session.get(Artifact, selected.artifact_id)
             validation = session.get(ValidationRun, selected.validation_run_id)
             valid_artifact = (
@@ -234,14 +312,42 @@ class TlfCapability(SqlDependencyCapability):
             )
 
     def validate_authoring(
-        self, session: Session, aggregate_id: UUID, study_id: UUID
+        self, session: Session, aggregate_id: UUID, study_id: UUID, output_code: str
     ) -> tuple[dict[str, TlfAuthoringRevision], AnalysisIR]:
-        records = self.current_authoring(session, aggregate_id)
+        inventory_record = self.latest_content(session, aggregate_id, "inventory")
+        if inventory_record is None:
+            raise _conflict("tlf_inventory_required", "Accept an output inventory first.")
+        inventory = TlfOutputInventory.model_validate(inventory_record.payload)
+        if output_code not in {item.output_code for item in inventory.outputs}:
+            raise ProblemException(
+                status_code=404,
+                code="tlf_output_unknown",
+                title="TLF output is unknown",
+                detail=f"Output '{output_code}' is not in the accepted inventory.",
+            )
+        records = self.current_authoring(session, aggregate_id, output_code)
         shell = cast(TlfShell, content_contract(records["shell"]))
         bindings = cast(TlfBindings, content_contract(records["bindings"]))
         ars = cast(TlfArs, content_contract(records["ars"]))
         plan = cast(TlfProgramPlan, content_contract(records["program_plan"]))
         self.validate_bindings(session, study_id, bindings)
+        input_selection = session.scalar(
+            select(TlfInputSelection).where(TlfInputSelection.aggregate_id == aggregate_id)
+        )
+        selected_datasets = (
+            input_selection.payload.get("datasets") if input_selection is not None else None
+        )
+        if (
+            input_selection is None
+            or input_selection.state != "current"
+            or selected_datasets != [
+                item.model_dump(mode="json") for item in bindings.datasets
+            ]
+        ):
+            raise _conflict(
+                "tlf_input_selection_misaligned",
+                "Accepted bindings must exactly match the current operator-selected ADaM inputs.",
+            )
         available_columns = _adam_columns(session, bindings)
 
         pinned = {
@@ -344,11 +450,18 @@ class TlfCapability(SqlDependencyCapability):
         *,
         domain_code: str | None = None,
     ) -> dict[str, object]:
-        del domain_code
         if artifact_type == "tlf_dependency_manifest":
             return SqlDependencyCapability.build_artifact_payload(
                 self, session, aggregate_id, study_id, artifact_type
             )
+        if not domain_code:
+            raise ProblemException(
+                status_code=422,
+                code="tlf_output_code_required",
+                title="TLF output code is required",
+                detail="Select one accepted portfolio output for this operation.",
+            )
+        output_code = domain_code.upper()
         if artifact_type not in TLF_BUILD_ARTIFACT_TYPES:
             raise ProblemException(
                 status_code=422,
@@ -359,7 +472,9 @@ class TlfCapability(SqlDependencyCapability):
         workbench = session.get(TlfWorkbench, aggregate_id)
         if workbench is None or workbench.study_id != study_id:
             raise RuntimeError("TLF workbench is missing")
-        records, internal = self.validate_authoring(session, aggregate_id, study_id)
+        records, internal = self.validate_authoring(
+            session, aggregate_id, study_id, output_code
+        )
         validation = self._current_validation(session, aggregate_id, records, internal)
         base = SqlDependencyCapability.build_artifact_payload(
             self, session, aggregate_id, study_id, "tlf_dependency_manifest"
@@ -369,6 +484,7 @@ class TlfCapability(SqlDependencyCapability):
         payload: dict[str, object] = {
             **base,
             "artifact_type": artifact_type,
+            "output_code": output_code,
             "input_selection": {
                 "revision": records["bindings"].revision,
                 "fingerprint": records["bindings"].fingerprint,
@@ -807,8 +923,15 @@ def authoring_manifest(
     if workbench is None:
         raise RuntimeError("TLF workbench is missing")
     selection = capability.get_selection(session, aggregate_id, workbench.study_id)
+    input_selection = session.scalar(
+        select(TlfInputSelection).where(TlfInputSelection.aggregate_id == aggregate_id)
+    )
+    if input_selection is None:
+        raise _conflict("tlf_input_selection_required", "Select exact TLF inputs first.")
     return {
         "tlf_revision": workbench.revision,
+        "input_selection_revision": input_selection.revision,
+        "input_selection_fingerprint": input_selection.fingerprint,
         "dependency_selection_revision": selection.revision,
         "dependency_fingerprint": selection.fingerprint,
         "authoring_revisions": {key: value.revision for key, value in records.items()},

@@ -1,13 +1,19 @@
 import * as React from 'react'
 import type { AxiosError } from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
-import { Loader2, Save } from 'lucide-react'
-import { PageHeader } from '@/components/layout/page-header'
-import { DetailHeader } from '@/components/data/detail-header'
+import { CircleAlert, CircleCheck, Loader2, Save, Settings2 } from 'lucide-react'
 import { ErrorState } from '@/components/data/states'
 import { StatusBadge } from '@/components/data/status-badge'
 import { IssueList } from '@/components/data/issue-list'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -108,6 +114,26 @@ export function SdtmDependenciesPanel({ sdtmId }: SdtmDependenciesPanelProps) {
 
   const state = (selection?.state ?? null) as StalenessState | null
   const refreshRequired = isStale(state)
+  const dependencyGroups = selection
+    ? [
+        {
+          label: 'Industry standards',
+          items: (selection.standards ?? []).map((item) => item.purpose),
+        },
+        {
+          label: 'Controlled terminology',
+          items: (selection.terminology ?? []).map((item) => item.scope),
+        },
+        {
+          label: 'Study reference data',
+          items: (selection.references ?? []).map((item) => item.purpose),
+        },
+        {
+          label: 'Presentation templates',
+          items: (selection.templates ?? []).map((item) => item.purpose),
+        },
+      ]
+    : []
 
   const replace = useReplaceSdtmDependencies({
     mutation: {
@@ -195,17 +221,6 @@ export function SdtmDependenciesPanel({ sdtmId }: SdtmDependenciesPanelProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Dependencies"
-        description={
-          <>
-            Exact dependency selection from{' '}
-            <code>GET /api/v1/sdtm-workbenches/{'{sdtm_id}'}/dependencies</code>.
-          </>
-        }
-      />
-
-      {/* Persistent refresh-required notice; disables the save control below. */}
       <StalenessBanner
         state={state}
         onReload={() => {
@@ -214,74 +229,121 @@ export function SdtmDependenciesPanel({ sdtmId }: SdtmDependenciesPanelProps) {
         }}
       />
 
-      {query.isLoading || !selection ? (
-        <Skeleton className="h-28 w-full" />
-      ) : (
-        <DetailHeader
-          fields={[
-            { label: 'Revision', value: selection.revision },
-            {
-              label: 'State',
-              value: <StatusBadge status={selection.state} />,
-            },
-            {
-              label: 'Fingerprint',
-              value: <code className="break-all text-xs">{selection.fingerprint}</code>,
-            },
-          ]}
-        />
-      )}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">Standards and dependencies</CardTitle>
+              <CardDescription className="mt-1">
+                Exact versions used by the SDTM agent and deterministic validation.
+              </CardDescription>
+            </div>
+            {selection ? (
+              <Badge variant={selection.state === 'current' ? 'default' : 'destructive'}>
+                {selection.state === 'current' ? (
+                  <CircleCheck />
+                ) : (
+                  <CircleAlert />
+                )}
+                {selection.state === 'current' ? 'Ready' : 'Action required'}
+              </Badge>
+            ) : null}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {query.isLoading || !selection ? (
+            <Skeleton className="h-28 w-full" />
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {dependencyGroups.map((group) => (
+                  <div key={group.label} className="rounded-lg border bg-muted/20 p-3">
+                    <p className="text-xs font-medium text-muted-foreground">{group.label}</p>
+                    <p className="mt-1 text-2xl font-semibold">{group.items.length}</p>
+                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                      {group.items.length
+                        ? group.items.map(readablePurpose).join(', ')
+                        : 'None selected'}
+                    </p>
+                  </div>
+                ))}
+              </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="sdtm-dependency-selection">Exact dependency selection</Label>
-        <Textarea
-          id="sdtm-dependency-selection"
-          value={draft}
-          spellCheck={false}
-          rows={16}
-          className="font-mono text-xs"
-          aria-invalid={parseError ? true : undefined}
-          disabled={query.isLoading || !selection}
-          onChange={(event) => setDraft(event.target.value)}
-        />
-        <p className="text-muted-foreground text-xs">
-          Author the exact standards, terminology, reference, and template
-          selections as typed JSON. Replacing the selection pins the exact
-          revisions this workbench consumes.
-        </p>
-        {parseError && (
-          <p className="text-destructive text-sm" role="alert">
-            {parseError}
-          </p>
-        )}
-      </div>
+              <details className="group rounded-lg border">
+                <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium">
+                  <Settings2 className="size-4 text-muted-foreground" />
+                  Technical details and dependency administration
+                  <StatusBadge status={selection.state} />
+                </summary>
+                <div className="space-y-5 border-t p-4">
+                  <div className="grid gap-3 text-sm sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Selection revision</p>
+                      <p>{selection.revision}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">Reproducibility fingerprint</p>
+                      <code className="block truncate text-xs" title={selection.fingerprint}>
+                        {selection.fingerprint}
+                      </code>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="sdtm-dependency-selection">Exact dependency selection</Label>
+                    <Textarea
+                      id="sdtm-dependency-selection"
+                      value={draft}
+                      spellCheck={false}
+                      rows={12}
+                      className="font-mono text-xs"
+                      aria-invalid={parseError ? true : undefined}
+                      disabled={query.isLoading || !selection}
+                      onChange={(event) => setDraft(event.target.value)}
+                    />
+                    <p className="text-muted-foreground text-xs">
+                      Restricted administration control for replacing exact immutable pins.
+                      Routine clinical content changes belong in AI proposals and human review.
+                    </p>
+                    {parseError && (
+                      <p className="text-destructive text-sm" role="alert">
+                        {parseError}
+                      </p>
+                    )}
+                  </div>
 
-      {formError && (
-        <p className="text-destructive text-sm" role="alert">
-          {formError}
-        </p>
-      )}
+                  {formError && (
+                    <p className="text-destructive text-sm" role="alert">
+                      {formError}
+                    </p>
+                  )}
 
-      {incompatibilities.length > 0 && (
-        <IssueList
-          issues={incompatibilities}
-          emptyTitle="No incompatibilities"
-          emptyDescription="The dependency selection resolved without incompatibilities."
-        />
-      )}
+                  {incompatibilities.length > 0 && (
+                    <IssueList
+                      issues={incompatibilities}
+                      emptyTitle="No incompatibilities"
+                      emptyDescription="The dependency selection resolved without incompatibilities."
+                    />
+                  )}
 
-      <div className="flex justify-end">
-        <Button
-          onClick={handleSave}
-          // Disabled while a refresh is required (R20.5) so no replacement can
-          // start until the selection is refreshed/reaffirmed, and while a save
-          // is in flight.
-          disabled={refreshRequired || replace.isPending || query.isLoading}
-        >
-          {replace.isPending ? <Loader2 className="animate-spin" /> : <Save />}
-          Replace selection
-        </Button>
-      </div>
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={handleSave}
+                      disabled={refreshRequired || replace.isPending || query.isLoading}
+                    >
+                      {replace.isPending ? <Loader2 className="animate-spin" /> : <Save />}
+                      Replace selection
+                    </Button>
+                  </div>
+                </div>
+              </details>
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
+}
+
+function readablePurpose(value: string) {
+  return value.replaceAll('_', ' ')
 }

@@ -6,7 +6,6 @@ import {
 } from "@/components/workbench/workbench-detail-shell";
 import { InputSelectionPanel } from "@/features/sdtm/components/input-selection-panel";
 import { useCurrentStudy } from "@/components/study-context";
-import { SpecificationPanel } from "@/features/sdtm/components/specification-panel";
 import { SdtmValidationPanel } from "@/features/sdtm/components/validation-panel";
 import { DefinePanel } from "@/features/sdtm/components/define-panel";
 import { SdtmDependenciesPanel } from "@/features/sdtm/components/dependencies-panel";
@@ -18,21 +17,13 @@ import {
   ProgramArtifactReadinessPanel,
   VariableMappingPanel,
 } from "@/features/sdtm/components/mapping-panels";
+import { SpecificationPanel } from "@/features/sdtm/components/specification-panel";
+import {
+  AiReviewWorkspace,
+  SdtmStageWorkspace,
+} from "@/features/sdtm/components/ai-review-workspace";
 import { useGetSdtmAggregate } from "@/api/generated/sdtm/sdtm";
-
-const SDTM_TABS = [
-  { value: "input-selection", label: "Input selection" },
-  { value: "specification", label: "Specification" },
-  { value: "acrf", label: "aCRF" },
-  { value: "domain-mapping", label: "Domain mapping" },
-  { value: "variable-mapping", label: "Variable mapping" },
-  { value: "code-workareas", label: "Code workareas" },
-  { value: "define", label: "Define" },
-  { value: "csdrg", label: "cSDRG" },
-  { value: "validation", label: "Validation" },
-  { value: "readiness", label: "Program & artifact readiness" },
-  { value: "dependencies", label: "Dependencies" },
-] as const;
+import { SDTM_TABS } from "@/lib/clinical-navigation";
 
 const DEFAULT_TAB = SDTM_TABS[0].value;
 const TAB_VALUES = SDTM_TABS.map((tab) => tab.value);
@@ -61,28 +52,132 @@ function SdtmDetailPage() {
     label: entry.label,
     render: () => {
       switch (entry.value) {
-        case "input-selection":
-          return <InputSelectionPanel />;
+        case "source-review":
+          return (
+            <SdtmStageWorkspace
+              title="Source review"
+              description="Confirm the exact validated source evidence and dependencies used for SDTM generation."
+              agentMessage="The agent is monitoring source readiness. Resolve any source, validation, or dependency findings before drafting the SDTM Specification."
+              actionLabel="Open Specification review"
+              unframed
+              onAction={() =>
+                navigate({
+                  to: "/sdtm/$sdtmId",
+                  params: { sdtmId },
+                  search: { tab: "specification" },
+                })
+              }
+            >
+              <div className="flex flex-col gap-6">
+                <InputSelectionPanel />
+                <SdtmDependenciesPanel sdtmId={sdtmId} />
+              </div>
+            </SdtmStageWorkspace>
+          );
         case "specification":
-          return <SpecificationPanel sdtmId={sdtmId} />;
+          return (
+            <AiReviewWorkspace
+              sdtmId={sdtmId}
+              proposalType="sdtm_specification"
+              title="SDTM Specification proposal"
+              description="AI drafts the aggregate domain, variable, terminology, key, sort, and value-level metadata contract from the pinned source metadata. A human reviewer must accept it before it becomes active."
+              reviewPrelude={<SpecificationPanel sdtmId={sdtmId} />}
+            />
+          );
         case "acrf":
-          return <AcrfPanel sdtmId={sdtmId} />;
+          return (
+            <SdtmStageWorkspace
+              title="Annotated CRF review"
+              description="Review deterministic annotations against the accepted SDTM specification and variable mappings."
+              agentMessage="The agent monitors annotation evidence here. Mapping changes are proposed and reviewed in the Variable & VLM stage."
+              actionLabel="Open Variable & VLM review"
+              unframed
+              onAction={() =>
+                navigate({
+                  to: "/sdtm/$sdtmId",
+                  params: { sdtmId },
+                  search: { tab: "variable-mapping" },
+                })
+              }
+            >
+              <AcrfPanel sdtmId={sdtmId} />
+            </SdtmStageWorkspace>
+          );
         case "domain-mapping":
-          return <DomainMappingPanel sdtmId={sdtmId} />;
+          return (
+            <AiReviewWorkspace
+              sdtmId={sdtmId}
+              proposalType="sdtm_domain_mapping"
+              title="Domain Mapping proposal"
+              description="AI selects exact Raw and upstream SDTM sources for one target domain. Review the evidence and diff before accepting."
+              needsDomain
+              reviewPrelude={<DomainMappingPanel sdtmId={sdtmId} />}
+            />
+          );
         case "variable-mapping":
-          return <VariableMappingPanel sdtmId={sdtmId} />;
-        case "code-workareas":
-          return <CodeWorkareasPanel sdtmId={sdtmId} />;
-        case "define":
-          return <DefinePanel sdtmId={sdtmId} />;
-        case "csdrg":
-          return <CsdrgPanel sdtmId={sdtmId} />;
-        case "validation":
-          return <SdtmValidationPanel sdtmId={sdtmId} />;
-        case "readiness":
-          return <ProgramArtifactReadinessPanel sdtmId={sdtmId} />;
-        case "dependencies":
-          return <SdtmDependenciesPanel sdtmId={sdtmId} />;
+          return (
+            <AiReviewWorkspace
+              sdtmId={sdtmId}
+              proposalType="sdtm_variable_mapping"
+              title="Variable and value-level mapping proposal"
+              description="AI maps every target variable and value context to qualified, pinned source metadata. Unresolved mappings remain visible for reviewer direction."
+              needsDomain
+              reviewPrelude={<VariableMappingPanel sdtmId={sdtmId} />}
+            />
+          );
+        case "program-review":
+          return (
+            <AiReviewWorkspace
+              sdtmId={sdtmId}
+              proposalType="sdtm_program"
+              title="Program proposal"
+              description="AI generates a typed program revision against the accepted Specification and mappings. The program cannot execute until a human accepts it."
+              needsDomain
+              needsLanguage
+              reviewPrelude={<CodeWorkareasPanel sdtmId={sdtmId} />}
+            />
+          );
+        case "execution":
+          return (
+            <SdtmStageWorkspace
+              title="Execution review"
+              description="Review executable readiness and results produced from accepted program revisions."
+              agentMessage="The agent monitors accepted program readiness and execution evidence. Program changes must return through proposal review."
+              actionLabel="Open Program review"
+              unframed
+              onAction={() =>
+                navigate({
+                  to: "/sdtm/$sdtmId",
+                  params: { sdtmId },
+                  search: { tab: "program-review" },
+                })
+              }
+            >
+              <CodeWorkareasPanel sdtmId={sdtmId} reviewOnly />
+            </SdtmStageWorkspace>
+          );
+        case "define-validation":
+          return (
+            <AiReviewWorkspace
+              sdtmId={sdtmId}
+              proposalType="sdtm_define"
+              title="Define metadata proposal"
+              description="AI drafts version-neutral Define metadata from the accepted Specification and exact current output selection. Initialization, validation, rendering, and reconciliation remain deterministic operations."
+              reviewPrelude={<DefinePanel sdtmId={sdtmId} />}
+              reviewEpilogue={<SdtmValidationPanel sdtmId={sdtmId} />}
+            />
+          );
+        case "csdrg-submission":
+          return (
+            <AiReviewWorkspace
+              sdtmId={sdtmId}
+              proposalType="sdtm_csdrg"
+              title="cSDRG narrative proposal"
+              description="After deterministic factual initialization, AI drafts the reviewer-guide narrative over the exact Define, reconciliation, and output evidence for human acceptance."
+              reviewPrelude={<CsdrgPanel sdtmId={sdtmId} />}
+              reviewEpilogue={<ProgramArtifactReadinessPanel sdtmId={sdtmId} />}
+            />
+          );
       }
     },
   }));
@@ -98,14 +193,7 @@ function SdtmDetailPage() {
         tabs={tabs}
         activeTab={tab}
         defaultTab={DEFAULT_TAB}
-        onTabChange={(value) =>
-          navigate({
-            to: "/sdtm/$sdtmId",
-            params: { sdtmId },
-            search: { tab: value },
-            replace: true,
-          })
-        }
+        showTabList={false}
       />
     </div>
   );

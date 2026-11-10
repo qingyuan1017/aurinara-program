@@ -46,6 +46,7 @@ from app.documents.rendering import (
     content_to_document,
     render_xlsx,
 )
+from app.kernel.context import DocumentContentContext
 from app.kernel.dependencies import RenderedArtifact, SqlDependencyCapability
 from app.packaging.contracts import PackageContribution
 from app.templates.content import load_presentation_template
@@ -327,6 +328,41 @@ class DocumentsCapability(SqlDependencyCapability):
             .where(DocumentContent.document_id == document_id)
             .order_by(DocumentContent.revision.desc())
             .limit(1)
+        )
+
+    def content_context(
+        self,
+        session: Session,
+        study_id: UUID,
+        content_id: UUID,
+        *,
+        expected_document_type: str | None = None,
+        expected_fingerprint: str | None = None,
+    ) -> DocumentContentContext | None:
+        """Resolve one exact same-study content revision for a typed consumer."""
+
+        content = session.get(DocumentContent, content_id)
+        document = session.get(Document, content.document_id) if content is not None else None
+        if (
+            content is None
+            or document is None
+            or content.study_id != study_id
+            or document.study_id != study_id
+            or (
+                expected_document_type is not None
+                and document.document_type != expected_document_type
+            )
+            or (expected_fingerprint is not None and content.fingerprint != expected_fingerprint)
+        ):
+            return None
+        return DocumentContentContext(
+            document_id=document.id,
+            content_id=content.id,
+            document_type=document.document_type,
+            document_revision=document.revision,
+            content_revision=content.revision,
+            fingerprint=content.fingerprint,
+            content=content.payload,
         )
 
     def latest_usdm(self, session: Session, document_id: UUID) -> ProtocolUsdmDocument | None:

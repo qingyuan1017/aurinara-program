@@ -56,7 +56,7 @@ function TlfListPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Tables, Listings & Figures"
-        description="Author shells, ADaM bindings, assumptions, ARS, and ProgramPlans; then validate, compile, execute, and render outputs."
+        description="Review a study-wide AI-proposed inventory, analysis shells, ARS, and typed ProgramPlans before deterministic execution and rendering."
         actions={
           <Button size="sm" disabled={!currentStudyId} onClick={() => setCreateOpen(true)}>
             <Plus /> New TLF workbench
@@ -71,7 +71,7 @@ function TlfListPage() {
         isError={query.isError}
         error={query.error}
         resourceLabel="TLF workbenches"
-        onRowClick={(row) => navigate({ to: '/tlf/$tlfId', params: { tlfId: row.id }, search: { tab: 'shell' } })}
+        onRowClick={(row) => navigate({ to: '/tlf/$tlfId', params: { tlfId: row.id }, search: { tab: 'sources' } })}
         emptyState={!studiesLoading && !currentStudyId ? (
           <EmptyState title="No study selected" description="Select a study to view its TLF workbenches." />
         ) : undefined}
@@ -80,7 +80,7 @@ function TlfListPage() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         title="New TLF workbench"
-        description="Create a TLF aggregate shell; clinical content is authored after creation."
+        description="Create a study-wide TLF portfolio; clinical content activates only after staged human acceptance."
         fields={createFields}
         initialValues={{}}
         submitLabel="Create workbench"

@@ -297,7 +297,21 @@ class SdtmStandardDomainOption(StrictModel):
 
 class SdtmSpecificationInitializationOptions(StrictModel):
     standard_version_id: UUID
+    source: Literal["cdisc_library_live"] = "cdisc_library_live"
+    canonical_href: str
+    response_checksum: str = Field(pattern=r"^[0-9a-f]{64}$")
     domains: tuple[SdtmStandardDomainOption, ...]
+
+
+class SdtmIndustryStandardVersion(StrictModel):
+    standard_version_id: UUID
+    product_id: UUID
+    product_name: str
+    provider: Literal["CDISC"] = "CDISC"
+    version: str
+    lifecycle: str
+    canonical_href: str
+    title: str
 
 
 class SdtmImportedVariable(StrictModel):

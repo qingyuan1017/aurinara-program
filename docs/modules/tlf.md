@@ -1,85 +1,90 @@
 # TLF module
 
-Status: Phase 5 implemented. The module owns immutable Shell, exact ADaM Bindings,
-Assumptions, ARS, and ProgramPlan revisions; validation and Analysis IR lowering;
-deterministic Python/R/SAS programs; isolated Python/R execution; normalized CSV and Parquet
-results; and table, listing, and figure rendering.
+Status: Phase 5 AI-first portfolio workflow implemented. One TLF workbench owns a study-wide
+output inventory and, for each output, immutable Shell, exact ADaM Bindings, Assumptions, ARS,
+and ProgramPlan revisions. The module also owns validation, Analysis IR lowering, deterministic
+Python/R/SAS programs, isolated Python/R execution, normalized results, and output rendering.
 
-## Author a TLF
+Clinical TLF content supports direct typed create/edit and AI proposals from exact selected
+evidence. The API exposes conditional `PUT` routes for Inventory, Shell, Bindings, Assumptions,
+ARS, and ProgramPlan. Direct writes and accepted proposals create the same immutable module-owned
+revisions under the same validation and staleness rules. AI proposals still require an authorized
+human to accept, reject, or request revision with a rationale before they become active.
 
-Create a workbench and retain its `ETag` after every write:
+## Select exact evidence
 
-```powershell
-$tlf = Invoke-WebRequest -Method Post -Uri "$base/studies/$studyId/tlf-workbenches" -Headers $headers `
-  -ContentType "application/json" -Body '{"code":"T-14-1","name":"Disposition table"}'
-$tlfId = ($tlf.Content | ConvertFrom-Json).id
-$etag = $tlf.Headers.ETag
-```
+Create one workbench for the study portfolio and retain its `ETag` after each accepted change.
+Replace dependencies through `PUT /tlf-workbenches/{tlf_id}/dependencies`; all selections are exact.
 
-Replace dependencies through `PUT /tlf-workbenches/{tlf_id}/dependencies`. Selections are exact;
-publishing a newer Standard, Terminology, Reference, or Template version never changes an
-existing workbench. Select one exact presentation Template per rendered artifact type.
+`PUT /tlf-workbenches/{tlf_id}/input-selection` is an operator evidence-selection command, not
+clinical authoring. It pins exact accepted Protocol/SAP document content revisions and exact
+available ADaM dataset artifacts, including dataset code, artifact ID, checksum, ADaM workbench,
+ADaM revision, validation run, and dependency fingerprint. Updating the selection marks current
+authored content misaligned so it cannot be validated, compiled, executed, or packaged until new
+proposals are reviewed and accepted.
 
-Author resources in this order, passing the current workbench `If-Match` value each time:
+## Create, edit, or propose the portfolio
 
-1. `PUT /tlf-workbenches/{tlf_id}/shell`
-2. `PUT /tlf-workbenches/{tlf_id}/bindings`
-3. `PUT /tlf-workbenches/{tlf_id}/assumptions`
-4. `PUT /tlf-workbenches/{tlf_id}/ars`
-5. `PUT /tlf-workbenches/{tlf_id}/program-plan`
-
-Bindings identify the exact ADaM workbench revision, successful validation run, immutable
-CSV or XPT artifact, checksum, dataset code, and dependency fingerprint. ARS must cover every
-leaf shell row exactly once. ProgramPlan pins the four current prerequisite revisions and maps
-every ARS analysis to one typed `frequency`, `descriptive_statistics`, or `custom` step. A custom
-step references a plan-owned function whose fixed parameters are `rows` and `parameters`, whose
-return type is `result_rows`, and whose result conforms to the normalized `statistic`, `value`,
-and `text` row contract. Saving an upstream
-revision makes an older ProgramPlan misaligned; save a deliberate new plan revision to realign it.
-
-Shell title, hierarchy, columns, footnotes, orientation, and Template styling remain outside
-Analysis IR. Templates cannot add populations, parameters, statistics, steps, or narrative.
-
-## Validate, preview, compile, and execute
-
-`POST /tlf-workbenches/{tlf_id}/program-plan:preview` returns the normalized internal Analysis IR only as a
-read-only preview. It is never an editable or persisted public planning resource.
-
-Create an immutable validation snapshot with either:
+Every stage has a manual typed editor and can also use the shared proposal lifecycle:
 
 ```text
-POST /api/v1/tlf-workbenches/{tlf_id}/program-plan:validate
-POST /api/v1/tlf-workbenches/{tlf_id}:validate
+POST /api/v1/tlf-workbenches/{aggregate_id}/proposals
+GET  /api/v1/tlf-workbenches/{aggregate_id}/proposals
+GET  /api/v1/tlf-workbenches/{aggregate_id}/proposals/{proposal_id}
+POST /api/v1/tlf-workbenches/{aggregate_id}/proposals/{proposal_id}:accept
+POST /api/v1/tlf-workbenches/{aggregate_id}/proposals/{proposal_id}:reject
+POST /api/v1/tlf-workbenches/{aggregate_id}/proposals/{proposal_id}:request-revision
 ```
 
-Compilation uses `POST /tlf-workbenches/{tlf_id}:compile` with `backend` set to `python`, `r`, or `sas`, an
-`Idempotency-Key`, and the exact build-input fingerprint. Generated program manifests freeze the
-Shell, Bindings, ProgramPlan, dependency selection, ADaM artifacts/checksums, normalized Analysis
-IR, and compiler fingerprint.
+Generation is asynchronous. The assistance worker records the exact immutable context, provider
+and model identity, instruction version, generation parameters, response checksum, typed
+validation results, and field-level diff. Evidence references are JSON pointers into that saved
+context. Invalid output remains evidence but cannot be accepted.
 
-Each custom function may have Python, R, SAS, or multiple implementations. The program for a
-language with a supplied body is executable. Other languages receive deterministic TODO stubs and
-manifest fields `compiler.executable=false` plus `compiler.todo_functions`; those artifacts remain
-reviewable but execution returns `execution_custom_function_incomplete`. Preview never evaluates
-custom bodies in the API process.
+The stages are deliberately ordered:
 
-Run Python or R with `POST /tlf-workbenches/{tlf_id}:execute`. Select exactly the program's frozen ADaM
-artifacts and supply the bound validation run, Shell revision, Bindings revision, ProgramPlan
-revision, compiler fingerprint, input fingerprint, and bounded execution limits. SAS execution
-uses the optional external adapter and reports `runner_not_configured` when none is configured.
-Successful runs publish validated `tlf_result_csv` and `tlf_result_parquet` artifacts from the
-same normalized result with columns:
+1. `tlf_output_inventory` proposes the study-wide tables, listings, and figures. It distinguishes
+   source-required outputs from conventional suggestions and preserves explicit blockers.
+2. `tlf_analysis_shells` proposes each accepted output's Shell, ADaM Bindings, Assumptions, and
+   ARS. Output identities must exactly match the accepted inventory and Bindings may use only the
+   operator-selected ADaM datasets. ARS must cover every leaf shell row exactly once.
+3. `tlf_programming_plan` proposes one typed ProgramPlan per accepted output. Every plan pins its
+   current Shell, Bindings, Assumptions, and ARS revisions and lowers successfully to Analysis IR
+   before it can be accepted.
 
-```text
-analysis_id,row_id,group,statistic,value,text
-```
+Acceptance requires the current workbench `ETag` and an idempotency key. Acceptance, immutable
+content revisions, provenance links, staleness changes, and the human decision commit together.
+Reject and revision-request commands never modify active content. A revision request creates a
+linked generation request that includes the reviewer's guidance without treating that guidance as
+accepted clinical content.
 
-## Render and build artifacts
+The guided UI presents the manual typed editor alongside proposal provenance, structured
+output/dataset/analysis-step views, assumptions, unresolved items, evidence references, model
+limitations, deterministic issues, and a field-level diff.
 
-Use `POST /tlf-workbenches/{tlf_id}:render` after a successful current run. Tables and listings support
-`rtf` and `pdf`; figures support `png`, `svg`, and `pdf`. Rendering binds the exact result and
-execution run to the current Shell. It never recompiles the analysis.
+## Output-scoped validation and execution
 
-`POST /tlf-workbenches/{tlf_id}/artifacts:build` can build the JSON authoring snapshots, validation report,
-programs, dependency manifest, formatted outputs, and `tlf_output_index`. All build and execution
-operations require `Idempotency-Key`; regeneration creates a new immutable artifact.
+Read the accepted inventory at `GET /tlf-workbenches/{tlf_id}/inventory`. Read per-output content
+below `/tlf-workbenches/{tlf_id}/outputs/{output_code}/...` using `shell`, `bindings`,
+`assumptions`, `ars`, and `program-plan`.
+
+Validation and preview take an explicit `output_code`; they never infer a mutable current output.
+ProgramPlan is the executable authority and its normalized Analysis IR is a read-only preview.
+Ordinary steps are language-neutral typed registered analysis procedures. Raw Python, R, SAS, SQL,
+and arbitrary expression strings are not ordinary authoring paths.
+
+A plan may declare a typed named custom function with fixed inputs and result schema. Each language
+body is immutable accepted plan content and runs only through the isolated runner. A missing body
+produces a deterministic non-executable TODO artifact for that language without blocking languages
+whose bodies are present.
+
+Compilation, artifact build, rendering, and execution all require `output_code`, an idempotency
+key where applicable, a successful current validation, and exact frozen inputs. Generated program
+manifests freeze the accepted content revisions, input-selection revision and fingerprint, ADaM
+artifacts and checksums, dependency selection, normalized Analysis IR, and compiler fingerprint.
+
+Python and R run through the disposable network-disabled runner boundary. SAS uses the optional
+external adapter and returns `runner_not_configured` when absent. Successful executions publish
+validated normalized result artifacts. Rendering binds one exact result and execution run to the
+accepted Shell and presentation Template; it never recompiles the analysis. Regeneration always
+creates new immutable artifacts.

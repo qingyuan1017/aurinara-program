@@ -4,7 +4,7 @@
 
 All public application routes are rooted at `/api/v1`. Operational health routes remain at `/health`, and the interactive API documentation remains at `/docs`. JSON request and response bodies use UTF-8, `snake_case` field names, UUID identifiers, and RFC 3339 UTC timestamps. OpenAPI generated from the FastAPI application is the normative transport contract; this document defines the conventions, resources, and operations it must expose.
 
-The API edits persisted objects directly. There is no product-local proposal, recommendation, confidence-score, or AI-assistance resource. The frontend's `/playground` route calls Aurinara Platform directly with the signed-in user's bearer token; agents can change Aurinara state only through the existing authenticated module API/MCP contracts.
+Clinical authoring is proposal-based. Module routes create typed AI generation operations, expose immutable proposal history and validation evidence, and accept human review decisions. A proposal never edits active content directly. Only an authorized human acceptance through the owning module's application service creates active immutable revisions. The frontend's `/playground` route remains a separate Aurinara Platform capability and cannot substitute for this clinical proposal lifecycle.
 
 ### Platform Repository binding
 
@@ -17,7 +17,7 @@ changed.
 
 ## 2. Authentication and study scope
 
-Human clients and external-system service identities send an externally issued JWT as a bearer token. The API validates issuer, audience, signature, expiry, subject, and required claims. Module services enforce study membership and registered module/action scopes before reading or changing a study-owned resource. Integration configuration does not create identity-provider credentials or bypass these checks.
+Human clients and external-system service identities send an externally issued JWT as a bearer token. The API validates issuer, audience, signature, expiry, subject, and required claims, including a trusted principal kind (`human` or `service`). A signature-verified Cognito ID token with `token_use=id` is classified as a human principal because Cognito does not emit the provider-neutral `principal_kind` claim by default; an explicit invalid classification is never overridden by this mapping. Module services enforce study membership and registered module/action scopes before reading or changing a study-owned resource. Proposal decisions require a human principal; service identities may request proposals only when explicitly scoped and can never accept, reject, or request revision. Integration configuration does not create identity-provider credentials or bypass these checks.
 
 Nested create and collection routes include the study ID:
 
@@ -101,11 +101,11 @@ Validation issues use the same fields whether returned inline or saved in a vali
 
 ### 3.3 Optimistic concurrency
 
-Mutable aggregate responses include an opaque `ETag`. `PATCH`, `PUT`, and `DELETE` require `If-Match`. A `POST` action that directly changes an existing editable aggregate, such as `initialize`, also requires `If-Match`; collection creates and actions that create immutable operation resources do not. A missing required header returns `428 Precondition Required`, while a stale value returns `412 Precondition Failed`. This protects direct editing from lost updates. Build, execution, and package services also verify dependency fingerprints at job start and return a terminal stale-input result if content changed after the request was accepted.
+Mutable aggregate responses include an opaque `ETag`. `PATCH`, `PUT`, and `DELETE` require `If-Match`. A `POST` action that directly changes an existing editable aggregate, such as deterministic initialization or proposal acceptance, also requires `If-Match`; collection creates and actions that create immutable proposal/operation resources do not. A missing required header returns `428 Precondition Required`, while a stale value returns `412 Precondition Failed`. Proposal acceptance additionally returns `409 proposal_base_stale` when its frozen base no longer matches the aggregate. Build, execution, and package services also verify dependency fingerprints at job start and return a terminal stale-input result if content changed after the request was accepted.
 
 ### 3.4 Idempotency
 
-Bulk import, build, execution, reconciliation-run, integration redelivery, and submission-package creation require `Idempotency-Key`. The key is scoped to caller, route, and study and retained for a documented period. Repeating the same key and canonical request returns the original result or operation. Reusing the key with a different request returns `409 idempotency_key_reused`.
+AI proposal generation, proposal acceptance/rejection/revision requests, bulk import, build, execution, reconciliation-run, integration redelivery, and submission-package creation require `Idempotency-Key`. The key is scoped to caller, route, and study and retained for a documented period. Repeating the same key and canonical request returns the original result or operation. Reusing the key with a different request returns `409 idempotency_key_reused`.
 
 ### 3.5 Cursor pagination
 
@@ -286,6 +286,29 @@ SDTM mappings are declared lineage and are never compiled. A Code Workarea is th
 
 Specification, mapping, workarea, and output-selection writes use `If-Match`. Test and generation commands require `Idempotency-Key` and return `202 Accepted`. A Specification or Raw selection change misaligns affected mappings. A Domain Mapping change misaligns its Variable Mapping. Mapping changes stale output readiness. A code edit does not stale prior immutable runs.
 
+Clinical authoring stages expose both typed direct-write endpoints and AI proposal endpoints. Direct writes support creation from scratch and later edits, require the current `ETag`, run the same module validation and reference resolution, create immutable revisions, and trigger the same lineage and staleness transitions as accepted proposals. AI remains the recommended drafting path and can never activate content without a human decision. Exact dependency selections, source-file bindings, deterministic imports, and human review decisions remain explicit user commands.
+
+### 4.8 AI proposals and human decisions
+
+Every content-owning module exposes the same lifecycle using module-owned paths and proposal types:
+
+```text
+POST /api/v1/{aggregate-collection}/{aggregate_id}/proposals
+GET  /api/v1/{aggregate-collection}/{aggregate_id}/proposals
+GET  /api/v1/{aggregate-collection}/{aggregate_id}/proposals/{proposal_id}
+POST /api/v1/{aggregate-collection}/{aggregate_id}/proposals/{proposal_id}:accept
+POST /api/v1/{aggregate-collection}/{aggregate_id}/proposals/{proposal_id}:reject
+POST /api/v1/{aggregate-collection}/{aggregate_id}/proposals/{proposal_id}:request-revision
+```
+
+`GET /api/v1/assistance/agents` returns the product-scoped clinical agents registered by Aurinara Platform. Proposal creation requires one returned `agent_id`, a registered `proposal_type`, optional target identifier, and reviewer guidance. It requires `Idempotency-Key`, returns `202 Accepted`, and exposes a status resource while the assistance worker assembles exact context. The API freezes the selected agent ID, catalog revision, provider, and model before queuing. The worker uses Aurinara's Cognito service identity to call Platform's one-shot invocation endpoint; Aurinara never receives an AgentCore Runtime ARN or invokes AgentCore directly. A changed catalog revision returns `409 platform_agent_revision_stale`, with no fallback. When assistance or Platform service authentication is not configured, creation returns `503 assistance_not_configured` before context assembly.
+
+A proposal response includes its ID, module and aggregate identity, proposal type/schema version, status, base revisions and fingerprints, dependency/input fingerprints, provider and model identifiers, instruction version, context and response checksums, validated typed payload, field-level diff, assumptions, unresolved items, common validation issues, model limitations, usage metadata when available, creator, and timestamps. It never exposes credentials, unrestricted prompt context, raw subject rows, licensed provider payloads, internal paths, or object-store locations.
+
+Only `review_required` proposals may receive a decision. Accept/reject/revision commands require `If-Match` and `Idempotency-Key`; the principal is recorded as the human reviewer. Accept revalidates the exact proposal and base and atomically creates the normal module revision(s), trace links, staleness transitions, decision, and outbox events. The response contains the resulting typed resource references and new aggregate `ETag`. Reject requires reviewer rationale and changes no active content. Request-revision requires guidance, supersedes the proposal, and returns a new `202` generation operation linked to the prior proposal and decision.
+
+The common problem codes include `assistance_not_configured`, `platform_agent_not_found`, `platform_agent_revision_stale`, `platform_agent_unavailable`, `platform_agent_response_invalid`, `proposal_type_unknown`, `proposal_context_invalid`, `proposal_output_invalid`, `proposal_not_reviewable`, `proposal_base_stale`, and `proposal_already_decided`. Agent failures are typed operation failures and never fall back to another agent or model or silently mutate content; the user may independently choose the explicit manual authoring path.
+
 ## 5. Shared component routes
 
 ### 5.1 Standards and Templates catalogs
@@ -305,7 +328,7 @@ GET /api/v1/templates/{template_id}/versions
 GET /api/v1/template-versions/{template_version_id}
 ```
 
-These catalogs are read-only at runtime. Standard products identify the provider, family, product type, and clinical/nonclinical/cross-domain scope. Exact version responses include publication date, CDISC Library identity when supplied, content schema version, lifecycle, checksum, applicability, and purpose. Asset responses expose role, media type, checksum, canonical CDISC Library href, title, and resource type, but never expose a server filesystem or object-store path. The content route reads the immutable checksum-addressed object-store snapshot and rechecks its checksum; it never calls CDISC Library. Compatibility responses expose directional exact-version relationships such as `implements`, `based_on`, `requires`, and `supersedes`; a required relationship must be present in an aggregate's dependency selection. List routes support typed filters for product or template family, module, purpose or artifact type, lifecycle, and compatibility with an exact version ID; filters aid selection but never select a version for a clinical aggregate. Exact CDISC releases are acquired through the offline administration command, not through public application routes. Templates and exceptional local assets retain reviewed repository registration. No request downloads or silently upgrades an external asset.
+These catalogs are read-only at runtime. Standard products identify the provider, family, product type, and clinical/nonclinical/cross-domain scope. Exact version responses include publication date, CDISC Library identity when supplied, content schema version, lifecycle, checksum, applicability, and purpose. Asset responses expose role, media type, checksum, canonical CDISC Library href, title, and resource type, but never expose a server filesystem or object-store path. Catalog asset-content routes read checksum-addressed object-store snapshots. SDTM Specification operations are the explicit exception: catalog/domain discovery, read, initialization, direct save, import/replay, export, and Specification proposal generation or acceptance fetch the selected canonical SDTMIG resource live through the server-side CDISC connector. Compatibility responses expose directional exact-version relationships such as `implements`, `based_on`, `requires`, and `supersedes`; a required relationship must be present in an aggregate's dependency selection. List routes support typed filters but never select a version for a clinical aggregate. Templates and exceptional local assets retain reviewed repository registration.
 
 ### 5.2 Terminology
 
@@ -334,7 +357,7 @@ DELETE /api/v1/terminology-extension-terms/{extension_term_id}
 
 Published terminology releases and their terms are immutable. A release identifies its provider, CDISC terminology product, publication date, exact package version, CDISC Library identity, content schema version, checksum, lifecycle, acquisition provenance, and module applicability. Its asset routes expose the retained immutable Library package responses with the same checksum-verified object-store behavior as Standard assets. Codelists preserve NCI concept ID, submission value, name, definition, preferred term, synonyms, and extensibility. Terms preserve NCI concept ID, submission value, decode, definition, preferred term, synonyms, and active or retired state. Compatibility records bind an exact terminology release and scope to an exact standard version and dependency purpose.
 
-Sponsor extensions are manually maintained, study-scoped overlays that reference an exact base release and codelist. They may only target a codelist published as extensible. Every accepted extension or term mutation uses `If-Match` and creates an immutable extension revision; historical revision routes remain resolvable. Extensions cannot alter or shadow a published concept identity or submission value, and the API never proposes or automatically codes a value.
+Sponsor extensions are reviewed, study-scoped overlays that reference an exact base release and codelist. They may only target a codelist published as extensible. AI may propose extension terms with exact evidence and unresolved-item disclosure; a human acceptance uses `If-Match` and creates an immutable extension revision. Historical revision routes remain resolvable. Extensions cannot alter or shadow a published concept identity or submission value, and AI cannot change an immutable published release or activate a proposed code automatically.
 
 ### 5.3 Reference data
 
@@ -398,7 +421,7 @@ GET /api/v1/modules/{module_key}
 GET /api/v1/modules/{module_key}/event-types
 ```
 
-Module discovery is read-only and returns safe `ModuleDescriptor` fields: stable key and version, API prefix, supported content schema versions, dependency purposes, capabilities, entity and relationship types, artifact types, source-plan types, event types, and authorization scopes. It does not expose Python class paths, database tables, object-store configuration, credentials, or disabled implementation details. Unknown or disabled keys return `404 module_not_registered`.
+Module discovery is read-only and returns safe `ModuleDescriptor` fields: stable key and version, API prefix, supported content schema versions, dependency purposes, capabilities, entity and relationship types, artifact types, source-plan types, proposal types, event types, and authorization scopes. It does not expose provider credentials, model instructions, Python class paths, database tables, object-store configuration, or disabled implementation details. Unknown or disabled keys return `404 module_not_registered`.
 
 ### 5.8 External integrations
 
@@ -505,11 +528,11 @@ POST /api/v1/raw-workbenches/{raw_id}/artifacts:fingerprint
 POST /api/v1/raw-workbenches/{raw_id}/artifacts:build
 ```
 
-A raw dataset binds a manually maintained dataset record to an exact, study-owned immutable source-file record and its corresponding artifact. Dataset natural keys are unique within the Raw workbench. Replacing the file binding uses `PATCH` with `If-Match`, creates a new aggregate revision, and makes dependent input selections, SDTM mappings, validation runs, artifacts, and executions stale or alignment-required as applicable; it never overwrites the source file.
+A raw dataset binds a reviewed dataset record to an exact, study-owned immutable source-file record and its corresponding artifact. Dataset natural keys are unique within the Raw workbench. Replacing the file binding uses `PATCH` with `If-Match`, creates a new aggregate revision, and makes dependent input selections, SDTM mappings, validation runs, artifacts, and executions stale or alignment-required as applicable; it never overwrites the source file.
 
 `POST /api/v1/raw-workbenches/{raw_id}/datasets:import` is the asynchronous bulk create. It takes a versioned JSON-array envelope (`schema_version`, optional `expected_raw_revision`, and `entries` where each entry carries `code`, `label`, optional `description`, `source_file_id`, and `initialize_variables`) and requires an `Idempotency-Key`. It returns `202 Accepted` with `Location: /api/v1/raw-dataset-imports/{import_id}` and a status resource whose `status` is `queued`. Omitting the key returns `400 idempotency_key_required`; replaying the same key and body returns the prior run at `202`; the same key with a different body returns `409 idempotency_key_reused`. A durable worker validates the whole array (source resolution, summed byte cap, checksum, file inspection, workbench-duplicate codes) before committing anything, then atomically creates one dataset and one immutable binding per entry, bumps the workbench revision once, and stales consumers exactly as a single create. `GET /api/v1/raw-dataset-imports/{import_id}` reports the current status, the created `raw_dataset` IDs on success, or the full typed issue list on failure (no datasets written). `POST /api/v1/raw-dataset-imports/{import_id}:cancel` cancels a `queued` import synchronously and requests cancellation of a `running` import, which the worker observes at its next transaction boundary; a terminal import returns `409 invalid_lifecycle_transition`. Content rejections terminate the run `failed` with per-entry issues while the backing job completes successfully and is never requeued.
 
-Variable metadata includes the source name, label, physical type, length or precision where applicable, ordinal position, role, controlled terminology reference, and user-authored description. `variables:initialize` inspects the selected file and fills only missing factual physical metadata. It preserves manual edits and does not infer clinical meaning, mappings, derivations, annotations, or review decisions. Raw dependencies may select applicable raw-layout or metadata standards, terminology for explicitly bound values, study Reference revisions for source systems, vendors, sites, and units, and templates for dictionary or import/export workbooks; none is inferred from uploaded rows.
+Variable metadata includes the observed source name, label, physical type, length or precision where applicable, ordinal position, plus reviewed semantic role, controlled terminology reference, and description. `variables:initialize` inspects the selected file and fills only missing factual physical metadata. Semantic additions and corrections use Raw proposal types and require human acceptance; deterministic initialization never infers clinical meaning, mappings, derivations, annotations, or review decisions. Raw dependencies may select applicable raw-layout or metadata standards, terminology for explicitly bound values, study Reference revisions for source systems, vendors, sites, and units, and templates for dictionary or import/export workbooks; an AI proposal must cite these exact selections rather than infer a mutable version.
 
 Preview accepts a typed column selection and bounded row window, returns `200 OK`, and does not
 persist rows or create an artifact. Validation checks file availability and checksum, supported
@@ -577,7 +600,7 @@ signals_report
 actions_report
 ```
 
-Document metadata includes its `document_type`, aggregate-scoped `document_code` natural key, user-facing name, lifecycle status, content schema version, and explicit related document IDs. A relationship never selects a Protocol, SAP, or other document implicitly. Every type has a dedicated versioned Pydantic content contract. Its dependencies bind applicable content/schema standards, controlled-value terminology, exact study Reference revisions, and one presentation template per generated artifact type. PDF document types use structured sections compatible with the shared `Document` renderer. Workbook types use typed sheets, columns, and row contracts. XLSX and JSON content imports are atomic, preserve user-maintained values, and do not infer narrative content, risk decisions, signals, actions, CAPA conclusions, or clinical mappings. Templates may supply headings, styles, and blank structures only. `content:export` accepts a `format` query value of `json` or, for workbook types, `xlsx` and returns a non-persisting `200 OK` response. Immutable deliverables are created through `POST .../artifacts:build`, which accepts an explicit artifact-type list and expected input fingerprint.
+Document metadata includes its `document_type`, aggregate-scoped `document_code` natural key, user-facing name, lifecycle status, content schema version, and explicit related document IDs. A relationship never selects a Protocol, SAP, or other document implicitly. Every type has dedicated versioned content and proposal contracts. Its dependencies bind applicable content/schema standards, controlled-value terminology, exact study Reference revisions, and one presentation template per generated artifact type. PDF document types use structured sections compatible with the shared `Document` renderer. Workbook types use typed sheets, columns, and row contracts. AI drafts narrative content, risk decisions, signals, actions, CAPA conclusions, and clinical mappings only from exact cited study evidence; a human must accept the typed diff. XLSX and JSON imports remain deterministic, atomic evidence inputs and never silently alter an accepted revision. Templates may supply headings, styles, and blank structures only. `content:export` accepts a `format` query value of `json` or, for workbook types, `xlsx` and returns a non-persisting `200 OK` response. Immutable deliverables are created through `POST .../artifacts:build`, which accepts an explicit artifact-type list and expected input fingerprint.
 
 ### 8.2 Protocol-specific resources
 
@@ -641,11 +664,16 @@ mappings, origins, roles, keys, terminology bindings, or derivations. Acceptance
 an immutable `sdtm_dataset_xpt` artifact and validation snapshot and explicitly selects
 that immutable import revision as an available provider. Output Selection explicitly chooses it; no import or generation silently replaces the current set. Imported domains require neither Domain/Variable Mapping nor a Code Workarea. Inactive revisions remain recoverable.
 
+`GET .../imported-dataset` is an optional-singleton lookup. It returns JSON `null`
+with `200 OK` when the domain has no imported revision; `404` remains reserved for a
+missing workbench rather than the normal generated-domain state.
+
 ### 9.2 SDTM Specification
 
 ```text
 GET  /api/v1/sdtm-workbenches/{sdtm_id}/specification
 PUT  /api/v1/sdtm-workbenches/{sdtm_id}/specification
+GET  /api/v1/sdtm-workbenches/{sdtm_id}/specification/industry-standards
 GET  /api/v1/sdtm-workbenches/{sdtm_id}/specification/initialization-options
 POST /api/v1/sdtm-workbenches/{sdtm_id}/specification:initialize
 POST /api/v1/sdtm-workbenches/{sdtm_id}/specification:import
@@ -654,9 +682,9 @@ GET  /api/v1/sdtm-workbenches/{sdtm_id}/specification:export
 
 The versioned SDTM Specification is one aggregate contract containing domains, variables, reusable value contexts, value-level metadata, terminology bindings, domain keys and sort order, sequencing metadata, expected output names, and typed trace targets. A value context has `id`, `label`, `discriminator_variable`, operator `eq|ne|in`, and typed values; `eq`/`ne` require one value and `in` requires a non-empty unique list. Value-level metadata references `context_id`. Natural keys are unique within the workbench or domain. The Specification owns target metadata but no executable transformation logic.
 
-`GET specification/initialization-options` requires exactly one selected SDTM implementation-guide version under the `sdtm_ig` dependency purpose and lists its concrete domain codes, labels, classes, and Required/Expected/Permissible variable counts. `reference_metadata` is not an alias for this purpose. `POST specification:initialize` requires `If-Match` plus an explicit non-empty `domain_codes` selection and a `required_expected_only` choice. The service resolves and checksum-verifies the exact pinned root JSON asset, populates only the selected concrete domains, and, when `required_expected_only` is true, adds only Required and Expected variables. Reinitialization preserves existing domain and variable values and ordering—including an already-authored Permissible variable—and only appends eligible structures that are missing. The parameterized `SUPPQUAL` pattern is not materialized as a concrete output. Initialization does not create study mappings, derivations, terminology usage decisions, or clinical judgments.
+`GET specification/industry-standards` calls the CDISC Library for the current Data Tabulation product catalog and returns the live SDTMIG releases that also have a registered platform identity. `GET specification/initialization-options` requires exactly one selected SDTM implementation-guide version under the `sdtm_ig` dependency purpose, calls that release's canonical CDISC Library URL, and lists its concrete domain codes, labels, classes, and Required/Expected/Permissible variable counts. `reference_metadata` is not an alias for this purpose. `POST specification:initialize` requires `If-Match` plus an explicit non-empty `domain_codes` selection and a `required_expected_only` choice. It makes a fresh call to the exact selected release, records the canonical URL and response SHA-256 in the created revision, populates only the selected concrete domains, and, when `required_expected_only` is true, adds only Required and Expected variables. Reinitialization preserves existing domain and variable values and ordering—including an already-authored Permissible variable—and only appends eligible structures that are missing. The parameterized `SUPPQUAL` pattern is not materialized as a concrete output. Initialization does not create study mappings, derivations, terminology usage decisions, or clinical judgments.
 
-`PUT specification` and import require `If-Match`, validate the complete contract, and commit one revision atomically. Import also requires `Idempotency-Key`; replaying the same key and exact bytes returns the originally committed revision, while different bytes conflict. New authoring requires schema `2.0.0`; older revisions remain historical and cannot drive mappings or generation until a user explicitly saves a current revision. XLSX uses versioned `Metadata`, `Domains`, `Variables`, `ValueContexts`, and `ValueLevel` sheets. Export selects non-persisting JSON or XLSX with `?format=json|xlsx`.
+Every route in this section makes a fresh call to the selected canonical CDISC Library URL after resolving the exact registered selection. `PUT specification`, initialization, and import validate the complete contract, record the live response URL and SHA-256, and commit one revision atomically. Reads and exports verify live availability without mutating the saved revision. Specification AI proposal creation, worker start, and acceptance repeat the live read; the immutable proposal context binds the checksum and normalized typed standard facts. All operations fail with a typed `503` when the Library credential is absent or the live response is unavailable; there is no local-content fallback. Import also requires `Idempotency-Key`; replaying the same key and exact bytes returns the originally committed revision only after another live read, while different bytes conflict. New authoring requires schema `2.0.0`; older revisions remain historical and cannot drive mappings or generation until a user explicitly saves a current revision. XLSX uses versioned `Metadata`, `Domains`, `Variables`, `ValueContexts`, and `ValueLevel` sheets. Export selects non-persisting JSON or XLSX with `?format=json|xlsx`.
 
 ### 9.3 Mappings, Code Workareas, Output Selection, and operations
 
@@ -694,7 +722,7 @@ Code Workareas are named identities with fixed domain and language and immutable
 
 Test and generation return `202`. Test publishes no artifacts and returns bounded preview rows and bounded/redacted logs after cleanup. Generation validates exact variables, types, keys, sorting, XPT v5 constraints, and XPT read-back. Success exposes the immutable program, CSV, XPT, execution log, and output-validation evidence. Ordinary failure exposes no partial artifacts. SAS with no adapter retains a reviewable program, returns `runner_not_configured`, and does not satisfy readiness.
 
-Output Selection chooses exactly one successful generation run or aligned import revision per Specification domain. It verifies selected XPT availability and upstream closure and never resolves `latest`. A current selection is required for aggregate validation, Define, downstream context export, and packaging. `GET /lineage` reports author-maintained Domain/Variable Mapping lineage and explicitly sets `inferred_from_program=false`.
+Output Selection chooses exactly one successful generation run or aligned import revision per Specification domain. It verifies selected XPT availability and upstream closure and never resolves `latest`. A current selection is required for aggregate validation, Define, downstream context export, and packaging. `GET /lineage` reports human-accepted Domain/Variable Mapping lineage and explicitly sets `inferred_from_program=false`.
 
 The artifact endpoint builds non-program deliverables such as the Specification, mapping JSON, declared-lineage and validation reports, aCRF, Define, and cSDRG. Programs and dataset artifacts are produced only by Code Workarea generation.
 
@@ -761,8 +789,9 @@ Initialization binds the current exact Specification, Define revision, successfu
 reconciliation run, and XPT artifact IDs/checksums. It creates headings and factual tables for
 `study_data_overview`, `standards_and_versions`, `trial_design`, `domain_notes`,
 `conformance_issues`, `sponsor_defined_domains`, `controlled_terminology`, `data_dependencies`,
-and `reviewer_guidance`. It leaves narrative fields for manual authoring and preserves authored
-narratives during later factual refreshes. Validation treats missing or empty required narratives
+and `reviewer_guidance`. AI drafts narrative fields from that exact evidence; a human acceptance
+creates the narrative revision. Later factual refreshes preserve accepted narratives until a new
+proposal is accepted. Validation treats missing or empty required narratives
 as errors. Artifact creation requires exact compatible Template selections and records both the
 validation run and reconciliation run on immutable DOCX/PDF artifacts.
 
@@ -781,6 +810,13 @@ PUT /api/v1/adam-workbenches/{adam_id}/dependencies
 GET /api/v1/adam-workbenches/{adam_id}/input-selection
 PUT /api/v1/adam-workbenches/{adam_id}/input-selection
 GET /api/v1/adam-workbenches/{adam_id}/sdtm-context
+
+POST /api/v1/adam-workbenches/{aggregate_id}/proposals
+GET  /api/v1/adam-workbenches/{aggregate_id}/proposals
+GET  /api/v1/adam-workbenches/{aggregate_id}/proposals/{proposal_id}
+POST /api/v1/adam-workbenches/{aggregate_id}/proposals/{proposal_id}:accept
+POST /api/v1/adam-workbenches/{aggregate_id}/proposals/{proposal_id}:reject
+POST /api/v1/adam-workbenches/{aggregate_id}/proposals/{proposal_id}:request-revision
 ```
 
 The input selection is not an implicit link to the current SDTM workbench. `PUT input-selection` requires `If-Match` and supplies the exact `sdtm_id`, SDTM aggregate revision, successful validation-run ID, selected SDTM XPT artifact IDs, and expected SDTM dependency fingerprint. The service verifies study ownership, artifact availability and checksums, validation success, dataset uniqueness, and consistency with the selected SDTM revision. Changing the selection creates a new ADaM revision and stales all dependent ADaM and TLF evidence.
@@ -802,14 +838,19 @@ Parameters have stable UUIDs and codes, labels, target datasets, optional termin
 
 Typed trace targets connect exact Protocol objectives/endpoints or SAP objectives/endpoints/estimands/populations/methods to specification datasets, variables, parameters, or value-level items. The ADaM service verifies registered entity and relationship ownership, resolves both endpoints to the same study, and replaces the revision's relationships through the shared traceability service in the same transaction as the specification revision; it does not maintain a second relationship store or infer bindings from matching names.
 
-`PUT specification` and import require `If-Match`, validate the complete versioned contract, and commit one revision atomically. JSON/XLSX import validates all sheets, natural-key uniqueness, references, terminology, origins, and trace targets before writing anything; it never imports backend code or replaces the Derivation Plan. The XLSX contract uses `Metadata`, `Datasets`, `Variables`, `Parameters`, `ValueLevel`, `Methods`, and `TraceTargets` sheets. Export returns non-persisting JSON or XLSX. Immutable metadata deliverables use the artifact endpoint.
+`adam_specification` proposals validate the complete versioned contract. Human acceptance requires
+`If-Match` and an idempotency key and commits one revision atomically with its decision and
+provenance. An authorized human may instead create or edit the same typed contract directly with
+`PUT`, or import it atomically from JSON/XLSX; these paths use the same module validation,
+traceability, staleness, and optimistic-concurrency invariants and record human authorship rather
+than proposal provenance. Export returns non-persisting JSON or XLSX. Immutable metadata
+deliverables use the artifact endpoint.
 
 ### 10.3 Derivation Plan and operations
 
 ```text
 GET  /api/v1/adam-workbenches/{adam_id}/derivation-plans
 GET  /api/v1/adam-workbenches/{adam_id}/datasets/{dataset_code}/derivation-plan
-PUT  /api/v1/adam-workbenches/{adam_id}/datasets/{dataset_code}/derivation-plan
 POST /api/v1/adam-workbenches/{adam_id}/datasets/{dataset_code}/derivation-plan:validate
 POST /api/v1/adam-workbenches/{adam_id}/datasets/{dataset_code}/derivation-plan:preview
 POST /api/v1/adam-workbenches/{adam_id}/datasets/{dataset_code}:validate
@@ -821,7 +862,7 @@ POST /api/v1/adam-workbenches/{adam_id}:execute
 POST /api/v1/adam-workbenches/{adam_id}/artifacts:build
 ```
 
-The Derivation Plan is per dataset: one ADaM-owned typed DAG per `{dataset_code}`, aligned to one ADaM Specification revision and one exact SDTM input-selection revision, producing only its own dataset. It reads SDTM artifacts in that selection via `sdtm_read` and declared predecessor ADaM datasets via `adam_read` resolved through the Specification (pinned by server-resolved `upstream_plan_pins`). Dataset-to-dataset dependencies must remain acyclic across the aggregate's per-dataset plans. Nodes use ADaM vocabulary and stable dataset/variable/parameter references; backend-specific code fragments are prohibited. `{dataset_code}` must match the pattern, exist in the current Specification (`404 adam_dataset_unknown`), and equal the body `dataset` (`422 adam_plan_dataset_mismatch`). `GET /derivation-plans` is an opaque-cursor-paginated collection of per-dataset plan heads; each per-dataset plan uses its own plan revision as its `ETag`/`If-Match` token (first write accepts absent or `*`). `POST /datasets/{dataset_code}:validate` writes a per-dataset run, while the aggregate `POST :validate` records a `plan_revisions` map and `plan_set_fingerprint`. After ADaM validation, the module lowers each plan to internal Dataflow IR; IR is not exposed as an editable API resource.
+The Derivation Plan is per dataset: one ADaM-owned typed DAG per `{dataset_code}`, aligned to one ADaM Specification revision and one exact SDTM input-selection revision, producing only its own dataset. It reads SDTM artifacts in that selection via `sdtm_read` and declared predecessor ADaM datasets via `adam_read` resolved through the Specification (pinned by server-resolved `upstream_plan_pins`). Dataset-to-dataset dependencies must remain acyclic across the aggregate's per-dataset plans. Nodes use ADaM vocabulary and stable dataset/variable/parameter references; backend-specific code fragments are prohibited. `{dataset_code}` must match the pattern, exist in the current Specification (`404 adam_dataset_unknown`), and equal the authored `dataset` (`422 adam_plan_dataset_mismatch`). `GET /derivation-plans` is an opaque-cursor-paginated collection of per-dataset plan heads. A validated manual `PUT` or acceptance of an `adam_derivation_plan` proposal creates a plan revision. `POST /datasets/{dataset_code}:validate` writes a per-dataset run, while the aggregate `POST :validate` records a `plan_revisions` map and `plan_set_fingerprint`. After ADaM validation, the module lowers each plan to internal Dataflow IR; IR is not exposed as an editable API resource.
 
 Workbench validation covers dependency compatibility with the exact SDTM context; specification completeness; dataset classes, keys, and sort order; variables and roles; parameters and value-level applicability; terminology; origins and predecessor resolution; method-to-node alignment; per-dataset Derivation Plan shape and single-dataset output coverage; traceability; XPT constraints; and declared output reconciliation. The all-dataset deliverables additionally enforce whole-Specification coverage (`409 adam_output_coverage_incomplete`) and that every produced dataset plan is aligned with satisfied upstream pins. It reports specification, derivation, standards, traceability, and artifact issues as distinguishable categories. `GET /lineage` returns a dataset-keyed map `{plan_set_fingerprint, datasets: {dataset_code: {ir_fingerprint, outputs}}}` and `409`s naming the first misaligned dataset.
 
@@ -833,7 +874,6 @@ ADaM Define routes parallel SDTM Define routes:
 
 ```text
 GET  /api/v1/adam-workbenches/{adam_id}/define
-PUT  /api/v1/adam-workbenches/{adam_id}/define
 POST /api/v1/adam-workbenches/{adam_id}/define:initialize
 POST /api/v1/adam-workbenches/{adam_id}/define:validate
 GET  /api/v1/adam-workbenches/{adam_id}/define:render
@@ -861,7 +901,6 @@ ADRG routes are:
 
 ```text
 GET  /api/v1/adam-workbenches/{adam_id}/adrg
-PUT  /api/v1/adam-workbenches/{adam_id}/adrg
 POST /api/v1/adam-workbenches/{adam_id}/adrg:initialize
 POST /api/v1/adam-workbenches/{adam_id}/adrg:validate
 POST /api/v1/adam-workbenches/{adam_id}/adrg/artifacts:build
@@ -870,10 +909,11 @@ POST /api/v1/adam-workbenches/{adam_id}/adrg/artifacts:build
 Initialization requires the current Define revision and its successful zero-error
 `adam_define_outputs` reconciliation. It fills exact XPT dataset/checksum facts and successful
 execution/program facts, binds the current input-selection, Specification, Derivation Plan, and
-Define revisions, and does not overwrite user narrative in `study_data_overview`, `standards`,
+Define revisions, and does not overwrite accepted narrative in `study_data_overview`, `standards`,
 `analysis_datasets`, `analysis_variables`, `data_dependencies`, `important_derivations`,
-`conformance_issues`, `submission_programs`, or `reviewer_guidance`. Validation fails while any
-required section lacks manually authored paragraphs. Artifact creation additionally requires
+`conformance_issues`, `submission_programs`, or `reviewer_guidance`. AI drafts revisions from the
+exact evidence and a human accepts them. Validation fails while any required section lacks
+human-accepted paragraphs. Artifact creation additionally requires
 current zero-error ADRG validation and one exact compatible Template selection per requested
 DOCX/PDF artifact type.
 
@@ -887,16 +927,28 @@ PATCH /api/v1/tlf-workbenches/{tlf_id}
 GET   /api/v1/tlf-workbenches/{tlf_id}/dependencies
 PUT   /api/v1/tlf-workbenches/{tlf_id}/dependencies
 
-GET /api/v1/tlf-workbenches/{tlf_id}/shell
-PUT /api/v1/tlf-workbenches/{tlf_id}/shell
-GET /api/v1/tlf-workbenches/{tlf_id}/bindings
-PUT /api/v1/tlf-workbenches/{tlf_id}/bindings
-GET /api/v1/tlf-workbenches/{tlf_id}/assumptions
-PUT /api/v1/tlf-workbenches/{tlf_id}/assumptions
-GET /api/v1/tlf-workbenches/{tlf_id}/ars
-PUT /api/v1/tlf-workbenches/{tlf_id}/ars
-GET /api/v1/tlf-workbenches/{tlf_id}/program-plan
-PUT /api/v1/tlf-workbenches/{tlf_id}/program-plan
+GET /api/v1/tlf-workbenches/{tlf_id}/input-selection
+PUT /api/v1/tlf-workbenches/{tlf_id}/input-selection
+GET /api/v1/tlf-workbenches/{tlf_id}/inventory
+PUT /api/v1/tlf-workbenches/{tlf_id}/inventory
+GET /api/v1/tlf-workbenches/{tlf_id}/outputs/{output_code}/shell
+PUT /api/v1/tlf-workbenches/{tlf_id}/outputs/{output_code}/shell
+GET /api/v1/tlf-workbenches/{tlf_id}/outputs/{output_code}/bindings
+PUT /api/v1/tlf-workbenches/{tlf_id}/outputs/{output_code}/bindings
+GET /api/v1/tlf-workbenches/{tlf_id}/outputs/{output_code}/assumptions
+PUT /api/v1/tlf-workbenches/{tlf_id}/outputs/{output_code}/assumptions
+GET /api/v1/tlf-workbenches/{tlf_id}/outputs/{output_code}/ars
+PUT /api/v1/tlf-workbenches/{tlf_id}/outputs/{output_code}/ars
+GET /api/v1/tlf-workbenches/{tlf_id}/outputs/{output_code}/program-plan
+PUT /api/v1/tlf-workbenches/{tlf_id}/outputs/{output_code}/program-plan
+
+POST /api/v1/tlf-workbenches/{aggregate_id}/proposals
+GET  /api/v1/tlf-workbenches/{aggregate_id}/proposals
+GET  /api/v1/tlf-workbenches/{aggregate_id}/proposals/{proposal_id}
+POST /api/v1/tlf-workbenches/{aggregate_id}/proposals/{proposal_id}:accept
+POST /api/v1/tlf-workbenches/{aggregate_id}/proposals/{proposal_id}:reject
+POST /api/v1/tlf-workbenches/{aggregate_id}/proposals/{proposal_id}:request-revision
+
 POST /api/v1/tlf-workbenches/{tlf_id}/program-plan:validate
 POST /api/v1/tlf-workbenches/{tlf_id}/program-plan:preview
 
@@ -907,9 +959,17 @@ POST /api/v1/tlf-workbenches/{tlf_id}:render
 POST /api/v1/tlf-workbenches/{tlf_id}/artifacts:build
 ```
 
-Validation requires every leaf shell row to map to an explicit analysis step. The dependency selection may bind an exact ARS version, explicitly used terminology, study Reference revisions, and one presentation template per output artifact type. Templates control layout but never create analysis steps, titles, interpretations, populations, parameters, or statistics.
+The TLF workbench is a study-wide portfolio. The operator input selection pins exact accepted
+Protocol/SAP content and ADaM dataset artifacts; it is evidence selection, not clinical authoring.
+The proposal stages are `tlf_output_inventory`, `tlf_analysis_shells`, and
+`tlf_programming_plan`. Output identity is preserved across stages, Bindings may use only selected
+ADaM datasets, and only a human acceptance creates immutable per-output content. Updating the input
+selection misaligns current content. Validation requires an explicit `output_code` and every leaf
+shell row to map to an explicit analysis step. The dependency selection may bind exact Standards,
+Terminology, Reference, and presentation Templates. Templates control layout but never create
+analysis steps, titles, interpretations, populations, parameters, or statistics.
 
-The ProgramPlan owns explicit ADaM reads, filters, population/parameter selection, statistical procedures, post-processing, and normalized result requirements in TLF vocabulary. A `custom` step references one plan-owned custom function with parameters exactly `rows` and `parameters` and return type `result_rows`; its implementation returns the normalized `statistic`, `value`, and `text` fields (plus optional `group`). After TLF validation, the plan lowers internally to Analysis IR; data-preparation portions may lower further to shared Dataflow IR. Neither IR is an editable API resource. Shell layout, titles, footnotes, pagination, styles, and rendering remain outside compilation. Preview and compile use the same lowering path, but preview does not execute custom bodies. Compile supports `python`, `r`, and `sas`; execution selects exact ADaM artifacts and a compiled program artifact. Render requests select validated result artifacts from the same successful run, the exact shell revision, and the exact Template version.
+The ProgramPlan owns explicit ADaM reads, filters, population/parameter selection, statistical procedures, post-processing, and normalized result requirements in TLF vocabulary. A `custom` step references one plan-owned custom function with parameters exactly `rows` and `parameters` and return type `result_rows`; its implementation returns the normalized `statistic`, `value`, and `text` fields (plus optional `group`). After TLF validation, the plan lowers internally to Analysis IR; data-preparation portions may lower further to shared Dataflow IR. Neither IR is an editable API resource. Shell layout, titles, footnotes, pagination, styles, and rendering remain outside compilation. Preview and compile use the same lowering path, but preview does not execute custom bodies. Compile, execute, render, and artifact-build requests select one explicit `output_code`; they never infer a mutable current output. Compile supports `python`, `r`, and `sas`; execution selects exact ADaM artifacts and a compiled program artifact. Render requests select validated result artifacts from the same successful run, the exact shell revision, and the exact Template version.
 
 ## 12. Validation, artifact, and build routes
 

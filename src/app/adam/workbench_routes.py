@@ -721,13 +721,10 @@ def put_plan(
     selection = handler.current_input(session, workbench.id)
     current = handler.latest_plan(session, workbench.id, dataset_code)
     if current is None:
-        if if_match not in (None, "*"):
-            raise ProblemException(
-                status_code=412,
-                code="precondition_failed",
-                title="The resource has changed",
-                detail="No plan exists yet for this dataset.",
-            )
+        # The first per-dataset plan has no resource revision of its own yet.
+        # Bind creation to the current aggregate revision so callers cannot
+        # create against a stale Specification or input selection.
+        require_matching_etag(if_match, workbench.revision)
     else:
         require_matching_etag(if_match, current.revision)
     if (

@@ -1,5 +1,9 @@
 # Packaging module
 
+> **AI transition:** AI may propose the exact artifact/module selection and reviewer rationale,
+> but a human must accept it. Package ownership, current-fingerprint checks, reconciliation,
+> checksums, trusted paths, and deterministic ZIP construction remain non-AI enforcement.
+
 Status: Phase 5 implemented. Packaging assembles exact immutable artifacts through registered
 module package-contribution capabilities. It never upgrades, regenerates, or substitutes an
 artifact selected by the caller.

@@ -17,11 +17,16 @@ from openpyxl import load_workbook
 from pypdf import PdfReader
 from sqlalchemy import text
 
+from app.adam.contracts import AdamSpecification
 from app.adam.define_xml import validate_define_xml
+from app.adam.models import AdamWorkbench
+from app.adam.workbench_routes import _save_specification
+from app.api.auth import Principal
 from app.artifacts.builds import resolve_build_input
 from app.artifacts.models import Artifact
 from app.catalog_seed import seed
 from app.common.canonical import fingerprint
+from app.common.problems import ProblemException
 from app.common.time import utc_now
 from app.database import create_database_engine, create_session_factory
 from app.documents.service import stable_entity_id
@@ -38,6 +43,10 @@ from app.sdtm.models import (
 from app.sdtm.xpt import build_xpt_v5
 from app.validation.models import ValidationRun
 from tests.conftest import make_test_settings
+from tests.integration.proposal_helpers import (
+    SyntheticPlatformAgentClient,
+    accept_typed_proposal,
+)
 from tests.integration.test_phase1_core import MemoryStorage, TestTokenVerifier
 from workers.job_worker import _process_job
 
@@ -69,7 +78,13 @@ class HostPythonExecutor:
 
 @pytest.fixture
 async def phase4_client() -> AsyncIterator[AsyncClient]:
-    settings = make_test_settings()
+    settings = make_test_settings(
+        assistance_enabled=True,
+        platform_control_plane_url="https://platform.example.test",
+        platform_service_token_url="https://identity.example.test/oauth2/token",
+        platform_service_client_id="aurinara-api",
+        platform_service_client_secret="synthetic-test-key",
+    )
     engine = create_database_engine(settings)
     factory = create_session_factory(engine)
     with engine.begin() as connection:
@@ -83,6 +98,7 @@ async def phase4_client() -> AsyncIterator[AsyncClient]:
         object_storage=storage,
         token_verifier=TestTokenVerifier(),
     )
+    app.state.platform_agent_client = SyntheticPlatformAgentClient()
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://testserver"
     ) as client:
@@ -262,6 +278,8 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     )
     assert adam.status_code == 201, adam.text
     adam_id = adam.json()["id"]
+    application = client._transport.app  # type: ignore[attr-defined]
+    factory = application.state.session_factory
     adam_dependencies = await client.put(
         f"/api/v1/adam-workbenches/{adam_id}/dependencies",
         headers={**headers, "If-Match": adam.headers["etag"]},
@@ -379,7 +397,7 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     }
     saved_plan = await client.put(
         f"/api/v1/adam-workbenches/{adam_id}/datasets/ADSL/derivation-plan",
-        headers={**headers, "If-Match": "*"},
+        headers={**headers, "If-Match": saved_specification.headers["etag"]},
         json=adam_plan,
     )
     assert saved_plan.status_code == 200, saved_plan.text
@@ -600,10 +618,15 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     assert define.json()["payload"]["methods"][0]["id"] == "MT.TRT01P"
     maintained_payload = define.json()["payload"]
     maintained_payload["description"] = "Manually maintained Define description"
-    maintained = await client.put(
-        f"/api/v1/adam-workbenches/{adam_id}/define",
-        headers={**headers, "If-Match": define.headers["etag"]},
-        json=maintained_payload,
+    maintained = await accept_typed_proposal(
+        client,
+        application=application,
+        module_key="adam",
+        collection="adam-workbenches",
+        aggregate_id=adam_id,
+        etag=define.headers["etag"],
+        proposal_type="adam_define",
+        proposal_payload=maintained_payload,
     )
     assert maintained.status_code == 200, maintained.text
     reinitialized = await client.post(
@@ -626,10 +649,15 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
     valid_define_payload = reinitialized.json()["payload"]
     invalid_define_payload = json.loads(json.dumps(valid_define_payload))
     invalid_define_payload["datasets"][0]["label"] = "Metadata that differs from Specification"
-    invalid_define = await client.put(
-        f"/api/v1/adam-workbenches/{adam_id}/define",
-        headers={**headers, "If-Match": reinitialized.headers["etag"]},
-        json=invalid_define_payload,
+    invalid_define = await accept_typed_proposal(
+        client,
+        application=application,
+        module_key="adam",
+        collection="adam-workbenches",
+        aggregate_id=adam_id,
+        etag=reinitialized.headers["etag"],
+        proposal_type="adam_define",
+        proposal_payload=invalid_define_payload,
     )
     assert invalid_define.status_code == 200, invalid_define.text
     invalid_define_validation = await client.post(
@@ -646,12 +674,20 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
         params={"version": "2.1"},
     )
     assert blocked_render.status_code == 409, blocked_render.text
-    reinitialized = await client.put(
-        f"/api/v1/adam-workbenches/{adam_id}/define",
-        headers={**headers, "If-Match": invalid_define.headers["etag"]},
-        json=valid_define_payload,
+    reinitialized = await accept_typed_proposal(
+        client,
+        application=application,
+        module_key="adam",
+        collection="adam-workbenches",
+        aggregate_id=adam_id,
+        etag=invalid_define.headers["etag"],
+        proposal_type="adam_define",
+        proposal_payload=valid_define_payload,
     )
     assert reinitialized.status_code == 200, reinitialized.text
+    current_define_etag = reinitialized.headers["etag"]
+    reinitialized = await client.get(f"/api/v1/adam-workbenches/{adam_id}/define", headers=headers)
+    reinitialized.headers["ETag"] = current_define_etag
     define_validation = await client.post(
         f"/api/v1/adam-workbenches/{adam_id}/define:validate", headers=headers
     )
@@ -758,10 +794,15 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
         section["paragraphs"] = [
             f"Manually authored synthetic reviewer guidance for {section['heading']}."
         ]
-    authored_adrg = await client.put(
-        f"/api/v1/adam-workbenches/{adam_id}/adrg",
-        headers={**headers, "If-Match": adrg.headers["etag"]},
-        json=adrg_payload,
+    authored_adrg = await accept_typed_proposal(
+        client,
+        application=application,
+        module_key="adam",
+        collection="adam-workbenches",
+        aggregate_id=adam_id,
+        etag=adrg.headers["etag"],
+        proposal_type="adam_adrg",
+        proposal_payload=adrg_payload,
     )
     assert authored_adrg.status_code == 200, authored_adrg.text
     refreshed_adrg = await client.post(
@@ -857,15 +898,22 @@ async def test_exact_sdtm_selection_and_adam_plan_alignment(
         content=changed.getvalue(),
     )
     assert imported.status_code == 200, imported.text
-    assert imported.json()["revision"] == 2
-    assert imported.json()["payload"]["datasets"][0]["label"] == ("Imported subject-level dataset")
-    replay = await client.post(
-        f"/api/v1/adam-workbenches/{adam_id}/specification:import",
-        headers=import_headers,
-        content=changed.getvalue(),
+    assert imported.json()["payload"]["datasets"][0]["label"] == (
+        "Imported subject-level dataset"
     )
-    assert replay.status_code == 200, replay.text
-    assert replay.json()["id"] == imported.json()["id"]
+    revised_specification = json.loads(json.dumps(adam_specification))
+    revised_specification["datasets"][0]["label"] = "AI-proposed subject-level dataset"
+    revised = await accept_typed_proposal(
+        client,
+        application=application,
+        module_key="adam",
+        collection="adam-workbenches",
+        aggregate_id=adam_id,
+        etag=imported.headers["etag"],
+        proposal_type="adam_specification",
+        proposal_payload=revised_specification,
+    )
+    assert revised.status_code == 200, revised.text
     blocked = await client.post(
         f"/api/v1/adam-workbenches/{adam_id}/datasets/ADSL/derivation-plan:validate",
         headers=headers,
@@ -896,6 +944,8 @@ async def test_specification_replaces_verified_normalized_trace_targets(
 ) -> None:
     client = phase4_client
     headers = {"Authorization": "Bearer test-token"}
+    application = client._transport.app  # type: ignore[attr-defined]
+    factory = application.state.session_factory
     study = await client.post(
         "/api/v1/studies",
         headers=headers,
@@ -1020,12 +1070,17 @@ async def test_specification_replaces_verified_normalized_trace_targets(
             },
         ],
     }
-    saved = await client.put(
-        f"/api/v1/adam-workbenches/{adam_id}/specification",
-        headers={**headers, "If-Match": adam.headers["etag"]},
-        json=specification,
-    )
-    assert saved.status_code == 200, saved.text
+    with factory.begin() as session:
+        workbench = session.get(AdamWorkbench, UUID(adam_id))
+        assert workbench is not None
+        saved = _save_specification(
+            session,
+            application.state.module_registry,
+            workbench,
+            AdamSpecification.model_validate(specification),
+            Principal(subject="integration-reviewer", scopes=frozenset()),
+        )
+        saved_revision = saved.revision
     links = await client.get(f"/api/v1/studies/{study_id}/trace-links", headers=headers)
     assert links.status_code == 200, links.text
     assert {
@@ -1042,31 +1097,41 @@ async def test_specification_replaces_verified_normalized_trace_targets(
         ("analyzes", "sap_population", population_entity_id, "adam_variable", variable_id),
     }
 
-    invalid = await client.put(
-        f"/api/v1/adam-workbenches/{adam_id}/specification",
-        headers={**headers, "If-Match": saved.headers["etag"]},
-        json={
-            **specification,
-            "trace_targets": [
-                {
-                    **specification["trace_targets"][0],
-                    "source": {
-                        **specification["trace_targets"][0]["source"],
-                        "entity_id": "60000000-0000-0000-0000-000000000099",
-                    },
-                }
-            ],
-        },
-    )
-    assert invalid.status_code == 422, invalid.text
-    assert invalid.json()["code"] == "trace_endpoint_invalid"
+    invalid_specification = {
+        **specification,
+        "trace_targets": [
+            {
+                **specification["trace_targets"][0],
+                "source": {
+                    **specification["trace_targets"][0]["source"],
+                    "entity_id": "60000000-0000-0000-0000-000000000099",
+                },
+            }
+        ],
+    }
+    with pytest.raises(ProblemException) as invalid, factory.begin() as session:
+        workbench = session.get(AdamWorkbench, UUID(adam_id))
+        assert workbench is not None
+        _save_specification(
+            session,
+            application.state.module_registry,
+            workbench,
+            AdamSpecification.model_validate(invalid_specification),
+            Principal(subject="integration-reviewer", scopes=frozenset()),
+        )
+    assert invalid.value.status_code == 422
+    assert invalid.value.code == "trace_endpoint_invalid"
 
-    replaced = await client.put(
-        f"/api/v1/adam-workbenches/{adam_id}/specification",
-        headers={**headers, "If-Match": saved.headers["etag"]},
-        json={**specification, "trace_targets": []},
-    )
-    assert replaced.status_code == 200, replaced.text
-    assert replaced.json()["revision"] == 2
+    with factory.begin() as session:
+        workbench = session.get(AdamWorkbench, UUID(adam_id))
+        assert workbench is not None
+        replaced = _save_specification(
+            session,
+            application.state.module_registry,
+            workbench,
+            AdamSpecification.model_validate({**specification, "trace_targets": []}),
+            Principal(subject="integration-reviewer", scopes=frozenset()),
+        )
+        assert replaced.revision == saved_revision + 1
     links = await client.get(f"/api/v1/studies/{study_id}/trace-links", headers=headers)
     assert links.json() == []

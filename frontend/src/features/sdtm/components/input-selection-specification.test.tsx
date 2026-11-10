@@ -45,13 +45,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { installJsdomHarness } from '@/test/jsdom-harness'
 import { ifMatchRequest } from '@/lib/requests'
 import type {
+  AppSdtmWorkbenchRoutesSpecificationResponse as SpecificationResponse,
   AggregateResponse,
   DependencySelectionResponse,
   InputSelectionResponse,
+  SdtmIndustryStandardVersion,
   SdtmSpecificationInitializationOptions,
-  SpecificationResponse,
-  StandardProductResponse,
-  StandardVersionResponse,
 } from '@/api/generated/model'
 
 beforeAll(() => {
@@ -162,35 +161,6 @@ vi.mock('@/api/generated/artifacts/artifacts', () => ({
   }),
 }))
 
-const catalogApi: {
-  products: StandardProductResponse[]
-  versions: StandardVersionResponse[]
-} = {
-  products: [],
-  versions: [],
-}
-
-vi.mock('@/api/generated/provider-catalogs/provider-catalogs', () => ({
-  useListStandards: () => ({
-    data: catalogApi.products,
-    error: null,
-    isLoading: false,
-    isError: false,
-  }),
-  useListStandardVersions: (productId: string) => ({
-    data: catalogApi.versions.filter((version) => version.product_id === productId),
-    error: null,
-    isLoading: false,
-    isError: false,
-  }),
-  useGetStandardVersion: (versionId: string) => ({
-    data: catalogApi.versions.find((version) => version.id === versionId),
-    error: null,
-    isLoading: false,
-    isError: false,
-  }),
-}))
-
 // ---------------------------------------------------------------------------
 // Generated SDTM hook stubs. Each test installs the behaviour it needs via the
 // mutable `sdtmApi` object the mock reads through.
@@ -211,6 +181,7 @@ const sdtmApi: {
   spec: SpecificationResponse | undefined
   specError: AxiosError | null
   dependencies: DependencySelectionResponse | undefined
+  liveStandards: SdtmIndustryStandardVersion[]
   initializationOptions: SdtmSpecificationInitializationOptions | undefined
   replaceDependenciesImpl: (vars: {
     sdtmId: string
@@ -232,6 +203,7 @@ const sdtmApi: {
   spec: undefined,
   specError: null,
   dependencies: undefined,
+  liveStandards: [],
   initializationOptions: undefined,
   replaceDependenciesImpl: async () => ({}),
   replaceDependenciesRequests: [],
@@ -283,6 +255,13 @@ vi.mock('@/api/generated/sdtm/sdtm', () => {
     data: sdtmApi.initializationOptions,
     error: null,
     isLoading: false,
+    isError: false,
+  })
+  const useListSpecificationIndustryStandards = () => ({
+    data: sdtmApi.liveStandards,
+    error: null,
+    isLoading: false,
+    isFetching: false,
     isError: false,
   })
   const usePutSpecification = (options?: {
@@ -342,6 +321,7 @@ vi.mock('@/api/generated/sdtm/sdtm', () => {
     useGetSpecification,
     useGetSdtmDependencies,
     useGetSpecificationInitializationOptions,
+    useListSpecificationIndustryStandards,
     usePutSpecification,
     useReplaceSdtmDependencies,
     useInitializeSpecification,
@@ -509,8 +489,9 @@ function makeSpec(
     id: 'spec-1',
     aggregate_id: 'sdtm-1',
     revision: 3,
-    schema_version: '1.0.0',
+    schema_version: '2.0.0',
     fingerprint: 'fp-spec',
+    standard_source: null,
     created_by: 'user-1',
     created_at: '2024-01-01T00:00:00Z',
     payload: {
@@ -587,47 +568,26 @@ beforeEach(() => {
   rawApi.latestValidationRunError = null
   rawApi.latestValidationRunLoading = false
   rawApi.dependencyFingerprint = 'raw-dep-fp'
-  catalogApi.products = [
+  sdtmApi.liveStandards = [
     {
-      id: 'standard-product-1',
-      code: 'SDTMIG',
-      name: 'SDTM Implementation Guide',
+      standard_version_id: 'standard-version-1',
+      product_id: 'standard-product-1',
+      product_name: 'SDTM Implementation Guide',
       provider: 'CDISC',
-      family: 'SDTMIG',
-      product_type: 'implementation_guide',
-      scope: 'clinical',
-    },
-  ]
-  catalogApi.versions = [
-    {
-      id: 'standard-version-1',
-      product_id: 'standard-product-1',
       version: '3.3',
-      publication_date: null,
-      library_href: '/mdr/sdtmig/3-3',
-      content_schema_version: '1.0.0',
       lifecycle: 'active',
-      checksum: 'sha-sdtmig-3-3',
-      provenance: {},
-      applicable_modules: ['sdtm'],
-      purposes: ['reference_metadata'],
-      compatibility: {},
-      created_at: '2024-01-01T00:00:00Z',
+      canonical_href: '/mdr/sdtmig/3-3',
+      title: 'SDTMIG 3.3',
     },
     {
-      id: 'standard-version-2',
+      standard_version_id: 'standard-version-2',
       product_id: 'standard-product-1',
+      product_name: 'SDTM Implementation Guide',
+      provider: 'CDISC',
       version: '3.4',
-      publication_date: null,
-      library_href: '/mdr/sdtmig/3-4',
-      content_schema_version: '1.0.0',
       lifecycle: 'active',
-      checksum: 'sha-sdtmig-3-4',
-      provenance: {},
-      applicable_modules: ['sdtm'],
-      purposes: ['reference_metadata', 'sdtm_ig'],
-      compatibility: {},
-      created_at: '2024-06-01T00:00:00Z',
+      canonical_href: '/mdr/sdtmig/3-4',
+      title: 'SDTMIG 3.4',
     },
   ]
   sdtmApi.selection = undefined
@@ -658,6 +618,23 @@ afterEach(() => {
 // Input selection (Requirements 10.1, 10.4, 10.5, 10.6)
 // ===========================================================================
 describe('InputSelectionPanel', () => {
+  it('presents reviewer-friendly readiness and dataset inventory by default', async () => {
+    sdtmApi.selection = makeSelection()
+    sdtmApi.rawContext = { dataset_count: 1, source_artifact_count: 1 }
+
+    renderInWorkbench(<InputSelectionPanel />)
+
+    expect(await screen.findByText('Ready for AI')).toBeTruthy()
+    expect(screen.getByText('RAW1 — Raw one')).toBeTruthy()
+    expect(screen.getByText('Dataset inventory')).toBeTruthy()
+    expect(screen.getByRole('cell', { name: 'DM' })).toBeTruthy()
+    expect(screen.getByRole('cell', { name: 'Demographics' })).toBeTruthy()
+    const technicalDetails = screen
+      .getByText('Technical source provenance')
+      .closest('details')
+    expect(technicalDetails?.hasAttribute('open')).toBe(false)
+  })
+
   it('save sends the full pinned body + the aggregate ETag as If-Match (Req 10.1)', async () => {
     sdtmApi.selection = makeSelection()
     sdtmApi.putSelectionImpl = vi.fn(async () => makeSelection({ revision: 3 }))
@@ -978,6 +955,10 @@ describe('SpecificationPanel', () => {
     // The save carried the whole Specification body…
     const call = (sdtmApi.putSpecImpl as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(call).toMatchObject({ sdtmId: 'sdtm-1' })
+    expect(call.data).toMatchObject({
+      schema_version: '2.0.0',
+      domains: expect.any(Array),
+    })
     expect((call.data as { domains: unknown[] }).domains.length).toBe(1)
     // …and the mutation was wired with the aggregate ETag as If-Match (11.4).
     const request = sdtmApi.putSpecRequests.at(-1) as AxiosRequestConfig
@@ -1003,6 +984,9 @@ describe('SpecificationPanel', () => {
     }
     sdtmApi.initializationOptions = {
       standard_version_id: 'standard-version-1',
+      source: 'cdisc_library_live',
+      canonical_href: '/mdr/sdtmig/3-4',
+      response_checksum: 'a'.repeat(64),
       domains: [
         {
           code: 'DM',

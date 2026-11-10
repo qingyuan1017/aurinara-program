@@ -3,6 +3,7 @@
 from base64 import urlsafe_b64encode
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
+from typing import Literal
 
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -41,6 +42,7 @@ class TokenRequest(BaseModel):
 
     subject: str = Field(default="local-developer", min_length=1, max_length=255)
     scope: str = Field(default="*", min_length=1, max_length=1000)
+    principal_kind: Literal["human", "service"] = "human"
     lifetime_seconds: int = Field(default=3600, ge=60, le=3600)
 
     @field_validator("subject", "scope")
@@ -97,6 +99,7 @@ class EphemeralSigningKey:
                 "iat": int(issued_at.timestamp()),
                 "exp": int(expires_at.timestamp()),
                 "scope": command.scope,
+                "principal_kind": command.principal_kind,
             },
             self._private_key,
             algorithm="RS256",

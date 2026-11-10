@@ -95,6 +95,15 @@ export function appendUniqueCsvToken(value: string, token: string): string {
   return items.join(', ')
 }
 
+export function removeCsvToken(value: string, token: string): string {
+  const normalized = token.trim().toUpperCase()
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item && item.toUpperCase() !== normalized)
+    .join(', ')
+}
+
 export function applyDomainMappingTransfer(
   state: { rawDatasets: string; upstreamDomains: string },
   { sourceId, targetId }: TransferLink,
@@ -103,13 +112,19 @@ export function applyDomainMappingTransfer(
   if (!sourceId.startsWith(prefix)) return state
   const [, sourceType, code] = sourceId.split(':')
   if (!code) return state
-  if (sourceType === 'raw' && targetId === 'domain-target:raw') {
+  if (
+    sourceType === 'raw' &&
+    (targetId === 'domain-target:raw' || targetId === 'domain-target:inputs')
+  ) {
     return {
       ...state,
       rawDatasets: appendUniqueCsvToken(state.rawDatasets, code),
     }
   }
-  if (sourceType === 'sdtm' && targetId === 'domain-target:sdtm') {
+  if (
+    sourceType === 'sdtm' &&
+    (targetId === 'domain-target:sdtm' || targetId === 'domain-target:inputs')
+  ) {
     return {
       ...state,
       upstreamDomains: appendUniqueCsvToken(state.upstreamDomains, code),

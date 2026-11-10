@@ -4,7 +4,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, FileCode2, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { PageHeader } from '@/components/layout/page-header'
 import { EmptyState, ErrorState } from '@/components/data/states'
 import { StatusBadge } from '@/components/data/status-badge'
 import { IssueList } from '@/components/data/issue-list'
@@ -67,6 +66,7 @@ import type {
   SdtmDefineModel,
   ValidationRunResponse,
 } from '@/api/generated/model'
+import { ReviewStageHeader } from '@/features/sdtm/components/review-stage-header'
 
 /**
  * The two Define-XML versions a render preview or an artifact build may target
@@ -94,6 +94,8 @@ const DEFINE_STALE_CODES = new Set([
 export interface DefinePanelProps {
   /** The owning SDTM workbench id (path parameter for every Define call). */
   sdtmId: string
+  /** Hide direct content saves while retaining deterministic operations. */
+  reviewOnly?: boolean
 }
 
 /** Inline destructive notice, consistent with the other SDTM panels. */
@@ -196,7 +198,7 @@ function usePollDefineBuild(
  * - A 409 staleness response refreshes the current Define model before a retry
  *   (18.9).
  */
-export function DefinePanel({ sdtmId }: DefinePanelProps) {
+export function DefinePanel({ sdtmId, reviewOnly = false }: DefinePanelProps) {
   const qc = useQueryClient()
   const { ifMatch } = useWorkbench()
   const download = useDownload()
@@ -256,14 +258,27 @@ export function DefinePanel({ sdtmId }: DefinePanelProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Define"
-        description={
-          <>
-            Author, validate, render, reconcile, and build the version-neutral
-            Define metadata via <code>/api/v1/sdtm-workbenches/{'{sdtm_id}'}/define</code>.
-          </>
-        }
+      <ReviewStageHeader
+        eyebrow="Metadata artifact review"
+        title="Define-XML review"
+        description="Review the version-neutral metadata bound to exact SDTM XPT outputs. Initialize factual structure, review AI or manual revisions, validate, preview, reconcile, and build Define-XML 2.0 and 2.1 from the same accepted model."
+        status={define ? 'Human review required' : 'Initialization required'}
+        metrics={[
+          {
+            label: 'Define revision',
+            value: define ? `r${define.revision}` : 'Not initialized',
+          },
+          {
+            label: 'Specification',
+            value: define ? `r${define.specification_revision}` : 'Not bound',
+          },
+          {
+            label: 'XPT evidence',
+            value: define?.output_artifact_ids.length ?? 0,
+            tone: define?.output_artifact_ids.length ? 'success' : 'warning',
+          },
+          { label: 'Render targets', value: 'Define-XML 2.0 · 2.1' },
+        ]}
       />
 
       {staleMessage && (
@@ -297,7 +312,7 @@ export function DefinePanel({ sdtmId }: DefinePanelProps) {
       />
 
       {/* Save (authored model, aggregate ETag). */}
-      {define && (
+      {define && !reviewOnly && (
         <SaveCard
           sdtmId={sdtmId}
           define={define}
@@ -309,19 +324,29 @@ export function DefinePanel({ sdtmId }: DefinePanelProps) {
         />
       )}
 
-      {/* Validate (synchronous Validation_Run). */}
-      {define && <ValidateCard sdtmId={sdtmId} />}
-
-      {/* Render a non-persisting XML preview. */}
-      {define && <RenderCard sdtmId={sdtmId} download={download} />}
-
-      {/* Reconcile (2s/300s poll). */}
       {define && (
-        <ReconcileCard sdtmId={sdtmId} define={define} onStale={handleStale} />
+        <div className="grid items-start gap-6 xl:grid-cols-2">
+          {/* Validate (synchronous Validation_Run). */}
+          <ValidateCard sdtmId={sdtmId} />
+
+          {/* Render a non-persisting XML preview. */}
+          <RenderCard sdtmId={sdtmId} download={download} />
+        </div>
       )}
 
-      {/* Build Define-XML artifacts (2s/300s poll). */}
-      {define && <BuildCard sdtmId={sdtmId} define={define} />}
+      {define && (
+        <div className="grid items-start gap-6 xl:grid-cols-2">
+          {/* Reconcile (2s/300s poll). */}
+          <ReconcileCard
+            sdtmId={sdtmId}
+            define={define}
+            onStale={handleStale}
+          />
+
+          {/* Build Define-XML artifacts (2s/300s poll). */}
+          <BuildCard sdtmId={sdtmId} define={define} />
+        </div>
+      )}
     </div>
   )
 }
@@ -913,7 +938,7 @@ function RenderCard({
 
         {xml !== null && (
           <pre
-            className="bg-muted max-h-96 overflow-auto rounded-md border p-3 text-xs"
+            className="bg-muted min-h-96 max-h-[48rem] overflow-auto rounded-md border p-3 text-xs"
             aria-label={`Define-XML ${version} preview`}
           >
             <code>{xml}</code>

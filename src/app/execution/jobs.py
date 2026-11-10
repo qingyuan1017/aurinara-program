@@ -114,7 +114,13 @@ class JobService:
             environment=environment,
             unit="Seconds",
         )
-        worker_queue = "execution" if job_types == ("execution",) else "build"
+        worker_queue = (
+            "execution"
+            if job_types == ("execution",)
+            else "assistance"
+            if job_types == ("ai_proposal",)
+            else "build"
+        )
         queue_conditions = [Job.status == "queued"]
         if job_types is not None:
             queue_conditions.append(Job.job_type.in_(job_types))

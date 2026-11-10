@@ -234,7 +234,7 @@ def _compatibility_issues(
 
 @router.get(
     "/sdtm-workbenches/{sdtm_id}/domains/{domain_code}/imported-dataset",
-    response_model=ImportedDomainResponse,
+    response_model=ImportedDomainResponse | None,
 )
 def get_imported_domain(
     sdtm_id: UUID,
@@ -242,17 +242,15 @@ def get_imported_domain(
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
     principal: Annotated[Principal, Depends(get_principal)],
-) -> ImportedDomainResponse:
+) -> ImportedDomainResponse | None:
     domain_code = domain_code.upper()
     workbench = _workbench(session, sdtm_id, principal)
     record = _handler(registry).latest_imported_domain(session, workbench.id, domain_code)
     if record is None:
-        raise ProblemException(
-            status_code=404,
-            code="sdtm_imported_domain_not_found",
-            title="Imported SDTM domain not found",
-            detail=f"Domain '{domain_code}' has no imported dataset revision.",
-        )
+        # This is an optional singleton queried while reviewing any generated
+        # domain. Absence is the normal initial state, not a missing workbench
+        # or invalid domain, so return a successful empty representation.
+        return None
     source = _handler(registry).domain_source(session, workbench.id, domain_code)
     return ImportedDomainResponse.from_record(
         record,

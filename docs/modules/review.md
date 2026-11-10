@@ -1,7 +1,10 @@
 # Review module
 
-Status: implemented human review questions, workflow fields, and append-only comments.
-This is collaborative review evidence, not an electronic signature or formal audit trail.
+Status: implemented human review questions, workflow fields, and append-only comments. The
+platform-wide AI proposal decision model described in the architecture is not yet implemented.
+When added, Review will own append-only human accept/reject/revision-request evidence while each
+clinical module continues to own proposal validation and application. This is collaborative review
+evidence, not an electronic signature or formal audit trail.
 
 ## Create a review item
 

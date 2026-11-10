@@ -10,6 +10,7 @@ from app.adam.models import (
     AdamWorkbench,
 )
 from app.artifacts.models import Artifact, ArtifactBuild, SourceFile
+from app.assistance.models import AiGenerationRun, AuthoringProposal, ProposalReviewDecision
 from app.common.idempotency import IdempotencyRecord
 from app.common.outbox import OutboxEvent
 from app.common.traceability import TraceLink
@@ -75,12 +76,19 @@ from app.terminology.models import (
     TerminologyReleaseCompatibility,
     TerminologyTerm,
 )
-from app.tlf.models import TlfAuthoringRevision, TlfDependencySelection, TlfWorkbench
+from app.tlf.models import (
+    TlfAuthoringRevision,
+    TlfDependencySelection,
+    TlfInputSelection,
+    TlfWorkbench,
+)
 from app.validation.models import ValidationRule, ValidationRulePack, ValidationRun
 
 __all__ = [
     "Artifact",
     "ArtifactBuild",
+    "AiGenerationRun",
+    "AuthoringProposal",
     "AdamAdrgRevision",
     "AdamDependencySelection",
     "AdamDefineRevision",
@@ -103,6 +111,7 @@ __all__ = [
     "ExecutionRun",
     "OutboxEvent",
     "PlatformProjectionEvent",
+    "ProposalReviewDecision",
     "ReconciliationRun",
     "ReferenceRecord",
     "ReferenceImportBatch",
@@ -147,6 +156,7 @@ __all__ = [
     "TerminologyCodelist",
     "TerminologyTerm",
     "TlfDependencySelection",
+    "TlfInputSelection",
     "TlfAuthoringRevision",
     "TlfWorkbench",
     "TraceLink",

@@ -100,10 +100,24 @@ services:
       PLATFORM_EVENT_QUEUE_URL: http://host.docker.internal:4567/000000000000/aurinara-platform-events
       PLATFORM_EVENT_REGION: us-east-1
       PLATFORM_EVENT_ENDPOINT_URL: http://host.docker.internal:4567
-      AWS_ACCESS_KEY_ID: test
-      AWS_SECRET_ACCESS_KEY: test
-      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
       INTEGRATION_ALLOW_LOOPBACK_CALLBACKS: "true"
+      ASSISTANCE_ENABLED: ${ASSISTANCE_ENABLED:-false}
+      ASSISTANCE_PROVIDER: ${ASSISTANCE_PROVIDER:-platform_agent}
+      ASSISTANCE_TIMEOUT_SECONDS: ${ASSISTANCE_TIMEOUT_SECONDS:-90}
+      ASSISTANCE_MAX_OUTPUT_TOKENS: ${ASSISTANCE_MAX_OUTPUT_TOKENS:-8192}
+      ASSISTANCE_MAX_CONTEXT_BYTES: ${ASSISTANCE_MAX_CONTEXT_BYTES:-1048576}
+      ASSISTANCE_TEMPERATURE: ${ASSISTANCE_TEMPERATURE:-0.1}
+      PLATFORM_CONTROL_PLANE_URL: ${PLATFORM_CONTROL_PLANE_URL:-http://host.docker.internal:8002}
+      PLATFORM_SERVICE_TOKEN_URL: ${PLATFORM_SERVICE_TOKEN_URL:-http://test-issuer:8081/token}
+      PLATFORM_SERVICE_CLIENT_ID: ${PLATFORM_SERVICE_CLIENT_ID:-aurinara-api}
+      PLATFORM_SERVICE_CLIENT_SECRET: ${PLATFORM_SERVICE_CLIENT_SECRET:-CHANGE-ME}
+      PLATFORM_SERVICE_AUDIENCE: ${PLATFORM_SERVICE_AUDIENCE:-}
+      PLATFORM_SERVICE_SCOPE: ${PLATFORM_SERVICE_SCOPE:-aurinara-platform/service}
+      PLATFORM_SERVICE_RESOURCE: ${PLATFORM_SERVICE_RESOURCE:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -129,6 +143,19 @@ services:
   build-worker:
     build: .
     command: ["python", "-m", "workers.job_worker"]
+    environment: *application-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  assistance-worker:
+    build: .
+    command: ["python", "-m", "workers.assistance_worker"]
     environment: *application-environment
     depends_on:
       migrate:

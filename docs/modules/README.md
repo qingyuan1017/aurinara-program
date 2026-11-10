@@ -45,8 +45,11 @@ covered in [shared platform usage](platform.md). The `transformation` package no
 internal typed Dataflow/Analysis IR, canonicalization, lineage, and deterministic compiler
 interfaces; by design it has no public API or persisted universal plan.
 
-## Important product boundary
+## AI-first transition boundary
 
-Aurinara records user-authored clinical content. It does not generate clinical narrative,
-mapping decisions, derivations, risk decisions, signals, actions, or conclusions. Current
-validation and rendering preserve this boundary.
+Aurinara's target workflow is AI-generated typed proposals with explicit human acceptance for
+every content-owning module. Exact inputs, deterministic extraction, validation, execution, and
+artifact generation remain authoritative. These module guides describe the currently implemented
+surface, which is still manual-first in several places; a transition note identifies that gap.
+Direct editors are not the target dual workflow and will be removed as each module's proposal
+capability lands.

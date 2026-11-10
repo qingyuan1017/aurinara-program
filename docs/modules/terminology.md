@@ -1,5 +1,10 @@
 # Terminology module
 
+> **AI transition:** published terminology snapshots remain exact immutable provider content and
+> are never model-generated. AI may propose sponsor-extension terms against an extensible selected
+> codelist, with cited rationale and unresolved items; only human acceptance creates an extension
+> revision. Current direct extension mutation routes are transitional.
+
 Status: immutable terminology-release browsing plus revisioned, study-scoped sponsor
 extensions. Published CDISC releases are imported on demand from one exact Library package
 href and retained as checksum-addressed object-store snapshots.
@@ -36,4 +41,5 @@ Add a term with `POST /terminology-extensions/{id}/terms`. Get the extension fir
 `ETag`, and use `If-Match` on extension or term mutation routes. Every accepted change
 creates an immutable extension revision and marks exact consumers of the superseded
 revision as requiring refresh. Extensions cannot shadow published identities or submission
-values, and the API does not propose codes.
+values. The currently implemented API does not yet propose codes; the target sponsor-extension
+proposal workflow described above will add reviewable proposals without changing published terms.

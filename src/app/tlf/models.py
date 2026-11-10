@@ -37,6 +37,22 @@ class TlfDependencySelection(UuidPrimaryKey, Base):
     fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
 
 
+class TlfInputSelection(UuidPrimaryKey, Base):
+    """Exact operator-selected Documents and ADaM evidence for a TLF portfolio."""
+
+    __tablename__ = "tlf_input_selections"
+    aggregate_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("tlf_workbenches.id", ondelete="RESTRICT"), unique=True, nullable=False
+    )
+    study_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("studies.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False, default="current")
+    payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
 class TlfAuthoringRevision(UuidPrimaryKey, Base):
     """One immutable revision of a TLF-owned authoring contract."""
 
@@ -53,13 +69,22 @@ class TlfAuthoringRevision(UuidPrimaryKey, Base):
     study_id: Mapped[UUID] = mapped_column(
         Uuid, ForeignKey("studies.id", ondelete="RESTRICT"), nullable=False, index=True
     )
-    content_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(64), nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
     schema_version: Mapped[str] = mapped_column(String(32), nullable=False)
     state: Mapped[str] = mapped_column(String(32), nullable=False, default="current")
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    originating_proposal_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("authoring_proposals.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    originating_decision_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("proposal_review_decisions.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )

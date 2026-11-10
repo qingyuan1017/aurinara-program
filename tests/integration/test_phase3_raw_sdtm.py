@@ -1,6 +1,7 @@
 """PostgreSQL and storage-backed Raw-to-SDTM authoring workflow."""
 
 import io
+import json
 import os
 import subprocess
 import sys
@@ -26,6 +27,7 @@ from app.database import create_database_engine, create_session_factory
 from app.execution.adapters import ExecutionRequest, ExecutionResult
 from app.execution.jobs import JobService
 from app.execution.worker import process_execution_job
+from app.integration.cdisc_library import CdiscLibraryResource
 from app.main import create_app
 from app.sdtm.contracts import SdtmDomain
 from app.sdtm.define_xml import validate_define_xml
@@ -66,6 +68,51 @@ SYNTHETIC_SDTMIG_VERSION_ID = UUID("10000000-0000-0000-0000-000000000112")
 SYNTHETIC_SDTMIG_ASSET_ID = UUID("10000000-0000-0000-0000-000000000113")
 
 
+class SyntheticCdiscLibraryReader:
+    """Test reader proving Specification initialization uses the live boundary."""
+
+    requests: list[str] = []
+
+    def __enter__(self) -> "SyntheticCdiscLibraryReader":
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        return None
+
+    def canonical_href(self, href: str) -> str:
+        if href not in {"/mdr/products/DataTabulation", "/mdr/sdtmig/9-9-1"}:
+            raise ValueError("unexpected synthetic CDISC Library href")
+        return href
+
+    def get(self, href: str) -> CdiscLibraryResource:
+        canonical_href = self.canonical_href(href)
+        self.requests.append(canonical_href)
+        if canonical_href == "/mdr/products/DataTabulation":
+            return CdiscLibraryResource(
+                href=canonical_href,
+                title="Data Tabulation",
+                resource_type="CDISC Library Product Group",
+                content={
+                    "_links": {
+                        "sdtmig": [
+                            {
+                                "href": "/mdr/sdtmig/9-9-1",
+                                "title": "Synthetic SDTMIG 9.9.1",
+                                "type": "Implementation Guide",
+                            }
+                        ]
+                    }
+                },
+            )
+        path = Path(__file__).resolve().parents[2] / "schemas/test/synthetic-sdtmig-9-9.json"
+        return CdiscLibraryResource(
+            href=canonical_href,
+            title="Synthetic SDTMIG 9.9.1",
+            resource_type="Implementation Guide",
+            content=json.loads(path.read_text(encoding="utf-8")),
+        )
+
+
 def _register_synthetic_sdtmig(session: Session, storage: MemoryStorage) -> None:
     """Register one repository-pinned synthetic SDTMIG for endpoint tests."""
 
@@ -73,26 +120,32 @@ def _register_synthetic_sdtmig(session: Session, storage: MemoryStorage) -> None
     asset_path = Path(__file__).resolve().parents[2] / path
     checksum = sha256_hex(asset_path.read_bytes())
     storage.put_file(checksum_object_key(checksum), asset_path, "application/json")
-    if session.get(StandardVersion, SYNTHETIC_SDTMIG_VERSION_ID) is not None:
-        return
-    if session.get(StandardProduct, SYNTHETIC_SDTMIG_PRODUCT_ID) is None:
+    version = session.get(StandardVersion, SYNTHETIC_SDTMIG_VERSION_ID)
+    product = session.get(StandardProduct, SYNTHETIC_SDTMIG_PRODUCT_ID)
+    if product is None:
         session.add(
             StandardProduct(
                 id=SYNTHETIC_SDTMIG_PRODUCT_ID,
                 code="SDTMIG",
                 name="Synthetic SDTM Implementation Guide",
-                provider="TEST",
+                provider="CDISC",
                 family="SDTMIG",
                 product_type="implementation_guide",
                 scope="clinical",
             )
         )
         session.flush()
+    else:
+        product.provider = "CDISC"
+    if version is not None:
+        version.version = "9-9-1"
+        session.commit()
+        return
     session.add(
         StandardVersion(
             id=SYNTHETIC_SDTMIG_VERSION_ID,
             product_id=SYNTHETIC_SDTMIG_PRODUCT_ID,
-            version="9.9.1",
+            version="9-9-1",
             library_href="/mdr/sdtmig/9-9-1",
             content_schema_version="1.0.0",
             lifecycle="active",
@@ -125,7 +178,11 @@ def _register_synthetic_sdtmig(session: Session, storage: MemoryStorage) -> None
 
 @pytest.fixture
 async def phase3_client() -> AsyncIterator[AsyncClient]:
-    settings = make_test_settings()
+    SyntheticCdiscLibraryReader.requests.clear()
+    settings = make_test_settings(
+        platform_authorization_mode="disabled",
+        platform_control_plane_url=None,
+    )
     engine = create_database_engine(settings)
     factory = create_session_factory(engine)
     with engine.begin() as connection:
@@ -154,6 +211,7 @@ async def phase3_client() -> AsyncIterator[AsyncClient]:
         session_factory=factory,
         object_storage=storage,
         token_verifier=TestTokenVerifier(),
+        cdisc_library_reader_factory=SyntheticCdiscLibraryReader,
     )
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://testserver"
@@ -176,6 +234,19 @@ async def test_sdtm_specification_xlsx_export_and_idempotent_import(
         headers=headers,
         json={"code": "SDTM", "name": "SDTM"},
     )
+    dependencies = await client.put(
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/dependencies",
+        headers={**headers, "If-Match": sdtm.headers["etag"]},
+        json={
+            "standards": [
+                {
+                    "purpose": "sdtm_ig",
+                    "standard_version_id": str(SYNTHETIC_SDTMIG_VERSION_ID),
+                }
+            ]
+        },
+    )
+    assert dependencies.status_code == 200, dependencies.text
     payload = {
         "domains": [
             {
@@ -203,7 +274,7 @@ async def test_sdtm_specification_xlsx_export_and_idempotent_import(
     }
     specification = await client.put(
         f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/specification",
-        headers={**headers, "If-Match": sdtm.headers["etag"]},
+        headers={**headers, "If-Match": dependencies.headers["etag"]},
         json=payload,
     )
     assert specification.status_code == 200, specification.text
@@ -238,6 +309,7 @@ async def test_sdtm_specification_xlsx_export_and_idempotent_import(
     )
     assert replay.status_code == 200, replay.text
     assert replay.json()["id"] == imported.json()["id"]
+    assert SyntheticCdiscLibraryReader.requests == ["/mdr/sdtmig/9-9-1"] * 4
 
 
 @pytest.mark.anyio
@@ -256,6 +328,19 @@ async def test_existing_sdtm_xpt_becomes_the_selected_domain_source(
         headers=headers,
         json={"code": "SDTM", "name": "SDTM"},
     )
+    dependencies = await client.put(
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/dependencies",
+        headers={**headers, "If-Match": sdtm.headers["etag"]},
+        json={
+            "standards": [
+                {
+                    "purpose": "sdtm_ig",
+                    "standard_version_id": str(SYNTHETIC_SDTMIG_VERSION_ID),
+                }
+            ]
+        },
+    )
+    assert dependencies.status_code == 200, dependencies.text
     domain = SdtmDomain.model_validate(
         {
             "code": "DM",
@@ -281,10 +366,16 @@ async def test_existing_sdtm_xpt_becomes_the_selected_domain_source(
     )
     specification = await client.put(
         f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/specification",
-        headers={**headers, "If-Match": sdtm.headers["etag"]},
+        headers={**headers, "If-Match": dependencies.headers["etag"]},
         json={"domains": [domain.model_dump(mode="json")]},
     )
     assert specification.status_code == 200, specification.text
+    missing_import = await client.get(
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/domains/DM/imported-dataset",
+        headers=headers,
+    )
+    assert missing_import.status_code == 200, missing_import.text
+    assert missing_import.json() is None
     product = build_xpt_v5(b"USUBJID\nP3-XPT-IN-01\n", domain)
     source = await client.post(
         f"/api/v1/studies/{study.json()['id']}/source-files",
@@ -379,11 +470,13 @@ async def test_sdtm_specification_initializes_from_selected_industry_standard(
 ) -> None:
     client = phase3_client
     headers = {"Authorization": "Bearer test-token"}
+    study_code = f"P3-STANDARD-{uuid4().hex[:8]}"
     study = await client.post(
         "/api/v1/studies",
         headers=headers,
-        json={"code": "P3-STANDARD", "name": "Industry standard initialization"},
+        json={"code": study_code, "name": "Industry standard initialization"},
     )
+    assert study.status_code == 201, study.text
     sdtm = await client.post(
         f"/api/v1/studies/{study.json()['id']}/sdtm-workbenches",
         headers=headers,
@@ -403,11 +496,21 @@ async def test_sdtm_specification_initializes_from_selected_industry_standard(
     )
     assert dependencies.status_code == 200, dependencies.text
 
+    live_versions = await client.get(
+        f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/specification/industry-standards",
+        headers=headers,
+    )
+    assert live_versions.status_code == 200, live_versions.text
+    assert live_versions.json()[0]["canonical_href"] == "/mdr/sdtmig/9-9-1"
+
     options = await client.get(
         f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/specification/initialization-options",
         headers=headers,
     )
     assert options.status_code == 200, options.text
+    assert options.json()["source"] == "cdisc_library_live"
+    assert options.json()["canonical_href"] == "/mdr/sdtmig/9-9-1"
+    assert len(options.json()["response_checksum"]) == 64
     assert [item["code"] for item in options.json()["domains"]] == ["DM", "AE"]
 
     initialized = await client.post(
@@ -416,6 +519,8 @@ async def test_sdtm_specification_initializes_from_selected_industry_standard(
         json={"domain_codes": ["DM"], "required_expected_only": True},
     )
     assert initialized.status_code == 200, initialized.text
+    assert initialized.json()["standard_source"]["source"] == "cdisc_library_live"
+    assert initialized.json()["standard_source"]["canonical_href"] == "/mdr/sdtmig/9-9-1"
     assert initialized.json()["payload"]["domains"][0]["code"] == "DM"
     assert [item["name"] for item in initialized.json()["payload"]["domains"][0]["variables"]] == [
         "STUDYID",
@@ -672,6 +777,12 @@ async def test_raw_to_aligned_sdtm_and_upstream_staleness(
         f"/api/v1/sdtm-workbenches/{sdtm.json()['id']}/dependencies",
         headers={**headers, "If-Match": sdtm.headers["etag"]},
         json={
+            "standards": [
+                {
+                    "purpose": "sdtm_ig",
+                    "standard_version_id": str(SYNTHETIC_SDTMIG_VERSION_ID),
+                }
+            ],
             "templates": [
                 {
                     "purpose": "presentation",

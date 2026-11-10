@@ -235,3 +235,78 @@ def test_rejects_standard_variables_without_required_factual_metadata() -> None:
 
     with pytest.raises(ValueError, match="unsupported datatype Date"):
         initialize_specification_from_standard(invalid)
+
+
+def test_normalizes_reviewed_cdisc_library_omissions_in_older_sdtmig_payloads() -> None:
+    metadata = _metadata()
+    normalized = ResolvedStandardMetadata(
+        version_id=metadata.version_id,
+        product_code=metadata.product_code,
+        product_name=metadata.product_name,
+        version="3.2",
+        canonical_href="/mdr/sdtmig/3-2",
+        checksum=metadata.checksum,
+        payload={
+            "classes": [
+                {
+                    "datasets": [
+                        {
+                            "name": "RELREC",
+                            "label": "Related Records",
+                            "datasetStructure": "One record per relationship",
+                            "datasetVariables": [
+                                {
+                                    "name": "STUDYID",
+                                    "label": "Study Identifier",
+                                    "simpleDatatype": "Char",
+                                    "core": "Req",
+                                },
+                                {
+                                    "name": "RELTYPE",
+                                    "label": "Relationship Type",
+                                    "simpleDatatype": "Char",
+                                    "core": "Exp",
+                                },
+                            ],
+                        },
+                        {
+                            "name": "TR",
+                            "label": "Trial Summary",
+                            "datasetStructure": "One record per trial summary parameter",
+                            "datasetVariables": [
+                                {
+                                    "name": "TRMETHOD",
+                                    "label": "Method",
+                                    "role": "Record Qualifier",
+                                    "core": "Perm",
+                                }
+                            ],
+                        },
+                        {
+                            "name": "FA",
+                            "label": "Findings About",
+                            "datasetStructure": "One record per finding about",
+                            "datasetVariables": [
+                                {
+                                    "name": "FALAT",
+                                    "label": "Laterality of Location of the Finding About",
+                                    "simpleDatatype": "Char",
+                                    "role": "Variable Qualifier",
+                                }
+                            ],
+                        },
+                    ]
+                }
+            ]
+        },
+    )
+
+    specification = initialize_specification_from_standard(normalized)
+
+    assert [item.role for item in specification.domains[0].variables] == [
+        "Identifier",
+        "Record Qualifier",
+    ]
+    assert specification.domains[1].variables[0].data_type == "character"
+    assert specification.domains[2].variables[0].core == "Perm"
+    assert specification.domains[2].variables[0].label == "Laterality"

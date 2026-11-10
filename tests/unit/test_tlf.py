@@ -1,4 +1,4 @@
-"""TLF manual-authoring, lowering, and deterministic compiler tests."""
+"""TLF accepted-contract lowering and deterministic compiler tests."""
 
 import csv
 import json
@@ -19,6 +19,7 @@ from app.tlf.contracts import (
     TlfBindings,
     TlfColumn,
     TlfNamedBinding,
+    TlfOutputInventory,
     TlfProgramPlan,
     TlfRow,
     TlfShell,
@@ -204,6 +205,41 @@ def test_shell_rejects_incorrect_leaf_declaration() -> None:
                 TlfRow(id="child", parent_id="parent", label="Child", order=2, leaf=True),
             ),
         )
+
+
+def test_inventory_requires_blockers_for_conventional_outputs() -> None:
+    with pytest.raises(ValidationError, match="blocking items"):
+        TlfOutputInventory.model_validate(
+            {
+                "outputs": [
+                    {
+                        "output_code": "T-14-1",
+                        "output_type": "table",
+                        "title": "Conventional disposition table",
+                        "basis": "conventional_proposal",
+                        "section": "Disposition",
+                        "purpose": "Candidate output pending source confirmation.",
+                        "source_reference": "/source_documents/0",
+                        "readiness": "blocked",
+                    }
+                ]
+            }
+        )
+
+
+def test_inventory_output_identity_is_unique() -> None:
+    output = {
+        "output_code": "T-14-1",
+        "output_type": "table",
+        "title": "Disposition table",
+        "basis": "source_supported",
+        "section": "Disposition",
+        "purpose": "Summarize subject disposition.",
+        "source_reference": "/source_documents/0/content/output_requirements/0",
+        "readiness": "ready",
+    }
+    with pytest.raises(ValidationError, match="output codes must be unique"):
+        TlfOutputInventory.model_validate({"outputs": [output, output]})
 
 
 def test_program_plan_requires_exact_ars_analysis_coverage() -> None:

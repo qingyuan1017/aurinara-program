@@ -2,9 +2,9 @@
 
 ## 1. Purpose and scope
 
-The Aurinara Clinical Platform is a standalone system for data management and statistical programming. It manages raw data and authors, validates, generates, executes, and packages clinical study deliverables across Raw, Documents, SDTM, ADaM, and TLF workflows. The Documents module contains Protocol, SAP, and study operational and quality deliverables.
+The Aurinara Clinical Platform is a standalone, AI-first system for data management and statistical programming. It manages raw data and generates, validates, reviews, executes, and packages clinical study deliverables across Raw, Documents, SDTM, ADaM, and TLF workflows. The Documents module contains Protocol, SAP, and study operational and quality deliverables.
 
-Release 1 provides structured authoring, versioned standards/terminology/template registries, study reference data, collaborative review, immutable reconciliation, deterministic artifact generation, traceability, standards validation, isolated Python and R execution, SAS program generation, and immutable submission packaging. The platform does not generate clinical content, mappings, proposals, or confidence scores. It validates user-authored content against pinned schemas and explicit business rules, but does not claim regulatory certification or parity with commercial validators.
+Release 1 provides typed AI proposal generation, human review gates, versioned standards/terminology/template registries, study reference data, immutable reconciliation, deterministic artifact generation from accepted revisions, traceability, standards validation, isolated Python and R execution, SAS program generation, and immutable submission packaging. AI proposals are untrusted drafts until an authorized human accepts them. The platform records assumptions and unresolved items rather than presenting uncalibrated confidence scores, and it does not claim regulatory certification or parity with commercial validators.
 
 ### Central Repository boundary
 
@@ -29,11 +29,11 @@ The system has no compatibility layer for an existing backend and no legacy migr
 
 ## 2. Architectural principles
 
-1. **Clinical decisions.** Users create and approve all clinical content, mappings, rules, assumptions, annotations, and review decisions.
+1. **Dual authoring, human authority.** AI proposal generation is the recommended default, and authorized users may also create or edit typed content manually from scratch. AI output still requires explicit accept/reject/revision review; manual writes pass the same module validation, optimistic concurrency, immutable-revision, lineage, and staleness rules and record the responsible human identity.
 2. **Strict module ownership.** Each clinical module owns its API routes, domain model, repositories, services, validators, and builders.
 3. **Explicit integration.** Modules collaborate through typed service interfaces and stable identifiers. A module must not import another module's repository or database implementation.
-4. **Immutable evidence.** Validation runs, generated artifacts, execution manifests, outputs, and packages are immutable snapshots.
-5. **Deterministic builds.** A build records a canonical dependency fingerprint, generator version, standards/terminology/schema/template/rule-pack versions, input-selection and Specification revisions when applicable, source-plan and IR/operator/compiler versions, and input artifact IDs.
+4. **Immutable evidence.** AI generation runs, proposals, review decisions, validation runs, generated artifacts, execution manifests, outputs, and packages are immutable snapshots.
+5. **Deterministic builds.** Model generation is not assumed deterministic. Every proposal freezes its exact context and provider/model/instruction provenance; after human acceptance, builds remain deterministic and record a canonical dependency fingerprint, generator version, standards/terminology/schema/template/rule-pack versions, accepted proposal and content revisions, source-plan and IR/operator/compiler versions, and input artifact IDs.
 6. **Safe execution.** Programs run in disposable, resource-limited containers with no external network access. SAS uses an external runner adapter.
 7. **Standards transparency.** The platform reports exactly which standards, schemas, terminology releases, templates, rule packs, validators, input selections, Specifications, source plans, IR/operator versions, and compilers were used.
 8. **Study isolation.** Every owned record is scoped to a study, and every service operation enforces study membership.
@@ -44,13 +44,16 @@ The system has no compatibility layer for an existing backend and no legacy migr
 
 ```mermaid
 flowchart LR
-    User[Clinical author or reviewer] --> API[FastAPI application]
+    User[Clinical reviewer] --> API[FastAPI application]
     API --> PG[(PostgreSQL 16)]
     API --> S3[(S3-compatible object storage)]
     API --> Queue[Durable jobs table]
     Worker[Durable job worker] --> Queue
     Worker --> PG
     Worker --> S3
+    Assistance[AI proposal worker] --> Queue
+    Assistance --> Provider[Configured model provider]
+    Assistance --> PG
     Dispatcher[Execution dispatcher] --> Queue
     Dispatcher --> Executor[Executor adapter]
     Executor --> Py[Isolated Python runner]
@@ -64,7 +67,7 @@ flowchart LR
     SAS --> S3
 ```
 
-The API accepts commands and queries, performs synchronous content validation where practical, and creates durable jobs for expensive builds, validation, reconciliation, execution, and packaging. Workers claim jobs from PostgreSQL. Source files and generated bytes live in object storage; PostgreSQL contains their metadata and traceability.
+The API accepts commands and queries, performs synchronous content validation where practical, and creates durable jobs for AI proposals, builds, validation, reconciliation, execution, and packaging. Workers claim jobs from PostgreSQL. The API process never calls a model provider. Source files and generated bytes live in object storage; PostgreSQL contains their metadata, proposal provenance, review decisions, and traceability.
 
 ### AWS production topology
 
@@ -135,6 +138,7 @@ clinical-artifact-platform/
       terminology/
       reference/
       templates/
+      assistance/
       review/
       reconciliation/
       raw/
@@ -149,6 +153,7 @@ clinical-artifact-platform/
       packaging/
   workers/
     job_worker.py
+    assistance_worker.py
     execution_dispatcher.py
     integration_dispatcher.py
   runners/
@@ -216,14 +221,15 @@ The frontend mirrors clinical ownership under `frontend/src/features/{raw,docume
 | Object storage     | S3 in deployment, MinIO locally               | Durable source and artifact storage                     |
 | Durable queue      | PostgreSQL jobs with `FOR UPDATE SKIP LOCKED` | Atomic state changes without a second queueing platform |
 | Document rendering | `python-docx`, `reportlab`                    | DOCX and PDF output from a shared representation        |
-| Workbooks          | `openpyxl`                                    | Specifications and manual bulk-import templates         |
+| Workbooks          | `openpyxl`                                    | Specifications and reviewed bulk-import templates       |
+| AI providers       | Typed HTTP adapters behind `assistance`       | Provider-neutral structured proposal generation         |
 | XML                | `lxml`                                        | Define-XML rendering and local XSD validation           |
 | XPT                | `pyreadstat`                                  | SAS transport v5 read/write support                     |
 | Tabular data       | `pandas`, `pyarrow`                           | CSV and Parquet input/output                            |
 | Execution          | Docker locally; disposable ECS tasks in AWS    | Equivalent isolation behind one typed executor boundary |
 | Tests              | pytest, Hypothesis, Testcontainers            | Unit, property, and real-service integration testing    |
 
-Dependency versions are explicit. CDISC standards metadata and controlled terminology are imported on demand from CDISC Library and retained as immutable checksum-addressed object-store snapshots. Locally required conformance schemas and document templates remain pinned in source control. Their exact versions and checksums are recorded in artifact manifests.
+Dependency versions are explicit. Every SDTM Specification operation resolves the explicitly selected SDTMIG resource directly from CDISC Library, including catalog/domain discovery, read, initialization, direct save, import/replay, export, and Specification AI proposal generation or acceptance. Created revisions record the canonical href and live response checksum; proposal context contains a normalized typed extraction rather than the unrestricted provider response. Other CDISC standards metadata and controlled terminology are imported on demand and retained as immutable checksum-addressed object-store snapshots. Locally required conformance schemas and document templates remain pinned in source control. Their exact versions and checksums are recorded in artifact manifests.
 
 ## 6. Modular monolith boundaries
 
@@ -237,7 +243,8 @@ The application is deployed as one API and a small set of worker processes, whil
 | Terminology    | Immutable terminology releases, codelists, terms, bindings, sponsor extensions                                                | Selected CDISC Library terminology snapshots, Standards, validation                                                                                                                    |
 | Reference      | Study-scoped organizations, countries, sites, vendors, languages, units, roles, and milestones                                | Standards and Terminology code resolution, validation, trace links                                                                                                                     |
 | Templates      | Template families, immutable versions, applicability, renderer compatibility                                                  | Repository templates, Standards compatibility metadata                                                                                                                                 |
-| Review         | Human review items, comments, assignments, dispositions, and status                                                           | Typed entity resolvers, Templates for reports, validation, trace links                                                                                                                 |
+| Assistance     | Provider adapters, instruction versions, immutable generation runs, proposal envelopes, usage and failure metadata            | Module-registered proposal handlers and exact context DTOs; no clinical repositories                                                                                                   |
+| Review         | Human review items, comments, assignments, proposal decisions, dispositions, and status                                       | Typed entity and proposal resolvers, Templates for reports, validation, trace links                                                                                                    |
 | Reconciliation | Immutable comparisons of exact revisions and artifacts                                                                        | Module context interfaces, Templates for reports, artifacts, validation                                                                                                                |
 | Raw            | Raw dataset and variable metadata, immutable file bindings, previews, Raw artifacts                                           | Standards, Terminology, Reference, Templates, source files, artifacts, validation, trace links                                                                                         |
 | Documents      | Protocol, USDM, evidence, SAP, operational documents, quality workbooks, and their artifacts                                  | Standards, Terminology, Reference, Templates, source files, read-only Raw context, artifacts, validation, trace links                                                                  |
@@ -266,12 +273,13 @@ entity_types
 relationship_types
 artifact_types
 source_plan_types
+proposal_types
 event_types
 authorization_scopes
 capabilities
 ```
 
-Capability protocols cover dependency selection and staleness-edge enumeration, validation, artifact ownership/building, typed entity resolution, review targets, reconciliation inputs, immutable context export, trace relationships, package contribution, compilation, execution, and domain-event publication. The registry maps each declared key or owned type to exactly one typed handler. Startup fails before serving traffic when a descriptor duplicates a module key, route prefix, owned entity or relationship type, artifact type, source-plan type, or event type; declares a capability without its handler; exposes a route outside its prefix; or references an unknown dependency purpose.
+Capability protocols cover dependency selection and staleness-edge enumeration, AI proposal context/generation/acceptance, validation, artifact ownership/building, typed entity resolution, review targets, reconciliation inputs, immutable context export, trace relationships, package contribution, compilation, execution, and domain-event publication. The registry maps each declared key or owned type to exactly one typed handler. Startup fails before serving traffic when a descriptor duplicates a module key, route prefix, owned entity or relationship type, artifact type, source-plan type, proposal type, or event type; declares a capability without its handler; exposes a route outside its prefix; or references an unknown dependency purpose.
 
 Shared services depend on capability protocols, not concrete clinical packages. Adding a module therefore requires its package and descriptor registration, Alembic migrations, capability implementations, router, schemas, and tests, but does not require editing dispatch `if` statements in Artifacts, Validation, Review, Reconciliation, Traceability, Packaging, or Integration. The registry does not weaken ownership: a resolver returns an immutable typed DTO, an artifact contributor returns a build request/manifest contract, and a package contributor returns trusted path rules and required selections. No capability exposes another module's repository or ORM model.
 
@@ -336,7 +344,7 @@ Publishing a new immutable standard, terminology release, or template version do
 | Documents                 | USDM/content-schema versions and any explicitly applicable document standard              | Controlled statuses, categories, units, and document-specific code lists                      | Sponsor, vendors, sites, owners, roles, milestones, countries, languages, and display units                    | Exact PDF, DOCX, or XLSX layout per document artifact type                                    |
 | SDTM                      | SDTM IG, Define-XML, and other selected exchange/schema versions                          | Exact SDTM terminology release plus study extension revisions                                 | Study/sponsor/site/country/language/unit facts selected for metadata or mappings                               | aCRF, cSDRG, specifications, and report presentation                                          |
 | ADaM                      | ADaM IG and Define-XML versions compatible with the selected SDTM context                 | Exact ADaM terminology releases and extensions                                                | Study, sponsor, role, and unit facts used by metadata; analysis populations remain ADaM-owned clinical content | ADRG, specifications, derivation reports, and validation-report presentation                  |
-| TLF                       | ARS or other explicitly selected analysis-results specification                           | Statistic, parameter, population, and display-code bindings where the TLF author selects them | Study labels, units, roles, and approved organization facts; titles and interpretations remain user-authored   | Shell and rendered table, listing, and figure presentation; templates do not define analyses  |
+| TLF                       | ARS or other explicitly selected analysis-results specification                           | Statistic, parameter, population, and display-code bindings proposed against the exact release and accepted by a human | Study labels, units, roles, and approved organization facts; AI drafts titles and interpretations for human acceptance | Shell and rendered table, listing, and figure presentation; templates do not define analyses  |
 | Validation                | Uses the owning aggregate's frozen selection to choose compatible validator/rule versions | Validates identifiers and values against exact releases and extension revisions               | Checks resolved revision, type, study ownership, and effective status                                          | Uses a selected report template only after the immutable findings snapshot is complete        |
 | Review and Reconciliation | Display and compare the exact selections of their targets or inputs                       | Never recode values while reviewing or comparing                                              | Resolve exact revisions for labels and comparison evidence                                                     | Use exact review/reconciliation report templates                                              |
 | Artifacts and Execution   | Record or stage only versions supplied by the owner manifest                              | Never resolve a newer release at worker runtime                                               | Stage only explicitly declared revisions; do not query current values                                          | Load the exact version and verify its checksum and renderer compatibility                     |
@@ -374,6 +382,44 @@ Delivery is at least once. Each attempt records the event ID, subscription revis
 
 Connector adapters are typed and deployment-configured. They may run in the integration worker or as separately deployed clients, but they cannot run inside execution containers or load untrusted code into the API process. API versions, import schema versions, and event schema versions evolve independently; breaking changes require a new version while additive changes remain backward compatible.
 
+### 6.5 AI proposal and human-review boundary
+
+AI is the default drafting path anywhere Aurinara creates or changes clinical content, metadata meaning, mappings, derivations, narratives, annotations, executable programs, analyses, reference values, sponsor terminology extensions, or package selections. Exact provider imports, physical-schema extraction, checksum calculation, dependency resolution, validation, compilation, rendering, execution, and packaging verification remain deterministic services rather than model tasks.
+
+This policy covers every authoring or decision surface rather than only SDTM:
+
+| Area | AI proposes | Human or deterministic authority |
+| --- | --- | --- |
+| Raw | semantic labels, roles, descriptions, terminology, source disposition, metadata corrections | source bytes and observed physical schema are deterministic; human accepts semantics |
+| Documents | Protocol/USDM, SAP, operational and quality narratives/rows, risks, signals, actions, citations, trace links | human accepts clinical/quality content; deterministic validators enforce contracts |
+| SDTM | Specification scope, Domain/Variable/VLM mappings, code, aCRF/Define metadata, repairs, cSDRG narrative | human accepts; isolated runner and standards validators remain authoritative |
+| ADaM | Specification, parameters, methods, origins, trace links, per-dataset plans, Define/ADRG narrative | human accepts; typed lowering, compilation, and execution remain deterministic |
+| TLF | Shell, bindings, assumptions, ARS, ProgramPlan, titles, footnotes, interpretations | human accepts; statistical procedure and rendering validation remain deterministic |
+| Reference and terminology extensions | evidence-grounded facts, corrections, and extension terms | human accepts; exact provider releases are immutable and never AI-authored |
+| Validation and reconciliation | issue explanations, grouping, and correction proposals | registered rules and exact comparisons determine findings; AI cannot change severity or pass state |
+| Packaging | exact artifact selection and rationale | human accepts; package policy, reconciliation, path safety, and checksums are deterministic |
+| Review | optional summaries or draft responses | acceptance, rejection, revision requests, dispositions, and rationale are human decisions |
+| Standards, Templates, Integration, Kernel, Artifacts, Execution | selection explanations or operator guidance only | provider snapshots, layout assets, configuration, authorization, storage, and execution controls are deterministic/operator-managed |
+
+`assistance` is a technical orchestration boundary. It owns configured provider adapters, immutable instruction versions, model-call limits, generation-run records, usage/failure metadata, and the shared proposal envelope. It never owns a clinical output schema, assembles a module prompt, queries a clinical repository, chooses a dependency, or applies a proposal. Each owning module registers stable proposal types and implements typed handlers for exact context assembly, output validation, diffing, acceptance, and resulting staleness.
+
+The lifecycle is:
+
+```text
+queued -> running -> review_required -> accepted
+                 |                   -> rejected
+                 |                   -> revision_requested -> superseded
+                 -> failed
+```
+
+Every generation run freezes the study, aggregate, proposal type/schema version, base aggregate and content revisions, dependency and input fingerprints, context checksum, provider and model identifiers, instruction/prompt version, bounded generation parameters, response checksum, token/usage metadata when supplied, validation issues, assumptions, unresolved items, creator, and timestamps. Provider credentials, unrestricted source rows, licensed payloads, object-store locations, and authorization tokens are never persisted in the proposal or prompt snapshot.
+
+The model response is untrusted input. The module validates it through Pydantic and its ordinary domain, reference-resolution, traceability, security, and standards rules before a proposal can enter `review_required`. Invalid output remains immutable failed evidence and cannot be applied. The UI presents the exact base-to-proposal diff, evidence references, issues, assumptions, unresolved items, model limitations, and prior reviewer feedback; it does not convert a model's self-reported probability into an approval signal.
+
+Only an authorized human can accept, reject, or request revision. Acceptance requires the current aggregate `ETag` and an idempotency key. The module re-resolves the exact base, revalidates the proposal, then commits the proposal decision, normal immutable module revisions, trace links, staleness changes, and outbox events once. A changed base returns `409 proposal_base_stale`; it is never silently rebased. Rejection and revision requests preserve active content unchanged. A revision request creates a new generation run bound to the prior proposal and immutable reviewer guidance.
+
+Model-provider network access is owned by Aurinara Platform. Aurinara's API reads the product-scoped agent catalog with its Cognito service identity and freezes the selected agent ID, catalog revision, provider, and model in the generation run. Only the assistance worker sends the module-owned typed request to Platform's versioned one-shot invocation endpoint. Platform resolves and invokes its registered AgentCore Runtime, forwards the same service token to the Runtime authorizer, bounds and validates the response, and rejects model or revision drift. Aurinara stores the returned checksum and provenance, validates the clinical payload, and never receives Runtime coordinates or direct AgentCore IAM permission. Model-generated Python, R, or SAS remains inert proposal data until human acceptance and executes only through the network-disabled runner boundary.
+
 ## 7. Persistence model
 
 All primary identifiers are UUIDs. Human-facing codes such as `DM`, `ADSL`, and `T-14-1` are separate natural keys with uniqueness rules scoped to their owning aggregate.
@@ -393,6 +439,10 @@ artifacts
 execution_runs
 execution_outputs
 submission_packages
+ai_instruction_versions
+ai_generation_runs
+authoring_proposals
+proposal_review_decisions
 jobs
 outbox_events
 integrations
@@ -403,6 +453,8 @@ integration_delivery_attempts
 ```
 
 `source_files` is the shared technical record for immutable uploaded bytes. A clinical module may reference a source file through its service interface, but the file record does not contain module-specific semantics.
+
+`ai_generation_runs` and `authoring_proposals` store the shared immutable envelope and fingerprints; proposal payloads validate against a registered module-owned schema. `proposal_review_decisions` are append-only human evidence. Accepted module revisions retain the originating proposal and decision IDs so artifacts and packages can trace clinical content back to both model generation and human authority without moving the content into `assistance` or `review`.
 
 `integrations`, `external_identifiers`, and subscriptions are study-scoped. External tuples are unique per integration and target verified registered entity types. Subscription edits create a new revision; delivery attempts pin that revision and the immutable outbox event ID. Delivery attempts are append-only except for bounded lease/terminal-state transitions. Signing secrets use separate encrypted, versioned records with non-secret fingerprints and are never recoverable through read APIs.
 
@@ -492,31 +544,31 @@ tlf_runs
 
 A deployment-added module owns module-key-prefixed aggregate tables and contributes reviewed Alembic revisions to the single ordered migration history. It may reference shared identities through foreign keys and typed interfaces but cannot add foreign keys directly into another clinical module's private tables or create schemas dynamically at startup.
 
-The Raw module binds each raw dataset record to an exact immutable `source_file` and stores dataset and variable metadata separately from the uploaded bytes. Replacing a dataset file creates a new source file and updates the binding through an optimistic-concurrency-controlled command; it never overwrites the prior object. Physical schema inspection may initialize missing factual fields such as names, types, lengths, and column order, but it must preserve manual edits and must not infer mappings, clinical meaning, or review decisions.
+The Raw module binds each raw dataset record to an exact immutable `source_file` and stores dataset and variable metadata separately from the uploaded bytes. Replacing a dataset file creates a new source file and updates the binding through an optimistic-concurrency-controlled command; it never overwrites the prior object. Physical schema inspection deterministically supplies observed names, types, lengths, and column order. AI proposes semantic labels, roles, terminology bindings, descriptions, source dispositions, and corrections for human review without altering the source bytes or claiming that inferred metadata was observed fact.
 
 The Standards and Terminology registries expose immutable version records for exact provider snapshots; Templates exposes immutable versions of repository-pinned presentation assets. Validation, generation, execution, reconciliation, and packaging never download or silently upgrade provider content. Compatibility links state which standards, terminology releases, schemas, templates, validators, generators, modules, and artifact types may be used together. Provider services return typed resolution DTOs containing identity, version, checksum, lifecycle, applicability, and compatibility evidence.
 
-Pinned provider-asset content bytes live in the same S3-compatible object store as generated artifacts, keyed by `checksum_object_key(sha256)` derived from each asset's registered `checksum`; the database `checksum` remains the integrity source of truth and no `object_key` column is required. The preferred CDISC administration command fetches one explicitly selected concrete release graph into an ephemeral workspace, canonicalizes and hashes every response, publishes the verified bytes to object storage, and only then opens the database transaction that registers the release. Temporary acquisition files are destroyed after the command. Content-addressed re-uploads of identical bytes are no-ops. Hand-maintained exceptional assets and templates retain their reviewed repository importers. The `publish-assets` command backfills object storage only for repository-backed rows; CDISC on-demand rows already require published objects. Every content read re-hashes fetched bytes against the registered checksum. The development-only local fallback applies only to paths intentionally rooted under `schemas/`, `terminology/`, or `templates/`; object-store-only CDISC snapshots never fall back to a repository path. Production rejects local fallback. Per-request content unavailability surfaces as typed `503`/`500` problem responses rather than a generic error; readiness checks continue to probe only bucket reachability.
+Pinned provider-asset content bytes live in the same S3-compatible object store as generated artifacts, keyed by `checksum_object_key(sha256)` derived from each asset's registered `checksum`; the database `checksum` remains the integrity source of truth and no `object_key` column is required. The preferred CDISC administration command fetches one explicitly selected concrete release graph into an ephemeral workspace, canonicalizes and hashes every response, publishes the verified bytes to object storage, and only then opens the database transaction that registers the release. Temporary acquisition files are destroyed after the command. Content-addressed re-uploads of identical bytes are no-ops. Hand-maintained exceptional assets and templates retain their reviewed repository importers. The `publish-assets` command backfills object storage only for repository-backed rows; CDISC on-demand rows already require published objects. Snapshot content reads re-hash fetched bytes against the registered checksum; SDTM Specification live reads instead hash the provider response and persist that checksum on the revision. The development-only local fallback applies only to paths intentionally rooted under `schemas/`, `terminology/`, or `templates/` and is never used by live Specification reads. Production rejects local fallback. Per-request content unavailability surfaces as typed problem responses.
 
 The Standards registry models CDISC products separately from exact releases. It supports model, implementation-guide, data-collection, data-exchange, analysis, therapeutic-area, measure, and foundational products without hard-coding a closed product list. An exact release may contain multiple checked assets and typed directional relationships to other releases. This represents, for example, an implementation guide's exact model dependency instead of flattening SDTM and SDTMIG into one version string. The Terminology registry preserves complete CDISC/NCI publication semantics: terminology product, publication date, NCI concept IDs, codelist submission values, definitions, preferred terms, synonyms, extensibility, term status, and exact compatibility with standard releases. Sponsor overlays are allowed only for extensible codelists.
 
-CDISC Library is the upstream authority for standards metadata and controlled terminology. An administrator imports a concrete product or terminology release by canonical `/mdr/` href. The importer follows only that root and its descendants, rejects catalogs and mutable `/mdr/root/` aliases, bounds response size and graph size, and records the selected href, Library update metadata, acquisition time, resource inventory, and checksums. Only the selected graph is retained in object storage; no complete Library mirror or checked-in CDISC metadata tree is required. Existing clinical work remains bound to the imported immutable release when CDISC publishes newer content. API and worker operations consume the retained snapshot and never call CDISC Library, preserving reproducibility and availability while keeping the installation small.
+CDISC Library is the upstream authority for standards metadata and controlled terminology. The SDTM Specification workflow is the deliberate live-read exception: its server-side routes call the selected canonical SDTMIG `/mdr/` href with the environment-backed API key and record the exact response checksum. No credential is returned to the browser. Other consumers use administrator-imported immutable selections: the importer follows only the selected root and descendants, rejects catalogs and mutable `/mdr/root/` aliases, bounds response and graph size, and records acquisition provenance and checksums. Existing non-Specification work remains bound to imported immutable releases.
 
-Reference records are study facts with typed `reference_type` contracts. Each accepted edit creates an immutable revision under a stable logical identity; retiring an identity prevents new bindings but preserves historical resolution. Terminology extension edits follow the same revision rule. Review records contain human workflow state and typed links but are not electronic signatures or a formal regulatory audit trail. Reconciliation runs are immutable snapshots of exact inputs, comparison version, results, issues, and generated report artifacts.
+Reference records are study facts with typed `reference_type` contracts. AI may draft a fact or sponsor-terminology extension only from cited study evidence and exact selected terminology; a human acceptance creates the immutable revision under a stable logical identity. Retiring an identity prevents new bindings but preserves historical resolution. Review records contain human workflow state and typed links but are not electronic signatures or a formal regulatory audit trail. Reconciliation runs are immutable snapshots of exact inputs, comparison version, results, issues, and generated report artifacts.
 
-The Documents module uses a `document_type` discriminator and versioned Pydantic content contracts. Protocol and Statistical Analysis Plan retain specialized schemas and validators inside the module. The remaining operational documents and quality workbooks use type-specific content models; they are not arbitrary JSON documents. PDF outputs use the shared renderer-neutral `Document` model, and XLSX outputs use typed row models rendered with `openpyxl`.
+The Documents module uses a `document_type` discriminator and versioned Pydantic content and proposal contracts. Protocol and Statistical Analysis Plan retain specialized schemas, evidence-grounding policies, and validators inside the module. AI drafts new documents and revisions from exact cited source evidence; humans review field-level changes and accept, reject, or request revision. The remaining operational documents and quality workbooks use type-specific content models; they are not arbitrary JSON documents. PDF outputs use the shared renderer-neutral `Document` model, and XLSX outputs use typed row models rendered with `openpyxl`.
 
-The SDTM workbench has an exact immutable Raw input selection, one versioned Specification covering all domains, manually authored Domain and Variable Mappings, multiple named Code Workareas, and one exact revisioned Output Selection. The Specification owns reusable typed value contexts; value-level metadata references those contexts. Domain Mapping declares the Raw datasets and logical upstream SDTM domains used by a generated domain. Variable Mapping is sparse declared lineage from a target variable and optional value context to an ordered list of qualified source variables. Neither mapping is executable and empty cells are valid. The manually authored Python, R, or SAS program is the executable authority.
+The SDTM workbench has an exact immutable Raw input selection, one versioned Specification covering all domains, manually authored or AI-proposed Domain and Variable Mappings, multiple named Code Workareas, and one exact revisioned Output Selection. The Specification owns reusable typed value contexts; value-level metadata references those contexts. Domain Mapping declares the Raw datasets and logical upstream SDTM domains used by a generated domain. Variable Mapping is sparse declared lineage from a target variable and optional value context to an ordered list of qualified source variables. Neither mapping is executable and empty cells are valid. AI-drafted Python, R, or SAS becomes executable authority only after human acceptance; manually authored source uses the same immutable revision and isolated execution boundary.
 
 Each Code Workarea fixes its domain and language while immutable source revisions pin the current Specification and mapping heads. Tests run full exact inputs without publishing outputs. Generation snapshots the source, executes through the isolated runner, validates an exact own-domain CSV against the Specification, performs XPT v5 write/read-back, and atomically publishes the program, CSV, XPT, log, and validation evidence. Imported XPT domains remain an alternate provider and need no mappings or workarea. Output Selection chooses exactly one successful generation or aligned import per Specification domain and verifies that downstream generations consumed the same selected upstream XPT artifacts. Aggregate validation, Define, cSDRG, ADaM context export, and packaging consume this exact set and never resolve “latest.”
 
 An SDTM input selection records the Raw workbench and revision, successful validation run, exact source-file artifact IDs and checksums, and the upstream dependency fingerprint. Changing the selection creates a new SDTM revision and stales every dependent preview, validation run, program, execution, dataset, aCRF reconciliation, Define document, cSDRG, downstream ADaM/TLF context, and package. SDTM never queries Raw repositories directly or substitutes a newer source artifact.
 
-The ADaM workbench is an analysis-metadata aggregate, not an SDTM workbench with renamed resources. Its public authoring surface follows the same three-part pattern: an exact immutable SDTM input selection, one versioned ADaM Specification covering all datasets, and one versioned Derivation Plan per dataset (each keyed by `(aggregate, dataset, revision)` and producing only its own dataset). The ADaM Specification contains dataset class and key metadata, variables, parameters, value-level metadata, controlled-terminology usage, origins, and reviewer-readable methods. Each per-dataset Derivation Plan contains executable typed dataflow semantics, reads predecessor datasets through an `adam_read` node resolved against the Specification with server-resolved upstream plan pins, and links its outputs back to the Specification. The union of per-dataset plans must cover every derived dataset. Methods explain derivations for reviewers but are never executable. Relationships from Protocol or SAP objectives, endpoints, estimands, populations, or methods to ADaM datasets, variables, parameter values, or value-level metadata are normalized trace links, not a second ADaM-owned relationship store.
+The ADaM workbench is an analysis-metadata aggregate, not an SDTM workbench with renamed resources. Its dual authoring surface follows the same three-part pattern: an exact immutable SDTM input selection, one versioned ADaM Specification covering all datasets, and one versioned Derivation Plan per dataset (each keyed by `(aggregate, dataset, revision)` and producing only its own dataset). Users may author these typed contracts manually or ask AI to draft them from exact approved Protocol/SAP and SDTM context; AI drafts require human acceptance before they become active revisions. The ADaM Specification contains dataset class and key metadata, variables, parameters, value-level metadata, controlled-terminology usage, origins, and reviewer-readable methods. Each per-dataset Derivation Plan contains executable typed dataflow semantics, reads predecessor datasets through an `adam_read` node resolved against the Specification with server-resolved upstream plan pins, and links its outputs back to the Specification. The union of per-dataset plans must cover every derived dataset. Methods explain derivations for reviewers but are never executable. Relationships from Protocol or SAP objectives, endpoints, estimands, populations, or methods to ADaM datasets, variables, parameter values, or value-level metadata are normalized trace links, not a second ADaM-owned relationship store.
 
 An ADaM input selection records the SDTM workbench and revision, successful validation run, exact XPT artifact IDs and checksums, and the upstream dependency fingerprint. Changing the selection creates a new ADaM revision and stales every dependent preview, validation run, program, execution, dataset, Define document, ADRG, and TLF context. ADaM never queries SDTM repositories directly or substitutes a newer SDTM artifact.
 
-ADaM retains its Specification and per-dataset Derivation Plan lifecycle and internal Dataflow IR lowering. SDTM intentionally uses a different mapping-and-code lifecycle: mappings carry declared lineage, while immutable code revisions and exact run inputs carry executable provenance. Both modules retain consistent optimistic concurrency, immutable revisions, explicit input selection, and staleness behavior without sharing a public universal transformation plan.
+ADaM retains its Specification and per-dataset Derivation Plan lifecycle and internal Dataflow IR lowering. SDTM intentionally uses a different mapping-and-code lifecycle: mappings carry declared lineage, while immutable code revisions and exact run inputs carry executable provenance. One TLF workbench owns a study-wide output inventory and per-output Shells, Bindings, Assumptions, ARS, and ProgramPlans. Each stage supports typed manual creation/editing and an ordered AI proposal path over the same exact selected evidence. All clinical modules retain module-owned schemas, optimistic concurrency, immutable revisions, explicit input selection, and staleness behavior; they do not share a public universal clinical plan.
 
 ### 7.3 Transactions and events
 
@@ -526,7 +578,7 @@ Bulk XLSX and JSON imports parse and validate the entire payload before opening 
 
 ### 7.4 Jobs
 
-`jobs` is the durable queue for builds, executions, large validation runs, reconciliation runs, and packaging. A worker claims eligible jobs in a short transaction using `SELECT ... FOR UPDATE SKIP LOCKED`, sets a lease owner and expiry, and commits before doing work. Leases allow recovery after worker failure. Terminal transitions are idempotent, and cancellation is cooperative.
+`jobs` is the durable queue for AI generation, builds, executions, large validation runs, reconciliation runs, and packaging. A worker claims only its configured job types in a short transaction using `SELECT ... FOR UPDATE SKIP LOCKED`, sets a lease owner and expiry, and commits before doing work. The assistance worker is the only clinical worker with model-provider egress. Leases allow recovery after worker failure. Terminal transitions are idempotent, and cancellation is cooperative.
 
 Suggested lifecycle:
 
@@ -738,6 +790,7 @@ Release 1 consists of independently scalable containers built from the same repo
 
 - FastAPI API;
 - durable job worker for builds, validation, reconciliation, and packaging;
+- assistance worker for model-provider calls and typed proposal generation;
 - execution dispatcher;
 - PostgreSQL 16;
 - S3-compatible storage;
@@ -749,6 +802,6 @@ Local development uses Docker Compose and MinIO. Production uses managed Postgre
 
 ## 16. Deferred capabilities
 
-The following are outside Release 1: legacy migration, microservices, runtime installation or hot loading of untrusted module/plugin code, fine-grained RBAC beyond module scopes and study membership, electronic signatures, formal audit trails, document comparison, product-local AI services, automated mapping, commercial validator parity, regulatory gateway submission, and built-in SAS execution.
+The following are outside Release 1: legacy migration, microservices, runtime installation or hot loading of untrusted module/plugin code, fine-grained RBAC beyond module scopes and study membership, electronic signatures, formal audit trails, document comparison, autonomous acceptance of AI output, unreviewed automated mapping, commercial validator parity, regulatory gateway submission, and built-in SAS execution.
 
-The product shell may expose the shared Aurinara Platform Playground. Platform owns the approved agent catalog, durable conversation metadata, AgentCore invocation, AgentCore Memory-backed history and recall, and approve-once mutation prompts. Aurinara's API remains the authority for artifact reads and writes through authenticated MCP tools; Playground approval never bypasses module authorization, validation, or ownership.
+The product shell may also expose the shared Aurinara Platform Playground. Platform owns the common agent catalog, Runtime registration, durable conversation metadata, AgentCore invocation, Memory-backed history, and approve-once mutation prompts. Agents marked `clinical_proposal_v1` may also be selected through Aurinara's constrained proposal workflow. Aurinara still owns exact clinical context, typed validation, diffs, immutable proposal evidence, and human acceptance. Playground approval never substitutes for a proposal decision or bypasses module authorization, validation, ownership, or provenance.

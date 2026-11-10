@@ -6,6 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Response, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.auth import Principal, get_principal
@@ -22,11 +23,26 @@ from app.execution.routes import (
     ExecutionRunResponse,
     create_execution_run,
 )
+from app.kernel.context import DocumentContextExporter
 from app.kernel.contracts import ModuleCapability
 from app.kernel.registry import ModuleRegistry
 from app.studies.service import StudyService
-from app.tlf.contracts import TlfArs, TlfAssumptions, TlfBindings, TlfProgramPlan, TlfShell
-from app.tlf.models import TlfAuthoringRevision, TlfWorkbench
+from app.tlf.contracts import (
+    TlfArs,
+    TlfAssumptions,
+    TlfBindings,
+    TlfInputSelectionWrite,
+    TlfInventoryOutput,
+    TlfOutputInventory,
+    TlfProgramPlan,
+    TlfShell,
+)
+from app.tlf.models import (
+    TlfAuthoringRevision,
+    TlfDependencySelection,
+    TlfInputSelection,
+    TlfWorkbench,
+)
 from app.tlf.service import (
     TLF_BUILD_ARTIFACT_TYPES,
     TLF_RENDER_ARTIFACT_TYPES,
@@ -57,6 +73,17 @@ class AuthoringResponse(BaseModel):
     created_at: datetime
 
 
+class TlfInputSelectionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    aggregate_id: UUID
+    study_id: UUID
+    revision: int
+    state: str
+    payload: dict[str, object]
+    fingerprint: str
+
+
 class PreviewResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
     normalized_result_schema: dict[str, str]
@@ -69,18 +96,21 @@ class ArtifactRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     artifact_types: tuple[str, ...] = Field(min_length=1)
     expected_input_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    output_code: str = Field(pattern=r"^[A-Z][A-Z0-9-]{1,31}$")
 
 
 class CompileRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     backend: str = Field(pattern=r"^(python|r|sas)$")
     expected_input_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    output_code: str = Field(pattern=r"^[A-Z][A-Z0-9-]{1,31}$")
 
 
 class RenderRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     format: str = Field(pattern=r"^(rtf|pdf|png|svg)$")
     expected_input_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    output_code: str = Field(pattern=r"^[A-Z][A-Z0-9-]{1,31}$")
 
 
 class TlfExecutionRequest(BaseModel):
@@ -95,6 +125,7 @@ class TlfExecutionRequest(BaseModel):
     compiler_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     expected_input_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     limits: ExecutionLimits
+    output_code: str = Field(pattern=r"^[A-Z][A-Z0-9-]{1,31}$")
 
 
 def _handler(registry: ModuleRegistry) -> TlfCapability:
@@ -112,6 +143,90 @@ def _workbench(session: Session, tlf_id: UUID, principal: Principal) -> TlfWorkb
         )
     studies.require_access(session, workbench.study_id, principal)
     return workbench
+
+
+@router.get("/tlf-workbenches/{tlf_id}/input-selection", response_model=TlfInputSelectionResponse)
+def get_input_selection(
+    tlf_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> TlfInputSelectionResponse:
+    workbench = _workbench(session, tlf_id, principal)
+    record = session.scalar(
+        select(TlfInputSelection).where(TlfInputSelection.aggregate_id == workbench.id)
+    )
+    if record is None:
+        raise ProblemException(
+            status_code=404,
+            code="tlf_input_selection_not_found",
+            title="TLF input selection not found",
+            detail="Select exact source documents and ADaM artifacts first.",
+        )
+    return TlfInputSelectionResponse.model_validate(record)
+
+
+@router.put("/tlf-workbenches/{tlf_id}/input-selection", response_model=TlfInputSelectionResponse)
+def put_input_selection(
+    tlf_id: UUID,
+    command: TlfInputSelectionWrite,
+    response: Response,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+) -> TlfInputSelectionResponse:
+    workbench = _workbench(session, tlf_id, principal)
+    require_matching_etag(if_match, workbench.revision)
+    document_exporter = cast(
+        DocumentContextExporter,
+        registry.require_handler("documents", ModuleCapability.CONTEXT_EXPORT),
+    )
+    for selected in command.documents:
+        document = document_exporter.content_context(
+            session,
+            workbench.study_id,
+            selected.content_id,
+            expected_document_type=selected.document_type,
+            expected_fingerprint=selected.fingerprint,
+        )
+        if document is None:
+            raise ProblemException(
+                status_code=422,
+                code="tlf_source_document_invalid",
+                title="TLF source document is invalid",
+                detail="Every source document must resolve to exact same-study content.",
+            )
+    _handler(registry).validate_input_datasets(session, workbench.study_id, command.datasets)
+    current = session.scalar(
+        select(TlfInputSelection).where(TlfInputSelection.aggregate_id == workbench.id)
+    )
+    payload = command.model_dump(mode="json")
+    if current is None:
+        current = TlfInputSelection(
+            aggregate_id=workbench.id,
+            study_id=workbench.study_id,
+            revision=1,
+            state="current",
+            payload=payload,
+            fingerprint=fingerprint(payload),
+        )
+        session.add(current)
+    else:
+        current.revision += 1
+        current.state = "current"
+        current.payload = payload
+        current.fingerprint = fingerprint(payload)
+    for authored in session.scalars(
+        select(TlfAuthoringRevision).where(
+            TlfAuthoringRevision.aggregate_id == workbench.id,
+            TlfAuthoringRevision.state == "current",
+        )
+    ):
+        authored.state = "misaligned"
+    workbench.revision += 1
+    session.commit()
+    response.headers["ETag"] = etag_for_revision(workbench.revision)
+    return TlfInputSelectionResponse.model_validate(current)
 
 
 def _get_content(
@@ -135,9 +250,87 @@ def _get_content(
     return AuthoringResponse.model_validate(record)
 
 
-def _put_content(
+def _manual_authoring_prerequisites(
+    session: Session, workbench: TlfWorkbench
+) -> TlfInputSelection:
+    dependency = session.scalar(
+        select(TlfDependencySelection).where(
+            TlfDependencySelection.aggregate_id == workbench.id
+        )
+    )
+    selection = session.scalar(
+        select(TlfInputSelection).where(TlfInputSelection.aggregate_id == workbench.id)
+    )
+    if dependency is None or dependency.state != "current":
+        raise ProblemException(
+            status_code=409,
+            code="tlf_dependencies_required",
+            title="TLF dependencies are required",
+            detail="Select exact compatible dependencies before authoring TLF content.",
+        )
+    if selection is None or selection.state != "current":
+        raise ProblemException(
+            status_code=409,
+            code="tlf_input_selection_required",
+            title="TLF input selection is required",
+            detail="Select exact SAP and ADaM evidence before authoring TLF content.",
+        )
+    return selection
+
+
+def _inventory_output(
+    handler: TlfCapability,
+    session: Session,
+    workbench: TlfWorkbench,
+    output_code: str,
+) -> TlfInventoryOutput:
+    record = handler.latest_content(session, workbench.id, "inventory")
+    if record is None or record.state != "current":
+        raise ProblemException(
+            status_code=409,
+            code="tlf_inventory_required",
+            title="Current TLF inventory is required",
+            detail="Create or refresh the output inventory first.",
+        )
+    inventory = TlfOutputInventory.model_validate(record.payload)
+    output = next((item for item in inventory.outputs if item.output_code == output_code), None)
+    if output is None:
+        raise ProblemException(
+            status_code=404,
+            code="tlf_output_unknown",
+            title="TLF output is unknown",
+            detail=f"Output '{output_code}' is not declared in the current inventory.",
+        )
+    return output
+
+
+def _mark_manual_dependents_misaligned(
+    session: Session,
+    aggregate_id: UUID,
+    *,
+    inventory_changed: bool,
+    output_code: str | None = None,
+) -> None:
+    records = session.scalars(
+        select(TlfAuthoringRevision).where(
+            TlfAuthoringRevision.aggregate_id == aggregate_id,
+            TlfAuthoringRevision.state == "current",
+        )
+    )
+    for record in records:
+        inventory_dependent = inventory_changed and record.content_type != "inventory"
+        output_plan = (
+            output_code is not None
+            and record.content_type == f"program_plan:{output_code}"
+        )
+        if inventory_dependent or output_plan:
+            record.state = "misaligned"
+
+
+def _save_manual_content(
+    *,
     content_type: str,
-    command: TlfShell | TlfBindings | TlfAssumptions | TlfArs | TlfProgramPlan,
+    model: BaseModel,
     tlf_id: UUID,
     response: Response,
     session: Session,
@@ -147,115 +340,180 @@ def _put_content(
 ) -> AuthoringResponse:
     workbench = _workbench(session, tlf_id, principal)
     require_matching_etag(if_match, workbench.revision)
+    selection_record = _manual_authoring_prerequisites(session, workbench)
+    selection = TlfInputSelectionWrite.model_validate(selection_record.payload)
     handler = _handler(registry)
-    if content_type == "bindings":
-        handler.validate_bindings(session, workbench.study_id, cast(TlfBindings, command))
-    current = {
-        key: handler.latest_content(session, workbench.id, key)
-        for key in ("shell", "bindings", "assumptions", "ars")
-    }
-    if content_type == "ars":
-        shell_record = current["shell"]
-        bindings_record = current["bindings"]
-        if shell_record is None or bindings_record is None:
-            raise ProblemException(
-                status_code=409,
-                code="tlf_ars_prerequisites_missing",
-                title="TLF ARS prerequisites are missing",
-                detail="Author shell and bindings before ARS.",
-            )
-        shell = cast(TlfShell, content_contract(shell_record))
-        bindings = cast(TlfBindings, content_contract(bindings_record))
-        ars = cast(TlfArs, command)
-        leaf_ids = {row.id for row in shell.rows if row.leaf}
-        if {item.leaf_row_id for item in ars.analyses} != leaf_ids:
-            raise ProblemException(
-                status_code=422,
-                code="tlf_leaf_coverage_invalid",
-                title="TLF shell leaf coverage is invalid",
-                detail="ARS must contain exactly one analysis for every leaf shell row.",
-            )
-        dataset_ids = {item.id for item in bindings.datasets}
-        named_ids = {item.id for item in bindings.named}
-        if any(
-            item.dataset_binding_id not in dataset_ids
-            or item.population_binding_id not in named_ids
-            or item.statistic_binding_id not in named_ids
-            or (
-                item.parameter_binding_id is not None and item.parameter_binding_id not in named_ids
-            )
-            for item in ars.analyses
+    output_code: str | None = None
+    kind = content_type
+
+    if content_type != "inventory":
+        kind, output_code = content_type.split(":", 1)
+        output = _inventory_output(handler, session, workbench, output_code)
+        if isinstance(model, TlfShell) and (
+            model.output_code != output_code
+            or model.output_type != output.output_type
+            or model.title != output.title
         ):
             raise ProblemException(
                 status_code=422,
-                code="tlf_reference_invalid",
-                title="TLF ARS reference is invalid",
-                detail="Every ARS reference must resolve to the current exact bindings.",
+                code="tlf_shell_inventory_mismatch",
+                title="TLF shell does not match the inventory",
+                detail="The output code, type, and title must match the current inventory.",
             )
-    if content_type == "program_plan":
-        if any(value is None for value in current.values()):
-            raise ProblemException(
-                status_code=409,
-                code="tlf_program_plan_prerequisites_missing",
-                title="TLF ProgramPlan prerequisites are missing",
-                detail="Author shell, bindings, assumptions, and ARS before ProgramPlan.",
+        if isinstance(model, TlfBindings):
+            expected = [item.model_dump(mode="json") for item in selection.datasets]
+            actual = [item.model_dump(mode="json") for item in model.datasets]
+            if actual != expected:
+                raise ProblemException(
+                    status_code=422,
+                    code="tlf_binding_selection_mismatch",
+                    title="TLF bindings do not match selected ADaM evidence",
+                    detail="Bindings must preserve the exact current ADaM input selection.",
+                )
+            handler.validate_bindings(session, workbench.study_id, model)
+        if isinstance(model, TlfArs):
+            shell_record = handler.latest_content(session, workbench.id, f"shell:{output_code}")
+            bindings_record = handler.latest_content(
+                session, workbench.id, f"bindings:{output_code}"
             )
-        plan = cast(TlfProgramPlan, command)
-        revisions = {
-            key: cast(TlfAuthoringRevision, value).revision for key, value in current.items()
-        }
-        if (
-            plan.shell_revision != revisions["shell"]
-            or plan.bindings_revision != revisions["bindings"]
-            or plan.assumptions_revision != revisions["assumptions"]
-            or plan.ars_revision != revisions["ars"]
-        ):
-            raise ProblemException(
-                status_code=409,
-                code="tlf_program_plan_misaligned",
-                title="TLF ProgramPlan is misaligned",
-                detail="ProgramPlan must pin every current TLF authoring revision.",
+            if shell_record is None or bindings_record is None:
+                raise ProblemException(
+                    status_code=409,
+                    code="tlf_analysis_prerequisites_required",
+                    title="TLF analysis prerequisites are required",
+                    detail="Save the shell and bindings before authoring ARS.",
+                )
+            shell = TlfShell.model_validate(shell_record.payload)
+            bindings = TlfBindings.model_validate(bindings_record.payload)
+            leaves = {item.id for item in shell.rows if item.leaf}
+            if {item.leaf_row_id for item in model.analyses} != leaves:
+                raise ProblemException(
+                    status_code=422,
+                    code="tlf_leaf_coverage_invalid",
+                    title="TLF shell leaf coverage is invalid",
+                    detail="ARS must cover every shell leaf exactly once.",
+                )
+            named = {item.id: item.kind for item in bindings.named}
+            datasets = {item.id for item in bindings.datasets}
+            for analysis in model.analyses:
+                valid_parameter = (
+                    analysis.parameter_binding_id is None
+                    or named.get(analysis.parameter_binding_id) == "parameter"
+                )
+                if (
+                    analysis.dataset_binding_id not in datasets
+                    or named.get(analysis.population_binding_id) != "population"
+                    or named.get(analysis.statistic_binding_id) != "statistic"
+                    or not valid_parameter
+                ):
+                    raise ProblemException(
+                        status_code=422,
+                        code="tlf_ars_binding_invalid",
+                        title="TLF ARS binding is invalid",
+                        detail="Every ARS reference must resolve to a compatible named binding.",
+                    )
+        if isinstance(model, TlfProgramPlan):
+            records = handler.current_authoring_without_plan(
+                session, workbench.id, output_code
             )
-        lower_analysis_ir(
-            cast(TlfShell, content_contract(cast(TlfAuthoringRevision, current["shell"]))),
-            cast(TlfBindings, content_contract(cast(TlfAuthoringRevision, current["bindings"]))),
-            cast(TlfArs, content_contract(cast(TlfAuthoringRevision, current["ars"]))),
-            plan,
-        )
-    previous = handler.latest_content(session, workbench.id, content_type)
-    payload = command.model_dump(mode="json")
-    record = TlfAuthoringRevision(
-        aggregate_id=workbench.id,
-        study_id=workbench.study_id,
-        content_type=content_type,
-        revision=1 if previous is None else previous.revision + 1,
-        schema_version=command.schema_version,
-        state="current",
-        payload=payload,
-        fingerprint=fingerprint(payload),
+            if (
+                model.shell_revision != records["shell"].revision
+                or model.bindings_revision != records["bindings"].revision
+                or model.assumptions_revision != records["assumptions"].revision
+                or model.ars_revision != records["ars"].revision
+            ):
+                raise ProblemException(
+                    status_code=409,
+                    code="tlf_program_plan_misaligned",
+                    title="TLF ProgramPlan is misaligned",
+                    detail=(
+                        "ProgramPlan must pin the current shell, bindings, assumptions, "
+                        "and ARS revisions."
+                    ),
+                )
+            lower_analysis_ir(
+                TlfShell.model_validate(records["shell"].payload),
+                TlfBindings.model_validate(records["bindings"].payload),
+                TlfArs.model_validate(records["ars"].payload),
+                model,
+            )
+
+    record = handler.save_content(
+        session,
+        workbench,
+        content_type,
+        model,
         created_by=principal.subject,
     )
-    session.add(record)
+    _mark_manual_dependents_misaligned(
+        session,
+        workbench.id,
+        inventory_changed=content_type == "inventory",
+        output_code=output_code if kind != "program_plan" else None,
+    )
     workbench.revision += 1
     session.commit()
     response.headers["ETag"] = etag_for_revision(workbench.revision)
     return AuthoringResponse.model_validate(record)
 
 
-@router.get("/tlf-workbenches/{tlf_id}/shell", response_model=AuthoringResponse)
-def get_shell(
+@router.get("/tlf-workbenches/{tlf_id}/inventory", response_model=AuthoringResponse)
+def get_inventory(
     tlf_id: UUID,
     response: Response,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
     principal: Annotated[Principal, Depends(get_principal)],
 ) -> AuthoringResponse:
-    return _get_content("shell", tlf_id, response, session, registry, principal)
+    return _get_content("inventory", tlf_id, response, session, registry, principal)
 
 
-@router.put("/tlf-workbenches/{tlf_id}/shell", response_model=AuthoringResponse)
+@router.put("/tlf-workbenches/{tlf_id}/inventory", response_model=AuthoringResponse)
+def put_inventory(
+    tlf_id: UUID,
+    command: TlfOutputInventory,
+    response: Response,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+) -> AuthoringResponse:
+    return _save_manual_content(
+        content_type="inventory",
+        model=command,
+        tlf_id=tlf_id,
+        response=response,
+        session=session,
+        registry=registry,
+        principal=principal,
+        if_match=if_match,
+    )
+
+
+@router.get(
+    "/tlf-workbenches/{tlf_id}/outputs/{output_code}/shell",
+    response_model=AuthoringResponse,
+)
+def get_shell(
+    tlf_id: UUID,
+    output_code: str,
+    response: Response,
+    session: Annotated[Session, Depends(get_session)],
+    registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> AuthoringResponse:
+    return _get_content(
+        f"shell:{output_code.upper()}", tlf_id, response, session, registry, principal
+    )
+
+
+@router.put(
+    "/tlf-workbenches/{tlf_id}/outputs/{output_code}/shell",
+    response_model=AuthoringResponse,
+)
 def put_shell(
     tlf_id: UUID,
+    output_code: str,
     command: TlfShell,
     response: Response,
     session: Annotated[Session, Depends(get_session)],
@@ -263,23 +521,42 @@ def put_shell(
     principal: Annotated[Principal, Depends(get_principal)],
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
 ) -> AuthoringResponse:
-    return _put_content("shell", command, tlf_id, response, session, registry, principal, if_match)
+    return _save_manual_content(
+        content_type=f"shell:{output_code.upper()}",
+        model=command,
+        tlf_id=tlf_id,
+        response=response,
+        session=session,
+        registry=registry,
+        principal=principal,
+        if_match=if_match,
+    )
 
 
-@router.get("/tlf-workbenches/{tlf_id}/bindings", response_model=AuthoringResponse)
+@router.get(
+    "/tlf-workbenches/{tlf_id}/outputs/{output_code}/bindings",
+    response_model=AuthoringResponse,
+)
 def get_bindings(
     tlf_id: UUID,
+    output_code: str,
     response: Response,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
     principal: Annotated[Principal, Depends(get_principal)],
 ) -> AuthoringResponse:
-    return _get_content("bindings", tlf_id, response, session, registry, principal)
+    return _get_content(
+        f"bindings:{output_code.upper()}", tlf_id, response, session, registry, principal
+    )
 
 
-@router.put("/tlf-workbenches/{tlf_id}/bindings", response_model=AuthoringResponse)
+@router.put(
+    "/tlf-workbenches/{tlf_id}/outputs/{output_code}/bindings",
+    response_model=AuthoringResponse,
+)
 def put_bindings(
     tlf_id: UUID,
+    output_code: str,
     command: TlfBindings,
     response: Response,
     session: Annotated[Session, Depends(get_session)],
@@ -287,25 +564,42 @@ def put_bindings(
     principal: Annotated[Principal, Depends(get_principal)],
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
 ) -> AuthoringResponse:
-    return _put_content(
-        "bindings", command, tlf_id, response, session, registry, principal, if_match
+    return _save_manual_content(
+        content_type=f"bindings:{output_code.upper()}",
+        model=command,
+        tlf_id=tlf_id,
+        response=response,
+        session=session,
+        registry=registry,
+        principal=principal,
+        if_match=if_match,
     )
 
 
-@router.get("/tlf-workbenches/{tlf_id}/assumptions", response_model=AuthoringResponse)
+@router.get(
+    "/tlf-workbenches/{tlf_id}/outputs/{output_code}/assumptions",
+    response_model=AuthoringResponse,
+)
 def get_assumptions(
     tlf_id: UUID,
+    output_code: str,
     response: Response,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
     principal: Annotated[Principal, Depends(get_principal)],
 ) -> AuthoringResponse:
-    return _get_content("assumptions", tlf_id, response, session, registry, principal)
+    return _get_content(
+        f"assumptions:{output_code.upper()}", tlf_id, response, session, registry, principal
+    )
 
 
-@router.put("/tlf-workbenches/{tlf_id}/assumptions", response_model=AuthoringResponse)
+@router.put(
+    "/tlf-workbenches/{tlf_id}/outputs/{output_code}/assumptions",
+    response_model=AuthoringResponse,
+)
 def put_assumptions(
     tlf_id: UUID,
+    output_code: str,
     command: TlfAssumptions,
     response: Response,
     session: Annotated[Session, Depends(get_session)],
@@ -313,25 +607,42 @@ def put_assumptions(
     principal: Annotated[Principal, Depends(get_principal)],
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
 ) -> AuthoringResponse:
-    return _put_content(
-        "assumptions", command, tlf_id, response, session, registry, principal, if_match
+    return _save_manual_content(
+        content_type=f"assumptions:{output_code.upper()}",
+        model=command,
+        tlf_id=tlf_id,
+        response=response,
+        session=session,
+        registry=registry,
+        principal=principal,
+        if_match=if_match,
     )
 
 
-@router.get("/tlf-workbenches/{tlf_id}/ars", response_model=AuthoringResponse)
+@router.get(
+    "/tlf-workbenches/{tlf_id}/outputs/{output_code}/ars",
+    response_model=AuthoringResponse,
+)
 def get_ars(
     tlf_id: UUID,
+    output_code: str,
     response: Response,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
     principal: Annotated[Principal, Depends(get_principal)],
 ) -> AuthoringResponse:
-    return _get_content("ars", tlf_id, response, session, registry, principal)
+    return _get_content(
+        f"ars:{output_code.upper()}", tlf_id, response, session, registry, principal
+    )
 
 
-@router.put("/tlf-workbenches/{tlf_id}/ars", response_model=AuthoringResponse)
+@router.put(
+    "/tlf-workbenches/{tlf_id}/outputs/{output_code}/ars",
+    response_model=AuthoringResponse,
+)
 def put_ars(
     tlf_id: UUID,
+    output_code: str,
     command: TlfArs,
     response: Response,
     session: Annotated[Session, Depends(get_session)],
@@ -339,23 +650,47 @@ def put_ars(
     principal: Annotated[Principal, Depends(get_principal)],
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
 ) -> AuthoringResponse:
-    return _put_content("ars", command, tlf_id, response, session, registry, principal, if_match)
+    return _save_manual_content(
+        content_type=f"ars:{output_code.upper()}",
+        model=command,
+        tlf_id=tlf_id,
+        response=response,
+        session=session,
+        registry=registry,
+        principal=principal,
+        if_match=if_match,
+    )
 
 
-@router.get("/tlf-workbenches/{tlf_id}/program-plan", response_model=AuthoringResponse)
+@router.get(
+    "/tlf-workbenches/{tlf_id}/outputs/{output_code}/program-plan",
+    response_model=AuthoringResponse,
+)
 def get_program_plan(
     tlf_id: UUID,
+    output_code: str,
     response: Response,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
     principal: Annotated[Principal, Depends(get_principal)],
 ) -> AuthoringResponse:
-    return _get_content("program_plan", tlf_id, response, session, registry, principal)
+    return _get_content(
+        f"program_plan:{output_code.upper()}",
+        tlf_id,
+        response,
+        session,
+        registry,
+        principal,
+    )
 
 
-@router.put("/tlf-workbenches/{tlf_id}/program-plan", response_model=AuthoringResponse)
+@router.put(
+    "/tlf-workbenches/{tlf_id}/outputs/{output_code}/program-plan",
+    response_model=AuthoringResponse,
+)
 def put_program_plan(
     tlf_id: UUID,
+    output_code: str,
     command: TlfProgramPlan,
     response: Response,
     session: Annotated[Session, Depends(get_session)],
@@ -363,20 +698,30 @@ def put_program_plan(
     principal: Annotated[Principal, Depends(get_principal)],
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
 ) -> AuthoringResponse:
-    return _put_content(
-        "program_plan", command, tlf_id, response, session, registry, principal, if_match
+    return _save_manual_content(
+        content_type=f"program_plan:{output_code.upper()}",
+        model=command,
+        tlf_id=tlf_id,
+        response=response,
+        session=session,
+        registry=registry,
+        principal=principal,
+        if_match=if_match,
     )
 
 
 def _validate(
     tlf_id: UUID,
+    output_code: str,
     session: Session,
     registry: ModuleRegistry,
     principal: Principal,
 ) -> ValidationRunResponse:
     workbench = _workbench(session, tlf_id, principal)
     handler = _handler(registry)
-    records, internal = handler.validate_authoring(session, workbench.id, workbench.study_id)
+    records, internal = handler.validate_authoring(
+        session, workbench.id, workbench.study_id, output_code.upper()
+    )
     manifest = authoring_manifest(handler, session, workbench.id, records, internal)
     now = utc_now()
     run = ValidationRun(
@@ -408,32 +753,37 @@ def _validate(
 )
 def validate_program_plan(
     tlf_id: UUID,
+    output_code: str,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
     principal: Annotated[Principal, Depends(get_principal)],
 ) -> ValidationRunResponse:
-    return _validate(tlf_id, session, registry, principal)
+    return _validate(tlf_id, output_code, session, registry, principal)
 
 
 @router.post("/tlf-workbenches/{tlf_id}:validate", response_model=ValidationRunResponse)
 def validate_tlf(
     tlf_id: UUID,
+    output_code: str,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
     principal: Annotated[Principal, Depends(get_principal)],
 ) -> ValidationRunResponse:
-    return _validate(tlf_id, session, registry, principal)
+    return _validate(tlf_id, output_code, session, registry, principal)
 
 
 @router.post("/tlf-workbenches/{tlf_id}/program-plan:preview", response_model=PreviewResponse)
 def preview_program_plan(
     tlf_id: UUID,
+    output_code: str,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
     principal: Annotated[Principal, Depends(get_principal)],
 ) -> PreviewResponse:
     workbench = _workbench(session, tlf_id, principal)
-    _, internal = _handler(registry).validate_authoring(session, workbench.id, workbench.study_id)
+    _, internal = _handler(registry).validate_authoring(
+        session, workbench.id, workbench.study_id, output_code.upper()
+    )
     canonical = canonical_analysis_ir(internal)
     return PreviewResponse(
         normalized_result_schema=internal.procedures[0].result_schema,
@@ -445,6 +795,7 @@ def preview_program_plan(
 
 def _build(
     workbench: TlfWorkbench,
+    output_code: str,
     artifact_types: tuple[str, ...],
     expected_input_fingerprint: str,
     response: Response,
@@ -468,7 +819,7 @@ def _build(
             owner_id=workbench.id,
             artifact_types=artifact_types,
             expected_input_fingerprint=expected_input_fingerprint,
-            options={},
+            options={"domain_code": output_code.upper()},
         ),
         response,
         session,
@@ -494,6 +845,7 @@ def create_tlf_artifacts(
 ) -> ArtifactBuildResponse:
     return _build(
         _workbench(session, tlf_id, principal),
+        command.output_code,
         command.artifact_types,
         command.expected_input_fingerprint,
         response,
@@ -520,6 +872,7 @@ def compile_tlf(
 ) -> ArtifactBuildResponse:
     return _build(
         _workbench(session, tlf_id, principal),
+        command.output_code,
         (f"tlf_program_{command.backend}",),
         command.expected_input_fingerprint,
         response,
@@ -545,7 +898,9 @@ def render_tlf(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> ArtifactBuildResponse:
     workbench = _workbench(session, tlf_id, principal)
-    shell_record = _handler(registry).latest_content(session, workbench.id, "shell")
+    shell_record = _handler(registry).latest_content(
+        session, workbench.id, f"shell:{command.output_code}"
+    )
     if shell_record is None:
         raise ProblemException(
             status_code=409,
@@ -570,6 +925,7 @@ def render_tlf(
     assert artifact_type in TLF_RENDER_ARTIFACT_TYPES
     return _build(
         workbench,
+        command.output_code,
         (artifact_type,),
         command.expected_input_fingerprint,
         response,

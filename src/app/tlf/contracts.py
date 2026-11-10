@@ -1,4 +1,4 @@
-"""Strict manually authored TLF contracts and exact ADaM bindings."""
+"""Strict human-accepted TLF contracts and exact ADaM bindings."""
 
 from typing import Annotated, Literal
 from uuid import UUID
@@ -10,6 +10,36 @@ from app.transformation.contracts import CustomFunctionDefinition
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+class TlfInventoryOutput(StrictModel):
+    output_code: str = Field(pattern=r"^[A-Z][A-Z0-9-]{1,31}$")
+    output_type: Literal["table", "listing", "figure"]
+    title: str = Field(min_length=1, max_length=500)
+    basis: Literal["source_supported", "conventional_proposal"]
+    section: str = Field(min_length=1, max_length=200)
+    purpose: str = Field(min_length=1, max_length=2000)
+    source_reference: str = Field(min_length=1, max_length=1000)
+    readiness: Literal["ready", "blocked"] = "blocked"
+    blocking_items: tuple[Annotated[str, Field(min_length=1, max_length=1000)], ...] = ()
+
+    @model_validator(mode="after")
+    def conventional_output_is_explicit(self) -> "TlfInventoryOutput":
+        if self.basis == "conventional_proposal" and not self.blocking_items:
+            raise ValueError("conventional proposals require explicit blocking items")
+        return self
+
+
+class TlfOutputInventory(StrictModel):
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    outputs: tuple[TlfInventoryOutput, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def unique_outputs(self) -> "TlfOutputInventory":
+        codes = [item.output_code for item in self.outputs]
+        if len(codes) != len(set(codes)):
+            raise ValueError("TLF inventory output codes must be unique")
+        return self
 
 
 class TlfColumn(StrictModel):
@@ -74,6 +104,28 @@ class TlfAdamDatasetBinding(StrictModel):
     checksum: str = Field(pattern=r"^[0-9a-f]{64}$")
     validation_run_id: UUID
     dependency_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class TlfSourceDocumentSelection(StrictModel):
+    content_id: UUID
+    document_type: Literal["protocol", "statistical_analysis_plan"]
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class TlfInputSelectionWrite(StrictModel):
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    documents: tuple[TlfSourceDocumentSelection, ...] = Field(min_length=1)
+    datasets: tuple[TlfAdamDatasetBinding, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def unique_inputs(self) -> "TlfInputSelectionWrite":
+        if len({item.content_id for item in self.documents}) != len(self.documents):
+            raise ValueError("TLF source documents must be unique")
+        if not any(item.document_type == "statistical_analysis_plan" for item in self.documents):
+            raise ValueError("TLF input selection requires an exact SAP revision")
+        if len({item.artifact_id for item in self.datasets}) != len(self.datasets):
+            raise ValueError("TLF ADaM input artifacts must be unique")
+        return self
 
 
 class TlfNamedBinding(StrictModel):

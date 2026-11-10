@@ -1,8 +1,12 @@
 # Raw module
 
-Status: Phase 3 Raw vertical slice implemented for immutable file binding, manually
-maintained dataset/variable metadata, non-destructive factual initialization, bounded
+Status: Phase 3 Raw vertical slice implemented for immutable file binding, directly maintained
+dataset/variable metadata, non-destructive factual initialization, bounded
 preview, validation, immutable source/schema reconciliation, and artifacts.
+
+> **AI transition:** physical schema extraction remains deterministic. Semantic metadata,
+> terminology, roles, descriptions, and corrections will be AI proposals requiring human
+> acceptance. The current direct metadata editor is transitional.
 
 ## Register a dataset
 
@@ -32,7 +36,7 @@ physical type, length/precision, ordinal, role, description, and an optional exa
 terminology binding.
 
 `POST /raw-datasets/{id}/variables:initialize` reads the bound file and creates absent
-variables or fills only missing physical type/length/precision. It never overwrites manual
+variables or fills only missing physical type/length/precision. It never overwrites accepted
 values and never infers clinical meaning, roles, terminology, mappings, or derivations.
 
 ## Preview and validate

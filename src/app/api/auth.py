@@ -1,7 +1,7 @@
 """External JWT validation and authenticated-principal contracts."""
 
 from dataclasses import dataclass
-from typing import Protocol, cast
+from typing import Literal, Protocol, cast
 
 import jwt
 from fastapi import Header, Request
@@ -19,6 +19,7 @@ class Principal:
     subject: str
     scopes: frozenset[str]
     issuer: str = ""
+    kind: Literal["human", "service"] = "human"
 
 
 class TokenVerifier(Protocol):
@@ -56,10 +57,32 @@ class JwksTokenVerifier:
         raw_scope = claims.get("scope", "")
         if not isinstance(raw_scope, str):
             raise _unauthorized("The bearer token scope claim is invalid.")
+        kind = claims.get("principal_kind", claims.get("actor_type"))
+        if kind is None and claims.get("token_use") == "id":
+            # Cognito ID tokens are issued only for authenticated users. The
+            # signature-verified token_use claim is therefore the trusted
+            # human classification for browser sessions; Cognito does not add
+            # the platform's provider-neutral principal_kind claim by default.
+            kind = "human"
+        if kind not in {"human", "service"}:
+            raise _unauthorized("The bearer token has no valid principal kind.")
         return Principal(
             subject=subject,
             scopes=frozenset(raw_scope.split()),
             issuer=str(claims["iss"]),
+            kind=kind,
+        )
+
+
+def require_human_principal(principal: Principal) -> None:
+    """Reject service identities at human review-decision boundaries."""
+
+    if principal.kind != "human":
+        raise ProblemException(
+            status_code=403,
+            code="human_reviewer_required",
+            title="A human reviewer is required",
+            detail="Service identities cannot accept, reject, or request revision of AI proposals.",
         )
 
 

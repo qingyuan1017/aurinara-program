@@ -3,8 +3,10 @@
 from fastapi import APIRouter
 
 from app.api.clinical_aggregates import dependency_aggregate_router
+from app.integration.cdisc_library import CdiscLibraryReaderFactory
 from app.kernel.contracts import ModuleCapability, ModuleDescriptor, ModuleRegistration
 from app.sdtm.models import SdtmDependencySelection, SdtmWorkbench
+from app.sdtm.proposals import SDTM_PROPOSAL_TYPES, SdtmProposalCapability
 from app.sdtm.routes import router as feature_router
 from app.sdtm.service import SDTM_ARTIFACT_TYPES, SdtmCapability
 
@@ -24,12 +26,14 @@ DESCRIPTOR = ModuleDescriptor(
     relationship_types=("annotates",),
     artifact_types=SDTM_ARTIFACT_TYPES,
     source_plan_types=("sdtm_code_revision", "sdtm_imported_domain"),
+    proposal_types=SDTM_PROPOSAL_TYPES,
     reconciliation_types=("sdtm_define_outputs",),
     authorization_scopes=("aurinara.sdtm.read", "aurinara.sdtm.write"),
     capabilities=frozenset(
         {
             ModuleCapability.DEPENDENCIES,
             ModuleCapability.STALENESS,
+            ModuleCapability.PROPOSALS,
             ModuleCapability.ENTITY_RESOLUTION,
             ModuleCapability.ARTIFACTS,
             ModuleCapability.RECONCILIATION_INPUTS,
@@ -51,12 +55,24 @@ router.include_router(
     )
 )
 router.include_router(feature_router)
-REGISTRATION = ModuleRegistration(
-    DESCRIPTOR,
-    {
-        capability: HANDLER
-        for capability in ModuleCapability
-        if capability in DESCRIPTOR.capabilities
-    },
-    router,
-)
+
+def build_registration(
+    reader_factory: CdiscLibraryReaderFactory | None = None,
+) -> ModuleRegistration:
+    """Build an SDTM registration with the deployment's live CDISC boundary."""
+
+    proposal_handler = SdtmProposalCapability(reader_factory)
+    return ModuleRegistration(
+        DESCRIPTOR,
+        {
+            capability: (
+                proposal_handler if capability == ModuleCapability.PROPOSALS else HANDLER
+            )
+            for capability in ModuleCapability
+            if capability in DESCRIPTOR.capabilities
+        },
+        router,
+    )
+
+
+REGISTRATION = build_registration()

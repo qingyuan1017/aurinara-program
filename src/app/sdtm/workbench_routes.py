@@ -3,7 +3,6 @@
 import hashlib
 import json
 from datetime import datetime
-from pathlib import Path
 from typing import Annotated, Any, Protocol, cast
 from uuid import UUID
 from zipfile import BadZipFile
@@ -17,8 +16,8 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import Principal, get_principal
 from app.api.dependencies import (
+    get_cdisc_library_reader_factory,
     get_module_registry,
-    get_object_storage,
     get_session,
 )
 from app.artifacts.builds import ArtifactBuildCreate, ArtifactBuildResponse, create_artifact_build
@@ -30,9 +29,15 @@ from app.common.etag import etag_for_revision, require_matching_etag
 from app.common.idempotency import IdempotencyRecord
 from app.common.problems import ProblemException
 from app.common.time import utc_now
+from app.integration.cdisc_library import (
+    CdiscLibraryConfigurationError,
+    CdiscLibraryReaderFactory,
+    CdiscLibraryUnavailable,
+)
 from app.kernel.contracts import ModuleCapability
 from app.kernel.registry import ModuleRegistry
 from app.sdtm.contracts import (
+    SdtmIndustryStandardVersion,
     SdtmInputSelectionWrite,
     SdtmSpecification,
     SdtmSpecificationInitializationOptions,
@@ -60,7 +65,11 @@ from app.sdtm.standard_specification import (
     initialize_specification_from_standard,
     standard_domain_options,
 )
-from app.standards.metadata_resolution import ResolvedStandardMetadata, resolve_standard_metadata
+from app.standards.metadata_resolution import (
+    ResolvedStandardMetadata,
+    resolve_live_standard_metadata,
+)
+from app.standards.models import StandardProduct, StandardVersion
 from app.studies.service import StudyService
 from app.validation.models import ValidationRun
 from app.validation.routes import ValidationRunResponse
@@ -109,6 +118,7 @@ class SpecificationResponse(BaseModel):
     schema_version: str
     payload: dict[str, object]
     fingerprint: str
+    standard_source: dict[str, object] | None
     created_by: str
     created_at: datetime
 
@@ -128,7 +138,7 @@ def _selected_sdtmig_metadata(
     session: Session,
     handler: SdtmCapability,
     workbench: SdtmWorkbench,
-    storage: ObjectStorage,
+    reader_factory: CdiscLibraryReaderFactory,
 ) -> ResolvedStandardMetadata:
     dependency_selection = handler.get_selection(session, workbench.id, workbench.study_id)
     selected = [item for item in dependency_selection.standards if item.purpose == "sdtm_ig"]
@@ -143,19 +153,118 @@ def _selected_sdtmig_metadata(
             ),
         )
     try:
-        return resolve_standard_metadata(
-            session,
-            selected[0].standard_version_id,
-            storage=storage,
-            repository_root=Path(__file__).resolve().parents[3],
-        )
+        with reader_factory() as reader:
+            return resolve_live_standard_metadata(
+                session,
+                selected[0].standard_version_id,
+                reader=reader,
+            )
+    except CdiscLibraryConfigurationError as error:
+        raise ProblemException(
+            status_code=503,
+            code="cdisc_library_not_configured",
+            title="CDISC Library live access is not configured",
+            detail=str(error),
+        ) from error
+    except CdiscLibraryUnavailable as error:
+        raise ProblemException(
+            status_code=503,
+            code="cdisc_library_unavailable",
+            title="CDISC Library is unavailable",
+            detail=str(error),
+        ) from error
     except ValueError as error:
         raise ProblemException(
             status_code=422,
             code="sdtm_industry_standard_unsupported",
-            title="The selected SDTM industry standard cannot initialize a Specification",
+            title="The selected SDTM industry standard cannot author a Specification",
             detail=str(error),
         ) from error
+
+
+def _live_standard_source(metadata: ResolvedStandardMetadata) -> dict[str, object]:
+    return {
+        "source": "cdisc_library_live",
+        "standard_version_id": str(metadata.version_id),
+        "canonical_href": metadata.canonical_href,
+        "response_checksum": metadata.checksum,
+    }
+
+
+@router.get(
+    "/sdtm-workbenches/{sdtm_id}/specification/industry-standards",
+    response_model=tuple[SdtmIndustryStandardVersion, ...],
+)
+def list_specification_industry_standards(
+    sdtm_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    reader_factory: Annotated[
+        CdiscLibraryReaderFactory, Depends(get_cdisc_library_reader_factory)
+    ],
+    principal: Annotated[Principal, Depends(get_principal)],
+) -> tuple[SdtmIndustryStandardVersion, ...]:
+    """List registered SDTMIG identities confirmed by the live CDISC catalog."""
+
+    _sdtm(session, sdtm_id, principal)
+    try:
+        with reader_factory() as reader:
+            catalog = reader.get("/mdr/products/DataTabulation")
+    except CdiscLibraryConfigurationError as error:
+        raise ProblemException(
+            status_code=503,
+            code="cdisc_library_not_configured",
+            title="CDISC Library live access is not configured",
+            detail=str(error),
+        ) from error
+    except CdiscLibraryUnavailable as error:
+        raise ProblemException(
+            status_code=503,
+            code="cdisc_library_unavailable",
+            title="CDISC Library is unavailable",
+            detail=str(error),
+        ) from error
+
+    links = catalog.content.get("_links")
+    raw_versions = links.get("sdtmig") if isinstance(links, dict) else None
+    if not isinstance(raw_versions, list) or not raw_versions:
+        raise ProblemException(
+            status_code=503,
+            code="cdisc_library_unavailable",
+            title="CDISC Library is unavailable",
+            detail="The live Data Tabulation catalog did not contain SDTMIG releases.",
+        )
+    live: dict[str, str] = {}
+    for item in raw_versions:
+        if not isinstance(item, dict):
+            continue
+        href = item.get("href")
+        title = item.get("title")
+        if isinstance(href, str) and isinstance(title, str):
+            live[href] = title
+
+    rows = session.execute(
+        select(StandardVersion, StandardProduct)
+        .join(StandardProduct, StandardVersion.product_id == StandardProduct.id)
+        .where(
+            StandardProduct.provider == "CDISC",
+            StandardProduct.family == "SDTMIG",
+            StandardVersion.library_href.in_(tuple(live)),
+            StandardVersion.lifecycle.in_(("active", "deprecated")),
+        )
+        .order_by(StandardVersion.publication_date, StandardVersion.version)
+    )
+    return tuple(
+        SdtmIndustryStandardVersion(
+            standard_version_id=version.id,
+            product_id=product.id,
+            product_name=product.name,
+            version=version.version,
+            lifecycle=version.lifecycle,
+            canonical_href=cast(str, version.library_href),
+            title=live[cast(str, version.library_href)],
+        )
+        for version, product in rows
+    )
 
 
 def _sdtm(session: Session, sdtm_id: UUID, principal: Principal) -> SdtmWorkbench:
@@ -359,12 +468,16 @@ def get_specification(
     sdtm_id: UUID,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    reader_factory: Annotated[
+        CdiscLibraryReaderFactory, Depends(get_cdisc_library_reader_factory)
+    ],
     principal: Annotated[Principal, Depends(get_principal)],
 ) -> SpecificationResponse:
     workbench = _sdtm(session, sdtm_id, principal)
     record = _handler(registry).latest_specification(session, workbench.id)
     if record is None:
         raise _missing("sdtm_specification_required", "SDTM Specification is not saved.")
+    _selected_sdtmig_metadata(session, _handler(registry), workbench, reader_factory)
     return SpecificationResponse.model_validate(record)
 
 
@@ -374,6 +487,8 @@ def _save_specification(
     workbench: SdtmWorkbench,
     command: SdtmSpecification,
     principal: Principal,
+    *,
+    standard_source: dict[str, object] | None = None,
 ) -> SdtmSpecificationRevision:
     if command.schema_version != "2.0.0":
         raise ProblemException(
@@ -386,6 +501,11 @@ def _save_specification(
             ),
         )
     current = _handler(registry).latest_specification(session, workbench.id)
+    resolved_standard_source = (
+        standard_source
+        if standard_source is not None
+        else (current.standard_source if current is not None else None)
+    )
     record = SdtmSpecificationRevision(
         aggregate_id=workbench.id,
         study_id=workbench.study_id,
@@ -393,6 +513,7 @@ def _save_specification(
         schema_version=command.schema_version,
         payload=command.model_dump(mode="json"),
         fingerprint=fingerprint(command.model_dump(mode="json")),
+        standard_source=resolved_standard_source,
         created_by=principal.subject,
     )
     session.add(record)
@@ -414,12 +535,25 @@ def put_specification(
     response: Response,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    reader_factory: Annotated[
+        CdiscLibraryReaderFactory, Depends(get_cdisc_library_reader_factory)
+    ],
     principal: Annotated[Principal, Depends(get_principal)],
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
 ) -> SpecificationResponse:
     workbench = _sdtm(session, sdtm_id, principal)
     require_matching_etag(if_match, workbench.revision)
-    record = _save_specification(session, registry, workbench, command, principal)
+    metadata = _selected_sdtmig_metadata(
+        session, _handler(registry), workbench, reader_factory
+    )
+    record = _save_specification(
+        session,
+        registry,
+        workbench,
+        command,
+        principal,
+        standard_source=_live_standard_source(metadata),
+    )
     session.commit()
     response.headers["ETag"] = etag_for_revision(workbench.revision)
     return SpecificationResponse.model_validate(record)
@@ -433,13 +567,17 @@ def get_specification_initialization_options(
     sdtm_id: UUID,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
-    storage: Annotated[ObjectStorage, Depends(get_object_storage)],
+    reader_factory: Annotated[
+        CdiscLibraryReaderFactory, Depends(get_cdisc_library_reader_factory)
+    ],
     principal: Annotated[Principal, Depends(get_principal)],
 ) -> SdtmSpecificationInitializationOptions:
     """List the concrete domains available from the exact selected SDTMIG."""
 
     workbench = _sdtm(session, sdtm_id, principal)
-    metadata = _selected_sdtmig_metadata(session, _handler(registry), workbench, storage)
+    metadata = _selected_sdtmig_metadata(
+        session, _handler(registry), workbench, reader_factory
+    )
     try:
         domains = standard_domain_options(metadata)
     except ValueError as error:
@@ -451,6 +589,8 @@ def get_specification_initialization_options(
         ) from error
     return SdtmSpecificationInitializationOptions(
         standard_version_id=metadata.version_id,
+        canonical_href=metadata.canonical_href,
+        response_checksum=metadata.checksum,
         domains=domains,
     )
 
@@ -465,7 +605,9 @@ def initialize_specification(
     response: Response,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
-    storage: Annotated[ObjectStorage, Depends(get_object_storage)],
+    reader_factory: Annotated[
+        CdiscLibraryReaderFactory, Depends(get_cdisc_library_reader_factory)
+    ],
     principal: Annotated[Principal, Depends(get_principal)],
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
 ) -> SpecificationResponse:
@@ -477,7 +619,7 @@ def initialize_specification(
     current_record = handler.latest_specification(session, workbench.id)
     current = context_from_record(current_record) if current_record is not None else None
     try:
-        metadata = _selected_sdtmig_metadata(session, handler, workbench, storage)
+        metadata = _selected_sdtmig_metadata(session, handler, workbench, reader_factory)
         specification = initialize_specification_from_standard(
             metadata,
             current,
@@ -491,7 +633,14 @@ def initialize_specification(
             title="The selected SDTM industry standard cannot initialize a Specification",
             detail=str(error),
         ) from error
-    record = _save_specification(session, registry, workbench, specification, principal)
+    record = _save_specification(
+        session,
+        registry,
+        workbench,
+        specification,
+        principal,
+        standard_source=_live_standard_source(metadata),
+    )
     session.commit()
     response.headers["ETag"] = etag_for_revision(workbench.revision)
     return SpecificationResponse.model_validate(record)
@@ -506,6 +655,9 @@ async def import_specification(
     response: Response,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    reader_factory: Annotated[
+        CdiscLibraryReaderFactory, Depends(get_cdisc_library_reader_factory)
+    ],
     principal: Annotated[Principal, Depends(get_principal)],
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
@@ -521,6 +673,9 @@ async def import_specification(
             title="Idempotency-Key is required",
             detail="Supply an Idempotency-Key header for an atomic import.",
         )
+    metadata = _selected_sdtmig_metadata(
+        session, _handler(registry), workbench, reader_factory
+    )
     existing = session.scalar(
         select(IdempotencyRecord).where(
             IdempotencyRecord.subject == principal.subject,
@@ -555,7 +710,14 @@ async def import_specification(
             title="SDTM Specification import is invalid",
             detail=str(error),
         ) from error
-    record = _save_specification(session, registry, workbench, command, principal)
+    record = _save_specification(
+        session,
+        registry,
+        workbench,
+        command,
+        principal,
+        standard_source=_live_standard_source(metadata),
+    )
     session.add(
         IdempotencyRecord(
             subject=principal.subject,
@@ -577,10 +739,13 @@ def export_specification(
     sdtm_id: UUID,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[ModuleRegistry, Depends(get_module_registry)],
+    reader_factory: Annotated[
+        CdiscLibraryReaderFactory, Depends(get_cdisc_library_reader_factory)
+    ],
     principal: Annotated[Principal, Depends(get_principal)],
     export_format: Annotated[str, Query(alias="format", pattern=r"^(json|xlsx)$")] = "json",
 ) -> Response:
-    record = get_specification(sdtm_id, session, registry, principal)
+    record = get_specification(sdtm_id, session, registry, reader_factory, principal)
     if export_format == "json":
         return JSONResponse(content=record.payload)
     specification = SdtmSpecification.model_validate(record.payload)

@@ -50,6 +50,6 @@ registry retains only exact on-demand selections and their immutable source resp
 
 ## Ingestion boundary
 
-`python -m app.cdisc_registry` is an offline administrative command. On-demand acquisition validates the concrete provider identity, selected graph boundary, canonical bytes, SHA-256 checksums, product identity, and uniqueness before committing. Exceptional repository-backed imports continue to validate versioned Pydantic manifests, safe paths, and compatibility targets. The public API remains read-only for provider catalogs. There is deliberately no operation-time fetch, "latest" alias, silent upgrade, or API-key storage.
+`python -m app.cdisc_registry` remains the offline administrative command for snapshot-backed consumers. On-demand acquisition validates the concrete provider identity, selected graph boundary, canonical bytes, SHA-256 checksums, product identity, and uniqueness before committing. Exceptional repository-backed imports continue to validate versioned Pydantic manifests, safe paths, and compatibility targets. Provider catalogs remain read-only. SDTM Specification authoring is the deliberate operation-time exception: it resolves the already selected canonical SDTMIG href live, records the response checksum, never uses a mutable `latest` alias, and never stores or returns the API key.
 
 Deployments must review their right to retain and distribute CDISC publication content under their applicable access and license terms. Tests use synthetic concepts and package metadata and never contact CDISC.

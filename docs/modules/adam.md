@@ -1,6 +1,6 @@
 # ADaM module
 
-Status: Phase 4 Define and ADRG slice. The current API supports exact SDTM input selection, immutable
+Status: Phase 4 AI-first ADaM workflow implemented. The API supports exact SDTM input selection, immutable
 ADaM Specification revisions, aligned immutable Derivation Plan revisions, plan validation,
 dependency compatibility checks, atomic JSON/XLSX Specification exchange, bounded preview,
 lineage, immutable validation snapshots, deterministic metadata/report/program artifacts, and
@@ -8,7 +8,14 @@ exact-provenance Python/R execution that publishes CSV and XPT v5 datasets, vers
 ADaM Define authoring, XPT reconciliation, Define-XML 2.0/2.1 publication, and versioned ADRG
 authoring and DOCX/PDF publication.
 
-The runner conformance suite lowers one manually authored ADaM Specification/Derivation Plan pair
+ADaM Specification, per-dataset Derivation Plan, Define metadata, and ADRG content support two
+explicit authoring paths: direct typed create/edit by an authorized human, or typed AI proposals
+over exact accepted Documents and SDTM context followed by human review. Both paths apply the same
+validation, dependency, alignment, traceability, and immutable-revision rules. AI output cannot
+activate content until a human accepts it; direct writes record human authorship and do not claim
+proposal provenance.
+
+The runner conformance suite lowers one accepted ADaM Specification/Derivation Plan pair
 to the same internal IR fingerprint, executes its generated Python and R programs in isolated
 containers, and compares the ADSL schema, declared column order, and discrete values exactly.
 Supported typed value-level equality and ordering conditions render as formal machine-readable
@@ -54,10 +61,29 @@ Specification, input selection, and Derivation Plan. The validation run must be 
 error-free, and bind those same exact revisions. `GET /adam-workbenches/{id}/sdtm-context` returns only
 the XPT artifacts selected by this ADaM workbench, plus the SDTM metadata snapshot.
 
-## Save an ADaM Specification
+## Create, edit, or propose ADaM content
 
-`PUT /adam-workbenches/{id}/specification` creates a new immutable revision and requires `If-Match`.
-The request is one atomic document containing:
+The workbench exposes a manual typed editor alongside the shared asynchronous proposal lifecycle.
+Direct writes require the appropriate current `ETag`; proposal acceptance requires the current
+workbench `ETag`, an idempotency key, and a human rationale.
+
+```text
+POST /api/v1/adam-workbenches/{aggregate_id}/proposals
+GET  /api/v1/adam-workbenches/{aggregate_id}/proposals
+GET  /api/v1/adam-workbenches/{aggregate_id}/proposals/{proposal_id}
+POST /api/v1/adam-workbenches/{aggregate_id}/proposals/{proposal_id}:accept
+POST /api/v1/adam-workbenches/{aggregate_id}/proposals/{proposal_id}:reject
+POST /api/v1/adam-workbenches/{aggregate_id}/proposals/{proposal_id}:request-revision
+```
+
+Supported types are `adam_specification`, `adam_derivation_plan`, `adam_define`, and `adam_adrg`.
+A plan request identifies its target dataset. Generation records the exact immutable context,
+provider/model and instruction identity, parameters, response checksum, validation issues,
+field-level diff, assumptions, unresolved items, evidence references, and model limitations.
+Acceptance revalidates the proposal against the current base and invokes module invariants before
+creating a normal immutable revision with proposal and human-decision provenance.
+
+An accepted Specification is one atomic document containing:
 
 - datasets with stable UUIDs, natural codes, class, structure, keys, and sort order;
 - variables with stable UUIDs, roles, exact origins, output node IDs, and optional terminology;
@@ -129,15 +155,13 @@ value-level items. The save fails with
 not registered. Replacing a Specification revision removes only its superseded declared links;
 the normalized `trace_links` table remains the single relationship store.
 
-`POST /adam-workbenches/{id}/specification:import` accepts JSON or that XLSX contract. It requires the
-current `If-Match` value and an `Idempotency-Key`. The complete workbook is validated before
-one immutable revision is committed. Replaying the same key and bytes returns the original
-revision; reusing the key for different bytes returns a conflict.
+The former import path cannot activate content. Use an AI proposal for changes; export remains a
+non-persisting review and interchange artifact.
 
-## Save and validate a Derivation Plan
+## Review and validate a Derivation Plan
 
-`PUT /adam-workbenches/{id}/derivation-plan` also requires the current `ETag`. Its
-`specification_revision` and `input_selection_revision` must match the current records.
+An `adam_derivation_plan` proposal targets one dataset and must pin the current
+`specification_revision` and `input_selection_revision`.
 
 ```json
 {
@@ -156,10 +180,11 @@ The initial node vocabulary is `sdtm_read`, `adam_read`, `filter`, `derive`, `se
 `assert`, and `dataset_write`. Expressions are typed expression objects; raw code in ordinary
 nodes and arbitrary expression strings are rejected. A plan may declare typed named
 `custom_functions` with fixed signatures and explicit Python, R, and/or SAS bodies, then invoke
-them through `custom_function` expressions. `POST /adam-workbenches/{id}/derivation-plan:validate`
+them through `custom_function` expressions. `POST
+/adam-workbenches/{id}/datasets/{dataset_code}/derivation-plan:validate`
 checks current alignment and returns the deterministic internal IR fingerprint.
 
-`POST /adam-workbenches/{id}/derivation-plan:preview` accepts optional target `datasets` and a row
+`POST /adam-workbenches/{id}/datasets/{dataset_code}/derivation-plan:preview` accepts a row
 `limit` from 1 through 200. The SDTM module verifies and reads the exact selected XPT bytes,
 including their SHA-256 checksums; ADaM receives only typed rows through the context interface.
 The same lowered IR used by later compilation evaluates the bounded preview. Results are
@@ -209,7 +234,7 @@ with the typed `runner_not_configured` result.
 
 ## Maintain version-neutral Define metadata
 
-The current Define foundation provides `GET` and `PUT /adam-workbenches/{id}/define`,
+The current Define foundation provides `GET /adam-workbenches/{id}/define`,
 `POST /adam-workbenches/{id}/define:initialize`, and `POST /adam-workbenches/{id}/define:validate`.
 Every immutable revision pins the current Specification and input-selection revisions plus exact
 available `adam_dataset_xpt` artifact IDs, filenames, and checksums. Its datasets retain classes,
@@ -219,7 +244,7 @@ methods from the ADaM Specification.
 Initialization requires the workbench `ETag` and `expected_define_revision`. It adds missing
 datasets, variables, and methods from current metadata and refreshes exact leaf facts, while
 preserving maintained labels and other existing metadata. Replacing an existing output selection
-requires an explicit complete `PUT`; initialization will not silently rebind it. Preserved edits to
+requires a newly accepted `adam_define` proposal; initialization will not silently rebind it. Preserved edits to
 factual dataset metadata remain visible but must reconcile with the current Specification before
 publication; top-level descriptive fields remain independently maintained. Define validation
 creates an immutable common-model issue snapshot and compares dataset metadata, variables,
@@ -270,12 +295,12 @@ reconciliation run ID:
 
 Initialization derives immutable factual tables from the exact Define-selected XPT artifacts and
 their successful execution/program evidence. It creates the required narrative section shells but
-does not invent clinical conclusions. Populate every section's `paragraphs` with manually authored
-content and save the complete payload using `PUT /adam-workbenches/{id}/adrg` plus the current `If-Match`.
+does not invent clinical conclusions. Populate every section's `paragraphs` through a
+human-accepted `adam_adrg` proposal. The direct ADRG write route cannot activate content.
 Reinitializing with `expected_adrg_revision` set to the current ADRG revision refreshes factual
 evidence and preserves those paragraphs, headings, title, and version.
 
-`POST /adam-workbenches/{id}/adrg:validate` creates an immutable validation snapshot. Missing manual content
+`POST /adam-workbenches/{id}/adrg:validate` creates an immutable validation snapshot. Missing human-accepted content
 in any required section is an error. After zero-error validation, resolve the canonical build-input
 fingerprint and call `POST /adam-workbenches/{id}/adrg/artifacts:build` with an `Idempotency-Key`:
 

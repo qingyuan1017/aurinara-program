@@ -74,7 +74,14 @@ class SdtmSpecificationRevision(UuidPrimaryKey, Base):
     schema_version: Mapped[str] = mapped_column(String(32), nullable=False)
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    standard_source: Mapped[dict[str, object] | None] = mapped_column(JSONB)
     created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    originating_proposal_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("authoring_proposals.id", ondelete="RESTRICT"), index=True
+    )
+    originating_decision_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("proposal_review_decisions.id", ondelete="RESTRICT"), index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
@@ -106,6 +113,12 @@ class SdtmDomainMappingRevision(UuidPrimaryKey, Base):
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    originating_proposal_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("authoring_proposals.id", ondelete="RESTRICT"), index=True
+    )
+    originating_decision_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("proposal_review_decisions.id", ondelete="RESTRICT"), index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
@@ -137,6 +150,12 @@ class SdtmVariableMappingRevision(UuidPrimaryKey, Base):
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    originating_proposal_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("authoring_proposals.id", ondelete="RESTRICT"), index=True
+    )
+    originating_decision_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("proposal_review_decisions.id", ondelete="RESTRICT"), index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
@@ -187,6 +206,12 @@ class SdtmCodeRevision(UuidPrimaryKey, Base):
     source: Mapped[str] = mapped_column(Text, nullable=False)
     fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    originating_proposal_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("authoring_proposals.id", ondelete="RESTRICT"), index=True
+    )
+    originating_decision_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("proposal_review_decisions.id", ondelete="RESTRICT"), index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
@@ -334,6 +359,12 @@ class SdtmDefineRevision(UuidPrimaryKey, Base):
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    originating_proposal_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("authoring_proposals.id", ondelete="RESTRICT"), index=True
+    )
+    originating_decision_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("proposal_review_decisions.id", ondelete="RESTRICT"), index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
@@ -363,6 +394,12 @@ class SdtmCsdrgRevision(UuidPrimaryKey, Base):
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    originating_proposal_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("authoring_proposals.id", ondelete="RESTRICT"), index=True
+    )
+    originating_decision_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("proposal_review_decisions.id", ondelete="RESTRICT"), index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )

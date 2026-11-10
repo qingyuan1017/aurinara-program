@@ -1,28 +1,49 @@
 # SDTM Module
 
-The SDTM module is a manually authored workbench for selecting exact Raw inputs, maintaining target metadata and declared lineage, writing executable programs, validating exact outputs, and building reviewer and submission artifacts. It does not propose mappings, infer derivations, or treat declared lineage as executable logic.
+The SDTM module supports direct human create/edit and AI-assisted proposal/review for target
+metadata, declared lineage, executable programs, Define metadata, and cSDRG narrative. Both paths
+use the same exact Raw inputs, typed contracts, validation, staleness, and immutable revisions.
+For AI output, humans review immutable context, provenance, diffs, assumptions, unresolved items,
+evidence references, limitations, and deterministic validation findings before accepting,
+rejecting, or requesting a revision. Only manually saved or human-accepted code may execute, and
+declared lineage remains distinct from executable logic.
+
+aCRF annotation retains the existing deterministic/manual evidence editor until its PDF extraction,
+redaction, and typed proposal path is implemented. It is the remaining SDTM authoring exception and
+must not be presented as AI-authored content.
 
 ## Workbench sequence
 
-The workbench presents these authoring areas:
+The workbench presents the following review stages:
 
-1. Input Selection
-2. Specification
-3. aCRF
-4. Domain Mapping
-5. Variable Mapping
-6. Code Workareas
-7. Define
-8. cSDRG
-9. Validation
-10. Program & artifact readiness
-11. Dependencies
+1. Source review
+2. Domain mapping
+3. Variable and value-level metadata
+4. Program review
+5. Execution
+6. aCRF
+7. Define and validation
+8. cSDRG and submission
 
-There is no SDTM graph editor, compile tab, or separate execution tab. The authored program is the executable authority. Domain and Variable Mappings are reviewer-facing, author-maintained lineage.
+There is no SDTM graph editor or compiler lowering. A manually saved or human-accepted proposed
+program revision is the executable authority. Domain and Variable Mappings are reviewer-facing,
+human-authored or human-accepted declared lineage.
 
 ## Specification and value contexts
 
 One immutable Specification revision covers every SDTM domain. New authoring uses content schema `2.0.0`. Historical earlier-schema revisions remain readable but cannot drive new mappings or generation until a user explicitly reviews and saves a current-schema revision.
+
+The selected SDTMIG identity remains explicit, but Specification operations do not read its
+retained catalog asset. Catalog/domain discovery, reads, deterministic population, direct saves,
+import/replay, exports, and Specification AI proposal generation or acceptance call the canonical
+CDISC Library resource live with the server-side API key. Saved revisions record the canonical
+href and response checksum; a missing credential or unavailable provider fails visibly and never
+falls back to the repository snapshot.
+
+Older Library representations contain a small number of documented omissions and labels that
+exceed the XPT v5 40-character limit. The initializer applies only reviewed, variable-specific
+normalizations for those known records; it never supplies a generic default for unknown missing
+metadata. The live provider response remains the checksummed provenance source.
 
 Each domain contains variables, keys, sort order, sequencing metadata, output naming, terminology bindings, value-level metadata, and reusable value contexts. A value context has a stable `id`, reviewer-facing `label`, `discriminator_variable`, operator (`eq`, `ne`, or `in`), and typed `values`. `eq` and `ne` require one value. `in` requires a non-empty unique list. Value-level metadata references `context_id`; it does not duplicate a condition.
 
@@ -32,7 +53,7 @@ Each generated domain has one immutable Domain Mapping head pinned to the curren
 
 Raw datasets must exist in the exact selected Raw context. Upstream domains must exist in the Specification. Duplicate inputs, self-references, and cross-domain cycles are rejected. References to upstream domains remain logical here; a test or generation request selects the exact upstream XPT artifacts it consumes.
 
-An imported domain is the alternate provider for a domain. Imported domains are inspected and validated against the current Specification and require neither Variable Mapping nor a Code Workarea. Import inspection never creates clinical metadata or mappings.
+An imported domain is the alternate provider for a domain. Imported domains are inspected and validated against the current Specification and require neither Variable Mapping nor a Code Workarea. Import inspection never creates clinical metadata or mappings. The optional imported-domain lookup returns an empty successful result when no imported revision exists, because that is the normal initial state for a generated domain.
 
 ## Variable Mapping
 
@@ -107,4 +128,4 @@ Mapping, workarea, and Output Selection mutations use ETag/`If-Match` concurrenc
 
 ## Artifact provenance
 
-Generated programs and outputs record the exact Specification, mapping revisions, code revision, input artifacts, dependency selection, validation evidence, runner settings, and SHA-256 checksums. Mapping and lineage deliverables identify their contents as author-maintained and not inferred from program execution. Immutable prior evidence remains recoverable when stale, but stale evidence cannot be selected for downstream use or a new package.
+Generated programs and outputs record the exact Specification, mapping revisions, code revision, originating proposal/decision, input artifacts, dependency selection, validation evidence, runner settings, and SHA-256 checksums. Mapping and lineage deliverables identify their contents as human-accepted declared lineage and not inferred from program execution. Immutable prior evidence remains recoverable when stale, but stale evidence cannot be selected for downstream use or a new package.

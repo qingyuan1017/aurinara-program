@@ -40,22 +40,18 @@ import {
   useGetSpecificationInitializationOptions,
   useImportSpecification,
   useInitializeSpecification,
+  useListSpecificationIndustryStandards,
   usePutSpecification,
   useReplaceSdtmDependencies,
 } from '@/api/generated/sdtm/sdtm'
-import {
-  useGetStandardVersion,
-  useListStandards,
-  useListStandardVersions,
-} from '@/api/generated/provider-catalogs/provider-catalogs'
 import type {
+  AppSdtmWorkbenchRoutesSpecificationResponse as SpecificationResponse,
   DependencySelectionInput,
   SdtmDomain,
   SdtmSpecification,
   SdtmSpecificationInitialize,
+  SdtmIndustryStandardVersion,
   SdtmStandardDomainOption,
-  SpecificationResponse,
-  StandardVersionResponse,
 } from '@/api/generated/model'
 
 /**
@@ -95,19 +91,26 @@ export function SpecificationPanel({ sdtmId }: { sdtmId: string }) {
   const selectedStandard = dependencies.data?.standards?.find(
     (item) => item.purpose === 'sdtm_ig',
   )
-  const standardProducts = useListStandards({
-    family: 'SDTMIG',
-    product_type: 'implementation_guide',
-    scope: 'clinical',
-  })
-  const selectedStandardVersion = useGetStandardVersion(
-    selectedStandard?.standard_version_id ?? '',
-  )
+  const liveStandards = useListSpecificationIndustryStandards(sdtmId)
   const [standardProductId, setStandardProductId] = React.useState('')
   const [standardVersionId, setStandardVersionId] = React.useState('')
-  const standardVersions = useListStandardVersions(
-    standardProductId,
-    { module: 'sdtm' },
+  const standardProducts = React.useMemo(
+    () => Array.from(
+      new Map(
+        (liveStandards.data ?? []).map((item) => [
+          item.product_id,
+          {
+            id: item.product_id,
+            name: item.product_name,
+            provider: item.provider ?? 'CDISC',
+          },
+        ]),
+      ).values(),
+    ),
+    [liveStandards.data],
+  )
+  const standardVersions = (liveStandards.data ?? []).filter(
+    (item) => item.product_id === standardProductId,
   )
   const canLoadInitializationOptions =
     !!selectedStandard?.standard_version_id &&
@@ -119,13 +122,10 @@ export function SpecificationPanel({ sdtmId }: { sdtmId: string }) {
   const initializationOptionsMatch =
     initializationOptions.data?.standard_version_id ===
     selectedStandard?.standard_version_id
-  const standardCatalogProblem = standardProducts.isError
-    ? parseProblem(standardProducts.error as AxiosError).detail ??
-      'Could not load the Standards catalog.'
-    : standardVersions.isError
-      ? parseProblem(standardVersions.error as AxiosError).detail ??
-        'Could not load implementation-guide versions.'
-      : null
+  const standardCatalogProblem = liveStandards.isError
+    ? parseProblem(liveStandards.error as AxiosError).detail ??
+      'Could not load implementation-guide versions from CDISC Library.'
+    : null
   const initializationOptionsProblem =
     canLoadInitializationOptions && initializationOptions.isError
     ? parseProblem(initializationOptions.error as AxiosError).detail ??
@@ -133,19 +133,22 @@ export function SpecificationPanel({ sdtmId }: { sdtmId: string }) {
     : null
 
   React.useEffect(() => {
-    if (!selectedStandard?.standard_version_id || !selectedStandardVersion.data) {
+    if (!selectedStandard?.standard_version_id || !liveStandards.data) {
       return
     }
-    setStandardProductId(selectedStandardVersion.data.product_id)
+    const version = liveStandards.data.find(
+      (item) => item.standard_version_id === selectedStandard.standard_version_id,
+    )
+    if (!version) return
+    setStandardProductId(version.product_id)
     setStandardVersionId(selectedStandard.standard_version_id)
-  }, [selectedStandard?.standard_version_id, selectedStandardVersion.data])
+  }, [selectedStandard?.standard_version_id, liveStandards.data])
 
   React.useEffect(() => {
-    const products = standardProducts.data ?? []
-    if (!standardProductId && products.length === 1) {
-      setStandardProductId(products[0].id)
+    if (!standardProductId && standardProducts.length === 1) {
+      setStandardProductId(standardProducts[0].id)
     }
-  }, [standardProductId, standardProducts.data])
+  }, [standardProductId, standardProducts])
 
   // The in-memory Specification draft. Seeded from the loaded payload and
   // re-seeded whenever the server revision changes (e.g. after save, import, or
@@ -192,8 +195,8 @@ export function SpecificationPanel({ sdtmId }: { sdtmId: string }) {
   })
 
   async function handleSaveStandardSelection() {
-    const version = standardVersions.data?.find(
-      (item) => item.id === standardVersionId,
+    const version = standardVersions.find(
+      (item) => item.standard_version_id === standardVersionId,
     )
     if (!version || !dependencies.data) return
 
@@ -205,7 +208,7 @@ export function SpecificationPanel({ sdtmId }: { sdtmId: string }) {
             item.purpose !== 'sdtm_ig' &&
             item.purpose !== 'reference_metadata',
         ),
-        { purpose: 'sdtm_ig', standard_version_id: version.id },
+        { purpose: 'sdtm_ig', standard_version_id: version.standard_version_id },
       ],
       terminology: dependencies.data.terminology ?? [],
       references: dependencies.data.references ?? [],
@@ -278,7 +281,11 @@ export function SpecificationPanel({ sdtmId }: { sdtmId: string }) {
   async function handleSave() {
     setConcurrency(null)
     const body: SdtmSpecification = {
-      schema_version: '1.0.0',
+      // The API keeps historical 1.0.0 revisions readable, but every new
+      // manual save must use the current reusable value-context contract.
+      // This also makes a from-scratch Specification consistent with factual
+      // initialization from the selected SDTMIG, which already emits 2.0.0.
+      schema_version: '2.0.0',
       domains,
     }
     try {
@@ -408,8 +415,8 @@ export function SpecificationPanel({ sdtmId }: { sdtmId: string }) {
         />
         <ConcurrencyNotice message={concurrency} onReload={reloadCurrentRevision} />
         <IndustryStandardCard
-          products={standardProducts.data ?? []}
-          versions={eligibleSdtmVersions(standardVersions.data)}
+          products={standardProducts}
+          versions={standardVersions}
           productId={standardProductId}
           versionId={standardVersionId}
           savedVersionId={selectedStandard?.standard_version_id}
@@ -426,7 +433,7 @@ export function SpecificationPanel({ sdtmId }: { sdtmId: string }) {
             setStandardSelectionProblem(null)
           }}
           onSaveSelection={handleSaveStandardSelection}
-          isCatalogLoading={standardProducts.isLoading || standardVersions.isLoading}
+          isCatalogLoading={liveStandards.isLoading || liveStandards.isFetching}
           isOptionsLoading={
             canLoadInitializationOptions &&
             (initializationOptions.isLoading ||
@@ -504,8 +511,8 @@ export function SpecificationPanel({ sdtmId }: { sdtmId: string }) {
       <ConcurrencyNotice message={concurrency} onReload={reloadCurrentRevision} />
 
       <IndustryStandardCard
-        products={standardProducts.data ?? []}
-        versions={eligibleSdtmVersions(standardVersions.data)}
+        products={standardProducts}
+        versions={standardVersions}
         productId={standardProductId}
         versionId={standardVersionId}
         savedVersionId={selectedStandard?.standard_version_id}
@@ -522,7 +529,7 @@ export function SpecificationPanel({ sdtmId }: { sdtmId: string }) {
           setStandardSelectionProblem(null)
         }}
         onSaveSelection={handleSaveStandardSelection}
-        isCatalogLoading={standardProducts.isLoading || standardVersions.isLoading}
+        isCatalogLoading={liveStandards.isLoading || liveStandards.isFetching}
         isOptionsLoading={
           canLoadInitializationOptions &&
           (initializationOptions.isLoading ||
@@ -592,7 +599,7 @@ interface ImportCardProps {
 
 interface IndustryStandardCardProps {
   products: Array<{ id: string; name: string; provider: string }>
-  versions: StandardVersionResponse[]
+  versions: SdtmIndustryStandardVersion[]
   productId: string
   versionId: string
   savedVersionId: string | undefined
@@ -655,8 +662,9 @@ function IndustryStandardCard({
           <LibraryBig className="size-4" aria-hidden /> Industry standard
         </CardTitle>
         <CardDescription>
-          Add missing domains and variables from the exact SDTM implementation
-          guide version selected below. Existing manual edits are preserved.
+          Fetch the selected SDTM implementation guide directly from CDISC Library,
+          then add missing domains and variables. Existing manual edits are preserved;
+          the live response checksum is recorded with the saved revision.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
@@ -692,7 +700,10 @@ function IndustryStandardCard({
               </SelectTrigger>
               <SelectContent>
                 {versions.map((version) => (
-                  <SelectItem key={version.id} value={version.id}>
+                  <SelectItem
+                    key={version.standard_version_id}
+                    value={version.standard_version_id}
+                  >
                     {version.version} · {version.lifecycle}
                   </SelectItem>
                 ))}
@@ -915,17 +926,6 @@ function domainsFromPayload(
   const raw = (payload as { domains?: unknown }).domains
   if (!Array.isArray(raw)) return []
   return raw as SdtmDomain[]
-}
-
-/** Keep only exact SDTMIG releases that can satisfy the SDTM dependency slot. */
-function eligibleSdtmVersions(
-  versions: StandardVersionResponse[] | undefined,
-): StandardVersionResponse[] {
-  return (versions ?? []).filter(
-    (version) =>
-      version.applicable_modules.includes('sdtm') &&
-      version.purposes.includes('sdtm_ig'),
-  )
 }
 
 /**

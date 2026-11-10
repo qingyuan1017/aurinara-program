@@ -21,6 +21,7 @@ from app.artifacts.service import ArtifactService, store_bytes_object
 from app.catalog_seed import seed
 from app.common.canonical import fingerprint
 from app.database import create_database_engine, create_session_factory
+from app.documents.models import Document, DocumentContent
 from app.execution.adapters import ExecutionRequest, ExecutionResult
 from app.execution.jobs import JobService
 from app.execution.models import ExecutionRun
@@ -29,6 +30,10 @@ from app.main import create_app
 from app.packaging.service import resolve_package
 from app.validation.models import ValidationRun
 from tests.conftest import make_test_settings
+from tests.integration.proposal_helpers import (
+    SyntheticPlatformAgentClient,
+    accept_typed_proposal,
+)
 from tests.integration.test_phase1_core import MemoryStorage, TestTokenVerifier
 from workers.job_worker import _process_job
 
@@ -60,7 +65,13 @@ class HostPythonExecutor:
 
 @pytest.fixture
 async def phase5_client() -> AsyncIterator[AsyncClient]:
-    settings = make_test_settings()
+    settings = make_test_settings(
+        assistance_enabled=True,
+        platform_control_plane_url="https://platform.example.test",
+        platform_service_token_url="https://identity.example.test/oauth2/token",
+        platform_service_client_id="aurinara-api",
+        platform_service_client_secret="synthetic-test-key",
+    )
     engine = create_database_engine(settings)
     factory = create_session_factory(engine)
     with engine.begin() as connection:
@@ -80,6 +91,7 @@ async def phase5_client() -> AsyncIterator[AsyncClient]:
         object_storage=storage,
         token_verifier=TestTokenVerifier(),
     )
+    application.state.platform_agent_client = SyntheticPlatformAgentClient()
     async with AsyncClient(
         transport=ASGITransport(app=application), base_url="http://testserver"
     ) as client:
@@ -232,10 +244,44 @@ async def test_tlf_execute_render_and_deterministic_package(
             source_specification_revision=adam.revision,
         )
         adam_run.output_artifact_ids = [str(adam_output.id)]
+        sap = Document(
+            study_id=study_id,
+            code="SAP-TLF",
+            name="TLF source SAP",
+            document_type="statistical_analysis_plan",
+            status="draft",
+        )
+        session.add(sap)
+        session.flush()
+        sap_payload = {
+            "document_type": "statistical_analysis_plan",
+            "title": "TLF source SAP",
+            "version": "1.0",
+            "output_requirements": [
+                {
+                    "id": "OUT1",
+                    "name": "Subject disposition",
+                    "description": "Table of completed subjects in the safety population.",
+                }
+            ],
+        }
+        sap_content = DocumentContent(
+            document_id=sap.id,
+            study_id=study_id,
+            revision=1,
+            schema_version="1.0.0",
+            payload=sap_payload,
+            fingerprint=fingerprint(sap_payload),
+            created_by="integration-reviewer",
+        )
+        session.add(sap_content)
+        session.flush()
         adam_id = adam.id
         adam_validation_id = validation.id
         adam_artifact_id = adam_output.id
         adam_checksum = adam_output.sha256
+        sap_content_id = sap_content.id
+        sap_fingerprint = sap_content.fingerprint
 
     created = await client.post(
         f"/api/v1/studies/{study_id}/tlf-workbenches",
@@ -258,101 +304,153 @@ async def test_tlf_execute_render_and_deterministic_package(
         },
     )
     assert dependency.status_code == 200, dependency.text
-    shell = await client.put(
-        f"/api/v1/tlf-workbenches/{tlf_id}/shell",
+    dataset_binding = {
+        "id": "adsl",
+        "adam_id": str(adam_id),
+        "adam_revision": 1,
+        "dataset_code": "ADSL",
+        "artifact_id": str(adam_artifact_id),
+        "checksum": adam_checksum,
+        "validation_run_id": str(adam_validation_id),
+        "dependency_fingerprint": dependency_fingerprint,
+    }
+    selected = await client.put(
+        f"/api/v1/tlf-workbenches/{tlf_id}/input-selection",
         headers={**headers, "If-Match": dependency.headers["etag"]},
         json={
-            "output_code": "T-14-1",
-            "output_type": "table",
-            "title": "Subject disposition",
-            "columns": [{"id": "value", "label": "Subjects", "order": 1}],
-            "rows": [{"id": "completed", "label": "Completed", "order": 1, "leaf": True}],
-        },
-    )
-    assert shell.status_code == 200, shell.text
-    bindings = await client.put(
-        f"/api/v1/tlf-workbenches/{tlf_id}/bindings",
-        headers={**headers, "If-Match": shell.headers["etag"]},
-        json={
-            "datasets": [
+            "documents": [
                 {
-                    "id": "adsl",
-                    "adam_id": str(adam_id),
-                    "adam_revision": 1,
-                    "dataset_code": "ADSL",
-                    "artifact_id": str(adam_artifact_id),
-                    "checksum": adam_checksum,
-                    "validation_run_id": str(adam_validation_id),
-                    "dependency_fingerprint": dependency_fingerprint,
+                    "content_id": str(sap_content_id),
+                    "document_type": "statistical_analysis_plan",
+                    "fingerprint": sap_fingerprint,
                 }
             ],
-            "named": [
-                {
-                    "id": "safety",
-                    "kind": "population",
-                    "dataset_binding_id": "adsl",
-                    "variable": "SAFFL",
-                    "value": "Y",
-                },
-                {
-                    "id": "frequency",
-                    "kind": "statistic",
-                    "dataset_binding_id": "adsl",
-                    "variable": "STAT",
-                    "value": "frequency",
-                },
-            ],
+            "datasets": [dataset_binding],
         },
     )
-    assert bindings.status_code == 200, bindings.text
-    assumptions = await client.put(
-        f"/api/v1/tlf-workbenches/{tlf_id}/assumptions",
-        headers={**headers, "If-Match": bindings.headers["etag"]},
-        json={"items": [{"id": "a1", "text": "Safety population is manually selected."}]},
-    )
-    assert assumptions.status_code == 200, assumptions.text
-    ars = await client.put(
-        f"/api/v1/tlf-workbenches/{tlf_id}/ars",
-        headers={**headers, "If-Match": assumptions.headers["etag"]},
+    assert selected.status_code == 200, selected.text
+    inventory = await client.put(
+        f"/api/v1/tlf-workbenches/{tlf_id}/inventory",
+        headers={**headers, "If-Match": selected.headers["etag"]},
         json={
-            "analyses": [
+            "outputs": [
                 {
-                    "id": "completed_analysis",
-                    "leaf_row_id": "completed",
-                    "dataset_binding_id": "adsl",
-                    "population_binding_id": "safety",
-                    "statistic_binding_id": "frequency",
-                    "order": 1,
+                    "output_code": "T-14-1",
+                    "output_type": "table",
+                    "title": "Subject disposition",
+                    "basis": "source_supported",
+                    "section": "Disposition",
+                    "purpose": "Summarize completed safety-population subjects.",
+                    "source_reference": "/source_documents/0/content/output_requirements/0",
+                    "readiness": "ready",
+                    "blocking_items": [],
                 }
             ]
         },
     )
-    assert ars.status_code == 200, ars.text
-    plan = await client.put(
-        f"/api/v1/tlf-workbenches/{tlf_id}/program-plan",
-        headers={**headers, "If-Match": ars.headers["etag"]},
-        json={
-            "shell_revision": 1,
-            "bindings_revision": 1,
-            "assumptions_revision": 1,
-            "ars_revision": 1,
-            "output_filename": "t_14_1.csv",
-            "steps": [
-                {
-                    "id": "frequency_step",
-                    "analysis_id": "completed_analysis",
-                    "method": "frequency",
-                    "variable": "EOSSTT",
-                    "order": 1,
-                }
-            ],
-        },
+    assert inventory.status_code == 200, inventory.text
+    shell_payload = {
+        "output_code": "T-14-1",
+        "output_type": "table",
+        "title": "Subject disposition",
+        "columns": [{"id": "value", "label": "Subjects", "order": 1}],
+        "rows": [{"id": "completed", "label": "Completed", "order": 1, "leaf": True}],
+    }
+    bindings_payload = {
+        "datasets": [dataset_binding],
+        "named": [
+            {
+                "id": "safety",
+                "kind": "population",
+                "dataset_binding_id": "adsl",
+                "variable": "SAFFL",
+                "value": "Y",
+            },
+            {
+                "id": "frequency",
+                "kind": "statistic",
+                "dataset_binding_id": "adsl",
+                "variable": "STAT",
+                "value": "frequency",
+            },
+        ],
+    }
+    assumptions_payload = {
+        "items": [{"id": "a1", "text": "Safety population is selected from SAFFL."}]
+    }
+    ars_payload = {
+        "analyses": [
+            {
+                "id": "completed_analysis",
+                "leaf_row_id": "completed",
+                "dataset_binding_id": "adsl",
+                "population_binding_id": "safety",
+                "statistic_binding_id": "frequency",
+                "order": 1,
+            }
+        ]
+    }
+    shell = await client.put(
+        f"/api/v1/tlf-workbenches/{tlf_id}/outputs/T-14-1/shell",
+        headers={**headers, "If-Match": inventory.headers["etag"]},
+        json=shell_payload,
+    )
+    assert shell.status_code == 200, shell.text
+    bindings = await client.put(
+        f"/api/v1/tlf-workbenches/{tlf_id}/outputs/T-14-1/bindings",
+        headers={**headers, "If-Match": shell.headers["etag"]},
+        json=bindings_payload,
+    )
+    assert bindings.status_code == 200, bindings.text
+    assumptions = await client.put(
+        f"/api/v1/tlf-workbenches/{tlf_id}/outputs/T-14-1/assumptions",
+        headers={**headers, "If-Match": bindings.headers["etag"]},
+        json=assumptions_payload,
+    )
+    assert assumptions.status_code == 200, assumptions.text
+    analysis = await client.put(
+        f"/api/v1/tlf-workbenches/{tlf_id}/outputs/T-14-1/ars",
+        headers={**headers, "If-Match": assumptions.headers["etag"]},
+        json=ars_payload,
+    )
+    assert analysis.status_code == 200, analysis.text
+    plan_payload = {
+        "shell_revision": 1,
+        "bindings_revision": 1,
+        "assumptions_revision": 1,
+        "ars_revision": 1,
+        "output_filename": "t_14_1.csv",
+        "steps": [
+            {
+                "id": "frequency_step",
+                "analysis_id": "completed_analysis",
+                "method": "frequency",
+                "variable": "EOSSTT",
+                "order": 1,
+            }
+        ],
+    }
+    plan = await accept_typed_proposal(
+        client,
+        application=application,
+        module_key="tlf",
+        collection="tlf-workbenches",
+        aggregate_id=tlf_id,
+        etag=analysis.headers["etag"],
+        proposal_type="tlf_programming_plan",
+        proposal_payload={"outputs": [{"output_code": "T-14-1", "program_plan": plan_payload}]},
     )
     assert plan.status_code == 200, plan.text
-    validation = await client.post(f"/api/v1/tlf-workbenches/{tlf_id}:validate", headers=headers)
+    validation = await client.post(
+        f"/api/v1/tlf-workbenches/{tlf_id}:validate",
+        headers=headers,
+        params={"output_code": "T-14-1"},
+    )
     assert validation.status_code == 200, validation.text
     preview = await client.post(
-        f"/api/v1/tlf-workbenches/{tlf_id}/program-plan:preview", headers=headers
+        f"/api/v1/tlf-workbenches/{tlf_id}/program-plan:preview",
+        headers=headers,
+        params={"output_code": "T-14-1"},
     )
     assert preview.status_code == 200, preview.text
     assert "Subject disposition" not in str(preview.json()["normalized_analysis_ir"])
@@ -365,13 +463,14 @@ async def test_tlf_execute_render_and_deterministic_package(
             owner_type="tlf_workbench",
             owner_id=UUID(tlf_id),
             artifact_types=("tlf_program_python",),
-            options={},
+            options={"domain_code": "T-14-1"},
         )
     program_build = await client.post(
         f"/api/v1/tlf-workbenches/{tlf_id}:compile",
         headers={**headers, "Idempotency-Key": "tlf-program-1"},
         json={
             "backend": "python",
+            "output_code": "T-14-1",
             "expected_input_fingerprint": fingerprint(program_resolved),
         },
     )
@@ -401,6 +500,7 @@ async def test_tlf_execute_render_and_deterministic_package(
             "bindings_revision": 1,
             "shell_revision": 1,
             "program_plan_revision": 1,
+            "output_code": "T-14-1",
             "compiler_fingerprint": compiler_fingerprint,
             "expected_input_fingerprint": program_input_fingerprint,
             "limits": {"cpu": 1, "memory_mb": 256, "runtime_seconds": 30, "output_bytes": 100000},
@@ -442,12 +542,16 @@ async def test_tlf_execute_render_and_deterministic_package(
             owner_type="tlf_workbench",
             owner_id=UUID(tlf_id),
             artifact_types=("tlf_table_pdf",),
-            options={},
+            options={"domain_code": "T-14-1"},
         )
     rendered = await client.post(
         f"/api/v1/tlf-workbenches/{tlf_id}:render",
         headers={**headers, "Idempotency-Key": "tlf-render-1"},
-        json={"format": "pdf", "expected_input_fingerprint": fingerprint(render_resolved)},
+        json={
+            "format": "pdf",
+            "output_code": "T-14-1",
+            "expected_input_fingerprint": fingerprint(render_resolved),
+        },
     )
     assert rendered.status_code == 202, rendered.text
     with factory.begin() as session:

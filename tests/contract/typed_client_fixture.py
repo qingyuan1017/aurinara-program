@@ -66,6 +66,7 @@ PHASE3_RAW_SDTM_OPERATIONS: Final[dict[str, frozenset[str]]] = {
     "/api/v1/raw-workbenches/{raw_id}:reconcile": frozenset({"post"}),
     "/api/v1/sdtm-workbenches/{sdtm_id}/input-selection": frozenset({"get", "put"}),
     "/api/v1/sdtm-workbenches/{sdtm_id}/specification": frozenset({"get", "put"}),
+    "/api/v1/sdtm-workbenches/{sdtm_id}/specification/industry-standards": frozenset({"get"}),
     "/api/v1/sdtm-workbenches/{sdtm_id}/specification/initialization-options": frozenset({"get"}),
     "/api/v1/sdtm-workbenches/{sdtm_id}/specification:initialize": frozenset({"post"}),
     "/api/v1/sdtm-workbenches/{sdtm_id}/domain-mappings": frozenset({"get"}),
@@ -137,11 +138,22 @@ PHASE4_ADAM_FOUNDATION_OPERATIONS: Final[dict[str, frozenset[str]]] = {
 
 PHASE5_TLF_PACKAGING_OPERATIONS: Final[dict[str, frozenset[str]]] = {
     "/api/v1/studies/{study_id}/tlf-workbenches": frozenset({"get", "post"}),
-    "/api/v1/tlf-workbenches/{tlf_id}/shell": frozenset({"get", "put"}),
-    "/api/v1/tlf-workbenches/{tlf_id}/bindings": frozenset({"get", "put"}),
-    "/api/v1/tlf-workbenches/{tlf_id}/assumptions": frozenset({"get", "put"}),
-    "/api/v1/tlf-workbenches/{tlf_id}/ars": frozenset({"get", "put"}),
-    "/api/v1/tlf-workbenches/{tlf_id}/program-plan": frozenset({"get", "put"}),
+    "/api/v1/tlf-workbenches/{tlf_id}/input-selection": frozenset({"get", "put"}),
+    "/api/v1/tlf-workbenches/{tlf_id}/inventory": frozenset({"get", "put"}),
+    "/api/v1/tlf-workbenches/{tlf_id}/outputs/{output_code}/shell": frozenset({"get", "put"}),
+    "/api/v1/tlf-workbenches/{tlf_id}/outputs/{output_code}/bindings": frozenset({"get", "put"}),
+    "/api/v1/tlf-workbenches/{tlf_id}/outputs/{output_code}/assumptions": frozenset({"get", "put"}),
+    "/api/v1/tlf-workbenches/{tlf_id}/outputs/{output_code}/ars": frozenset({"get", "put"}),
+    "/api/v1/tlf-workbenches/{tlf_id}/outputs/{output_code}/program-plan": frozenset(
+        {"get", "put"}
+    ),
+    "/api/v1/tlf-workbenches/{aggregate_id}/proposals": frozenset({"get", "post"}),
+    "/api/v1/tlf-workbenches/{aggregate_id}/proposals/{proposal_id}": frozenset({"get"}),
+    "/api/v1/tlf-workbenches/{aggregate_id}/proposals/{proposal_id}:accept": frozenset({"post"}),
+    "/api/v1/tlf-workbenches/{aggregate_id}/proposals/{proposal_id}:reject": frozenset({"post"}),
+    "/api/v1/tlf-workbenches/{aggregate_id}/proposals/{proposal_id}:request-revision": frozenset(
+        {"post"}
+    ),
     "/api/v1/tlf-workbenches/{tlf_id}/program-plan:validate": frozenset({"post"}),
     "/api/v1/tlf-workbenches/{tlf_id}/program-plan:preview": frozenset({"post"}),
     "/api/v1/tlf-workbenches/{tlf_id}:validate": frozenset({"post"}),

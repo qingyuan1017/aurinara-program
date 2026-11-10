@@ -1,12 +1,15 @@
 """Authenticated, read-only connector for on-demand CDISC Library selections."""
 
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import Protocol
 from urllib.parse import urlsplit
 
 import httpx
+
+from app.config import Settings
 
 
 @dataclass(frozen=True)
@@ -20,7 +23,11 @@ class CdiscLibraryResource:
 
 
 class CdiscLibraryUnavailable(RuntimeError):
-    """Raised when the upstream Library cannot serve an administrative import."""
+    """Raised when the upstream Library cannot serve a bounded read."""
+
+
+class CdiscLibraryConfigurationError(RuntimeError):
+    """Raised when live Library access is not configured."""
 
 
 class CdiscLibraryReader(Protocol):
@@ -31,6 +38,30 @@ class CdiscLibraryReader(Protocol):
 
     def canonical_href(self, href: str) -> str:
         """Normalize and constrain a linked resource reference."""
+
+
+CdiscLibraryReaderFactory = Callable[
+    [], AbstractContextManager[CdiscLibraryReader]
+]
+
+
+def create_cdisc_library_reader_factory(settings: Settings) -> CdiscLibraryReaderFactory:
+    """Create request-safe live readers without exposing the configured API key."""
+
+    def create() -> AbstractContextManager[CdiscLibraryReader]:
+        secret = settings.cdisc_library_api_key
+        api_key = secret.get_secret_value().strip() if secret is not None else ""
+        if not api_key:
+            raise CdiscLibraryConfigurationError(
+                "CDISC Library live access is not configured"
+            )
+        return HttpCdiscLibraryClient(
+            base_url=settings.cdisc_library_base_url,
+            api_key=api_key,
+            timeout_seconds=settings.cdisc_library_timeout_seconds,
+        )
+
+    return create
 
 
 def iter_link_references(value: object) -> Iterator[tuple[str, str, str]]:
@@ -127,12 +158,24 @@ class HttpCdiscLibraryClient:
             raise CdiscLibraryUnavailable(
                 "CDISC Library is unavailable; no registry content was changed"
             )
-        response.raise_for_status()
+        if response.is_error:
+            raise CdiscLibraryUnavailable(
+                f"CDISC Library rejected the live request with status {response.status_code}"
+            )
         if len(response.content) > self.max_response_bytes:
-            raise ValueError(f"CDISC Library resource exceeds size limit: {canonical_href}")
-        payload = response.json()
+            raise CdiscLibraryUnavailable(
+                f"CDISC Library resource exceeds the live response limit: {canonical_href}"
+            )
+        try:
+            payload = response.json()
+        except ValueError as error:
+            raise CdiscLibraryUnavailable(
+                f"CDISC Library returned invalid JSON for: {canonical_href}"
+            ) from error
         if not isinstance(payload, dict):
-            raise ValueError(f"CDISC Library resource is not a JSON object: {canonical_href}")
+            raise CdiscLibraryUnavailable(
+                f"CDISC Library resource is not a JSON object: {canonical_href}"
+            )
         self_reference = payload.get("_links")
         title = ""
         resource_type = ""

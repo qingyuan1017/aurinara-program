@@ -270,6 +270,8 @@ Resources:
             - {Name: OBJECT_STORE_REGION, Value: !Ref AWS::Region}
             - {Name: OBJECT_STORE_PATH_STYLE, Value: 'false'}
             - {Name: PINNED_ASSET_LOCAL_FALLBACK, Value: 'false'}
+            - {Name: ASSISTANCE_ENABLED, Value: 'true'}
+            - {Name: ASSISTANCE_PROVIDER, Value: platform_agent}
             - {Name: JWT_ISSUER, Value: !Ref JwtIssuer}
             - {Name: JWT_JWKS_URL, Value: !Ref JwtJwksUrl}
             - {Name: JWT_AUDIENCE, Value: !Ref UserPoolClientId}
@@ -356,6 +358,8 @@ Resources:
             - {Name: OBJECT_STORE_REGION, Value: !Ref AWS::Region}
             - {Name: OBJECT_STORE_PATH_STYLE, Value: 'false'}
             - {Name: PINNED_ASSET_LOCAL_FALLBACK, Value: 'false'}
+            - {Name: ASSISTANCE_ENABLED, Value: 'true'}
+            - {Name: ASSISTANCE_PROVIDER, Value: platform_agent}
             - {Name: PLATFORM_CONTROL_PLANE_URL, Value: !Ref PlatformPrivateUrl}
             - {Name: PLATFORM_AUTHORIZATION_MODE, Value: !Ref PlatformAuthorizationMode}
             - {Name: PLATFORM_SERVICE_TOKEN_URL, Value: !Ref ServiceTokenUrl}
@@ -384,6 +388,50 @@ Resources:
       DesiredCount: !If [ServicesActive, !If [IsBudget, 0, !If [IsProduction, 2, 1]], 0]
       LaunchType: FARGATE
       DeploymentConfiguration: {DeploymentCircuitBreaker: {Enable: true, Rollback: true}, MinimumHealthyPercent: 50, MaximumPercent: 200}
+      NetworkConfiguration:
+        AwsvpcConfiguration: {AssignPublicIp: DISABLED, SecurityGroups: [!Ref WorkerSecurityGroupId], Subnets: !Ref AppSubnetIds}
+
+  AssistanceTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub aurinara-${Environment}-assistance-worker
+      Cpu: '1024'
+      Memory: '2048'
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      RuntimePlatform: {CpuArchitecture: ARM64, OperatingSystemFamily: LINUX}
+      Volumes: [{Name: scratch}]
+      ContainerDefinitions:
+        - Name: scratch-init
+          Image: !Ref ApplicationImage
+          User: '0'
+          Command: [/bin/sh, -c, 'chmod 1777 /tmp']
+          Essential: false
+          ReadonlyRootFilesystem: true
+          MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
+        - Name: worker
+          Image: !Ref ApplicationImage
+          Command: [python, -m, workers.assistance_worker]
+          DependsOn: [{ContainerName: scratch-init, Condition: SUCCESS}]
+          Essential: true
+          ReadonlyRootFilesystem: true
+          MountPoints: [{SourceVolume: scratch, ContainerPath: /tmp, ReadOnly: false}]
+          Environment: *WorkerEnvironment
+          Secrets: *ApplicationSecrets
+          LinuxParameters: {InitProcessEnabled: true, Capabilities: {Drop: [ALL]}}
+          LogConfiguration:
+            LogDriver: awslogs
+            Options: {awslogs-group: !Ref ApplicationLogGroup, awslogs-region: !Ref AWS::Region, awslogs-stream-prefix: assistance}
+  AssistanceService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: assistance-worker
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref AssistanceTaskDefinition
+      DesiredCount: !If [ServicesActive, 1, 0]
+      LaunchType: FARGATE
+      DeploymentConfiguration: {DeploymentCircuitBreaker: {Enable: true, Rollback: true}, MinimumHealthyPercent: 0, MaximumPercent: 100}
       NetworkConfiguration:
         AwsvpcConfiguration: {AssignPublicIp: DISABLED, SecurityGroups: [!Ref WorkerSecurityGroupId], Subnets: !Ref AppSubnetIds}
 
@@ -912,4 +960,5 @@ Outputs:
   MigrationTaskDefinitionArn: {Value: !Ref MigrationTaskDefinition}
   PythonRunnerTaskDefinitionArn: {Value: !Ref PythonRunnerTaskDefinition}
   RRunnerTaskDefinitionArn: {Value: !Ref RRunnerTaskDefinition}
+  AssistanceServiceName: {Value: !GetAtt AssistanceService.Name}
 

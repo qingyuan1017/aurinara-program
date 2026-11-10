@@ -47,8 +47,8 @@ describe('clinical navigation', () => {
 
   it('uses the first valid tab when a detail link has no recognized tab', () => {
     const detail = resolveDetailNavigation('/sdtm/workbench-1')
-    expect(resolveActiveTab(detail, 'define')).toBe('define')
-    expect(resolveActiveTab(detail, 'unknown')).toBe('input-selection')
-    expect(resolveActiveTab(detail, undefined)).toBe('input-selection')
+    expect(resolveActiveTab(detail, 'define-validation')).toBe('define-validation')
+    expect(resolveActiveTab(detail, 'unknown')).toBe('source-review')
+    expect(resolveActiveTab(detail, undefined)).toBe('source-review')
   })
 })

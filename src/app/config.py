@@ -80,6 +80,13 @@ class Settings(BaseSettings):
     job_lease_heartbeat_seconds: int = 15
     job_max_attempts: int = 3
 
+    assistance_enabled: bool = False
+    assistance_provider: Literal["platform_agent"] = "platform_agent"
+    assistance_timeout_seconds: float = 90.0
+    assistance_max_output_tokens: int = 8_192
+    assistance_max_context_bytes: int = 1_048_576
+    assistance_temperature: float = 0.1
+
     integration_delivery_enabled: bool = True
     integration_max_attempts: int = 5
     integration_request_timeout_seconds: int = 10
@@ -198,6 +205,32 @@ class Settings(BaseSettings):
             raise ValueError("platform authorization cache must be between 0 and 60 seconds")
         if self.platform_authorization_mode != "disabled" and not self.platform_control_plane_url:
             raise ValueError("platform control-plane URL is required when authorization is enabled")
+        return self
+
+    @model_validator(mode="after")
+    def validate_assistance_configuration(self) -> Self:
+        if not 1 <= self.assistance_max_output_tokens <= 65_536:
+            raise ValueError("assistance max output tokens must be between 1 and 65536")
+        if not 1_024 <= self.assistance_max_context_bytes <= 8_388_608:
+            raise ValueError("assistance max context bytes must be between 1024 and 8388608")
+        if not 0 <= self.assistance_temperature <= 2:
+            raise ValueError("assistance temperature must be between 0 and 2")
+        if self.assistance_timeout_seconds <= 0:
+            raise ValueError("assistance timeout must be positive")
+        if self.assistance_enabled:
+            if not self.platform_control_plane_url:
+                raise ValueError(
+                    "Platform control-plane URL is required for Platform agent assistance"
+                )
+            if (
+                not self.platform_service_token_url
+                or not self.platform_service_client_id
+                or self.platform_service_client_secret is None
+                or not self.platform_service_client_secret.get_secret_value().strip()
+            ):
+                raise ValueError(
+                    "Platform service credentials are required for Platform agent assistance"
+                )
         return self
 
     @model_validator(mode="after")

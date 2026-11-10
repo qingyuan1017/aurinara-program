@@ -105,8 +105,6 @@ export function ImportedSdtmDomainPanel({
   const schema = imported.data?.extracted_schema as
     | { row_count?: number; variables?: ImportedVariable[] }
     | undefined
-  const notFound = imported.error?.response?.status === 404
-
   return (
     <Card>
       <CardHeader>
@@ -172,7 +170,7 @@ export function ImportedSdtmDomainPanel({
         )}
 
         {error && <p className="text-destructive text-sm" role="alert">{error}</p>}
-        {imported.isError && !notFound && (
+        {imported.isError && (
           <p className="text-destructive text-sm" role="alert">
             {parseProblem(imported.error as AxiosError).detail ?? 'Could not load the imported domain.'}
           </p>

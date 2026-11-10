@@ -2,7 +2,6 @@ import * as React from 'react'
 import type { AxiosError } from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
 import { FileSearch, Loader2, Plus, Trash2 } from 'lucide-react'
-import { PageHeader } from '@/components/layout/page-header'
 import { EmptyState } from '@/components/data/states'
 import { StatusBadge } from '@/components/data/status-badge'
 import { Button } from '@/components/ui/button'
@@ -83,6 +82,7 @@ import {
 } from '@/lib/invalidate'
 import { ifMatchRequest, useIdempotencyKey } from '@/lib/requests'
 import { parseProblem, stalenessAlert } from '@/lib/problems'
+import { ReviewStageHeader } from '@/features/sdtm/components/review-stage-header'
 
 /**
  * aCRF tab body for the SDTM workbench detail (Requirement 17).
@@ -109,6 +109,8 @@ export interface AcrfPanelProps {
 export function AcrfPanel({ sdtmId }: AcrfPanelProps) {
   const annotationsQuery = useListAnnotations(sdtmId)
   const annotations = annotationsQuery.data ?? []
+  const coverageQuery = useGetCoverage(sdtmId, { query: { retry: false } })
+  const coverage = coverageQuery.data
 
   const [createOpen, setCreateOpen] = React.useState(false)
   const [editTarget, setEditTarget] =
@@ -119,15 +121,45 @@ export function AcrfPanel({ sdtmId }: AcrfPanelProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="aCRF"
-        description={
-          <>
-            Author CRF-to-SDTM annotations and links, review coverage, and build
-            the aCRF artifact (
-            <code>POST /api/v1/sdtm-workbenches/{'{sdtm_id}'}/acrf/artifacts:build</code>).
-          </>
+      <ReviewStageHeader
+        eyebrow="Derived artifact review"
+        title="Annotated CRF review"
+        description="Inspect annotations in their page context, resolve CRF-to-SDTM links, review coverage gaps, and build the immutable aCRF only after the evidence is ready."
+        status={
+          annotations.length === 0
+            ? 'Annotations required'
+            : coverage?.unlinked_annotation_ids.length === 0 &&
+                coverage?.uncovered_sdtm_variables.length === 0
+              ? 'Coverage ready'
+              : 'Review required'
         }
+        metrics={[
+          { label: 'Annotations', value: annotations.length },
+          {
+            label: 'Linked',
+            value: coverage?.linked_annotation_count ?? '—',
+            tone:
+              coverage && coverage.linked_annotation_count > 0
+                ? 'success'
+                : 'default',
+          },
+          {
+            label: 'Unlinked annotations',
+            value: coverage?.unlinked_annotation_ids.length ?? '—',
+            tone:
+              coverage?.unlinked_annotation_ids.length === 0
+                ? 'success'
+                : 'warning',
+          },
+          {
+            label: 'Uncovered variables',
+            value: coverage?.uncovered_sdtm_variables.length ?? '—',
+            tone:
+              coverage?.uncovered_sdtm_variables.length === 0
+                ? 'success'
+                : 'warning',
+          },
+        ]}
         actions={
           <div className="flex flex-wrap gap-2">
             <Button
@@ -159,9 +191,10 @@ export function AcrfPanel({ sdtmId }: AcrfPanelProps) {
         onDelete={setDeleteTarget}
       />
 
-      <CoverageCard sdtmId={sdtmId} />
-
-      <AcrfBuildCard sdtmId={sdtmId} />
+      <div className="grid items-start gap-6 xl:grid-cols-2">
+        <CoverageCard sdtmId={sdtmId} />
+        <AcrfBuildCard sdtmId={sdtmId} />
+      </div>
 
       <AnnotationCreateDialog
         sdtmId={sdtmId}

@@ -4,14 +4,20 @@
 
 Build Release 1 as a sequence of usable vertical slices. Each phase ends with running migrations, documented APIs, automated tests, and artifacts that can be inspected outside the platform. Shared services are introduced when a real module needs them and then hardened for later modules.
 
-The release is accepted only when a complete study can register and validate raw data, author the required Documents (including Protocol and SAP), then move through SDTM, ADaM, TLF, and immutable submission packaging without manual database or object-store intervention.
+The release is accepted only when a complete study can register and validate raw data, use AI to draft the required Documents (including Protocol and SAP) and every downstream clinical contract, obtain explicit human acceptance at each review gate, then move through SDTM, ADaM, TLF, and immutable submission packaging without manual content authoring or direct database/object-store intervention.
 
 ## 2. Engineering guardrails
+
+Implementation status note: the deterministic module foundations and the provider-neutral
+`assistance` runtime, shared proposal envelope, human decision API, and SDTM/ADaM/TLF proposal
+handlers now exist. Remaining content-owning modules still require the same AI-first retrofit.
 
 - Preserve module ownership: cross-module calls use service interfaces and context DTOs.
 - Treat Pydantic schemas, database migrations, OpenAPI, object manifests, and standards assets as versioned contracts.
 - Use deterministic canonical JSON and SHA-256 dependency fingerprints from the first artifact builder onward.
 - Keep long work out of API processes; use leased PostgreSQL jobs.
+- Treat model output as untrusted: freeze exact context, validate typed output, expose a diff, and require human acceptance before activation.
+- Keep model-provider egress and credentials in a dedicated assistance worker; never call a model or execute generated code in the API process.
 - Publish bytes only after successful build and checksum verification.
 - Build PDF and DOCX from one shared `Document` representation and XLSX from typed, versioned workbook contracts.
 - Bind validation, compilation, execution, and packaging to exact immutable inputs.
@@ -40,17 +46,20 @@ The release is accepted only when a complete study can register and validate raw
 
 - Implement the `kernel` module descriptor, typed capability protocols, startup registry, conflict validation, router composition, and read-only module discovery API. Register every core module through the same path.
 - Implement jobs with leases, attempts, cancellation, retry policy, and `FOR UPDATE SKIP LOCKED` claiming.
+- Implement the `assistance` boundary and dedicated worker over the Platform-owned agent catalog and one-shot service invocation contract, using the existing Cognito service identity. Preserve versioned instructions, immutable generation runs, exact selected-agent revision/provider/model, bounded responses, usage/failure evidence, and secret/redaction controls.
+- Keep AgentCore registration, Runtime coordinates, Cognito authorizer configuration, VPC access, and invocation inside Aurinara Platform. Aurinara selects only product-scoped agents with the `clinical_proposal_v1` capability and never falls back when a selected revision changes.
+- Add module-registered proposal-type capabilities for exact context assembly, Pydantic/domain validation, field-level diffing, human acceptance, rejection, and revision requests. Acceptance must commit resulting module revisions, trace links, staleness, decision evidence, and outbox events once.
 - Implement outbox events and idempotent consumers.
 - Implement study-scoped integrations, external identifier bindings, registered public-event schemas/projectors, payload validation and size limits, event subscriptions, secret rotation/fingerprints, signed delivery attempts, retry/dead-letter/redelivery behavior, callback SSRF controls, and event schema versioning.
 - Keep inbound connectors on existing typed APIs/imports and require service identities, study membership, module scopes, ETags, and idempotency keys; do not create a generic arbitrary JSON write path.
 - Implement artifacts, canonical dependency fingerprints, checksum-addressed keys, and staleness propagation.
 - Implement immutable validation runs and common issues.
 - Implement the Standards registry over administrator-selected immutable provider snapshots, including product/version identity, acquisition provenance and checksums, lifecycle, module purpose, and compatibility links. Keep only required conformance schemas and exceptional unavailable assets pinned in the repository.
-- Implement immutable Terminology releases and revisioned, manually maintained study sponsor extensions bound to exact base releases and codelists.
+- Implement immutable Terminology releases and revisioned, human-accepted AI proposals for study sponsor extensions bound to exact base releases and codelists.
 - Implement typed study Reference identities and immutable revisions with atomic import/export, optional exact code bindings, retirement, refresh-required events, and dependency invalidation.
 - Implement the Templates registry with immutable assets, artifact-type applicability, content-schema and renderer compatibility, and an enforced presentation-only boundary.
 - Implement the shared `DependencySelection` contract and provider resolvers, with module-owned persistence and consistent `GET/PUT .../dependencies` endpoints for Raw, Documents, SDTM, ADaM, TLF, and any registered dependency-consuming module.
-- Implement Review items and append-only comments linked through typed entity resolvers.
+- Implement Review items and append-only comments linked through typed entity resolvers, plus append-only human proposal decisions and revision guidance.
 - Implement the declarative validation rule registry and study-scoped rule packs without executable user code.
 - Implement immutable Reconciliation runs, leased execution, cancellation, common issues, and JSON/PDF reports.
 - Implement trace-link endpoint registry, link validation, and graph queries.
@@ -61,8 +70,10 @@ The release is accepted only when a complete study can register and validate raw
 
 - A caller with a valid test JWT can create a study and upload/download a source file.
 - A worker can claim, complete, retry, and recover a leased job.
+- An assistance worker can generate a validated synthetic proposal with a fake provider, preserve exact context/model/instruction provenance, reject invalid output, and prevent acceptance after the base revision changes.
+- The Platform agent contract passes tests for service-token product scoping, exact catalog revision and model identity, bounded responses, and invalid-output failure behavior.
 - An artifact can be built, downloaded, marked stale by an upstream change, and retained.
-- Imported standards and terminology snapshots, pinned templates, and historical Reference or extension revisions can be queried by exact version without runtime provider downloads.
+- Imported standards and terminology snapshots, pinned templates, and historical Reference or extension revisions can be queried by exact version without runtime provider downloads. Every SDTM Specification operation is the explicit exception and performs a live canonical SDTMIG read, including read/export and Specification AI proposal generation or acceptance.
 - Every clinical aggregate can atomically bind exact compatible dependencies; `latest` aliases, incompatible sets, cross-study revisions, and unavailable versions are rejected.
 - Publishing a new immutable registry version leaves existing selections current, while superseding a selected Reference or extension revision requires explicit refresh and stales dependent evidence without rewriting clinical content.
 - A caller can maintain study reference data and review items, select an exact rule pack, and run an idempotent reconciliation against exact inputs.
@@ -70,6 +81,7 @@ The release is accepted only when a complete study can register and validate raw
 - Duplicate or incomplete module descriptors fail startup; a synthetic module can register a router, resolver, validator, artifact type, event type, and package contributor without changing shared-service dispatch code.
 - A committed outbox event can be delivered to the local integration receiver with a verifiable signature, retried without duplicating the event, and redelivered from immutable attempt history; unsafe callback targets are rejected.
 - PostgreSQL and MinIO integration tests run through Testcontainers or the Compose test profile.
+- Proposal contract tests prove that only a human principal can accept, acceptance is idempotent and atomic, rejected output changes no active content, and provider credentials or raw rows never appear in responses or logs.
 
 ## 4. Phase 2: Documents
 
@@ -84,7 +96,8 @@ workflow coverage.
 - Implement typed workbook models and style-controlled XLSX rendering with `openpyxl`.
 - Implement Documents dependency selections for applicable content/schema standards, terminology scopes, exact Reference revisions, and one Template version per generated artifact type.
 - Resolve all dependency records through typed service interfaces and record the complete selection, checksums, and compatibility decision in manifests.
-- Enforce that Templates supply only section order, blank structures, placeholders, and styles; clinical narrative and decisions come only from the Documents aggregate.
+- Register Documents proposal types for Protocol, SAP, operational narratives, quality decisions, and workbook rows. Ground every draft in exact source/evidence and dependency revisions, expose citations and unresolved items, and require human acceptance.
+- Enforce that Templates supply only section order, blank structures, placeholders, and styles; clinical narrative and decisions come only from human-accepted Documents proposals.
 - Link human Review items to document entities and fields without embedding review workflow in document aggregates.
 - Add normalized-content equivalence tests and golden visual fixtures for PDF, DOCX, and XLSX outputs.
 
@@ -99,7 +112,7 @@ workflow coverage.
 ### 4.3 Statistical Analysis Plan document type
 
 - Implement the Statistical Analysis Plan document type and all structured content groups within the Documents aggregate.
-- Expose immutable protocol context DTOs and manual link selection.
+- Expose immutable protocol context DTOs and AI-proposed, human-accepted link selection.
 - Implement estimand completeness, reference, assumption, required-section, and citation checks.
 - Build structured JSON, DOCX/PDF, citation reports, and validation reports.
 
@@ -113,9 +126,9 @@ workflow coverage.
 ### 4.5 Phase exit criteria
 
 - End-to-end scenario 1 passes: protocol PDF, USDM, evidence, validation, and all protocol artifacts.
-- End-to-end scenario 2 passes: linked Statistical Analysis Plan plus every operational and quality document type can be manually authored or atomically imported, validated, and generated in its required PDF or XLSX format.
+- End-to-end scenario 2 passes: AI drafts a linked Statistical Analysis Plan plus every operational and quality document type, a human accepts or requests revision, and the platform validates and generates each required PDF or XLSX artifact.
 - DOCX and PDF normalized content matches for the same document revision.
-- A Protocol change makes dependent Statistical Analysis Plan and other linked Documents artifacts stale without changing their manually maintained content.
+- A Protocol change makes dependent Statistical Analysis Plan and other linked Documents artifacts stale without rewriting their last accepted content; refreshed AI proposals require new human acceptance.
 
 ## 5. Phase 3: Raw and SDTM
 
@@ -123,7 +136,7 @@ workflow coverage.
 
 - Implement the Raw workbench, dataset records, variable metadata, and aggregate-scoped natural-key constraints.
 - Bind each dataset to an exact immutable, study-owned source-file artifact and preserve prior bindings across replacements.
-- Support manually authored metadata plus non-destructive initialization of missing factual physical metadata from supported files.
+- Support deterministic initialization of observed physical metadata plus AI proposals for semantic labels, roles, terminology bindings, descriptions, and corrections; require human acceptance for semantic changes.
 - Implement bounded row preview without persisting or logging raw rows.
 - Validate file availability and checksums, supported formats, physical-schema agreement, metadata completeness, and trace-link integrity.
 - Implement separate Raw and SDTM dependency selections. Bind exact applicable Standards, Terminology releases and extension revisions, Reference revisions, Templates, and validation rule-pack versions to validation and artifact inputs.
@@ -144,13 +157,13 @@ workflow coverage.
 ### 5.3 SDTM Specification, mappings, and Code Workareas
 
 - Implement an exact Raw input selection and one versioned SDTM Specification containing domains, variables, value-level metadata where applicable, shared-Terminology bindings, keys, sort order, sequencing metadata, expected outputs, and typed trace targets.
-- Add an explicit Specification initializer that resolves the exact selected SDTM implementation-guide asset, lets the user choose concrete domain names and whether to add only Required and Expected variables, adds only those missing factual structures, and preserves all existing manual edits without proposing mappings or derivations. The Specification UI lists eligible implementation-guide products and exact versions from the Standards catalog and persists the user's selection without requiring internal identifiers.
+- Add an explicit deterministic Specification initializer that resolves the exact selected SDTM implementation-guide asset and adds only missing factual structures. An AI proposal selects applicable concrete domains and Required/Expected/Permissible scope from Raw context; a human accepts that scope. Refresh preserves accepted content and never invokes AI implicitly.
 - Keep relational tables and constraints where needed internally, but expose one aggregate Specification contract so partial domain, variable, or binding edits cannot leave metadata inconsistent.
 - Validate SDTM IG, Define-XML, terminology, Reference, and Template compatibility as one dependency set; never upgrade one selection to make another compatible.
 - Advance the Specification to schema `2.0.0` with reusable typed value contexts and value-level `context_id` references. Keep earlier revisions historical and require an explicit reviewed current-schema save before new execution.
-- Implement one immutable Domain Mapping per generated domain, pinned to exact Specification and Raw input-selection revisions, with many Raw and upstream-SDTM inputs and cycle/reference validation.
-- Implement one immutable sparse Variable Mapping per generated domain, pinned to its Domain Mapping, with Default and reusable value-context cells and ordered qualified multi-source values. Treat mappings as author-maintained lineage, not executable logic.
-- Implement multiple named Python, R, or SAS Code Workareas per domain. Freeze domain/language at creation and make source edits immutable revisions pinned to the current Specification and mappings.
+- Implement manual create/edit plus AI-drafted, human-accepted immutable Domain Mapping paths per generated domain, pinned to exact Specification and Raw input-selection revisions, with many Raw and upstream-SDTM inputs and cycle/reference validation.
+- Implement manual create/edit plus AI-drafted, human-accepted immutable sparse Variable Mapping paths per generated domain, pinned to its Domain Mapping, with Default and reusable value-context cells and ordered qualified multi-source values. Treat saved mappings as declared lineage, not executable logic.
+- Implement manual create/edit plus AI-drafted Python, R, or SAS Code Workarea paths per domain. Freeze domain/language for immutable revisions and pin every revision to the current Specification and mappings.
 - Implement asynchronous full-input test and generation runs. Tests return bounded previews/logs and publish nothing. Generation validates exact variables, types, keys, sorting, XPT v5 constraints, and read-back, then atomically exposes program, CSV, XPT, log, and validation evidence.
 - Implement a revisioned exact Output Selection covering every Specification domain with one successful generation or aligned import and verify upstream XPT closure before validation, Define, ADaM context export, or packaging.
 - Remove SDTM graph persistence, routes, lowering, preview, compilation, graph lineage, generated frontend types/components, and graph-linked aCRF targets without changing ADaM/TLF behavior.
@@ -170,7 +183,7 @@ workflow coverage.
 - Implement version-neutral Define metadata and non-destructive initialization.
 - Bundle pinned Define-XML 2.0 and 2.1 schemas and build both renderers.
 - Reconcile Define with exact XPT artifacts and aCRF references.
-- Implement cSDRG factual initialization, manual narratives, validation, and DOCX/PDF rendering.
+- Implement cSDRG factual initialization, evidence-grounded AI narrative proposals, human acceptance, validation, and DOCX/PDF rendering.
 - Build specifications, programs, derivation/lineage/validation reports, logs, and the full SDTM artifact set.
 
 ### 5.6 Phase exit criteria
@@ -197,7 +210,7 @@ workflow coverage.
 
 ### 6.2 ADaM Specification and traceability
 
-- Implement one versioned ADaM Specification using the same outer envelope as SDTM and containing datasets, variables, parameters, value-level metadata, reviewer-readable methods, terminology bindings, and typed trace targets.
+- Implement manual create/edit plus evidence-grounded AI proposals for one versioned ADaM Specification using the same outer envelope as SDTM and containing datasets, variables, parameters, value-level metadata, reviewer-readable methods, terminology bindings, and typed trace targets. Direct saves and accepted proposals create active revisions and trace links through the same invariants.
 - Keep relational tables and constraints where needed internally, but expose one aggregate contract so partial resource edits cannot leave metadata inconsistent.
 - Verify Protocol/SAP trace targets and write normalized trace links through the traceability service in the same transaction; do not create a second analysis-binding store.
 - Implement atomic versioned JSON/XLSX specification import and non-persisting export; keep Derivation Plan replacement separate.
@@ -206,7 +219,7 @@ workflow coverage.
 
 ### 6.3 ADaM Derivation Plan and execution
 
-- Implement one atomic ADaM-owned Derivation Plan per dataset with immutable revision alignment and transitive upstream-plan staleness, aligned to exact ADaM Specification and SDTM input-selection revisions plus server-resolved upstream plan pins; do not create overlapping separately mutable graph-step or variable-rule resources.
+- Implement manual create/edit plus AI-drafted, human-accepted atomic ADaM-owned Derivation Plans per dataset with immutable revision alignment and transitive upstream-plan staleness, aligned to exact ADaM Specification and SDTM input-selection revisions plus server-resolved upstream plan pins; do not create overlapping separately mutable graph-step or variable-rule resources.
 - Express nodes in ADaM vocabulary with stable dataset, variable, and parameter references, then lower the validated plan internally to Dataflow IR.
 - Permit reads only from the exact SDTM input selection and explicitly declared upstream ADaM outputs; validate dataset-to-dataset acyclicity and complete output coverage.
 - Use one lowering pipeline for bounded previews, compilation, and execution; record exact input-selection, Specification, Derivation Plan, IR/operator/compiler versions.
@@ -217,7 +230,7 @@ workflow coverage.
 
 - Implement ADaM Define metadata for dataset classes, roles, parameters, value-level metadata, origins, methods, terminology, and SDTM traceability.
 - Implement Define 2.0/2.1 rendering, XSD validation, and reconciliation with exact ADaM XPT outputs and SDTM origins.
-- Implement ADRG factual initialization from the exact ADaM Specification, input selection, Derivation Plan, programs, executions, and outputs while preserving manual narrative.
+- Implement ADRG factual initialization from the exact ADaM Specification, input selection, Derivation Plan, programs, executions, and outputs; draft narrative through evidence-grounded AI proposals and preserve accepted narrative until another proposal is accepted.
 - Render ADRG DOCX/PDF from one `Document` representation and exact Template version.
 
 ### 6.5 Phase exit criteria
@@ -237,7 +250,10 @@ submission-package checksum coverage.
 
 ### 7.1 TLF workflow
 
-- Implement shell, ADaM bindings, assumptions, ARS, and ProgramPlan editing.
+- Implement parallel typed manual authoring and three-stage AI proposal/human-review workflows for
+  the study-wide output inventory, per-output Shell/ADaM Bindings/Assumptions/ARS, and typed
+  ProgramPlans. Both paths use the same exact evidence, validation, revision, and staleness rules;
+  operator evidence selection remains explicit.
 - Implement TLF dependency selections for an optional exact ARS version, explicitly used terminology, Reference revisions, and per-output Template versions.
 - Enforce that Templates control presentation only and cannot create analysis steps, titles, interpretations, populations, parameters, or statistics.
 - Validate leaf-row coverage, analysis steps, population/parameter/statistic references, ordering, and output intent.
@@ -251,6 +267,7 @@ submission-package checksum coverage.
 ### 7.2 Submission packaging
 
 - Implement package requests with explicit registered-module and artifact selections.
+- Allow AI to propose a complete exact package selection and rationale; require a human acceptance before the ordinary deterministic package checks and build begin.
 - Define required-artifact and trusted-path policies through each module's typed package-contribution capability rather than central module-name switches.
 - Apply Documents completeness rules per explicitly selected `document_types` value.
 - Recalculate checksums and validate current dependency fingerprints.
@@ -276,31 +293,31 @@ submission-package checksum coverage.
 
 | Layer                  | Focus                                                                                                                                                                                                                                                                             |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unit                   | Domain invariants, module descriptors/capability conflicts, event envelopes/signatures, ADaM specification/traceability, dependency selection/resolution, compatibility, module-plan adapters, IR operators/procedures/lowering, fingerprints, registries, validators, path rules |
+| Unit                   | Domain invariants, proposal schemas/diffs/decisions, prompt-context minimization, module descriptors/capability conflicts, event envelopes/signatures, ADaM specification/traceability, dependency selection/resolution, compatibility, module-plan adapters, IR operators/procedures/lowering, fingerprints, registries, validators, path rules |
 | Property               | Filenames, archive paths, module keys, callback URLs/IP resolution, event canonicalization, PDF coordinates, typed expressions, graph ports/edges/DAGs, rule parameters, reference keys, canonical JSON                                                                           |
-| Repository integration | PostgreSQL constraints, immutable provider revisions, module selections, integration subscriptions/delivery attempts, refresh/staleness outbox behavior, JSONB queries, transactions, and job leases                                                                              |
+| Repository integration | PostgreSQL constraints, immutable AI runs/proposals/decisions, atomic proposal acceptance, provider revisions, module selections, integration subscriptions/delivery attempts, refresh/staleness outbox behavior, JSONB queries, transactions, and job leases                              |
 | Storage integration    | Multipart/streaming I/O, checksum verification, immutable keys, MinIO behavior                                                                                                                                                                                                    |
-| Contract               | REST status/headers/problems, module discovery, import/event schema compatibility, OpenAPI snapshot, typed client compatibility                                                                                                                                                   |
+| Contract               | REST status/headers/problems, proposal lifecycle and human-only decisions, module discovery, import/event schema compatibility, OpenAPI snapshot, typed client compatibility                                                                                                      |
 | Conformance            | USDM/Define schemas, XPT round trips, controlled metadata checks                                                                                                                                                                                                                  |
 | Golden file            | XML, DOCX, PDF, RTF, XLSX, canonical Specification/Derivation/Program contracts, normalized IR, and generated programs                                                                                                                                                            |
 | Execution security     | No network, non-root, resource ceilings, timeouts, cancellation, cleanup                                                                                                                                                                                                          |
-| Integration security   | Service scopes, webhook signatures, secret redaction, SSRF/DNS-rebinding/redirect defenses, retry bounds                                                                                                                                                                          |
+| Integration security   | Service scopes, AI credential/prompt/response redaction, provider destination policy, webhook signatures, SSRF/DNS-rebinding/redirect defenses, retry bounds                                                                                                                       |
 | End to end             | The ten release scenarios on real PostgreSQL, MinIO, integration receiver, and runner containers                                                                                                                                                                                  |
 
 Golden tests compare stable normalized representations where binary formats contain volatile metadata. A separate visual or rendered comparison catches layout regressions in PDF, DOCX, XLSX, and RTF.
 
 ### 8.2 Required automated scenarios
 
-1. Register exact compatible Standards, Terminology, Reference revisions, and Templates; bind them explicitly to Documents; manually create a Protocol, USDM, and evidence set; review it and generate all Protocol artifacts.
-2. Link Protocol to the Statistical Analysis Plan; author or atomically import all remaining Documents types; generate the required PDF and XLSX artifacts.
-3. Bind separate Raw and SDTM dependencies and an exact Raw input selection; maintain an SDTM Specification, many-source Domain Mappings, Default/VLM Variable Mappings, and multiple Code Workareas; generate a domain from several Raw datasets and an upstream exact XPT; assemble a coherent mixed generated/imported Output Selection; and produce reconciled XPT, aCRF, Define, and cSDRG artifacts.
-4. Bind an ADaM dependency and exact SDTM input selection; maintain one ADaM Specification and an aligned per-dataset Derivation Plan for each produced dataset (including at least one cross-dataset `adam_read`); execute through shared Dataflow IR in Python/R; and produce reconciled XPT, Define, and ADRG.
-5. Bind TLF dependencies; author the shell, bindings, ARS, and ProgramPlan; execute through shared Analysis/Dataflow IR and render outputs while proving presentation is outside compiler IR and templates supply no analysis content.
-6. Assemble a complete study package and independently verify checksums.
+1. Register exact compatible Standards, Terminology, Reference revisions, and Templates; bind them explicitly to Documents; generate a Protocol/USDM/evidence proposal from synthetic sources, request one revision, accept it as a human reviewer, and generate all Protocol artifacts.
+2. Generate and accept a Statistical Analysis Plan proposal linked to the Protocol, then generate/review every remaining Documents type and produce the required PDF and XLSX artifacts.
+3. Bind separate Raw and SDTM dependencies and an exact Raw input selection; generate and accept Raw semantic metadata, an SDTM Specification scope, many-source Domain Mappings, Default/VLM Variable Mappings, multiple Code Workareas, and cSDRG narrative; generate a domain from several Raw datasets and an upstream exact XPT; assemble a coherent mixed generated/imported Output Selection; and produce reconciled XPT, aCRF, Define, and cSDRG artifacts.
+4. Bind an ADaM dependency and exact SDTM input selection; generate and accept one ADaM Specification and an aligned per-dataset Derivation Plan for each produced dataset (including at least one cross-dataset `adam_read`); execute through shared Dataflow IR in Python/R; and produce reconciled XPT, Define, and ADRG.
+5. Bind TLF dependencies; generate and accept Shell, Bindings, Assumptions, ARS, and ProgramPlan proposals; execute through shared Analysis/Dataflow IR and render outputs while proving presentation is outside compiler IR and templates supply no analysis content.
+6. Generate and accept a complete exact package-selection proposal, assemble the study package, and independently verify checksums.
 7. Publish a new immutable provider version and verify pinned work is unchanged; then supersede a selected Reference or extension revision, verify refresh-required state and transitive staleness, explicitly accept it, and verify deterministic regeneration. Additionally, save a new revision of one upstream SDTM domain/ADaM dataset plan and verify only its downstream readers transition to `alignment_required` with reason `upstream_plan_changed` while unrelated plans stay aligned, and that compile/package for the readers is blocked until they are realigned.
 8. Confirm stale or invalid artifacts cannot enter a submission package.
 9. Use an external-system service identity to perform an idempotent typed import, subscribe to registered lifecycle events, verify the signed minimal event at the test receiver, force a retry, and confirm redelivery retains the same event ID without exposing clinical payloads or secrets.
-10. Enable a synthetic `labs` module through one descriptor and its own package/migrations; discover it through `/api/v1/modules`; exercise its study-scoped route, entity resolver, validation, artifact, event, trace, and package contribution; and prove duplicate registrations or undeclared capabilities fail startup.
+10. Enable a synthetic `labs` module through one descriptor and its own package/migrations; discover it through `/api/v1/modules`; exercise its study-scoped route, proposal type, human decision, entity resolver, validation, artifact, event, trace, and package contribution; and prove duplicate registrations or undeclared capabilities fail startup.
 
 ## 9. CI and release controls
 
@@ -331,6 +348,11 @@ Production deployment runs database migrations as a controlled step, deploys API
 | Registry versions are combined incompatibly                      | Persist compatibility links and validate exact version selections before use                                                                                                         |
 | New registry versions silently alter existing work               | Require exact module-owned selections; never resolve `latest` or auto-upgrade                                                                                                        |
 | Reference or extension corrections overwrite evidence            | Create immutable revisions, require explicit refresh, and stale dependent evidence                                                                                                   |
+| Model output invents content or cites the wrong revision          | Ground every proposal in an exact minimized context, require typed evidence references, validate them server-side, expose unresolved items, and require human acceptance              |
+| A model or retry silently changes accepted content                | Persist immutable runs and response checksums; never auto-apply or silently rebase; retries create new linked proposals                                                                |
+| Provider credentials or sensitive study data leak                 | Isolate provider egress in the assistance worker, use environment-backed secrets, redact logs, minimize context, and prohibit raw subject rows by default                              |
+| Generated code executes during drafting or review                 | Treat code as inert proposal data and execute only an accepted immutable revision through the existing isolated network-disabled runner                                               |
+| Reviewer rubber-stamps opaque model output                        | Present field-level diffs, exact evidence, validation issues, assumptions, unresolved items, and model limitations; do not expose self-reported confidence as an approval signal      |
 | Templates smuggle in clinical content or decisions               | Restrict and validate template schemas to layout, blank structure, and style                                                                                                         |
 | Shared compiler becomes a lowest-common-denominator domain model | Keep SDTM authored programs outside IR; share IR only where ADaM/TLF typed plans require it, with module-owned contracts and validators                               |
 | Language backends implement nodes differently                    | Define language-neutral node semantics and normalized cross-language conformance fixtures                                                                                            |
@@ -352,4 +374,4 @@ Production deployment runs database migrations as a controlled step, deploys API
 
 ## 11. Release 1 definition of done
 
-Release 1 is done when all five clinical workflows, the shared registries, review, reconciliation, internal Transformation compiler, packaging, module-extension kernel, and controlled integration boundary are available through documented `/api/v1` contracts; every enabled module registers a conflict-free typed descriptor and capabilities; every clinical aggregate owns an exact compatible dependency selection with no implicit upgrades; Reference and extension revisions refresh safely; SDTM exposes its Specification, mappings, Code Workareas, exact runs, and coherent Output Selection while ADaM retains Specification/Derivation Plan and TLF retains ARS/ProgramPlan; applicable executable plans lower through shared internal IR while SDTM authored code runs only in isolation; Define-XML 2.0/2.1 validates against pinned local schemas; all artifacts carry immutable dependency and execution/compiler provenance with correct staleness; signed outbound events remain minimal and retryable; the ten end-to-end scenarios pass; and a complete package can be independently verified without direct database or object-store manipulation.
+Release 1 is done when all five clinical workflows, the provider-neutral assistance runtime, human proposal review, shared registries, reconciliation, internal Transformation compiler, packaging, module-extension kernel, and controlled integration boundary are available through documented `/api/v1` contracts; every content-owning module registers typed proposal handlers and cannot activate AI output without an authorized human decision; every proposal freezes exact context/model/instruction provenance and every accepted revision links back to that proposal and decision; every clinical aggregate owns an exact compatible dependency selection with no implicit upgrades; Reference and extension revisions refresh safely; SDTM exposes accepted Specifications, mappings, Code Workareas, exact runs, and coherent Output Selection while ADaM retains accepted Specification/Derivation Plans and TLF retains accepted ARS/ProgramPlans; applicable executable plans lower through shared internal IR while accepted SDTM code runs only in isolation; Define-XML 2.0/2.1 validates against pinned local schemas; all artifacts carry immutable proposal, review, dependency, and execution/compiler provenance with correct staleness; signed outbound events remain minimal and retryable; the ten end-to-end scenarios pass; and a complete package can be independently verified without manual content authoring or direct database/object-store manipulation.

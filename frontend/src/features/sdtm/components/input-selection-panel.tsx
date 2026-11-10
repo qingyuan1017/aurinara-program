@@ -1,8 +1,10 @@
 import * as React from 'react'
 import type { AxiosError } from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
+import { CircleAlert, CircleCheck, Database, Settings2 } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
@@ -22,6 +24,14 @@ import {
 import { EmptyState } from '@/components/data/states'
 import { Skeleton } from '@/components/ui/skeleton'
 import { IssueList } from '@/components/data/issue-list'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { StalenessBanner } from '@/components/workbench/staleness-banner'
 import { useWorkbench } from '@/components/workbench/workbench-context'
 import { parseProblem } from '@/lib/problems'
@@ -161,7 +171,7 @@ function RawContextView({ data }: { data: Record<string, unknown> | undefined })
       <CardHeader>
         <CardTitle className="text-base">Resolved raw context</CardTitle>
         <CardDescription>
-          Read from <code>GET /api/v1/sdtm-workbenches/{'{sdtm_id}'}/raw-context</code>.
+          Exact metadata supplied to generation without exposing subject-level rows.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -375,6 +385,22 @@ export function InputSelectionPanel() {
   }
 
   const selectionState = selection?.state
+  const sourceReadiness =
+    selectionNotFound || !selection
+      ? 'missing'
+      : selectionState === 'input_refresh_required'
+        ? 'stale'
+        : selectionIsReady
+          ? 'ready'
+          : 'blocked'
+  const readinessMessage =
+    sourceReadiness === 'ready'
+      ? 'The selected Raw revision, validation evidence, dependencies, and source files are ready for AI generation.'
+      : sourceReadiness === 'stale'
+        ? 'The selected source changed. Refresh the selection before requesting another proposal.'
+        : sourceReadiness === 'missing'
+          ? 'Select one validated Raw data version to establish the source evidence.'
+          : 'Resolve the validation or source-file findings below before generation.'
 
   return (
     <div className="flex flex-col gap-6">
@@ -383,15 +409,27 @@ export function InputSelectionPanel() {
         state={selectionState === 'input_refresh_required' ? 'input_refresh_required' : null}
       />
 
-      {/* 10.2: current selection summary (revision + state). */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Current input selection</CardTitle>
-          <CardDescription>
-            Read from <code>GET /api/v1/sdtm-workbenches/{'{sdtm_id}'}/input-selection</code>.
-          </CardDescription>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Database className="size-4 text-primary" />
+                Source readiness
+              </CardTitle>
+              <CardDescription className="mt-1">{readinessMessage}</CardDescription>
+            </div>
+            <Badge variant={sourceReadiness === 'ready' ? 'default' : 'destructive'}>
+              {sourceReadiness === 'ready' ? <CircleCheck /> : <CircleAlert />}
+              {sourceReadiness === 'ready'
+                ? 'Ready for AI'
+                : sourceReadiness === 'stale'
+                  ? 'Refresh required'
+                  : 'Action required'}
+            </Badge>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           {selectionQuery.isLoading ? (
             <Skeleton className="h-10 w-full" />
           ) : selectionNotFound || !selection ? (
@@ -399,23 +437,81 @@ export function InputSelectionPanel() {
               No input selection has been saved yet.
             </p>
           ) : (
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
+            <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div>
-                <dt className="text-muted-foreground text-xs">Revision</dt>
-                <dd className="text-sm">{selection.revision}</dd>
+                <dt className="text-muted-foreground text-xs">Raw source</dt>
+                <dd className="text-sm font-medium">
+                  {selectedRawAggregate
+                    ? `${selectedRawAggregate.code} — ${selectedRawAggregate.name}`
+                    : 'Saved Raw workbench'}
+                </dd>
               </div>
               <div>
-                <dt className="text-muted-foreground text-xs">State</dt>
-                <dd className="text-sm">{selection.state}</dd>
+                <dt className="text-muted-foreground text-xs">Raw revision</dt>
+                <dd className="text-sm font-medium">{selectedRawRevision || '—'}</dd>
               </div>
-              <div className="col-span-2">
-                <dt className="text-muted-foreground text-xs">Fingerprint</dt>
-                <dd className="text-sm break-all">{selection.fingerprint}</dd>
+              <div>
+                <dt className="text-muted-foreground text-xs">Active datasets</dt>
+                <dd className="text-sm font-medium">{activeDatasets.length}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs">Validation</dt>
+                <dd className="text-sm font-medium">
+                  {resolvedValidationRunId ? 'Passed for this revision' : 'Required'}
+                </dd>
               </div>
             </dl>
           )}
         </CardContent>
       </Card>
+
+      {form.raw_id && activeDatasets.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Dataset inventory</CardTitle>
+            <CardDescription>
+              Active source datasets and the evidence that will be pinned automatically.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Dataset</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Source file</TableHead>
+                  <TableHead>Validation</TableHead>
+                  <TableHead>Readiness</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activeDatasets.map((dataset) => {
+                  const artifact = resolvedArtifacts.find(
+                    (item) => item.dataset_code === dataset.code,
+                  )
+                  return (
+                    <TableRow key={dataset.id}>
+                      <TableCell className="font-medium">{dataset.code}</TableCell>
+                      <TableCell className="max-w-64 truncate">
+                        {dataset.label || dataset.description || '—'}
+                      </TableCell>
+                      <TableCell>{artifact ? 'Resolved' : 'Missing'}</TableCell>
+                      <TableCell>{resolvedValidationRunId ? 'Passed' : 'Required'}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={artifact && resolvedValidationRunId ? 'outline' : 'destructive'}
+                        >
+                          {artifact && resolvedValidationRunId ? 'Ready' : 'Action required'}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* 10.1: save the exact pinned Raw inputs. */}
       <Card>
@@ -535,14 +631,39 @@ export function InputSelectionPanel() {
         </form>
       </Card>
 
-      {/* 10.3: resolved raw context. */}
-      {rawContextQuery.isLoading ? (
-        <Skeleton className="h-24 w-full" />
-      ) : (
-        <RawContextView
-          data={rawContextQuery.data as Record<string, unknown> | undefined}
-        />
-      )}
+      <details className="rounded-lg border bg-card">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium">
+          <Settings2 className="size-4 text-muted-foreground" />
+          Technical source provenance
+        </summary>
+        <div className="space-y-4 border-t p-4">
+          {selection ? (
+            <dl className="grid gap-3 text-sm sm:grid-cols-3">
+              <div>
+                <dt className="text-xs text-muted-foreground">Selection revision</dt>
+                <dd>{selection.revision}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Selection state</dt>
+                <dd>{selection.state}</dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-xs text-muted-foreground">Fingerprint</dt>
+                <dd className="truncate font-mono text-xs" title={selection.fingerprint}>
+                  {selection.fingerprint}
+                </dd>
+              </div>
+            </dl>
+          ) : null}
+          {rawContextQuery.isLoading ? (
+            <Skeleton className="h-24 w-full" />
+          ) : (
+            <RawContextView
+              data={rawContextQuery.data as Record<string, unknown> | undefined}
+            />
+          )}
+        </div>
+      </details>
     </div>
   )
 }

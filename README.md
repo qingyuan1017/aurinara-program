@@ -1,7 +1,12 @@
 # Aurinara
 
-A standalone Clinical Artifact Platform for manually authoring, validating, generating,
+A standalone, AI-first Clinical Artifact Platform for generating, validating, human-reviewing,
 executing, integrating, and packaging clinical study artifacts.
+
+> **AI transition status:** the repository includes the durable provider-neutral proposal
+> lifecycle and guided reviewer workflows for SDTM, ADaM, and the study-wide TLF portfolio.
+> Their clinical content becomes active only through explicit human acceptance. Remaining direct
+> editors in other content-owning modules are transitional.
 
 The Phase 1 platform foundation and the Phase 2 through Phase 5 clinical vertical slices are
 implemented. The runnable system provides:
@@ -30,6 +35,8 @@ implemented. The runnable system provides:
 - Alembic migrations verified through upgrade/downgrade/upgrade from an empty database;
 - Docker Compose for PostgreSQL, MinIO, API, migration, workers, a bounded integration
   receiver, and isolated runner process boundaries; and
+- a Platform-owned agent catalog and strict Cognito-authenticated service invocation contract,
+  consumed only by the dedicated assistance worker; and
 - unit, contract, and service-backed integration tests for those boundaries.
 
 This repository is a pre-compatibility baseline. Earlier prototype APIs, commands,
@@ -58,10 +65,10 @@ exact supported tabular inputs in disposable constrained Docker
 containers and publish validated immutable CSV and deterministic read-back-verified XPT v5
 outputs; unconfigured SAS execution returns its typed expected result. Persisted typed aCRF
 annotation/link/coverage workflows, immutable annotated PDFs, version-neutral Define metadata,
-and versioned cSDRG authoring are also implemented. Exact XPT/Define and aCRF/Define comparisons
+and versioned cSDRG content are also implemented. Exact XPT/Define and aCRF/Define comparisons
 run as immutable capability-dispatched reconciliations with report artifacts. cSDRG factual
-initialization consumes that exact reconciliation evidence, preserves manually authored
-narratives, validates required sections, and renders template-pinned immutable DOCX/PDF artifacts.
+initialization consumes that exact reconciliation evidence and preserves accepted narratives;
+the planned AI proposal workflow drafts revisions for human acceptance before rendering.
 SDTM Specification exchange supports atomic, idempotent JSON/XLSX import and non-persisting
 JSON/XLSX export. Execution stages exact CSV, flat JSON, or first-sheet XLSX inputs and supports
 empty XPT outputs with preserved declared metadata. The final Phase 3 conformance slice is also
@@ -81,9 +88,10 @@ read-back-verified XPT v5 outputs. The version-neutral ADaM Define foundation pe
 revisions bound to exact Specification/input/output evidence and supports non-destructive factual
 initialization. Both Define-XML 2.0 and 2.1 render deterministically, validate against pinned local
 XSD suites, reconcile with exact ADaM XPT metadata, and publish only with current zero-error
-validation and reconciliation evidence. Versioned ADRG authoring initializes factual dataset,
-program, execution, and checksum tables from that same exact evidence while preserving manual
-narrative across refreshes; zero-error validation and exact presentation-template selections gate
+validation and reconciliation evidence. Versioned ADRG content initializes factual dataset,
+program, execution, and checksum tables from that same exact evidence while preserving accepted
+narrative across refreshes; the planned proposal workflow drafts narrative revisions for human
+acceptance, while zero-error validation and exact presentation-template selections gate
 immutable DOCX/PDF publication through the shared renderer-neutral `Document` model.
 The ADaM conformance fixture lowers one Specification/Derivation Plan pair to one IR fingerprint,
 executes its deterministic Python and R programs in the isolated runner images, and compares the

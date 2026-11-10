@@ -1,7 +1,16 @@
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AxiosError } from "axios";
-import { GripVertical, Loader2, Play, Plus, Save } from "lucide-react";
+import {
+  ArrowRight,
+  Database,
+  GripVertical,
+  Loader2,
+  Play,
+  Plus,
+  Save,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,8 +39,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useWorkbench } from "@/components/workbench/workbench-context";
 import { ImportedSdtmDomainPanel } from "@/features/sdtm/components/imported-domain-panel";
+import { ReviewStageHeader } from "@/features/sdtm/components/review-stage-header";
 import { useListArtifacts } from "@/api/generated/artifacts/artifacts";
 import {
   DraggableItem,
@@ -41,9 +59,11 @@ import {
 import {
   applyDomainMappingTransfer,
   applyVariableMappingTransfer,
+  appendUniqueCsvToken,
   domainsFrom,
   outputArtifactSelections,
   parseSources,
+  removeCsvToken,
   resolveSelectedWorkarea,
   type SpecDomain,
 } from "@/features/sdtm/components/mapping-model";
@@ -121,6 +141,84 @@ function rawContextDatasets(data: unknown): RawContextDataset[] {
   if (!data || typeof data !== "object") return [];
   const datasets = (data as { datasets?: unknown }).datasets;
   return Array.isArray(datasets) ? (datasets as RawContextDataset[]) : [];
+}
+
+function SourceInventoryItem({
+  code,
+  sourceType,
+  detail,
+  onAdd,
+}: {
+  code: string;
+  sourceType: "raw" | "sdtm";
+  detail: string;
+  onAdd: () => void;
+}) {
+  const sourceLabel = sourceType === "raw" ? "Raw dataset" : "Existing SDTM";
+  return (
+    <div className="flex items-stretch gap-2">
+      <DraggableItem
+        id={`domain-source:${sourceType}:${code}`}
+        ariaLabel={`Drag ${sourceLabel.toLowerCase()} ${code}`}
+        className="min-w-0 flex-1 justify-start rounded-lg p-3 text-left"
+      >
+        <GripVertical className="text-muted-foreground size-4" />
+        <span className="min-w-0">
+          <span className="block truncate font-mono text-xs font-semibold">
+            {code}
+          </span>
+          <span className="text-muted-foreground mt-0.5 block text-[10px] font-semibold uppercase tracking-wide">
+            {sourceLabel} · {detail}
+          </span>
+        </span>
+      </DraggableItem>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        aria-label={`Add ${sourceLabel.toLowerCase()} ${code}`}
+        onClick={onAdd}
+      >
+        <Plus />
+      </Button>
+    </div>
+  );
+}
+
+function SelectedDomainSource({
+  code,
+  sourceType,
+  targetDomain,
+  onRemove,
+}: {
+  code: string;
+  sourceType: "raw" | "sdtm";
+  targetDomain: string;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="bg-background grid gap-3 rounded-lg border p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <span className="font-mono text-xs font-semibold">{code}</span>
+        <ArrowRight className="text-muted-foreground size-3.5" />
+        <span className="text-primary font-mono text-xs font-semibold">
+          {targetDomain}
+        </span>
+        <Badge variant={sourceType === "raw" ? "secondary" : "outline"}>
+          {sourceType === "raw" ? "Raw input" : "SDTM read"}
+        </Badge>
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label={`Remove ${code} from ${targetDomain}`}
+        onClick={onRemove}
+      >
+        <Trash2 />
+      </Button>
+    </div>
+  );
 }
 
 export function DomainMappingPanel({ sdtmId }: { sdtmId: string }) {
@@ -206,105 +304,24 @@ export function DomainMappingPanel({ sdtmId }: { sdtmId: string }) {
     }
   }
 
+  const selectedRaw = csv(rawDatasets);
+  const selectedUpstream = csv(upstreamDomains);
+  const selectedCount = selectedRaw.length + selectedUpstream.length;
+
   return (
     <div className="flex flex-col gap-4">
-      <DomainPicker domains={domains} value={active} onChange={setDomain} />
-      {active && specification.data && (
-        <ImportedSdtmDomainPanel
-          sdtmId={sdtmId}
-          domainCode={active}
-          specificationRevision={specification.data.revision}
-        />
-      )}
-      <Card>
-        <CardHeader>
-          <CardTitle>Generated-domain inputs</CardTitle>
-          <CardDescription>
-            Declare every Raw dataset and upstream SDTM domain the authored
-            program may read. Imported domains use the alternate provider above
-            and need no mapping or workarea. Drag available inputs into the
-            matching selection, or edit the fields directly.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <TransferContext onTransfer={handleTransfer}>
-            <div className="space-y-4">
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="space-y-2 rounded-md border p-3">
-                  <Label>Available Raw datasets</Label>
-                  <div className="flex min-h-9 flex-wrap gap-2">
-                    {availableRaw.length > 0 ? (
-                      availableRaw.map((code) => (
-                        <DraggableItem
-                          key={code}
-                          id={`domain-source:raw:${code}`}
-                          ariaLabel={`Drag Raw dataset ${code}`}
-                        >
-                          <GripVertical className="size-3.5" />
-                          {code}
-                        </DraggableItem>
-                      ))
-                    ) : (
-                      <span className="text-muted-foreground text-sm">
-                        No current Raw context
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="space-y-2 rounded-md border p-3">
-                  <Label>Available upstream SDTM domains</Label>
-                  <div className="flex min-h-9 flex-wrap gap-2">
-                    {upstreamCandidates.map((code) => (
-                      <DraggableItem
-                        key={code}
-                        id={`domain-source:sdtm:${code}`}
-                        ariaLabel={`Drag upstream SDTM domain ${code}`}
-                      >
-                        <GripVertical className="size-3.5" />
-                        {code}
-                      </DraggableItem>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="grid gap-4 lg:grid-cols-2">
-                <DropTarget
-                  id="domain-target:raw"
-                  ariaLabel="Selected Raw datasets drop zone"
-                  className="space-y-2"
-                >
-                  <Label htmlFor="domain-raw">Selected Raw datasets</Label>
-                  <Input
-                    id="domain-raw"
-                    value={rawDatasets}
-                    onChange={(event) => setRawDatasets(event.target.value)}
-                    placeholder="DM, SITE, EXTERNAL"
-                  />
-                  <p className="text-muted-foreground text-xs">
-                    Drop Raw dataset chips here. Reorder or remove entries in
-                    the field when needed.
-                  </p>
-                </DropTarget>
-                <DropTarget
-                  id="domain-target:sdtm"
-                  ariaLabel="Selected upstream SDTM domains drop zone"
-                  className="space-y-2"
-                >
-                  <Label htmlFor="domain-upstream">
-                    Selected upstream SDTM domains
-                  </Label>
-                  <Input
-                    id="domain-upstream"
-                    value={upstreamDomains}
-                    onChange={(event) => setUpstreamDomains(event.target.value)}
-                    placeholder="DM, SV"
-                  />
-                  <p className="text-muted-foreground text-xs">
-                    Drop SDTM domain chips here. Cycles and self-references are
-                    rejected.
-                  </p>
-                </DropTarget>
-              </div>
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <CardTitle>Domain mapping review</CardTitle>
+              <CardDescription className="mt-1 max-w-3xl">
+                Drag exact Raw datasets or already-produced SDTM domains onto
+                the target. The Derivation Plan remains authoritative for joins,
+                stacks, filters, and other record-building operations.
+              </CardDescription>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               {mapping.data && (
                 <Badge
                   variant={
@@ -314,19 +331,206 @@ export function DomainMappingPanel({ sdtmId }: { sdtmId: string }) {
                   Revision {mapping.data.revision} · {mapping.data.state}
                 </Badge>
               )}
-              {error && (
-                <p className="text-destructive text-sm" role="alert">
-                  {error}
+              <DomainPicker domains={domains} value={active} onChange={setDomain} />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4">
+          <TransferContext onTransfer={handleTransfer}>
+            <div className="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
+              <aside className="bg-muted/20 rounded-xl border p-4">
+                <div className="flex items-center gap-2">
+                  <Database className="text-muted-foreground size-4" />
+                  <h3 className="text-xs font-semibold uppercase tracking-wide">
+                    Source datasets
+                  </h3>
+                </div>
+                <p className="text-muted-foreground mt-1 text-xs leading-5">
+                  Drag a source onto {active || "the selected target domain"}.
                 </p>
-              )}
-              <Button onClick={save} disabled={!active || saving}>
-                {saving ? <Loader2 className="animate-spin" /> : <Save />} Save
-                Domain Mapping
-              </Button>
+                <div className="mt-4 space-y-4">
+                  <section className="space-y-2">
+                    <p className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wide">
+                      Raw context
+                    </p>
+                    {availableRaw.length > 0 ? (
+                      availableRaw.map((code) => {
+                        const variableCount =
+                          rawContext.find((item) => item.code === code)?.variables
+                            ?.length ?? 0;
+                        return (
+                          <SourceInventoryItem
+                            key={`raw-${code}`}
+                            code={code}
+                            sourceType="raw"
+                            detail={`${variableCount} variables`}
+                            onAdd={() =>
+                              handleTransfer({
+                                sourceId: `domain-source:raw:${code}`,
+                                targetId: "domain-target:inputs",
+                              })
+                            }
+                          />
+                        );
+                      })
+                    ) : (
+                      <p className="text-muted-foreground rounded-lg border border-dashed p-3 text-xs">
+                        No current Raw context.
+                      </p>
+                    )}
+                  </section>
+                  <section className="space-y-2 border-t pt-4">
+                    <p className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wide">
+                      Existing SDTM domains
+                    </p>
+                    {upstreamCandidates.length > 0 ? (
+                      upstreamCandidates.map((code) => {
+                        const variableCount =
+                          domains.find((item) => item.code === code)?.variables
+                            .length ?? 0;
+                        return (
+                          <SourceInventoryItem
+                            key={`sdtm-${code}`}
+                            code={code}
+                            sourceType="sdtm"
+                            detail={`${variableCount} variables`}
+                            onAdd={() =>
+                              handleTransfer({
+                                sourceId: `domain-source:sdtm:${code}`,
+                                targetId: "domain-target:inputs",
+                              })
+                            }
+                          />
+                        );
+                      })
+                    ) : (
+                      <p className="text-muted-foreground rounded-lg border border-dashed p-3 text-xs">
+                        No sibling domains are available.
+                      </p>
+                    )}
+                  </section>
+                </div>
+              </aside>
+
+              <section className="space-y-3">
+                <div className="grid gap-2 rounded-xl border p-3 text-xs md:grid-cols-2">
+                  <p>
+                    <span className="font-semibold">Raw input</span>
+                    <span className="text-muted-foreground block">
+                      Reads an exact dataset from the selected Raw context.
+                    </span>
+                  </p>
+                  <p>
+                    <span className="font-semibold">SDTM read</span>
+                    <span className="text-muted-foreground block">
+                      Pins an aligned sibling domain revision; cycles are rejected.
+                    </span>
+                  </p>
+                </div>
+                <DropTarget
+                  id="domain-target:inputs"
+                  ariaLabel={`${active} source dataset drop target`}
+                  className="border-primary/30 bg-primary/[0.02] min-h-72 rounded-xl p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="text-primary font-mono text-lg font-semibold">
+                        {active || "Select a domain"}
+                      </div>
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        {domains.find((item) => item.code === active)?.label ??
+                          "Generated SDTM target"}
+                      </p>
+                    </div>
+                    <Badge variant="outline">{selectedCount} selected inputs</Badge>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    {selectedRaw.map((code) => (
+                      <SelectedDomainSource
+                        key={`selected-raw-${code}`}
+                        code={code}
+                        sourceType="raw"
+                        targetDomain={active}
+                        onRemove={() =>
+                          setRawDatasets((current) => removeCsvToken(current, code))
+                        }
+                      />
+                    ))}
+                    {selectedUpstream.map((code) => (
+                      <SelectedDomainSource
+                        key={`selected-sdtm-${code}`}
+                        code={code}
+                        sourceType="sdtm"
+                        targetDomain={active}
+                        onRemove={() =>
+                          setUpstreamDomains((current) =>
+                            removeCsvToken(current, code),
+                          )
+                        }
+                      />
+                    ))}
+                    {selectedCount === 0 && (
+                      <p className="text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
+                        Drop a Raw or SDTM source dataset here.
+                      </p>
+                    )}
+                  </div>
+                </DropTarget>
+
+                <details className="rounded-lg border p-3">
+                  <summary className="cursor-pointer text-sm font-medium">
+                    Direct text entry
+                  </summary>
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    Accessible fallback for entering ordered dataset identifiers.
+                  </p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="domain-raw">Raw datasets</Label>
+                      <Input
+                        id="domain-raw"
+                        value={rawDatasets}
+                        onChange={(event) => setRawDatasets(event.target.value)}
+                        placeholder="RAWDM, SITE"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="domain-upstream">Upstream SDTM domains</Label>
+                      <Input
+                        id="domain-upstream"
+                        value={upstreamDomains}
+                        onChange={(event) =>
+                          setUpstreamDomains(event.target.value)
+                        }
+                        placeholder="DM, SV"
+                      />
+                    </div>
+                  </div>
+                </details>
+
+                {error && (
+                  <p className="text-destructive text-sm" role="alert">
+                    {error}
+                  </p>
+                )}
+                <div className="flex justify-end">
+                  <Button onClick={save} disabled={!active || saving}>
+                    {saving ? <Loader2 className="animate-spin" /> : <Save />}
+                    Save Domain Mapping
+                  </Button>
+                </div>
+              </section>
             </div>
           </TransferContext>
         </CardContent>
       </Card>
+      {active && specification.data && (
+        <ImportedSdtmDomainPanel
+          sdtmId={sdtmId}
+          domainCode={active}
+          specificationRevision={specification.data.revision}
+        />
+      )}
     </div>
   );
 }
@@ -356,6 +560,12 @@ export function VariableMappingPanel({ sdtmId }: { sdtmId: string }) {
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = React.useState("");
+  const [selectedCell, setSelectedCell] = React.useState<{
+    key: string;
+    variable: string;
+    contextLabel: string;
+  } | null>(null);
+  const [sourceToAdd, setSourceToAdd] = React.useState("");
   const contexts = definition?.value_contexts ?? [];
 
   const declaredRaw = new Set(
@@ -368,7 +578,7 @@ export function VariableMappingPanel({ sdtmId }: { sdtmId: string }) {
       ? domainMapping.data.payload.upstream_domains.map(String)
       : [],
   );
-  const availableSources: SdtmQualifiedSource[] = [
+  const allAvailableSources: SdtmQualifiedSource[] = [
     ...rawContextDatasets(raw.data).flatMap((dataset) =>
       declaredRaw.has(dataset.code)
         ? (dataset.variables ?? []).map((variable) => ({
@@ -387,11 +597,21 @@ export function VariableMappingPanel({ sdtmId }: { sdtmId: string }) {
           }))
         : [],
     ),
-  ].filter((source) =>
+  ];
+  const availableSources = allAvailableSources.filter((source) =>
     sourceText(source)
       .toLowerCase()
       .includes(sourceFilter.trim().toLowerCase()),
   );
+  const sourceGroups = availableSources.reduce<
+    Array<{ key: string; sources: SdtmQualifiedSource[] }>
+  >((groups, source) => {
+    const key = `${source.source_type}:${source.dataset}`;
+    const existing = groups.find((group) => group.key === key);
+    if (existing) existing.sources.push(source);
+    else groups.push({ key, sources: [source] });
+    return groups;
+  }, []);
 
   React.useEffect(() => {
     const next: Record<string, string> = {};
@@ -421,6 +641,21 @@ export function VariableMappingPanel({ sdtmId }: { sdtmId: string }) {
     setCells((current) =>
       applyVariableMappingTransfer(current, { sourceId, targetId }),
     );
+  }
+
+  function addSourceToCell(key: string, source: string) {
+    if (!source) return;
+    setCells((current) => ({
+      ...current,
+      [key]: appendUniqueCsvToken(current[key] ?? "", source),
+    }));
+  }
+
+  function removeSourceFromCell(key: string, source: string) {
+    setCells((current) => ({
+      ...current,
+      [key]: removeCsvToken(current[key] ?? "", source),
+    }));
   }
 
   async function save() {
@@ -463,138 +698,319 @@ export function VariableMappingPanel({ sdtmId }: { sdtmId: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <DomainPicker domains={domains} value={active} onChange={setDomain} />
-      <Card>
-        <CardHeader>
-          <CardTitle>{active || "Domain"} variable matrix</CardTitle>
-          <CardDescription>
-            Rows are Specification variables. Default and reusable VLM contexts
-            are columns. Drag declared source variables into cells, or enter one
-            or more ordered qualified sources separated by commas. Empty cells
-            are valid.
-          </CardDescription>
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <CardTitle>Variable &amp; VLM mapping matrix</CardTitle>
+              <CardDescription className="mt-1 max-w-4xl">
+                Rows are SDTM variables. The Default mapping and every reusable
+                Specification-owned value context are shared columns. Drop exact
+                source variables into cells, then review ordered lineage before saving.
+              </CardDescription>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {mapping.data && (
+                <Badge
+                  variant={
+                    mapping.data.state === "aligned" ? "default" : "destructive"
+                  }
+                >
+                  Revision {mapping.data.revision} · {mapping.data.state}
+                </Badge>
+              )}
+              <Badge variant="outline">{contexts.length} VLM contexts</Badge>
+              <DomainPicker domains={domains} value={active} onChange={setDomain} />
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4">
           <TransferContext onTransfer={handleTransfer}>
-            <div className="space-y-4">
-              <div className="space-y-3 rounded-md border p-3">
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                  <div>
-                    <Label>Declared source variables</Label>
-                    <p className="text-muted-foreground text-xs">
-                      Only datasets selected by the current Domain Mapping are
-                      available.
-                    </p>
-                  </div>
-                  <Input
-                    className="w-72"
-                    aria-label="Filter source variables"
-                    value={sourceFilter}
-                    onChange={(event) => setSourceFilter(event.target.value)}
-                    placeholder="Filter DATASET.VARIABLE"
-                  />
-                </div>
-                <div className="flex max-h-44 min-h-10 flex-wrap gap-2 overflow-y-auto">
-                  {availableSources.length > 0 ? (
-                    availableSources.map((source) => {
-                      const text = sourceText(source);
-                      return (
-                        <DraggableItem
-                          key={text}
-                          id={`variable-source:${text}`}
-                          ariaLabel={`Drag source variable ${text}`}
-                          className="font-mono text-xs"
-                        >
-                          <GripVertical className="size-3.5" />
-                          {text}
-                        </DraggableItem>
-                      );
-                    })
-                  ) : (
-                    <span className="text-muted-foreground text-sm">
+            <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
+              <aside className="bg-muted/20 self-start rounded-xl border p-4 xl:sticky xl:top-4">
+                <Label htmlFor="variable-source-filter">Source variables</Label>
+                <p className="text-muted-foreground mt-1 text-xs leading-5">
+                  Only datasets accepted by the current Domain Mapping are shown.
+                </p>
+                <Input
+                  id="variable-source-filter"
+                  className="mt-3"
+                  aria-label="Filter source variables"
+                  value={sourceFilter}
+                  onChange={(event) => setSourceFilter(event.target.value)}
+                  placeholder="Filter DATASET.VARIABLE"
+                />
+                <div className="mt-4 max-h-[34rem] space-y-3 overflow-y-auto pr-1">
+                  {sourceGroups.map((group) => {
+                    const first = group.sources[0];
+                    return (
+                      <section key={group.key} className="rounded-lg border p-2">
+                        <div className="mb-2 flex items-center justify-between gap-2 px-1">
+                          <span className="font-mono text-xs font-semibold">
+                            {first?.dataset}
+                          </span>
+                          <Badge variant="outline">
+                            {first?.source_type === "raw" ? "Raw" : "SDTM"}
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {group.sources.map((source) => {
+                            const text = sourceText(source);
+                            return (
+                              <DraggableItem
+                                key={text}
+                                id={`variable-source:${text}`}
+                                ariaLabel={`Drag source variable ${text}`}
+                                className="font-mono text-xs"
+                              >
+                                <GripVertical className="size-3" />
+                                {source.variable}
+                              </DraggableItem>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    );
+                  })}
+                  {sourceGroups.length === 0 && (
+                    <p className="text-muted-foreground rounded-lg border border-dashed p-4 text-center text-xs">
                       Save an aligned Domain Mapping with source datasets, or
                       adjust the filter.
-                    </span>
+                    </p>
                   )}
                 </div>
-              </div>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-44">SDTM variable</TableHead>
-                      <TableHead className="min-w-72">Default</TableHead>
-                      {contexts.map((context) => (
-                        <TableHead key={context.id} className="min-w-72">
-                          {context.label}
-                          <div className="text-muted-foreground text-xs font-normal">
-                            {context.discriminator_variable} {context.operator}{" "}
-                            {context.values.join(", ")}
-                          </div>
+              </aside>
+
+              <section className="min-w-0 overflow-hidden rounded-xl border">
+                <div className="border-b px-4 py-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-primary font-mono text-sm font-semibold">
+                        {active || "Domain"} variable lineage
+                      </p>
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        Click a cell to edit exact ordered sources. Empty cells are valid.
+                      </p>
+                    </div>
+                    <Badge variant="secondary">
+                      {definition?.variables.length ?? 0} variables
+                    </Badge>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <Table className="border-collapse">
+                    <TableHeader>
+                      <TableRow className="bg-muted/30">
+                        <TableHead className="bg-background sticky left-0 z-10 min-w-56 border-r">
+                          SDTM variable
                         </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {definition?.variables.map((variable) => (
-                      <TableRow key={variable.name}>
-                        <TableCell>
-                          <div className="font-mono font-medium">
-                            {variable.name}
-                          </div>
-                          <div className="text-muted-foreground text-xs">
-                            {variable.label}
-                          </div>
-                        </TableCell>
-                        {[null, ...contexts.map((context) => context.id)].map(
-                          (contextId) => {
+                        <TableHead className="min-w-72 border-r align-top">
+                          <span className="font-semibold">Default</span>
+                          <span className="text-muted-foreground mt-1 block text-xs font-normal">
+                            Base mapping
+                          </span>
+                        </TableHead>
+                        {contexts.map((context) => (
+                          <TableHead
+                            key={context.id}
+                            className="min-w-72 border-r align-top last:border-r-0"
+                          >
+                            <span className="font-semibold">{context.label}</span>
+                            <span className="text-primary mt-1 block whitespace-normal font-mono text-[10px] font-normal">
+                              {context.discriminator_variable} {context.operator}{" "}
+                              {context.values.join(", ")}
+                            </span>
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {definition?.variables.map((variable) => (
+                        <TableRow key={variable.name} className="group">
+                          <TableCell className="bg-background group-hover:bg-muted/30 sticky left-0 z-[5] border-r align-top">
+                            <div className="font-mono text-sm font-semibold text-primary">
+                              {variable.name}
+                            </div>
+                            <div className="text-muted-foreground mt-1 text-xs">
+                              {variable.label}
+                            </div>
+                          </TableCell>
+                          {[null, ...contexts].map((context) => {
+                            const contextId = context?.id ?? null;
+                            const contextLabel = context?.label ?? "Default";
                             const key = `${variable.name}|${contextId ?? ""}`;
+                            const tokens = (cells[key] ?? "")
+                              .split(",")
+                              .map((item) => item.trim())
+                              .filter(Boolean);
                             return (
-                              <TableCell key={key}>
+                              <TableCell
+                                key={key}
+                                className="border-r p-0 align-top last:border-r-0"
+                              >
                                 <DropTarget
                                   id={`variable-cell:${key}`}
-                                  ariaLabel={`${variable.name} ${contextId ?? "Default"} source drop zone`}
-                                  className="min-w-64 p-1.5"
+                                  ariaLabel={`${variable.name} ${contextLabel} source drop zone`}
+                                  className="min-h-24 rounded-none border-0 p-3"
                                 >
-                                  <Input
-                                    aria-label={`${variable.name} ${contextId ?? "Default"} sources`}
-                                    value={cells[key] ?? ""}
-                                    onChange={(event) =>
-                                      setCells((current) => ({
-                                        ...current,
-                                        [key]: event.target.value,
-                                      }))
-                                    }
-                                    placeholder="Drop or enter raw:DATASET.VAR"
-                                  />
+                                  <div className="space-y-1.5">
+                                    {tokens.map((token) => (
+                                      <div
+                                        key={token}
+                                        className="bg-background flex items-center justify-between gap-2 rounded-md border px-2 py-1.5"
+                                      >
+                                        <span className="min-w-0 truncate font-mono text-xs">
+                                          {token}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          aria-label={`Remove ${variable.name} source ${token} from ${contextLabel}`}
+                                          className="text-muted-foreground hover:text-destructive"
+                                          onClick={() => removeSourceFromCell(key, token)}
+                                        >
+                                          <Trash2 className="size-3.5" />
+                                        </button>
+                                      </div>
+                                    ))}
+                                    {tokens.length === 0 && (
+                                      <span className="text-muted-foreground block py-1 text-xs">
+                                        Empty cell
+                                      </span>
+                                    )}
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="mt-2"
+                                    aria-label={`Edit ${variable.name} ${contextLabel} mapping`}
+                                    onClick={() => {
+                                      setSourceToAdd("");
+                                      setSelectedCell({
+                                        key,
+                                        variable: variable.name,
+                                        contextLabel,
+                                      });
+                                    }}
+                                  >
+                                    <Plus /> Edit sources
+                                  </Button>
                                 </DropTarget>
                               </TableCell>
                             );
-                          },
-                        )}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              {error && (
-                <p className="text-destructive text-sm" role="alert">
-                  {error}
-                </p>
-              )}
-              <Button onClick={save} disabled={!definition || saving}>
-                {saving ? <Loader2 className="animate-spin" /> : <Save />} Save
-                Variable Mapping
-              </Button>
+                          })}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                {!definition?.variables.length && (
+                  <p className="text-muted-foreground p-8 text-center text-sm">
+                    No SDTM variables are available for review.
+                  </p>
+                )}
+              </section>
             </div>
           </TransferContext>
+
+          {error && (
+            <p className="text-destructive mt-4 text-sm" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="mt-4 flex justify-end">
+            <Button onClick={save} disabled={!definition || saving}>
+              {saving ? <Loader2 className="animate-spin" /> : <Save />}
+              Save Variable &amp; VLM Mapping
+            </Button>
+          </div>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={selectedCell !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedCell(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-mono">
+              {selectedCell?.variable} · {selectedCell?.contextLabel}
+            </DialogTitle>
+            <DialogDescription>
+              Maintain ordered, qualified source lineage for this matrix cell.
+              Use only datasets declared by the current Domain Mapping.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedCell && (
+            <div className="space-y-4">
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <Select value={sourceToAdd} onValueChange={setSourceToAdd}>
+                  <SelectTrigger aria-label="Source variable to add">
+                    <SelectValue placeholder="Choose a qualified source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allAvailableSources.map((source) => {
+                      const text = sourceText(source);
+                      return (
+                        <SelectItem key={text} value={text}>
+                          {text}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!sourceToAdd}
+                  onClick={() => {
+                    addSourceToCell(selectedCell.key, sourceToAdd);
+                    setSourceToAdd("");
+                  }}
+                >
+                  <Plus /> Add source
+                </Button>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mapping-cell-sources">Ordered source lineage</Label>
+                <Input
+                  id="mapping-cell-sources"
+                  aria-label={`${selectedCell.variable} ${selectedCell.contextLabel} sources`}
+                  value={cells[selectedCell.key] ?? ""}
+                  onChange={(event) =>
+                    setCells((current) => ({
+                      ...current,
+                      [selectedCell.key]: event.target.value,
+                    }))
+                  }
+                  placeholder="raw:DATASET.VAR, sdtm:DOMAIN.VAR"
+                />
+                <p className="text-muted-foreground text-xs">
+                  Order is preserved and becomes part of the immutable mapping revision.
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" onClick={() => setSelectedCell(null)}>
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-export function CodeWorkareasPanel({ sdtmId }: { sdtmId: string }) {
+export function CodeWorkareasPanel({
+  sdtmId,
+  reviewOnly = false,
+}: {
+  sdtmId: string;
+  reviewOnly?: boolean;
+}) {
   const qc = useQueryClient();
   const workbench = useWorkbench();
   const specification = useGetSpecification(sdtmId);
@@ -778,16 +1194,70 @@ export function CodeWorkareasPanel({ sdtmId }: { sdtmId: string }) {
     }
   }
 
+  const workareaCount = workareas.data?.items.length ?? 0;
+  const executionStatus = run.data?.status
+    ? String(run.data.status).replaceAll("_", " ")
+    : "Not run in this session";
+
   return (
-    <div className="grid gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
-      <Card>
-        <CardHeader>
-          <CardTitle>Workareas</CardTitle>
+    <div className="space-y-4">
+      <ReviewStageHeader
+        eyebrow={reviewOnly ? "Execution evidence" : "Rule & code review"}
+        title={
+          reviewOnly
+            ? "Execute an accepted program"
+            : "Review the exact program revision"
+        }
+        description={
+          reviewOnly
+            ? "Select an accepted workarea, confirm its pinned upstream XPT inputs, then run it in isolation. Preview rows and sanitized errors remain attached to the immutable run."
+            : "Review or edit the exact Python, R, or SAS source for one domain. AI changes arrive as proposals; a saved human edit creates the same versioned workarea evidence."
+        }
+        status={reviewOnly ? executionStatus : "Human review required"}
+        metrics={[
+          { label: "Programs", value: workareaCount },
+          { label: "Selected domain", value: activeWorkareaDomain || "None" },
+          {
+            label: "Language",
+            value:
+              selected?.language?.toUpperCase() ?? language.toUpperCase(),
+          },
+          {
+            label: reviewOnly ? "Run state" : "Program revision",
+            value: reviewOnly
+              ? executionStatus
+              : selected
+                ? `Revision ${selected.revision}`
+                : "Unsaved",
+            tone:
+              run.data?.status === "completed"
+                ? "success"
+                : run.data?.status === "failed"
+                  ? "danger"
+                  : run.data?.status
+                    ? "warning"
+                    : "default",
+          },
+        ]}
+      />
+
+      <div className="grid gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {reviewOnly ? "Accepted programs" : "Program inventory"}
+            </CardTitle>
           <CardDescription>
-            Multiple named programs may use the same domain and language.
+            Select one exact domain and language revision. Multiple named
+            programs may use the same domain and language.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
+          {workareaCount === 0 && (
+            <p className="text-muted-foreground rounded-md border border-dashed p-4 text-center text-sm">
+              No program revisions exist yet.
+            </p>
+          )}
           {workareas.data?.items.map((item) => (
             <Button
               key={item.id}
@@ -801,25 +1271,38 @@ export function CodeWorkareasPanel({ sdtmId }: { sdtmId: string }) {
               {item.domain} · {item.language} · {item.name}
             </Button>
           ))}
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => {
-              setIsCreating(true);
-              setSelectedId("");
-              setName("");
-              setDomain(domains[0]?.code ?? "");
-              setLanguage("python");
-              setSource("");
-            }}
-          >
-            <Plus /> New workarea
-          </Button>
+          {!reviewOnly && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setIsCreating(true);
+                setSelectedId("");
+                setName("");
+                setDomain(domains[0]?.code ?? "");
+                setLanguage("python");
+                setSource("");
+              }}
+            >
+              <Plus /> New workarea
+            </Button>
+          )}
         </CardContent>
-      </Card>
-      <Card>
+        </Card>
+        <Card>
         <CardHeader>
-          <CardTitle>{selected ? name : "New Code Workarea"}</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle>{selected ? name : "New Code Workarea"}</CardTitle>
+            {selected && (
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">{selected.domain}</Badge>
+                  <Badge variant="secondary">
+                    {selected.language.toUpperCase()}
+                  </Badge>
+                <Badge variant="outline">Revision {selected.revision}</Badge>
+              </div>
+            )}
+          </div>
           <CardDescription>
             The program reads declared datasets from <code>inputs/</code> and
             must write exactly <code>outputs/{domain || "DOMAIN"}.csv</code>.
@@ -832,6 +1315,7 @@ export function CodeWorkareasPanel({ sdtmId }: { sdtmId: string }) {
               <Input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
+                disabled={reviewOnly}
               />
             </div>
             <div className="space-y-2">
@@ -839,7 +1323,7 @@ export function CodeWorkareasPanel({ sdtmId }: { sdtmId: string }) {
               <Select
                 value={domain}
                 onValueChange={setDomain}
-                disabled={!!selected}
+                disabled={reviewOnly || !!selected}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -858,7 +1342,7 @@ export function CodeWorkareasPanel({ sdtmId }: { sdtmId: string }) {
               <Select
                 value={language}
                 onValueChange={(value) => setLanguage(value as typeof language)}
-                disabled={!!selected}
+                disabled={reviewOnly || !!selected}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -871,13 +1355,21 @@ export function CodeWorkareasPanel({ sdtmId }: { sdtmId: string }) {
               </Select>
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>Program source</Label>
+          <div className="overflow-hidden rounded-md border">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
+              <Label>Exact program source</Label>
+              <span className="text-muted-foreground text-xs">
+                {selected
+                  ? `${selected.domain} · ${selected.language.toUpperCase()} · r${selected.revision}`
+                  : 'Unsaved draft'}
+              </span>
+            </div>
             <Textarea
-              className="min-h-[28rem] font-mono text-xs"
+              className="min-h-[32rem] resize-y rounded-none border-0 bg-muted/10 font-mono text-xs leading-5 shadow-none focus-visible:ring-0"
               value={source}
               onChange={(event) => setSource(event.target.value)}
               spellCheck={false}
+              readOnly={reviewOnly}
             />
           </div>
           <div className="space-y-3">
@@ -956,15 +1448,16 @@ export function CodeWorkareasPanel({ sdtmId }: { sdtmId: string }) {
             </p>
           )}
           <div className="flex flex-wrap gap-2">
-            {selected ? (
-              <Button onClick={save} disabled={busy}>
-                <Save /> Save revision
-              </Button>
-            ) : (
-              <Button onClick={create} disabled={busy || !name || !domain}>
-                <Plus /> Create
-              </Button>
-            )}
+            {!reviewOnly &&
+              (selected ? (
+                <Button onClick={save} disabled={busy}>
+                  <Save /> Save revision
+                </Button>
+              ) : (
+                <Button onClick={create} disabled={busy || !name || !domain}>
+                  <Plus /> Create
+                </Button>
+              ))}
             <Button
               variant="outline"
               onClick={() => runCode("test")}
@@ -980,32 +1473,52 @@ export function CodeWorkareasPanel({ sdtmId }: { sdtmId: string }) {
             </Button>
           </div>
           {run.data && (
-            <div className="rounded-md border p-3 text-sm">
-              <div className="flex items-center gap-2">
-                <Badge>{String(run.data.status)}</Badge>
-                <span>{String(run.data.purpose)}</span>
+            <div className="overflow-hidden rounded-md border text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <Badge>{String(run.data.status).replaceAll("_", " ")}</Badge>
+                  <span className="font-medium">
+                    {String(run.data.purpose)} run evidence
+                  </span>
+                </div>
+                <span className="text-muted-foreground font-mono text-xs">
+                  {String(run.data.id ?? runId).slice(0, 12)}
+                </span>
               </div>
-              {run.data.status === "queued" && (
-                <p className="text-muted-foreground mt-2 text-xs">
-                  Waiting for an execution worker to claim this run. If this
-                  status persists, verify execution-dispatcher capacity.
-                </p>
-              )}
-              {Array.isArray(run.data.preview) &&
-                run.data.preview.length > 0 && (
-                  <pre className="mt-3 max-h-64 overflow-auto text-xs">
-                    {JSON.stringify(run.data.preview, null, 2)}
-                  </pre>
+              <div className="p-3">
+                {run.data.status === "queued" && (
+                  <p className="text-muted-foreground text-xs">
+                    Waiting for an execution worker to claim this run. If this
+                    status persists, verify execution-dispatcher capacity.
+                  </p>
                 )}
-              {Boolean(run.data.stderr) && (
-                <pre className="text-destructive mt-3 max-h-40 overflow-auto text-xs">
-                  {String(run.data.stderr)}
-                </pre>
-              )}
+                {Array.isArray(run.data.preview) &&
+                  run.data.preview.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider">
+                        Output preview
+                      </p>
+                      <pre className="bg-muted max-h-64 overflow-auto rounded-md p-3 text-xs">
+                        {JSON.stringify(run.data.preview, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                {Boolean(run.data.stderr) && (
+                  <details className="mt-3" open>
+                    <summary className="text-destructive cursor-pointer text-xs font-medium">
+                      Sanitized runner errors
+                    </summary>
+                    <pre className="bg-destructive/5 text-destructive mt-2 max-h-40 overflow-auto rounded-md p-3 text-xs">
+                      {String(run.data.stderr)}
+                    </pre>
+                  </details>
+                )}
+              </div>
             </div>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }

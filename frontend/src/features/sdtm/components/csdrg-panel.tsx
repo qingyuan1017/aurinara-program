@@ -3,7 +3,6 @@ import type { AxiosError } from 'axios'
 import { useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Loader2, Save } from 'lucide-react'
 
-import { PageHeader } from '@/components/layout/page-header'
 import { EmptyState, ErrorState } from '@/components/data/states'
 import { StatusBadge } from '@/components/data/status-badge'
 import { IssueList } from '@/components/data/issue-list'
@@ -57,6 +56,7 @@ import type {
   SdtmCsdrgModel,
   ValidationRunResponse,
 } from '@/api/generated/model'
+import { ReviewStageHeader } from '@/features/sdtm/components/review-stage-header'
 
 /**
  * The nine required cSDRG narrative sections (Requirement 19.3, 19.4), each a
@@ -88,6 +88,8 @@ const REQUIRED_SECTION_IDS: ReadonlySet<string> = new Set(
 export interface CsdrgPanelProps {
   /** The owning SDTM workbench id (path parameter for every cSDRG call). */
   sdtmId: string
+  /** Hide direct narrative authoring while retaining factual operations. */
+  reviewOnly?: boolean
 }
 
 /** Inline destructive notice, consistent with the other SDTM panels. */
@@ -157,7 +159,7 @@ function textToParagraphs(text: string): string[] {
     .filter((paragraph) => paragraph.length > 0)
 }
 
-export function CsdrgPanel({ sdtmId }: CsdrgPanelProps) {
+export function CsdrgPanel({ sdtmId, reviewOnly = false }: CsdrgPanelProps) {
   const qc = useQueryClient()
   const { ifMatch, aggregate } = useWorkbench()
 
@@ -203,18 +205,50 @@ export function CsdrgPanel({ sdtmId }: CsdrgPanelProps) {
     return <ErrorState error={query.error} resourceLabel="cSDRG" />
   }
 
+  const csdrgModel = csdrg ? readModel(csdrg) : null
+  const authoredSections = CSDRG_SECTIONS.filter((required) =>
+    (csdrgModel?.narrative_sections ?? [])
+      .find((section) => section.section_id === required.id)
+      ?.paragraphs?.some((paragraph) => paragraph.trim().length > 0),
+  ).length
+
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="cSDRG"
-        description={
-          <>
-            Initialize factual structures, author the nine required narrative
-            sections, validate, and build the reviewer guide via{' '}
-            <code>/api/v1/sdtm-workbenches/{'{sdtm_id}'}/csdrg</code>. The platform never
-            infers narrative — every section is authored by you.
-          </>
+      <ReviewStageHeader
+        eyebrow="Reviewer guide workspace"
+        title="cSDRG review"
+        description="Review the nine narrative sections beside deterministic Define, reconciliation, and dataset facts. AI proposals and manual edits use the same versioned model; only accepted content can be validated and built."
+        status={
+          !csdrg
+            ? 'Initialization required'
+            : authoredSections === CSDRG_SECTIONS.length
+              ? 'Narrative ready for validation'
+              : 'Review required'
         }
+        metrics={[
+          {
+            label: 'cSDRG revision',
+            value: csdrg ? `Revision ${csdrg.revision}` : 'Not initialized',
+          },
+          {
+            label: 'Narrative sections',
+            value: `${authoredSections} / ${CSDRG_SECTIONS.length} authored`,
+            tone:
+              authoredSections === CSDRG_SECTIONS.length
+                ? 'success'
+                : 'warning',
+          },
+          {
+            label: 'Define evidence',
+            value: csdrg ? `Revision ${csdrg.define_revision}` : 'Not bound',
+          },
+          {
+            label: 'Reconciliation',
+            value: csdrg?.reconciliation_run_id
+              ? csdrg.reconciliation_run_id.slice(0, 12)
+              : 'Not bound',
+          },
+        ]}
       />
 
       {staleMessage && (
@@ -248,7 +282,7 @@ export function CsdrgPanel({ sdtmId }: CsdrgPanelProps) {
       />
 
       {/* Author + save the nine narrative sections (aggregate ETag). */}
-      {csdrg && (
+      {csdrg && !reviewOnly && (
         <NarrativeCard
           sdtmId={sdtmId}
           csdrg={csdrg}
@@ -260,12 +294,18 @@ export function CsdrgPanel({ sdtmId }: CsdrgPanelProps) {
         />
       )}
 
-      {/* Validate (synchronous Validation_Run + client whitespace-only check). */}
-      {csdrg && <ValidateCard sdtmId={sdtmId} csdrg={csdrg} />}
-
-      {/* Build cSDRG artifacts (2s/300s poll). */}
       {csdrg && (
-        <BuildCard sdtmId={sdtmId} csdrg={csdrg} studyId={aggregate.study_id} />
+        <div className="grid items-start gap-6 xl:grid-cols-2">
+          {/* Validate (synchronous Validation_Run + client whitespace-only check). */}
+          <ValidateCard sdtmId={sdtmId} csdrg={csdrg} />
+
+          {/* Build cSDRG artifacts (2s/300s poll). */}
+          <BuildCard
+            sdtmId={sdtmId}
+            csdrg={csdrg}
+            studyId={aggregate.study_id}
+          />
+        </div>
       )}
     </div>
   )

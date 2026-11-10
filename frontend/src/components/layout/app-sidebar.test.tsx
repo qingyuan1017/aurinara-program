@@ -138,17 +138,18 @@ describe('AppSidebar navigation hierarchy', () => {
   it('shows the active workbench tab in module navigation', () => {
     routerState.location = {
       pathname: '/sdtm/workbench-1',
-      search: { tab: 'define' },
+      search: { tab: 'define-validation' },
     }
     render(<SidebarProvider><AppSidebar /></SidebarProvider>)
 
     const navigation = screen.getByRole('navigation', { name: 'SDTM navigation' })
     expect(navigation.textContent).toContain('Current workbench')
-    expect(navigation.textContent).toContain('Input selection')
-    expect(navigation.textContent).toContain('Program & artifact readiness')
-    const defineLink = screen.getByRole('link', { name: 'Define' })
+    expect(navigation.textContent).toContain('1 Source review')
+    expect(navigation.textContent).toContain('2 Specification')
+    expect(navigation.textContent).toContain('9 cSDRG & submission')
+    const defineLink = screen.getByRole('link', { name: '8 Define & validation' })
     expect(defineLink.getAttribute('data-active')).toBe('true')
-    expect(defineLink.getAttribute('href')).toBe('/sdtm/workbench-1?tab=define')
+    expect(defineLink.getAttribute('href')).toBe('/sdtm/workbench-1?tab=define-validation')
   })
 
   it('matches the EDC name-and-email account display without exposing the opaque username', async () => {

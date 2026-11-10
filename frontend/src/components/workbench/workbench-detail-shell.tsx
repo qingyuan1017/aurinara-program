@@ -58,6 +58,11 @@ export interface WorkbenchDetailShellProps {
   onTabChange?: (value: string) => void
   /** Default tab value when uncontrolled. Defaults to the first tab. */
   defaultTab?: string
+  /**
+   * Render the in-panel tab strip. Set to false when the application sidebar
+   * is the canonical section navigation for this detail route.
+   */
+  showTabList?: boolean
 }
 
 /**
@@ -83,6 +88,7 @@ export function WorkbenchDetailShell({
   activeTab,
   onTabChange,
   defaultTab,
+  showTabList = true,
 }: WorkbenchDetailShellProps) {
   const { currentStudyId, isLoading: studiesLoading } = useCurrentStudy()
   const { data: aggregate, isLoading, isError, error } = query
@@ -135,6 +141,9 @@ export function WorkbenchDetailShell({
   }
 
   const resolvedDefaultTab = defaultTab ?? tabs[0]?.value
+  const resolvedActiveTab = activeTab ?? resolvedDefaultTab
+  const activeSection =
+    tabs.find((tab) => tab.value === resolvedActiveTab) ?? tabs[0]
 
   return (
     <WorkbenchContextProvider value={ctx}>
@@ -152,24 +161,30 @@ export function WorkbenchDetailShell({
           ]}
         />
 
-        <Tabs
-          value={activeTab}
-          defaultValue={activeTab === undefined ? resolvedDefaultTab : undefined}
-          onValueChange={onTabChange}
-        >
-          <TabsList>
+        {showTabList ? (
+          <Tabs
+            value={activeTab}
+            defaultValue={activeTab === undefined ? resolvedDefaultTab : undefined}
+            onValueChange={onTabChange}
+          >
+            <TabsList>
+              {tabs.map((tab) => (
+                <TabsTrigger key={tab.value} value={tab.value}>
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
             {tabs.map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value}>
-                {tab.label}
-              </TabsTrigger>
+              <TabsContent key={tab.value} value={tab.value}>
+                {tab.render(ctx)}
+              </TabsContent>
             ))}
-          </TabsList>
-          {tabs.map((tab) => (
-            <TabsContent key={tab.value} value={tab.value}>
-              {tab.render(ctx)}
-            </TabsContent>
-          ))}
-        </Tabs>
+          </Tabs>
+        ) : activeSection ? (
+          <section aria-label={activeSection.label}>
+            {activeSection.render(ctx)}
+          </section>
+        ) : null}
       </div>
     </WorkbenchContextProvider>
   )

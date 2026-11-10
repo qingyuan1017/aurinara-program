@@ -56,7 +56,7 @@ beforeAll(() => {
 const navigateSpy = vi.fn();
 const routeParams: { sdtmId: string } = { sdtmId: "sdtm-1" };
 const routeSearch: { tab: string; domain?: string } = {
-  tab: "input-selection",
+  tab: "source-review",
 };
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {
@@ -107,6 +107,35 @@ vi.mock("@/features/sdtm/components/input-selection-panel", () => ({
 vi.mock("@/features/sdtm/components/specification-panel", () => ({
   SpecificationPanel: ({ sdtmId }: { sdtmId: string }) => (
     <div data-testid="specification-panel">Specification panel {sdtmId}</div>
+  ),
+}));
+vi.mock("@/features/sdtm/components/ai-review-workspace", () => ({
+  AiReviewWorkspace: ({
+    title,
+    reviewPrelude,
+    reviewEpilogue,
+  }: {
+    title: string;
+    reviewPrelude?: ReactNode;
+    reviewEpilogue?: ReactNode;
+  }) => (
+    <div data-testid="ai-review-workspace">
+      {reviewPrelude}
+      {title}
+      {reviewEpilogue}
+    </div>
+  ),
+  SdtmStageWorkspace: ({
+    title,
+    children,
+  }: {
+    title: string;
+    children: ReactNode;
+  }) => (
+    <div data-testid="sdtm-stage-workspace">
+      {title}
+      {children}
+    </div>
   ),
 }));
 // The aCRF panel (task 15.1) reads additional generated hooks the list/create
@@ -352,31 +381,27 @@ function problemError(
 
 // The mapping/code workbench tabs are individually reachable by `?tab=`.
 const TAB_VALUES = [
-  "input-selection",
+  "source-review",
   "specification",
-  "acrf",
   "domain-mapping",
   "variable-mapping",
-  "code-workareas",
-  "define",
-  "csdrg",
-  "validation",
-  "readiness",
-  "dependencies",
+  "program-review",
+  "execution",
+  "acrf",
+  "define-validation",
+  "csdrg-submission",
 ] as const;
 
 const TAB_LABELS: Record<string, string> = {
-  "input-selection": "Input selection",
-  specification: "Specification",
-  acrf: "aCRF",
-  "domain-mapping": "Domain mapping",
-  "variable-mapping": "Variable mapping",
-  "code-workareas": "Code workareas",
-  define: "Define",
-  csdrg: "cSDRG",
-  validation: "Validation",
-  readiness: "Program & artifact readiness",
-  dependencies: "Dependencies",
+  "source-review": "1 Source review",
+  specification: "2 Specification",
+  "domain-mapping": "3 Domain mapping",
+  "variable-mapping": "4 Variable & VLM",
+  "program-review": "5 Program review",
+  execution: "6 Execution",
+  acrf: "7 aCRF",
+  "define-validation": "8 Define & validation",
+  "csdrg-submission": "9 cSDRG & submission",
 };
 
 beforeEach(() => {
@@ -393,7 +418,7 @@ beforeEach(() => {
   currentStudyState.currentStudyId = "study-1";
   currentStudyState.isLoading = false;
   routeParams.sdtmId = "sdtm-1";
-  routeSearch.tab = "input-selection";
+  routeSearch.tab = "source-review";
   routeSearch.domain = undefined;
   navigateSpy.mockReset();
 });
@@ -561,18 +586,20 @@ describe("SDTM detail shell tab routing (Req 9.3)", () => {
     for (const value of TAB_VALUES) {
       expect(validateSearch({ tab: value })).toEqual({ tab: value });
     }
-    expect(validateSearch({})).toEqual({ tab: "input-selection" });
+    expect(validateSearch({})).toEqual({ tab: "source-review" });
     expect(validateSearch({ tab: "not-a-tab" })).toEqual({
-      tab: "input-selection",
+      tab: "source-review",
     });
-    expect(validateSearch({ tab: 42 })).toEqual({ tab: "input-selection" });
+    expect(validateSearch({ tab: 42 })).toEqual({ tab: "source-review" });
   });
 
-  it("renders every tab trigger so each section is individually reachable", () => {
+  it("uses the application sidebar instead of duplicating stage tabs in the main panel", () => {
     renderWithClient(<SdtmDetailPage />);
-    for (const value of TAB_VALUES) {
-      expect(screen.getByRole("tab", { name: TAB_LABELS[value] })).toBeTruthy();
-    }
+
+    expect(screen.queryAllByRole("tab")).toHaveLength(0);
+    expect(
+      screen.getByRole("region", { name: TAB_LABELS["source-review"] }),
+    ).toBeTruthy();
   });
 
   it.each(TAB_VALUES)(
@@ -582,42 +609,13 @@ describe("SDTM detail shell tab routing (Req 9.3)", () => {
 
       renderWithClient(<SdtmDetailPage />);
 
-      // The tab trigger for this value is marked active (Radix reflects the
-      // controlled `value` from the `?tab=` param)…
-      const trigger = screen.getByRole("tab", { name: TAB_LABELS[value] });
-      expect(trigger.getAttribute("data-state")).toBe("active");
+      // Only the section selected by the sidebar-backed ?tab= route is mounted.
+      const panel = screen.getByRole("region", { name: TAB_LABELS[value] });
+      expect(panel.textContent?.trim().length).toBeGreaterThan(0);
 
-      // …and the matching section content is mounted. The two wired panels show
-      // their mocked markers; the remaining eight render the placeholder body.
-      if (value === "input-selection") {
+      if (value === "source-review") {
         expect(screen.getByTestId("input-selection-panel")).toBeTruthy();
-      } else if (value === "specification") {
-        expect(screen.getByTestId("specification-panel")).toBeTruthy();
-      } else {
-        // The placeholder renders the tab label as its title; assert the active
-        // panel body is present (the label also appears on the trigger, so scope
-        // to the mounted tabpanel).
-        const panel = screen.getByRole("tabpanel");
-        expect(panel.textContent).toContain(TAB_LABELS[value]);
       }
     },
   );
-
-  it("persists the chosen tab to ?tab= when the user switches tabs", () => {
-    routeSearch.tab = "input-selection";
-    renderWithClient(<SdtmDetailPage />);
-
-    // Radix Tabs selects on pointer-down (not a synthetic click), so drive the
-    // trigger with mouseDown to fire `onValueChange` -> the `?tab=` navigation.
-    fireEvent.mouseDown(screen.getByRole("tab", { name: TAB_LABELS.define }));
-
-    expect(navigateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: "/sdtm/$sdtmId",
-        params: { sdtmId: "sdtm-1" },
-        search: { tab: "define" },
-        replace: true,
-      }),
-    );
-  });
 });

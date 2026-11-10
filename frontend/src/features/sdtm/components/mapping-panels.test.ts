@@ -5,6 +5,7 @@ import {
   applyDomainMappingTransfer,
   applyVariableMappingTransfer,
   outputArtifactSelections,
+  removeCsvToken,
   resolveSelectedWorkarea,
 } from "./mapping-model";
 
@@ -68,6 +69,33 @@ describe("SDTM mapping editors", () => {
         targetId: "domain-target:sdtm",
       }),
     ).toEqual(initial);
+  });
+
+  it("routes both Raw and SDTM sources onto the shared domain drop target", () => {
+    expect(
+      applyDomainMappingTransfer(
+        { rawDatasets: "", upstreamDomains: "" },
+        {
+          sourceId: "domain-source:raw:RAWDM",
+          targetId: "domain-target:inputs",
+        },
+      ),
+    ).toEqual({ rawDatasets: "RAWDM", upstreamDomains: "" });
+    expect(
+      applyDomainMappingTransfer(
+        { rawDatasets: "", upstreamDomains: "" },
+        {
+          sourceId: "domain-source:sdtm:DM",
+          targetId: "domain-target:inputs",
+        },
+      ),
+    ).toEqual({ rawDatasets: "", upstreamDomains: "DM" });
+  });
+
+  it("removes one selected source without changing the remaining order", () => {
+    expect(removeCsvToken("RAWDM, RAWAE, SITE", "rawae")).toBe(
+      "RAWDM, SITE",
+    );
   });
 
   it("appends a dragged qualified variable to the selected Default or VLM cell", () => {
