@@ -145,8 +145,8 @@ class AssistanceService:
             instruction_version=prepared.instruction_version,
             target=command.target,
             guidance=command.guidance,
-            provider=agent.provider,
-            model=agent.model_id,
+            provider="aurinara_platform",
+            model=f"agent:{agent.id}:revision:{agent.revision}",
             generation_parameters={
                 "temperature": settings.assistance_temperature,
                 "max_output_tokens": settings.assistance_max_output_tokens,
@@ -154,8 +154,6 @@ class AssistanceService:
                 "platform_agent_id": str(agent.id),
                 "platform_agent_revision": agent.revision,
                 "platform_agent_name": agent.name,
-                "platform_agent_provider": agent.provider,
-                "platform_agent_model": agent.model_id,
             },
             created_by=created_by,
         )

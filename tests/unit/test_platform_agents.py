@@ -28,8 +28,6 @@ def test_catalog_and_invocation_use_service_token_and_exact_revision() -> None:
             "name": "Clinical agent",
             "description": None,
             "capabilities": ["clinical_proposal_v1"],
-            "provider": "aws_bedrock",
-            "model_id": "anthropic.claude-sonnet",
             "revision": 4,
         }
         if request.method == "GET":
@@ -75,6 +73,8 @@ def test_catalog_and_invocation_use_service_token_and_exact_revision() -> None:
         max_output_tokens=1024,
     )
     assert result.payload == {"proposal": {}}
+    assert result.usage["platform_agent"]["agent_name"] == "Clinical agent"
+    assert result.usage["platform_agent"]["agent_revision"] == 4
     assert result.usage["platform_agent"]["trace_id"] == "trace-1"
     assert [request.url.path for request in calls] == [
         "/v1/playground/service/agents",

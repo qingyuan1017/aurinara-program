@@ -88,6 +88,15 @@ function readable(value: string) {
   return value.replaceAll('_', ' ')
 }
 
+function platformAgentLabel(proposal: ProposalResponse) {
+  const name = proposal.generation_parameters.platform_agent_name
+  const revision = proposal.generation_parameters.platform_agent_revision
+  if (typeof name === 'string' && typeof revision === 'number') {
+    return `${name} · revision ${revision}`
+  }
+  return 'Platform agent selection retained as evidence'
+}
+
 function StructuredProposal({ proposal }: { proposal: ProposalResponse }) {
   const content = proposal.payload?.proposal as Record<string, unknown> | undefined
   const outputs = Array.isArray(content?.outputs)
@@ -252,7 +261,7 @@ export function AiProposalReview({
             >
               {!activeAgentId ? <option value="">No clinical agents available</option> : null}
               {agents.data?.map((agent) => (
-                <option key={agent.id} value={agent.id}>{agent.name} · {agent.model_id}</option>
+                <option key={agent.id} value={agent.id}>{agent.name} · revision {agent.revision}</option>
               ))}
             </select>
             {agents.isError ? <p className="text-xs text-destructive">Agent catalog is unavailable.</p> : null}
@@ -268,7 +277,7 @@ export function AiProposalReview({
         <Card><CardHeader><CardTitle className="text-base">Proposal history</CardTitle><CardDescription>Immutable attempts and reviewer outcomes.</CardDescription></CardHeader><CardContent className="space-y-2">{proposals.isLoading ? <Loader2 className="animate-spin" /> : items.length === 0 ? <p className="text-sm text-muted-foreground">No proposal requested yet.</p> : items.map((item) => <button type="button" key={item.id} onClick={() => setSelectedId(item.id)} className={`w-full rounded-lg border p-3 text-left hover:bg-muted ${selected?.id === item.id ? 'border-primary bg-primary/5' : ''}`}><div className="flex items-center justify-between"><span className="font-mono text-xs">{item.id.slice(0, 8)}</span><Badge variant={statusVariant(item.status)}>{readable(item.status)}</Badge></div><p className="mt-2 text-xs text-muted-foreground">Base r{item.base_revision} · {new Date(item.created_at).toLocaleString()}</p></button>)}</CardContent></Card>
         <div className="space-y-6">
           {!selected ? <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Generate a proposal to begin review.</CardContent></Card> : <>
-            <Card><CardHeader><div className="flex flex-wrap items-center justify-between gap-2"><CardTitle className="text-base">Typed proposal</CardTitle><Badge variant={statusVariant(selected.status)}>{readable(selected.status)}</Badge></div><CardDescription>{selected.provider ?? 'provider pending'} · {selected.model ?? 'model pending'} · instruction {selected.instruction_version}</CardDescription></CardHeader><CardContent>{selected.status === 'queued' || selected.status === 'running' ? <div className="flex items-center gap-2 text-sm"><Loader2 className="animate-spin" />Generation is in progress.</div> : selected.failure ? <p className="text-destructive text-sm">{String(selected.failure.detail ?? 'Generation failed.')}</p> : <StructuredProposal proposal={selected} />}</CardContent></Card>
+            <Card><CardHeader><div className="flex flex-wrap items-center justify-between gap-2"><CardTitle className="text-base">Typed proposal</CardTitle><Badge variant={statusVariant(selected.status)}>{readable(selected.status)}</Badge></div><CardDescription>{platformAgentLabel(selected)} · instruction {selected.instruction_version}</CardDescription></CardHeader><CardContent>{selected.status === 'queued' || selected.status === 'running' ? <div className="flex items-center gap-2 text-sm"><Loader2 className="animate-spin" />Generation is in progress.</div> : selected.failure ? <p className="text-destructive text-sm">{String(selected.failure.detail ?? 'Generation failed.')}</p> : <StructuredProposal proposal={selected} />}</CardContent></Card>
             {selected.payload && <div className="grid gap-4 md:grid-cols-2"><EvidenceCard title="Assumptions" values={selected.assumptions} /><EvidenceCard title="Unresolved items" values={selected.unresolved_items} warning /><EvidenceCard title="Evidence references" values={selected.evidence_references} /><EvidenceCard title="Model limitations" values={selected.model_limitations} warning /></div>}
             {selected.validation_issues.length > 0 && <Card className="border-amber-500/40"><CardHeader><CardTitle className="flex items-center gap-2 text-base"><CircleAlert className="size-4" />Deterministic findings</CardTitle></CardHeader><CardContent><pre className="overflow-auto text-xs">{JSON.stringify(selected.validation_issues, null, 2)}</pre></CardContent></Card>}
             {selected.status === 'review_required' && <Card><CardHeader><CardTitle className="text-base">Human decision</CardTitle><CardDescription>Rationale is permanent review evidence. Request revision instead of editing AI content.</CardDescription></CardHeader><CardContent className="space-y-4"><Textarea value={rationale} onChange={(event) => setRationale(event.target.value)} placeholder="Required reviewer rationale or revision guidance" /><div className="flex flex-wrap gap-2"><Button onClick={() => decide.mutate({ proposal: selected, decision: 'accepted' })} disabled={!rationale.trim() || decide.isPending}><Check />Accept</Button><Button variant="outline" onClick={() => decide.mutate({ proposal: selected, decision: 'revision_requested' })} disabled={!rationale.trim() || decide.isPending}><Bot />Request revision</Button><Button variant="destructive" onClick={() => decide.mutate({ proposal: selected, decision: 'rejected' })} disabled={!rationale.trim() || decide.isPending}><X />Reject</Button></div></CardContent></Card>}

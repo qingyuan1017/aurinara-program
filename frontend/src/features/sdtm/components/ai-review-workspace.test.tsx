@@ -18,8 +18,6 @@ vi.mock('@/api/generated/ai-proposals/ai-proposals', () => ({
       name: 'Clinical agent',
       description: null,
       capabilities: ['clinical_proposal_v1'],
-      provider: 'aws_bedrock',
-      model_id: 'anthropic.claude-sonnet',
       revision: 1,
     }],
   }),
@@ -80,6 +78,7 @@ describe('AiReviewWorkspace', () => {
     expect(screen.getByText('SDTM Agent')).toBeTruthy()
     expect(screen.getByLabelText('Guidance for the agent')).toBeTruthy()
     expect(screen.getByLabelText('Platform agent')).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'Clinical agent · revision 1' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Generate proposal' })).toBeTruthy()
     expect(screen.getByText('No proposal is ready for review')).toBeTruthy()
   })

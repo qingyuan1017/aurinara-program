@@ -25,8 +25,6 @@ class SyntheticPlatformAgentClient:
             name="Synthetic integration agent",
             description=None,
             capabilities=["clinical_proposal_v1"],
-            provider="synthetic",
-            model_id="synthetic-test-model",
             revision=1,
         )
 

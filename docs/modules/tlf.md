@@ -36,10 +36,10 @@ POST /api/v1/tlf-workbenches/{aggregate_id}/proposals/{proposal_id}:reject
 POST /api/v1/tlf-workbenches/{aggregate_id}/proposals/{proposal_id}:request-revision
 ```
 
-Generation is asynchronous. The assistance worker records the exact immutable context, provider
-and model identity, instruction version, generation parameters, response checksum, typed
-validation results, and field-level diff. Evidence references are JSON pointers into that saved
-context. Invalid output remains evidence but cannot be accepted.
+Generation is asynchronous. The assistance worker records the exact immutable context, Platform
+agent ID/name/revision and service-contract version, instruction version, generation parameters,
+response checksum, typed validation results, and field-level diff. Evidence references are JSON
+pointers into that saved context. Invalid output remains evidence but cannot be accepted.
 
 The stages are deliberately ordered:
 

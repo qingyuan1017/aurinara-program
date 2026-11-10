@@ -8,7 +8,7 @@ import pytest
 
 from app.api.auth import Principal, require_human_principal
 from app.assistance.contracts import ProposalCreate, ProposalGenerationRequest, ProposalStatus
-from app.assistance.platform_agents import PlatformAgentClientError
+from app.assistance.platform_agents import PlatformAgent, PlatformAgentClientError
 from app.assistance.provider import PlatformAgentProvider, ProviderError, create_proposal_provider
 from app.assistance.service import AssistanceService, PreparedProposal
 from app.common.canonical import fingerprint
@@ -112,6 +112,63 @@ def test_disabled_assistance_is_rejected_before_catalog_or_context() -> None:
             agent_client=Client(),  # type: ignore[arg-type]
         )
     assert raised.value.code == "assistance_not_configured"
+
+
+def test_platform_agent_selection_is_recorded_as_opaque_model_provenance() -> None:
+    agent_id = uuid4()
+    study_id = uuid4()
+
+    class Session:
+        def __init__(self) -> None:
+            self.items: list[Any] = []
+
+        def add(self, item: Any) -> None:
+            self.items.append(item)
+
+        def flush(self) -> None:
+            for item in self.items:
+                if getattr(item, "id", None) is None:
+                    item.id = uuid4()
+
+    class Handler:
+        def prepare_proposal(self, *_args: Any, **_kwargs: Any) -> PreparedProposal:
+            return PreparedProposal(
+                study_id=study_id,
+                aggregate_type="sdtm_workbench",
+                base_revision=3,
+                schema_version="1.0.0",
+                instruction_version="test-1",
+                context={"selection": "exact"},
+            )
+
+    class Client:
+        def get_agent(self, requested_id: UUID) -> PlatformAgent:
+            assert requested_id == agent_id
+            return PlatformAgent(
+                id=agent_id,
+                name="Clinical agent",
+                description=None,
+                capabilities=["clinical_proposal_v1"],
+                revision=4,
+            )
+
+    session = Session()
+    proposal = AssistanceService().create(
+        session,  # type: ignore[arg-type]
+        module_key="sdtm",
+        aggregate_id=uuid4(),
+        command=ProposalCreate(agent_id=agent_id, proposal_type="sdtm_specification"),
+        created_by="reviewer",
+        handler=Handler(),  # type: ignore[arg-type]
+        settings=_settings(),
+        registry=None,  # type: ignore[arg-type]
+        agent_client=Client(),  # type: ignore[arg-type]
+    )
+
+    assert proposal.provider == "aurinara_platform"
+    assert proposal.model == f"agent:{agent_id}:revision:4"
+    assert proposal.generation_run_id == session.items[0].id
+    assert session.items[0].generation_parameters["platform_agent_name"] == "Clinical agent"
 
 
 def _run(bound_context: dict[str, object]) -> SimpleNamespace:

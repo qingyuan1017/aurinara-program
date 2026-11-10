@@ -19,8 +19,6 @@ class PlatformAgent(BaseModel):
     name: str
     description: str | None
     capabilities: list[str]
-    provider: str
-    model_id: str
     revision: int = Field(ge=1)
 
 
@@ -123,9 +121,8 @@ class PlatformAgentClient:
             "platform_agent": {
                 "contract_version": envelope.schema_version,
                 "agent_id": str(envelope.agent.id),
+                "agent_name": envelope.agent.name,
                 "agent_revision": envelope.agent.revision,
-                "provider": envelope.agent.provider,
-                "model": envelope.agent.model_id,
                 "runtime_session_id": envelope.runtime_session_id,
             },
         }

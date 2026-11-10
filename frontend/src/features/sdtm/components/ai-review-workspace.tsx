@@ -91,6 +91,15 @@ function errorMessage(error: unknown) {
   return problem?.detail ?? (error instanceof Error ? error.message : 'The operation failed.')
 }
 
+function platformAgentLabel(proposal: ProposalResponse) {
+  const name = proposal.generation_parameters.platform_agent_name
+  const revision = proposal.generation_parameters.platform_agent_revision
+  if (typeof name === 'string' && typeof revision === 'number') {
+    return `${name} · revision ${revision}`
+  }
+  return 'Platform agent selection retained as evidence.'
+}
+
 export function AiReviewWorkspace({
   sdtmId,
   proposalType,
@@ -317,7 +326,7 @@ export function AiReviewWorkspace({
                             response {selected.response_checksum.slice(0, 12)}
                           </Badge>
                         ) : null}
-                        {selected.model ? <Badge variant="outline">model {selected.model}</Badge> : null}
+                        <Badge variant="outline">{platformAgentLabel(selected)}</Badge>
                       </div>
                       <pre className="max-h-[34rem] overflow-auto rounded-lg bg-muted p-4 text-xs">
                         {JSON.stringify(selected.payload, null, 2)}
@@ -413,7 +422,7 @@ export function AiReviewWorkspace({
                 >
                   {!activeAgentId ? <option value="">No clinical agents available</option> : null}
                   {agents.data?.map((agent) => (
-                    <option key={agent.id} value={agent.id}>{agent.name} · {agent.model_id}</option>
+                    <option key={agent.id} value={agent.id}>{agent.name} · revision {agent.revision}</option>
                   ))}
                 </select>
                 {agents.isError ? (
@@ -501,11 +510,7 @@ export function AiReviewWorkspace({
                         ? 'Generating typed proposal'
                         : 'Proposal generation complete'
                     }
-                    detail={
-                      selected.model
-                        ? `Provider model: ${selected.model}`
-                        : 'Provider response retained as evidence.'
-                    }
+                    detail={platformAgentLabel(selected)}
                     active={selected.status === 'queued' || selected.status === 'running'}
                   />
                 ) : null}
